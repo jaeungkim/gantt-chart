@@ -4,6 +4,14 @@
 
 **React Gantt Chart** is a lightweight, high-performance Gantt chart component for React applications, built with **Vite, Zustand, and React Query** for fast rendering and state management. It is designed to be highly customizable and easy to integrate into modern React projects.
 
+🎯 Motivation
+
+I originally wanted to use Microsoft Project's Gantt Chart for personal project management, but it required subscription 😔. Thus, I decided to build my own Gantt chart, referencing various open-source projects and examples, including MS Project, DHTMLX, Frappe Gantt Chart, and etc.
+
+Since there aren’t many open-source Gantt chart solutions available, I hope this project will be useful for others as well. I am very open to feedback, feature requests, and contributions to make this Gantt chart as robust and versatile as possible.
+
+Currently, this project is built specifically for React due to my development background, but in the future, I may explore making it available for other frameworks as well. Since this is my first open-source project, I look forward to learning and improving it with the community!
+
 ## 🚀 Features
 - 📊 **Lightweight & Fast** – Optimized with Vite for lightning-fast performance.
 - 🏗 **Modern State Management** – Uses Zustand for efficient and minimal state handling.
