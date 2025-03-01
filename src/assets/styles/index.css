@@ -1,0 +1,48 @@
+@import "tailwindcss";
+@import "./font.css";
+@import "./reset.css";
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+iframe::-webkit-scrollbar {
+  display: none;
+}
+
+::-webkit-scrollbar-track {
+  background: #fff;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ebebeb;
+  border-radius: 2px;
+}
+
+@layer utilities {
+  /* Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  /* NO HORIZONTAL SCROLLBAR */
+  .no-vertical-scrollbar::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+
+  /* Works for Firefox */
+  .no-vertical-scrollbar {
+    scrollbar-width: none; /* Hides the scrollbar but keeps scrolling */
+  }
+
+  /* Works for IE and Edge */
+  .no-vertical-scrollbar {
+    -ms-overflow-style: none; /* Hides scrollbar but keeps scrolling */
+  }
+}
