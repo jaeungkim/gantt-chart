@@ -23,7 +23,7 @@ Currently, this project is built specifically for React due to my development ba
 - 🌍 **Internationalization (i18n)** – Multi-language support for global usage.
 
 ---
-
+<!-- 
 ## 📦 Installation
 
 Install via npm:
@@ -169,4 +169,4 @@ If you find this project useful, please ⭐ star the repo and contribute!
 ---
 
 **🚀 Build better project timelines with React Gantt Chart!**
-
+ -->
