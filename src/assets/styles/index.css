@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "./font.css";
-@import "./reset.css";
 
 ::-webkit-scrollbar {
   width: 4px;
@@ -45,4 +44,79 @@ iframe::-webkit-scrollbar {
   .no-vertical-scrollbar {
     -ms-overflow-style: none; /* Hides scrollbar but keeps scrolling */
   }
+}
+@theme {
+  --color-primary-50: #C4F7F5;
+  --color-primary-100: #C4F7F5;
+  --color-primary-200: #9BF7F4;
+  --color-primary-300: #64F2ED;
+  --color-primary-400: #00C8C2;
+  --color-primary: #00AFAA;
+  --color-primary-500: #00AFAA;
+  --color-primary-500-4: #F5FCFC;
+  --color-primary-500-8: #EBF9F8;
+  --color-primary-500-12: #E0F5F5;
+  --color-primary-500-16: #D6F2F1;
+  --color-primary-500-32: #ADE5E4;
+  --color-primary-600: #009F9A;
+  --color-primary-700: #008A87;
+  --color-primary-800: #00726F;
+  --color-primary-900: #005F5D;
+  --color-primary-disabled: #00AFAA4D;
+  --color-primary-low: #00AFAA73;
+  --color-primary-medium: #00AFAAB3;
+
+  --color-secondary-50: #F8F8FA;
+  --color-secondary-100: #F0F1F2;
+  --color-secondary-200: #E6E7E9;
+  --color-secondary-300: #D6D6D8;
+  --color-secondary-400: #B1B2B4;
+  --color-secondary-500: #919294;
+  --color-secondary-600: #696A6B;
+  --color-secondary-700: #565758;
+  --color-secondary: #565758;
+  --color-secondary-700-4: #F8F8F8;
+  --color-secondary-700-8: #F1F2F2;
+  --color-secondary-700-12: #EBEBEB;
+  --color-secondary-700-16: #E4E4E4;
+  --color-secondary-800: #38383A;
+  --color-secondary-900: #181819;
+
+  --color-dark: #181819;
+  --color-dark-disabled: #1818194D;
+  --color-dark-low: #18181973;
+  --color-dark-medium: #181819B3;
+
+  --color-base-50: #FFFFFF;
+  --color-base-100: #F8F8FA;
+  --color-base-200: #F0F1F2;
+  --color-base-300: #E6E7E9;
+  --color-base-400: #D6D6D8;
+  --color-base-500: #919294;
+  --color-base-600: #93A7B6;
+
+  --color-light: #FFFFFF;
+  --color-light-disabled: #FFFFFF4D;
+  --color-light-low: #FFFFFF73;
+  --color-light-medium: #FFFFFFB3;
+
+  --color-amber: #FFA000;
+  --color-amber-15: #FFF3E0;
+  --color-amber-35: #FFDEA6;
+  --color-amber-50: #FFCF80;
+
+  --color-green: #4CAF50;
+  --color-green-15: #E8F5E9;
+  --color-green-35: #C0E3C2;
+  --color-green-50: #A5D7A7;
+
+  --color-red: #DD425A;
+  --color-red-15: #FBE9EC;
+  --color-red-35: #F3BDC5;
+  --color-red-50: #EEA0AC;
+
+  --color-cyan: #00BDCB;
+  --color-cyan-15: #E8F8F9;
+  --color-cyan-35: #A6E8ED;
+  --color-cyan-50: #80DEE5;
 }

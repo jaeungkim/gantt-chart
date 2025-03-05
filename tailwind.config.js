@@ -1,9 +1,11 @@
-const { colors } = require('./src/tailwind/colors');
-const { fontFamily, fontSize } = require('./src/tailwind/fonts');
-const { boxShadow } = require('./src/tailwind/shadows');
+import colors from './src/tailwind/colors.js';
+import fontFamily from './src/tailwind/fonts.js';
+import fontSize from './src/tailwind/fonts.js';
+import boxShadow from './src/tailwind/shadows.js';
+
 
 /** @type {import('tailwindcss').Config} */
-export default {
+const config = {
   content: ['./src/**/*.{js,jsx,ts,tsx}'],
   theme: {
     extend: {
@@ -14,3 +16,5 @@ export default {
     },
   },
 };
+
+export default config;

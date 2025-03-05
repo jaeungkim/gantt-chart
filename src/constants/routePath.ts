@@ -1,4 +1,4 @@
 export const ROUTE_PATH = {
-  dashboard: '/',
+  gantt: '/',
   NOT_FOUND: '*',
 };
