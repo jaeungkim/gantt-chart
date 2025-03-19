@@ -70,39 +70,19 @@ function Gantt({ tasks }: GanttProps) {
       <p>Gantt Header</p>
 
       <main className="relative h-[calc(100%-3rem)] w-full p-2">
-        <p>Gantt Toolbar</p>
-
-        <div
-          className="border-base-200 relative flex h-[calc(100%-2.625rem)] overflow-auto border border-solid"
-          id="timeline-container"
-        >
-          <p>Gantt Left Sidebar</p>
-
-          <div className="h-fit flex-1">
-            <div className="bg-base-200 sticky top-0 z-30 flex items-center">
-              <p>Gantt Timeline Header</p>
-            </div>
-
-            <div>
-              {/* Example of rendering tasks */}
-              {transformedTasks.map((task) => (
-                <div
-                  key={task.id}
-                  style={{
-                    marginLeft: `${task.barLeftMargin}rem`,
-                    width: `${task.barWidth}rem`,
-                    marginTop: `${task.depth * 1.5}rem`,
-                  }}
-                  className="relative rounded bg-blue-500 p-1 text-white"
-                >
-                  {task.name}
-                </div>
-              ))}
-            </div>
+        {/* Example of rendering tasks */}
+        {transformedTasks.map((task) => (
+          <div
+            key={task.id}
+            style={{
+              marginLeft: `${task.barLeftMargin}rem`,
+              width: `${task.barWidth}rem`,
+            }}
+            className="relative rounded bg-blue-500 p-1 text-white"
+          >
+            {task.name}
           </div>
-        </div>
-
-        <p>Gantt Detail</p>
+        ))}
       </main>
     </div>
   );
