@@ -7,7 +7,7 @@ import {
 import { generateCustomDateRange, shiftDate } from 'utils/date';
 import dayjs from 'utils/dayjs';
 
-const SHIFT_BUFFER = 2;
+const SHIFT_BUFFER = 1;
 
 export function calculateDateOffsets(
   startDate: Dayjs,
@@ -47,14 +47,11 @@ export function calculateDateOffsets(
   };
 }
 
-/** Returns the earliest start and latest end date of all tasks */
 export function findDateRangeFromTasks(
   tasks: Record<string, { startDate: string; endDate: string }>,
 ): { minDate: Dayjs; maxDate: Dayjs } {
   let minTimestamp = Infinity;
   let maxTimestamp = -Infinity;
-
-  const todayTimestamp = dayjs().startOf('day').valueOf();
 
   for (const { startDate, endDate } of Object.values(tasks)) {
     const start = dayjs(startDate).valueOf();
@@ -71,14 +68,9 @@ export function findDateRangeFromTasks(
   let minDate = dayjs(minTimestamp);
   let maxDate = dayjs(maxTimestamp);
 
-  // Adjust for today
-  if (todayTimestamp < minTimestamp) minDate = dayjs(todayTimestamp);
-  if (todayTimestamp > maxTimestamp) maxDate = dayjs(todayTimestamp);
-
   return { minDate, maxDate };
 }
 
-/** Pads the min and max dates by SHIFT_BUFFER depending on the selected scale */
 export function padDateRange(
   minDate: Dayjs,
   maxDate: Dayjs,
@@ -104,7 +96,6 @@ export function padDateRange(
   return { paddedMinDate, paddedMaxDate };
 }
 
-/** Generates the timeline grids given the date range and scale */
 export function createTimelineGrids(
   paddedMinDate: Dayjs,
   paddedMaxDate: Dayjs,
@@ -140,7 +131,6 @@ export function createTimelineGrids(
   });
 }
 
-/** The orchestrator */
 export function setupTimelineGrids(
   tasks: Record<string, { startDate: string; endDate: string }>,
   selectedScale: GanttTimelineScale,

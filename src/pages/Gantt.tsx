@@ -1,3 +1,4 @@
+import GanttChartHeader from 'components/GanttChartHeader';
 import { useEffect, useState } from 'react';
 import {
   GanttTimelineGrid,
@@ -22,7 +23,7 @@ function Gantt({ tasks }: GanttProps) {
   const [minDate, setMinDate] = useState(dayjs());
   const [maxDate, setMaxDate] = useState(dayjs());
 
-  const selectedScale: GanttTimelineScale = 'monthly'; // or from props
+  const selectedScale: GanttTimelineScale = 'yearly';
 
   // 1. Fetch tasks if not provided (demo mode)
   useEffect(() => {
@@ -62,26 +63,26 @@ function Gantt({ tasks }: GanttProps) {
 
     const transformed = transformTasks(taskList, timelineGrids, selectedScale);
     setTransformedTasks(transformed);
-    console.log(transformed);
   }, [timelineGrids, taskList, selectedScale]);
 
+  console.log('transformedTasks:', transformedTasks, 'timelineGrids:', timelineGrids);
   return (
     <div className="bg-base-50 size-full">
-      <p>Gantt Header</p>
-
-      <main className="relative h-[calc(100%-3rem)] w-full p-2">
-        {/* Example of rendering tasks */}
+      <main className="relative h-[calc(100%-3rem)] w-fit p-2">
+        <GanttChartHeader
+          timelineGrids={timelineGrids}
+          selectedScale={selectedScale}
+        />
         {transformedTasks.map((task) => (
           <div
             key={task.id}
             style={{
+              height: '1.5em',
               marginLeft: `${task.barLeftMargin}rem`,
               width: `${task.barWidth}rem`,
             }}
-            className="relative rounded bg-blue-500 p-1 text-white"
-          >
-            {task.name}
-          </div>
+            className="bg-base-400 relative rounded-sm text-white"
+          />
         ))}
       </main>
     </div>

@@ -47,7 +47,7 @@ export const ganttScaleSettings: Record<
     tickSettings: {
       intervalUnit: 'day', // unit for tick intervals
       intervalStep: 1, // 1 day per tick
-      widthPerIntervalRem: 0.3, // width of each tick in rem here it'd be 0.3 rem for each day
+      widthPerIntervalRem: 0.5, // width of each tick in rem here it'd be 0.3 rem for each day
     },
   },
   monthly: {
@@ -57,7 +57,7 @@ export const ganttScaleSettings: Record<
     tickSettings: {
       intervalUnit: 'day', // unit for tick intervals
       intervalStep: 1, // 1 day per tick
-      widthPerIntervalRem: 0.5, // width of each tick in rem here it'd be 0.5 rem for each day
+      widthPerIntervalRem: 1, // width of each tick in rem here it'd be 0.5 rem for each day
     },
   },
   weekly: {
