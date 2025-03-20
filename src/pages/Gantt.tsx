@@ -1,4 +1,5 @@
 import GanttChartHeader from 'components/GanttChartHeader';
+import { NODE_HEIGHT } from 'constants/gantt';
 import { useEffect, useState } from 'react';
 import {
   GanttTimelineGrid,
@@ -9,6 +10,7 @@ import {
 import dayjs from 'utils/dayjs';
 import { setupTimelineGrids } from 'utils/timeline';
 import { transformTasks } from 'utils/transformData'; // assuming you have this!
+import GanttBar from './GanttBar';
 
 interface GanttProps {
   tasks: Task[];
@@ -23,7 +25,7 @@ function Gantt({ tasks }: GanttProps) {
   const [minDate, setMinDate] = useState(dayjs());
   const [maxDate, setMaxDate] = useState(dayjs());
 
-  const selectedScale: GanttTimelineScale = 'yearly';
+  const selectedScale: GanttTimelineScale = 'monthly';
 
   // 1. Fetch tasks if not provided (demo mode)
   useEffect(() => {
@@ -65,7 +67,13 @@ function Gantt({ tasks }: GanttProps) {
     setTransformedTasks(transformed);
   }, [timelineGrids, taskList, selectedScale]);
 
-  console.log('transformedTasks:', transformedTasks, 'timelineGrids:', timelineGrids);
+  console.log(
+    'transformedTasks:',
+    transformedTasks,
+    'timelineGrids:',
+    timelineGrids,
+  );
+
   return (
     <div className="bg-base-50 size-full">
       <main className="relative h-[calc(100%-3rem)] w-fit p-2">
@@ -76,13 +84,14 @@ function Gantt({ tasks }: GanttProps) {
         {transformedTasks.map((task) => (
           <div
             key={task.id}
-            style={{
-              height: '1.5em',
-              marginLeft: `${task.barLeftMargin}rem`,
-              width: `${task.barWidth}rem`,
-            }}
-            className="bg-base-400 relative rounded-sm text-white"
-          />
+            className="border-base-300 bg-base-100 flex w-full items-center border-b border-solid"
+            style={{ height: `${NODE_HEIGHT}rem` }}
+          >
+            <GanttBar
+              barLeftMargin={task.barLeftMargin}
+              barWidth={task.barWidth}
+            />
+          </div>
         ))}
       </main>
     </div>
