@@ -1,23 +1,4 @@
 import { Dayjs } from 'dayjs';
-
-export interface Task {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  parentId: string | null;
-  sequence: string;
-  dependencies?: string[];
-}
-
-export interface TaskTransformed extends Task {
-  barLeftMargin: number;
-  barWidth: number;
-  depth: number;
-  order: number;
-  originalOrder: number;
-}
-
 export interface GanttTimelineGrid {
   date: Dayjs;
   gridWidthInRem: number;

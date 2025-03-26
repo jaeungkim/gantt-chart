@@ -1,15 +1,12 @@
 import GanttChartHeader from 'components/GanttChartHeader';
 import { NODE_HEIGHT } from 'constants/gantt';
 import { useEffect, useState } from 'react';
-import {
-  GanttTimelineGrid,
-  GanttTimelineScale,
-  Task,
-  TaskTransformed,
-} from 'types/gantt';
+import { GanttTimelineGrid, GanttTimelineScale } from 'types/gantt';
+import { Task, TaskTransformed } from 'types/task';
 import dayjs from 'utils/dayjs';
 import { setupTimelineGrids } from 'utils/timeline';
-import { transformTasks } from 'utils/transformData'; // assuming you have this!
+import { transformTasks } from 'utils/transformData';
+
 import GanttBar from './GanttBar';
 
 interface GanttProps {
@@ -59,7 +56,6 @@ function Gantt({ tasks }: GanttProps) {
     );
   }, [taskList, selectedScale]);
 
-  // 3. Transform tasks when timelineGrids are ready
   useEffect(() => {
     if (!timelineGrids.length || !taskList.length) return;
 
@@ -67,33 +63,25 @@ function Gantt({ tasks }: GanttProps) {
     setTransformedTasks(transformed);
   }, [timelineGrids, taskList, selectedScale]);
 
-  console.log(
-    'transformedTasks:',
-    transformedTasks,
-    'timelineGrids:',
-    timelineGrids,
-  );
-
   return (
-    <div className="bg-base-50 size-full">
-      <main className="relative h-[calc(100%-3rem)] w-fit p-2">
+    <div className="bg-base-50 h-full w-fit">
+      <section className="relative flex flex-col p-2">
         <GanttChartHeader
           timelineGrids={timelineGrids}
           selectedScale={selectedScale}
         />
-        {transformedTasks.map((task) => (
-          <div
-            key={task.id}
-            className="border-base-300 bg-base-100 flex w-full items-center border-b border-solid"
-            style={{ height: `${NODE_HEIGHT}rem` }}
-          >
-            <GanttBar
-              barLeftMargin={task.barLeftMargin}
-              barWidth={task.barWidth}
-            />
-          </div>
-        ))}
-      </main>
+        <div className="relative grow">
+          {transformedTasks.map((task) => (
+            <div
+              key={task.id}
+              className="border-base-300 bg-base-100 flex w-full items-center border-b border-solid"
+              style={{ height: `${NODE_HEIGHT}rem` }}
+            >
+              <GanttBar allTasks={transformedTasks} currentTask={task} />
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

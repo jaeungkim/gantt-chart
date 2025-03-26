@@ -1,9 +1,5 @@
-import {
-  GanttTimelineGrid,
-  GanttTimelineScale,
-  Task,
-  TaskTransformed,
-} from 'types/gantt';
+import { GanttTimelineGrid, GanttTimelineScale } from 'types/gantt';
+import { Task, TaskTransformed } from 'types/task';
 import dayjs from 'utils/dayjs';
 import { calculateDateOffsets } from './timeline';
 
@@ -47,7 +43,7 @@ export function transformTasks(
 
     return {
       ...task,
-      barLeftMargin: barMarginLeftAmount,
+      barLeft: barMarginLeftAmount,
       barWidth: barWidthSize,
       depth,
       order: orderCounter,
