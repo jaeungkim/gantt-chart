@@ -31,6 +31,8 @@ export const useGanttBarDrag = (
     setMinDate,
     setMaxDate,
     selectedScale,
+    setDraggingTaskMeta,
+    clearDraggingTaskMeta,
   } = useGanttStore();
 
   const startXRef = useRef<number | null>(null);
@@ -39,6 +41,9 @@ export const useGanttBarDrag = (
     startXRef.current = e.clientX;
     document.addEventListener('mousemove', onDragging);
     document.addEventListener('mouseup', onDragEnd);
+
+    // setCurrentDraggingTaskId for styling
+    setDraggingTaskMeta({ taskId: task.id, type: 'bar' });
   };
 
   const onDragging = (e: MouseEvent) => {
@@ -95,6 +100,8 @@ export const useGanttBarDrag = (
       useGanttStore.getState().setMaxDate,
       useGanttStore.getState().setTimelineGrids,
     );
+
+    clearDraggingTaskMeta();
   };
 
   return { onDragStart };
@@ -107,7 +114,17 @@ export const useGanttBarLeftHandleDrag = (
   task: TaskTransformed,
   onTasksChange?: (updatedTasks: Task[]) => void,
 ) => {
-  const { rawTasks, setRawTasks } = useGanttStore();
+  const {
+    rawTasks,
+    timelineGrids,
+    setRawTasks,
+    setTimelineGrids,
+    setMinDate,
+    setMaxDate,
+    selectedScale,
+    setDraggingTaskMeta,
+    clearDraggingTaskMeta,
+  } = useGanttStore();
   const startXRef = useRef<number | null>(null);
 
   const onDragStart = (e: React.MouseEvent) => {
@@ -115,6 +132,9 @@ export const useGanttBarLeftHandleDrag = (
     startXRef.current = e.clientX;
     document.addEventListener('mousemove', onDragging);
     document.addEventListener('mouseup', onDragEnd);
+
+    // Set currentlyDraggingTaskId for styling
+    setDraggingTaskMeta({ taskId: task.id, type: 'left' });
   };
 
   const onDragging = (e: MouseEvent) => {
@@ -144,6 +164,8 @@ export const useGanttBarLeftHandleDrag = (
     if (onTasksChange) {
       onTasksChange(useGanttStore.getState().rawTasks);
     }
+
+    clearDraggingTaskMeta();
   };
 
   return { onDragStart };
@@ -156,7 +178,17 @@ export const useGanttBarRightHandleDrag = (
   task: TaskTransformed,
   onTasksChange?: (updatedTasks: Task[]) => void,
 ) => {
-  const { rawTasks, setRawTasks } = useGanttStore();
+  const {
+    rawTasks,
+    timelineGrids,
+    setRawTasks,
+    setTimelineGrids,
+    setMinDate,
+    setMaxDate,
+    selectedScale,
+    setDraggingTaskMeta,
+    clearDraggingTaskMeta,
+  } = useGanttStore();
   const startXRef = useRef<number | null>(null);
 
   const onDragStart = (e: React.MouseEvent) => {
@@ -164,6 +196,8 @@ export const useGanttBarRightHandleDrag = (
     startXRef.current = e.clientX;
     document.addEventListener('mousemove', onDragging);
     document.addEventListener('mouseup', onDragEnd);
+
+    setDraggingTaskMeta({ taskId: task.id, type: 'right' });
   };
 
   const onDragging = (e: MouseEvent) => {
@@ -193,6 +227,8 @@ export const useGanttBarRightHandleDrag = (
     if (onTasksChange) {
       onTasksChange(useGanttStore.getState().rawTasks);
     }
+
+    clearDraggingTaskMeta();
   };
 
   return { onDragStart };

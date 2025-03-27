@@ -8,8 +8,8 @@ import { setupTimelineGrids } from 'utils/timeline';
 import GanttBar from './GanttBar';
 
 interface GanttProps {
-  tasks: Task[]; // raw tasks from the outside world
-  onTasksChange?: (updatedTasks: Task[]) => void; // callback for final changes
+  tasks: Task[];
+  onTasksChange?: (updatedTasks: Task[]) => void;
 }
 
 function Gantt({ tasks, onTasksChange }: GanttProps) {
@@ -17,8 +17,8 @@ function Gantt({ tasks, onTasksChange }: GanttProps) {
   const selectedScale: GanttTimelineScale = 'monthly';
 
   const {
-    rawTasks, // current raw tasks in Zustand store
-    tasks: transformedTasks, // derived tasks used for rendering
+    rawTasks,
+    transformedTasks,
     timelineGrids,
     setRawTasks,
     setTimelineGrids,
@@ -38,11 +38,9 @@ function Gantt({ tasks, onTasksChange }: GanttProps) {
     }
   }, [tasks]);
 
-  // 2. Create timeline grid after we have tasks
   useEffect(() => {
     if (!taskList.length) return;
 
-    // We'll pass only the date range for setting up timeline
     const taskRecord = Object.fromEntries(
       taskList.map((task) => [
         task.id,
@@ -59,30 +57,14 @@ function Gantt({ tasks, onTasksChange }: GanttProps) {
     );
   }, [taskList, selectedScale]);
 
-  // 3. Initialize rawTasks once timelineGrids are ready
   useEffect(() => {
     if (!timelineGrids.length || !taskList.length) return;
 
-    // Only set rawTasks if store is empty
+    // Initialize rawTasks and transform if not already
     if (rawTasks.length === 0) {
       setRawTasks(taskList);
-
-      // Optionally emit these tasks initially
-      if (onTasksChange) {
-        onTasksChange(taskList);
-      }
     }
   }, [timelineGrids, taskList]);
-
-  // 4. Whenever rawTasks changes, we can log or emit
-  //   But be careful, it might happen every drag *frame*
-  //   If you only want final changes, rely on the drag-end hooks
-  useEffect(() => {
-    if (onTasksChange) {
-      onTasksChange(rawTasks);
-    }
-    console.log('[🔁 Gantt] rawTasks changed:', rawTasks);
-  }, [onTasksChange]);
 
   return (
     <div className="bg-base-50 h-full w-fit">

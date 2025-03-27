@@ -1,25 +1,20 @@
 import { Dayjs } from 'dayjs';
 import React from 'react';
+import { useGanttStore } from 'stores/store';
 import { GanttTimelineGrid, GanttTimelineScale } from 'types/gantt';
+import dayjs from 'utils/dayjs';
 
 interface DetailedCell {
   date: Dayjs;
   width: number;
 }
 
-/**
- * Subdivide each timeline grid cell into detailed cells.
- * - For weekly scale (timeUnit: 'day', gridInterval: 3): subdivide into 3 cells (each representing one day).
- * - For yearly scale (timeUnit: 'month', gridInterval: 2): subdivide into 2 cells (each representing one month).
- * - For monthly scale (timeUnit: 'month', gridInterval: 1): no subdivision (one cell per month).
- */
 function createDetailedCells(
   timelineGrids: GanttTimelineGrid[],
   selectedScale: GanttTimelineScale,
 ): DetailedCell[] {
   const detailedCells: DetailedCell[] = [];
   if (selectedScale === 'weekly') {
-    // Each grid cell covers 3 days.
     const subdivisions = 3;
     timelineGrids.forEach((grid) => {
       const cellWidth = grid.gridWidthInRem / subdivisions;
@@ -31,7 +26,6 @@ function createDetailedCells(
       }
     });
   } else if (selectedScale === 'yearly') {
-    // Each grid cell covers 2 months.
     const subdivisions = 2;
     timelineGrids.forEach((grid) => {
       const cellWidth = grid.gridWidthInRem / subdivisions;
@@ -43,7 +37,6 @@ function createDetailedCells(
       }
     });
   } else {
-    // Monthly scale: each grid cell is one month.
     timelineGrids.forEach((grid) => {
       detailedCells.push({
         date: grid.date,
@@ -60,11 +53,6 @@ interface GroupedCell {
   width: number;
 }
 
-/**
- * Group detailed cells for the top row.
- * - For weekly scale, group by "MMM YYYY" (e.g. "May 2024").
- * - For monthly and yearly scales, group by "YYYY".
- */
 function groupDetailedCells(
   cells: DetailedCell[],
   selectedScale: GanttTimelineScale,
@@ -99,14 +87,17 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
   timelineGrids,
   selectedScale,
 }) => {
-  // Build detailed cells (bottom row) based on the selected scale.
   const detailedCells = createDetailedCells(timelineGrids, selectedScale);
-  // Group detailed cells for the top row.
   const groupedCells = groupDetailedCells(detailedCells, selectedScale);
+
+  const { transformedTasks, draggingTaskMeta } = useGanttStore();
+  const draggingTask = transformedTasks.find(
+    (t) => t.id === draggingTaskMeta?.taskId,
+  );
 
   return (
     <div className="bg-base-200 sticky top-0 z-30">
-      {/* Top Row: Grouped cells */}
+      {/* Top Grouped Row */}
       <div className="flex">
         {groupedCells.map((group, idx) => (
           <div
@@ -118,24 +109,34 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
           </div>
         ))}
       </div>
-      {/* Bottom Row: Detailed cells */}
+
+      {/* Bottom Detailed Cells Row */}
       <div className="flex">
         {detailedCells.map((cell, idx) => {
-          let label = '';
-          if (selectedScale === 'weekly') {
-            // For weekly scale, show day number.
-            label = cell.date.format('D');
-          } else {
-            // For monthly and yearly scales, show month abbreviation.
-            label = cell.date.format('MMM');
-          }
+          const label =
+            selectedScale === 'weekly'
+              ? cell.date.format('D')
+              : cell.date.format('MMM');
+
           return (
             <div
               key={idx}
               style={{ width: `${cell.width}rem` }}
-              className="border border-gray-300 p-1 text-center text-xs"
+              className="relative border border-gray-300 p-1 text-center text-xs"
             >
               {label}
+              {dayjs(draggingTask?.startDate).format('DD')}
+              {dayjs(draggingTask?.endDate).format('DD')}
+              {/* {showStartDate && (
+                <div className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded bg-blue-300 px-2 py-1 text-[10px] shadow">
+                  {dayjs(draggingTask.startDate).format('YYYY-MM-DD')}
+                </div>
+              )}
+              {showEndDate && (
+                <div className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded bg-green-300 px-2 py-1 text-[10px] shadow">
+                  {dayjs(draggingTask.endDate).format('YYYY-MM-DD')}
+                </div>
+              )} */}
             </div>
           );
         })}

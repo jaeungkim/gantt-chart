@@ -14,34 +14,38 @@ import { create } from 'zustand';
  */
 interface GanttState {
   rawTasks: Task[];
-  tasks: TaskTransformed[];
+  transformedTasks: TaskTransformed[];
   timelineGrids: GanttTimelineGrid[];
   selectedScale: GanttTimelineScale;
   minDate: dayjs.Dayjs;
   maxDate: dayjs.Dayjs;
+  draggingTaskMeta: { taskId: string; type: 'bar' | 'left' | 'right' } | null;
 
   // Actions
   setRawTasks: (rawTasks: Task[]) => void;
   setTimelineGrids: (grids: GanttTimelineGrid[]) => void;
   setMinDate: (date: dayjs.Dayjs) => void;
   setMaxDate: (date: dayjs.Dayjs) => void;
+  setDraggingTaskMeta: (meta: GanttState['draggingTaskMeta']) => void;
+  clearDraggingTaskMeta: () => void;
 }
 
 export const useGanttStore = create<GanttState>((set, get) => ({
   rawTasks: [],
-  tasks: [],
+  transformedTasks: [],
   timelineGrids: [],
   selectedScale: 'monthly',
   minDate: dayjs(),
   maxDate: dayjs(),
-
+  currentlyDraggingTaskId: null,
+  draggingTaskMeta: null,
   /**
    * Update rawTasks & auto-transform
    */
   setRawTasks: (rawTasks) => {
     const { timelineGrids, selectedScale } = get();
     const transformed = transformTasks(rawTasks, timelineGrids, selectedScale);
-    set({ rawTasks, tasks: transformed });
+    set({ rawTasks, transformedTasks: transformed });
   },
 
   /**
@@ -50,7 +54,7 @@ export const useGanttStore = create<GanttState>((set, get) => ({
   setTimelineGrids: (grids) => {
     const { rawTasks, selectedScale } = get();
     const transformed = transformTasks(rawTasks, grids, selectedScale);
-    set({ timelineGrids: grids, tasks: transformed });
+    set({ timelineGrids: grids, transformedTasks: transformed });
   },
 
   /**
@@ -62,4 +66,14 @@ export const useGanttStore = create<GanttState>((set, get) => ({
    * Update maxDate
    */
   setMaxDate: (date) => set({ maxDate: date }),
+
+  /**
+   * Update draggingTaskMeta
+   */
+  setDraggingTaskMeta: (meta) => set({ draggingTaskMeta: meta }),
+
+  /**
+   * Clear draggingTaskMeta
+   */
+  clearDraggingTaskMeta: () => set({ draggingTaskMeta: null }),
 }));
