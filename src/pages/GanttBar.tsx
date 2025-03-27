@@ -1,17 +1,37 @@
 import HandleIcon from 'assets/images/icons/handle.svg?react';
 import { NODE_HEIGHT } from 'constants/gantt';
-import { RenderedDependency, TaskTransformed } from 'types/task';
+import {
+  useGanttBarDrag,
+  useGanttBarLeftHandleDrag,
+  useGanttBarRightHandleDrag,
+} from 'hooks/useGanttBarDrag';
+import { RenderedDependency, Task, TaskTransformed } from 'types/task';
 import { getSmartGanttPath } from 'utils/arrowPath';
 
 interface GanttBarProps {
   allTasks: TaskTransformed[];
   currentTask: TaskTransformed;
+  onTasksChange?: (updatedTask: Task[]) => void;
 }
 
-function GanttBar({ allTasks, currentTask }: GanttBarProps) {
-  // Render left handle
+function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
+  const { onDragStart: onBarDragStart } = useGanttBarDrag(
+    currentTask,
+    onTasksChange,
+  );
+  const { onDragStart: onLeftDragStart } = useGanttBarLeftHandleDrag(
+    currentTask,
+    onTasksChange,
+  );
+  const { onDragStart: onRightDragStart } = useGanttBarRightHandleDrag(
+    currentTask,
+    onTasksChange,
+  );
+
   const renderLeftHandle = () => (
     <button
+      type="button"
+      onMouseDown={onLeftDragStart}
       className="absolute top-0 flex h-full cursor-w-resize items-center justify-center opacity-0 hover:opacity-100"
       style={{ left: '-1.15rem', width: '2rem', height: '100%' }}
     >
@@ -19,9 +39,10 @@ function GanttBar({ allTasks, currentTask }: GanttBarProps) {
     </button>
   );
 
-  // Render right handle
   const renderRightHandle = () => (
     <button
+      type="button"
+      onMouseDown={onRightDragStart}
       className="absolute top-0 flex h-full cursor-w-resize items-center justify-center opacity-0 hover:opacity-100"
       style={{ right: '-1.15rem', width: '2rem', height: '100%' }}
     >
@@ -94,7 +115,10 @@ function GanttBar({ allTasks, currentTask }: GanttBarProps) {
   return (
     <>
       <div
+        role="button"
+        tabIndex={0}
         className="bg-base-400 relative flex items-center"
+        onMouseDown={onBarDragStart}
         style={{
           marginLeft: `${currentTask.barLeft}rem`,
           width: `${currentTask.barWidth}rem`,
@@ -103,10 +127,8 @@ function GanttBar({ allTasks, currentTask }: GanttBarProps) {
       >
         {renderLeftHandle()}
         {renderRightHandle()}
-
-        {/* Dependency lines here */}
       </div>
-      <svg className="absolute top-0 left-0 z-10 size-full">
+      <svg className="pointer-events-none absolute top-0 left-0 z-10 size-full">
         <g>
           <defs>
             <marker
