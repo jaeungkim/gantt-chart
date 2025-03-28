@@ -1,29 +1,31 @@
-import { GanttTimelineGrid, GanttTimelineScale } from 'types/gantt';
+import {
+  GanttBottomRowCell,
+  GanttScaleKey,
+  GanttTopHeaderGroup,
+} from 'types/gantt';
 import { Task, TaskTransformed } from 'types/task';
 import dayjs from 'utils/dayjs';
 import { transformTasks } from 'utils/transformData';
 import { create } from 'zustand';
 
-/**
- * We maintain:
- *  - rawTasks: Task[] as the source of truth for actual dates
- *  - tasks: TaskTransformed[] derived from rawTasks + timelineGrids
- *  - timelineGrids: timeline columns
- *  - selectedScale: e.g. 'monthly'
- *  - minDate, maxDate: for timeline boundaries
- */
 interface GanttState {
   rawTasks: Task[];
   transformedTasks: TaskTransformed[];
-  timelineGrids: GanttTimelineGrid[];
-  selectedScale: GanttTimelineScale;
+
+  // Timeline rows
+  bottomRowCells: GanttBottomRowCell[];
+  topHeaderGroups: GanttTopHeaderGroup[];
+
+  selectedScale: GanttScaleKey;
   minDate: dayjs.Dayjs;
   maxDate: dayjs.Dayjs;
+
   draggingTaskMeta: { taskId: string; type: 'bar' | 'left' | 'right' } | null;
 
   // Actions
   setRawTasks: (rawTasks: Task[]) => void;
-  setTimelineGrids: (grids: GanttTimelineGrid[]) => void;
+  setBottomRowCells: (cells: GanttBottomRowCell[]) => void;
+  setTopHeaderGroups: (groups: GanttTopHeaderGroup[]) => void;
   setMinDate: (date: dayjs.Dayjs) => void;
   setMaxDate: (date: dayjs.Dayjs) => void;
   setDraggingTaskMeta: (meta: GanttState['draggingTaskMeta']) => void;
@@ -33,47 +35,30 @@ interface GanttState {
 export const useGanttStore = create<GanttState>((set, get) => ({
   rawTasks: [],
   transformedTasks: [],
-  timelineGrids: [],
-  selectedScale: 'monthly',
+  bottomRowCells: [],
+  topHeaderGroups: [],
+  selectedScale: 'month',
   minDate: dayjs(),
   maxDate: dayjs(),
-  currentlyDraggingTaskId: null,
   draggingTaskMeta: null,
-  /**
-   * Update rawTasks & auto-transform
-   */
+
   setRawTasks: (rawTasks) => {
-    const { timelineGrids, selectedScale } = get();
-    const transformed = transformTasks(rawTasks, timelineGrids, selectedScale);
+    const { bottomRowCells, selectedScale } = get();
+    const transformed = transformTasks(rawTasks, bottomRowCells, selectedScale);
     set({ rawTasks, transformedTasks: transformed });
   },
 
-  /**
-   * Update timeline grid & auto-transform
-   */
-  setTimelineGrids: (grids) => {
+  setBottomRowCells: (cells) => {
     const { rawTasks, selectedScale } = get();
-    const transformed = transformTasks(rawTasks, grids, selectedScale);
-    set({ timelineGrids: grids, transformedTasks: transformed });
+    const transformed = transformTasks(rawTasks, cells, selectedScale);
+    set({ bottomRowCells: cells, transformedTasks: transformed });
   },
 
-  /**
-   * Update minDate
-   */
-  setMinDate: (date) => set({ minDate: date }),
+  setTopHeaderGroups: (groups) => set({ topHeaderGroups: groups }),
 
-  /**
-   * Update maxDate
-   */
+  setMinDate: (date) => set({ minDate: date }),
   setMaxDate: (date) => set({ maxDate: date }),
 
-  /**
-   * Update draggingTaskMeta
-   */
   setDraggingTaskMeta: (meta) => set({ draggingTaskMeta: meta }),
-
-  /**
-   * Clear draggingTaskMeta
-   */
   clearDraggingTaskMeta: () => set({ draggingTaskMeta: null }),
 }));

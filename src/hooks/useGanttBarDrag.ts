@@ -1,36 +1,32 @@
+import { GANTT_SCALE_CONFIG } from 'constants/gantt';
 import { useRef } from 'react';
 import { useGanttStore } from 'stores/store';
+import { GanttScaleKey } from 'types/gantt';
 import { Task, TaskTransformed } from 'types/task';
 import dayjs from 'utils/dayjs';
-import { setupTimelineGrids } from 'utils/timeline';
 
-const TICK_WIDTH_PX = 16;
-
-function calculateNewDateFromOffset(
+export function calculateNewDateFromOffset(
   date: dayjs.Dayjs,
   offsetX: number,
-  pixelsPerDay: number,
-) {
-  const daysToShift = Math.round(offsetX / pixelsPerDay);
-  return date.add(daysToShift, 'day');
-}
+  scaleKey: GanttScaleKey,
+): dayjs.Dayjs {
+  const { dragStepUnit, dragStepAmount, basePxPerDragStep } =
+    GANTT_SCALE_CONFIG[scaleKey];
 
+  const steps = Math.round(offsetX / basePxPerDragStep);
+  return date.add(steps * dragStepAmount, dragStepUnit);
+}
 ////////////////////////////////////////
 // Full Bar Drag Hook
 ////////////////////////////////////////
-// onTasksChange emits Task[] from rawTasks, not TaskTransformed[], so update signature.
 export const useGanttBarDrag = (
   task: TaskTransformed,
   onTasksChange?: (updatedTasks: Task[]) => void,
 ) => {
   const {
     rawTasks,
-    timelineGrids,
-    setRawTasks,
-    setTimelineGrids,
-    setMinDate,
-    setMaxDate,
     selectedScale,
+    setRawTasks,
     setDraggingTaskMeta,
     clearDraggingTaskMeta,
   } = useGanttStore();
@@ -41,24 +37,23 @@ export const useGanttBarDrag = (
     startXRef.current = e.clientX;
     document.addEventListener('mousemove', onDragging);
     document.addEventListener('mouseup', onDragEnd);
-
-    // setCurrentDraggingTaskId for styling
     setDraggingTaskMeta({ taskId: task.id, type: 'bar' });
   };
 
   const onDragging = (e: MouseEvent) => {
     if (startXRef.current === null) return;
-
     const offsetX = e.clientX - startXRef.current;
+
     const newStart = calculateNewDateFromOffset(
       dayjs(task.startDate),
       offsetX,
-      TICK_WIDTH_PX,
+      selectedScale,
     );
+
     const newEnd = calculateNewDateFromOffset(
       dayjs(task.endDate),
       offsetX,
-      TICK_WIDTH_PX,
+      selectedScale,
     );
 
     const updatedTasks = rawTasks.map((t) =>
@@ -78,28 +73,9 @@ export const useGanttBarDrag = (
     document.removeEventListener('mousemove', onDragging);
     document.removeEventListener('mouseup', onDragEnd);
 
-    // Emit only after drag ends
     if (onTasksChange) {
       onTasksChange(useGanttStore.getState().rawTasks);
     }
-
-    // Optionally re-setup timeline if needed
-    const taskRecord = Object.fromEntries(
-      useGanttStore
-        .getState()
-        .rawTasks.map((t) => [
-          t.id,
-          { startDate: t.startDate, endDate: t.endDate },
-        ]),
-    );
-
-    setupTimelineGrids(
-      taskRecord,
-      useGanttStore.getState().selectedScale,
-      useGanttStore.getState().setMinDate,
-      useGanttStore.getState().setMaxDate,
-      useGanttStore.getState().setTimelineGrids,
-    );
 
     clearDraggingTaskMeta();
   };
@@ -116,15 +92,12 @@ export const useGanttBarLeftHandleDrag = (
 ) => {
   const {
     rawTasks,
-    timelineGrids,
-    setRawTasks,
-    setTimelineGrids,
-    setMinDate,
-    setMaxDate,
     selectedScale,
+    setRawTasks,
     setDraggingTaskMeta,
     clearDraggingTaskMeta,
   } = useGanttStore();
+
   const startXRef = useRef<number | null>(null);
 
   const onDragStart = (e: React.MouseEvent) => {
@@ -132,21 +105,18 @@ export const useGanttBarLeftHandleDrag = (
     startXRef.current = e.clientX;
     document.addEventListener('mousemove', onDragging);
     document.addEventListener('mouseup', onDragEnd);
-
-    // Set currentlyDraggingTaskId for styling
     setDraggingTaskMeta({ taskId: task.id, type: 'left' });
   };
 
   const onDragging = (e: MouseEvent) => {
     if (startXRef.current === null) return;
-
     const offsetX = e.clientX - startXRef.current;
+
     const newStart = calculateNewDateFromOffset(
       dayjs(task.startDate),
       offsetX,
-      TICK_WIDTH_PX,
+      selectedScale,
     );
-
     if (newStart.isAfter(dayjs(task.endDate))) return;
 
     const updatedTasks = rawTasks.map((t) =>
@@ -160,7 +130,6 @@ export const useGanttBarLeftHandleDrag = (
     document.removeEventListener('mousemove', onDragging);
     document.removeEventListener('mouseup', onDragEnd);
 
-    // Emit only after drag ends
     if (onTasksChange) {
       onTasksChange(useGanttStore.getState().rawTasks);
     }
@@ -180,15 +149,12 @@ export const useGanttBarRightHandleDrag = (
 ) => {
   const {
     rawTasks,
-    timelineGrids,
-    setRawTasks,
-    setTimelineGrids,
-    setMinDate,
-    setMaxDate,
     selectedScale,
+    setRawTasks,
     setDraggingTaskMeta,
     clearDraggingTaskMeta,
   } = useGanttStore();
+
   const startXRef = useRef<number | null>(null);
 
   const onDragStart = (e: React.MouseEvent) => {
@@ -196,20 +162,18 @@ export const useGanttBarRightHandleDrag = (
     startXRef.current = e.clientX;
     document.addEventListener('mousemove', onDragging);
     document.addEventListener('mouseup', onDragEnd);
-
     setDraggingTaskMeta({ taskId: task.id, type: 'right' });
   };
 
   const onDragging = (e: MouseEvent) => {
     if (startXRef.current === null) return;
-
     const offsetX = e.clientX - startXRef.current;
+
     const newEnd = calculateNewDateFromOffset(
       dayjs(task.endDate),
       offsetX,
-      TICK_WIDTH_PX,
+      selectedScale,
     );
-
     if (newEnd.isBefore(dayjs(task.startDate))) return;
 
     const updatedTasks = rawTasks.map((t) =>
@@ -223,7 +187,6 @@ export const useGanttBarRightHandleDrag = (
     document.removeEventListener('mousemove', onDragging);
     document.removeEventListener('mouseup', onDragEnd);
 
-    // Emit only after drag ends
     if (onTasksChange) {
       onTasksChange(useGanttStore.getState().rawTasks);
     }

@@ -1,50 +1,41 @@
+import { GANTT_SCALE_CONFIG } from 'constants/gantt';
 import { Dayjs } from 'dayjs';
 import {
-  ganttScaleSettings,
-  GanttTimelineGrid,
-  GanttTimelineScale,
+  GanttBottomRowCell,
+  GanttScaleKey,
+  GanttTopHeaderGroup,
 } from 'types/gantt';
-import { generateCustomDateRange, shiftDate } from 'utils/date';
 import dayjs from 'utils/dayjs';
-
-const SHIFT_BUFFER = 1;
 
 export function calculateDateOffsets(
   startDate: Dayjs,
   endDate: Dayjs,
-  timelineGrids: GanttTimelineGrid[],
-  selectedScale: GanttTimelineScale,
+  timelineTicks: GanttBottomRowCell[],
 ): { barMarginLeftAmount: number; barWidthSize: number } {
-  if (!timelineGrids.length) {
-    console.warn('calculateDateOffsets: No timeline grids available');
-    return {
-      barMarginLeftAmount: 0,
-      barWidthSize: 0,
-    };
-  }
+  if (!timelineTicks.length) return { barMarginLeftAmount: 0, barWidthSize: 0 };
 
-  const { tickSettings } = ganttScaleSettings[selectedScale];
-  const tickWidthRem = tickSettings.widthPerIntervalRem;
+  const chartStartDate = timelineTicks[0].startDate;
 
-  const chartStartDate = dayjs(timelineGrids[0].date);
+  const startOffsetDays = startDate.diff(chartStartDate, 'day', true);
+  const endOffsetDays = endDate.diff(chartStartDate, 'day', true);
 
-  const startOffsetDays = startDate.diff(chartStartDate, 'day');
-  const endOffsetDays = endDate.diff(chartStartDate, 'day');
+  const pxPerDay = getAveragePxPerDay(timelineTicks);
 
-  const barMarginLeftAmount = Math.max(startOffsetDays, 0) * tickWidthRem;
-
-  let barWidthSize =
-    (Math.max(endOffsetDays - startOffsetDays, 0) + 1) * tickWidthRem;
-
-  // Handle single-day tasks explicitly (just for clarity)
-  if (startDate.isSame(endDate, 'day')) {
-    barWidthSize = tickWidthRem;
-  }
+  const barMarginLeftAmount = startOffsetDays * pxPerDay;
+  const barWidthSize = Math.max(endOffsetDays - startOffsetDays, 1) * pxPerDay;
 
   return {
     barMarginLeftAmount,
     barWidthSize,
   };
+}
+
+function getAveragePxPerDay(ticks: GanttBottomRowCell[]): number {
+  if (ticks.length < 2) return 16;
+
+  const dayDiff = ticks[1].startDate.diff(ticks[0].startDate, 'day', true);
+  const pxDiff = ticks[1].widthPx;
+  return pxDiff / dayDiff;
 }
 
 export function findDateRangeFromTasks(
@@ -56,7 +47,6 @@ export function findDateRangeFromTasks(
   for (const { startDate, endDate } of Object.values(tasks)) {
     const start = dayjs(startDate).valueOf();
     const end = dayjs(endDate).valueOf();
-
     if (!Number.isNaN(start)) minTimestamp = Math.min(minTimestamp, start);
     if (!Number.isNaN(end)) maxTimestamp = Math.max(maxTimestamp, end);
   }
@@ -65,97 +55,96 @@ export function findDateRangeFromTasks(
     throw new Error('No valid start or end dates found.');
   }
 
-  let minDate = dayjs(minTimestamp);
-  let maxDate = dayjs(maxTimestamp);
-
-  return { minDate, maxDate };
+  return { minDate: dayjs(minTimestamp), maxDate: dayjs(maxTimestamp) };
 }
 
 export function padDateRange(
   minDate: Dayjs,
   maxDate: Dayjs,
-  selectedScale: GanttTimelineScale,
+  selectedScale: GanttScaleKey,
 ): { paddedMinDate: Dayjs; paddedMaxDate: Dayjs } {
-  const { timeUnit, gridInterval } = ganttScaleSettings[selectedScale];
-
-  const paddedMinDate = shiftDate(
-    minDate,
-    timeUnit,
-    SHIFT_BUFFER,
-    gridInterval,
-    'back',
-  );
-  const paddedMaxDate = shiftDate(
-    maxDate,
-    timeUnit,
-    SHIFT_BUFFER,
-    gridInterval,
-    'forward',
-  );
-
-  return { paddedMinDate, paddedMaxDate };
+  const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[selectedScale];
+  return {
+    paddedMinDate: minDate.subtract(unitPerTick, tickUnit),
+    paddedMaxDate: maxDate.add(unitPerTick, tickUnit),
+  };
 }
 
-export function createTimelineGrids(
+export function createBottomRowCells(
   paddedMinDate: Dayjs,
   paddedMaxDate: Dayjs,
-  selectedScale: GanttTimelineScale,
-): GanttTimelineGrid[] {
-  const { timeUnit, gridInterval, tickSettings } =
-    ganttScaleSettings[selectedScale];
+  selectedScale: GanttScaleKey,
+): GanttBottomRowCell[] {
+  const { dragStepUnit, dragStepAmount, basePxPerDragStep } =
+    GANTT_SCALE_CONFIG[selectedScale];
 
-  const dateRange = generateCustomDateRange(
-    timeUnit,
-    gridInterval,
-    paddedMinDate,
-    paddedMaxDate,
-  );
+  const cells: GanttBottomRowCell[] = [];
+  let current = paddedMinDate.startOf(dragStepUnit);
 
-  return dateRange.map((date) => {
-    let gridWidthInRem: number;
+  while (current.isBefore(paddedMaxDate)) {
+    cells.push({
+      startDate: current,
+      widthPx: basePxPerDragStep,
+    });
+    current = current.add(dragStepAmount, dragStepUnit);
+  }
 
-    if (timeUnit === 'month') {
-      const totalDays = Array.from({ length: gridInterval }, (_, i) =>
-        dayjs(date)
-          .add(i + 1, 'month')
-          .date(0)
-          .date(),
-      ).reduce((sum, days) => sum + days, 0);
-
-      gridWidthInRem = totalDays * tickSettings.widthPerIntervalRem;
-    } else {
-      gridWidthInRem = gridInterval * tickSettings.widthPerIntervalRem;
-    }
-
-    return { date, gridWidthInRem };
-  });
+  return cells;
 }
 
-export function setupTimelineGrids(
+export function createTopHeaderGroups(
+  bottomCells: GanttBottomRowCell[],
+  selectedScale: GanttScaleKey,
+): GanttTopHeaderGroup[] {
+  const { labelUnit, formatHeaderLabel } = GANTT_SCALE_CONFIG[selectedScale];
+
+  const groups: GanttTopHeaderGroup[] = [];
+
+  bottomCells.forEach((cell) => {
+    const label =
+      formatHeaderLabel?.(cell.startDate) ??
+      cell.startDate.format('YYYY-MM-DD');
+
+    const existing = groups.find((g) => g.label === label);
+    if (existing) {
+      existing.widthPx += cell.widthPx;
+    } else {
+      groups.push({
+        label,
+        widthPx: cell.widthPx,
+        startDate: cell.startDate,
+      });
+    }
+  });
+
+  return groups;
+}
+
+export function setupTimelineStructure(
   tasks: Record<string, { startDate: string; endDate: string }>,
-  selectedScale: GanttTimelineScale,
+  selectedScale: GanttScaleKey,
   updateMinDate: (date: Dayjs) => void,
   updateMaxDate: (date: Dayjs) => void,
-  updateTimelineGrids: (grids: GanttTimelineGrid[]) => void,
+  updateBottomCells: (cells: GanttBottomRowCell[]) => void,
+  updateHeaderGroups: (groups: GanttTopHeaderGroup[]) => void,
 ) {
-  try {
-    const { minDate, maxDate } = findDateRangeFromTasks(tasks);
-    updateMinDate(minDate);
-    updateMaxDate(maxDate);
+  const { minDate, maxDate } = findDateRangeFromTasks(tasks);
+  updateMinDate(minDate);
+  updateMaxDate(maxDate);
 
-    const { paddedMinDate, paddedMaxDate } = padDateRange(
-      minDate,
-      maxDate,
-      selectedScale,
-    );
-    const grids = createTimelineGrids(
-      paddedMinDate,
-      paddedMaxDate,
-      selectedScale,
-    );
+  const { paddedMinDate, paddedMaxDate } = padDateRange(
+    minDate,
+    maxDate,
+    selectedScale,
+  );
 
-    updateTimelineGrids(grids);
-  } catch (error) {
-    console.error('setupTimelineGrids:', error);
-  }
+  const bottomCells = createBottomRowCells(
+    paddedMinDate,
+    paddedMaxDate,
+    selectedScale,
+  );
+  const headerGroups = createTopHeaderGroups(bottomCells, selectedScale);
+
+  updateBottomCells(bottomCells);
+  updateHeaderGroups(headerGroups);
 }

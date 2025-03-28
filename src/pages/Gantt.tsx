@@ -2,9 +2,9 @@ import GanttChartHeader from 'components/GanttChartHeader';
 import { NODE_HEIGHT } from 'constants/gantt';
 import { useEffect, useState } from 'react';
 import { useGanttStore } from 'stores/store';
-import { GanttTimelineScale } from 'types/gantt';
+import { GanttScaleKey } from 'types/gantt';
 import { Task } from 'types/task';
-import { setupTimelineGrids } from 'utils/timeline';
+import { setupTimelineStructure } from 'utils/timeline';
 import GanttBar from './GanttBar';
 
 interface GanttProps {
@@ -14,19 +14,20 @@ interface GanttProps {
 
 function Gantt({ tasks, onTasksChange }: GanttProps) {
   const [taskList, setTaskList] = useState<Task[]>(tasks || []);
-  const selectedScale: GanttTimelineScale = 'monthly';
+  const selectedScale: GanttScaleKey = 'month';
 
   const {
     rawTasks,
     transformedTasks,
-    timelineGrids,
+    bottomRowCells,
+    topHeaderGroups,
     setRawTasks,
-    setTimelineGrids,
+    setBottomRowCells,
+    setTopHeaderGroups,
     setMinDate,
     setMaxDate,
   } = useGanttStore();
 
-  // 1. If no tasks, fetch from local server for dev/demo
   useEffect(() => {
     if (tasks.length === 0) {
       fetch('http://localhost:3001/tasks')
@@ -48,37 +49,36 @@ function Gantt({ tasks, onTasksChange }: GanttProps) {
       ]),
     );
 
-    setupTimelineGrids(
+    setupTimelineStructure(
       taskRecord,
       selectedScale,
       setMinDate,
       setMaxDate,
-      setTimelineGrids,
+      setBottomRowCells,
+      setTopHeaderGroups,
     );
   }, [taskList, selectedScale]);
 
   useEffect(() => {
-    if (!timelineGrids.length || !taskList.length) return;
-
-    // Initialize rawTasks and transform if not already
+    if (!bottomRowCells.length || !taskList.length) return;
     if (rawTasks.length === 0) {
       setRawTasks(taskList);
     }
-  }, [timelineGrids, taskList]);
+  }, [bottomRowCells, taskList]);
 
   return (
     <div className="bg-base-50 h-full w-fit">
       <section className="relative flex flex-col p-2">
         <GanttChartHeader
-          timelineGrids={timelineGrids}
-          selectedScale={selectedScale}
+          topHeaderGroups={topHeaderGroups}
+          bottomRowCells={bottomRowCells}
         />
         <div className="relative grow">
           {transformedTasks.map((task) => (
             <div
               key={task.id}
               className="border-base-300 bg-base-100 flex w-full items-center border-b border-solid"
-              style={{ height: `${NODE_HEIGHT}rem` }}
+              style={{ height: `${NODE_HEIGHT}px` }}
             >
               <GanttBar
                 allTasks={transformedTasks}

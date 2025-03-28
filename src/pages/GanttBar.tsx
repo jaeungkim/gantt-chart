@@ -57,7 +57,7 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
       const dependencyNode = allTasks.find((t) => t.id === dep.targetId);
       if (!dependencyNode) return null;
 
-      const rowHeightInPx = NODE_HEIGHT * 16;
+      const rowHeightInPx = NODE_HEIGHT;
 
       // Y positions (center of task row)
       const fromY =
@@ -70,29 +70,29 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
       switch (dep.type) {
         case 'FS': {
           // From dependency's FINISH ➝ to current's START
-          fromX = (dependencyNode.barLeft + dependencyNode.barWidth) * 16;
-          toX = currentTask.barLeft * 16;
+          fromX = dependencyNode.barLeft + dependencyNode.barWidth;
+          toX = currentTask.barLeft;
           break;
         }
 
         case 'SS': {
           // From dependency's START ➝ to current's START
-          fromX = dependencyNode.barLeft * 16;
-          toX = currentTask.barLeft * 16;
+          fromX = dependencyNode.barLeft;
+          toX = currentTask.barLeft;
           break;
         }
 
         case 'FF': {
           // From dependency's FINISH ➝ to current's FINISH
-          fromX = (dependencyNode.barLeft + dependencyNode.barWidth) * 16;
-          toX = (currentTask.barLeft + currentTask.barWidth) * 16;
+          fromX = dependencyNode.barLeft + dependencyNode.barWidth;
+          toX = currentTask.barLeft + currentTask.barWidth;
           break;
         }
 
         case 'SF': {
           // From dependency's START ➝ to current's FINISH
-          fromX = dependencyNode.barLeft * 16;
-          toX = (currentTask.barLeft + currentTask.barWidth) * 16;
+          fromX = dependencyNode.barLeft;
+          toX = currentTask.barLeft + currentTask.barWidth;
           break;
         }
 
@@ -120,8 +120,8 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
         className="bg-base-400 relative flex items-center"
         onMouseDown={onBarDragStart}
         style={{
-          marginLeft: `${currentTask.barLeft}rem`,
-          width: `${currentTask.barWidth}rem`,
+          marginLeft: `${currentTask.barLeft}px`,
+          width: `${currentTask.barWidth}px`,
           height: `1rem`,
         }}
       >

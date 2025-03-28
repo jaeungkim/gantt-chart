@@ -1,95 +1,16 @@
-import { Dayjs } from 'dayjs';
 import React from 'react';
 import { useGanttStore } from 'stores/store';
-import { GanttTimelineGrid, GanttTimelineScale } from 'types/gantt';
-import dayjs from 'utils/dayjs';
-
-interface DetailedCell {
-  date: Dayjs;
-  width: number;
-}
-
-function createDetailedCells(
-  timelineGrids: GanttTimelineGrid[],
-  selectedScale: GanttTimelineScale,
-): DetailedCell[] {
-  const detailedCells: DetailedCell[] = [];
-  if (selectedScale === 'weekly') {
-    const subdivisions = 3;
-    timelineGrids.forEach((grid) => {
-      const cellWidth = grid.gridWidthInRem / subdivisions;
-      for (let i = 0; i < subdivisions; i++) {
-        detailedCells.push({
-          date: grid.date.add(i, 'day'),
-          width: cellWidth,
-        });
-      }
-    });
-  } else if (selectedScale === 'yearly') {
-    const subdivisions = 2;
-    timelineGrids.forEach((grid) => {
-      const cellWidth = grid.gridWidthInRem / subdivisions;
-      for (let i = 0; i < subdivisions; i++) {
-        detailedCells.push({
-          date: grid.date.add(i, 'month'),
-          width: cellWidth,
-        });
-      }
-    });
-  } else {
-    timelineGrids.forEach((grid) => {
-      detailedCells.push({
-        date: grid.date,
-        width: grid.gridWidthInRem,
-      });
-    });
-  }
-  return detailedCells;
-}
-
-interface GroupedCell {
-  key: string;
-  cells: DetailedCell[];
-  width: number;
-}
-
-function groupDetailedCells(
-  cells: DetailedCell[],
-  selectedScale: GanttTimelineScale,
-): GroupedCell[] {
-  const groups: GroupedCell[] = [];
-  cells.forEach((cell) => {
-    const key =
-      selectedScale === 'weekly'
-        ? cell.date.format('MMM YYYY')
-        : cell.date.format('YYYY');
-    const existing = groups.find((g) => g.key === key);
-    if (existing) {
-      existing.cells.push(cell);
-      existing.width += cell.width;
-    } else {
-      groups.push({
-        key,
-        cells: [cell],
-        width: cell.width,
-      });
-    }
-  });
-  return groups;
-}
+import { GanttBottomRowCell, GanttTopHeaderGroup } from 'types/gantt';
 
 interface GanttChartHeaderProps {
-  timelineGrids: GanttTimelineGrid[];
-  selectedScale: GanttTimelineScale;
+  topHeaderGroups: GanttTopHeaderGroup[];
+  bottomRowCells: GanttBottomRowCell[];
 }
 
 const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
-  timelineGrids,
-  selectedScale,
+  topHeaderGroups,
+  bottomRowCells,
 }) => {
-  const detailedCells = createDetailedCells(timelineGrids, selectedScale);
-  const groupedCells = groupDetailedCells(detailedCells, selectedScale);
-
   const { transformedTasks, draggingTaskMeta } = useGanttStore();
   const draggingTask = transformedTasks.find(
     (t) => t.id === draggingTaskMeta?.taskId,
@@ -97,49 +18,45 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
 
   return (
     <div className="bg-base-200 sticky top-0 z-30">
-      {/* Top Grouped Row */}
+      {/* Top Grouped Header Row */}
       <div className="flex">
-        {groupedCells.map((group, idx) => (
+        {topHeaderGroups.map((group, idx) => (
           <div
             key={idx}
-            style={{ width: `${group.width}rem` }}
+            style={{ width: `${group.widthPx}px` }}
             className="border border-gray-300 p-1 text-center text-sm font-bold"
           >
-            {group.key}
+            {group.label}
           </div>
         ))}
       </div>
 
-      {/* Bottom Detailed Cells Row */}
+      {/* Bottom Tick Row */}
       <div className="flex">
-        {detailedCells.map((cell, idx) => {
-          const label =
-            selectedScale === 'weekly'
-              ? cell.date.format('D')
-              : cell.date.format('MMM');
-
-          return (
-            <div
-              key={idx}
-              style={{ width: `${cell.width}rem` }}
-              className="relative border border-gray-300 p-1 text-center text-xs"
-            >
-              {label}
-              {dayjs(draggingTask?.startDate).format('DD')}
-              {dayjs(draggingTask?.endDate).format('DD')}
-              {/* {showStartDate && (
-                <div className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded bg-blue-300 px-2 py-1 text-[10px] shadow">
-                  {dayjs(draggingTask.startDate).format('YYYY-MM-DD')}
-                </div>
-              )}
-              {showEndDate && (
-                <div className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded bg-green-300 px-2 py-1 text-[10px] shadow">
-                  {dayjs(draggingTask.endDate).format('YYYY-MM-DD')}
-                </div>
-              )} */}
-            </div>
-          );
-        })}
+        {bottomRowCells.map((cell, idx) => (
+          <div
+            key={idx}
+            style={{ width: `${cell.widthPx}px` }}
+            className="relative p-1 text-center text-xs"
+          >
+            {cell.startDate.format('D')}
+            {/* Optionally show drag range */}
+            {/* {draggingTask && (
+              <>
+                {cell.startDate.isSame(dayjs(draggingTask.startDate), 'day') && (
+                  <div className="absolute left-1/2 -translate-x-1/2 text-[10px] text-blue-500">
+                    Start
+                  </div>
+                )}
+                {cell.startDate.isSame(dayjs(draggingTask.endDate), 'day') && (
+                  <div className="absolute left-1/2 -translate-x-1/2 text-[10px] text-green-500">
+                    End
+                  </div>
+                )}
+              </>
+            )} */}
+          </div>
+        ))}
       </div>
     </div>
   );
