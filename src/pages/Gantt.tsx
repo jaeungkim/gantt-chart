@@ -78,11 +78,10 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
         height: `${ganttHeightState}px`,
         width: `${columnWidthState}px`,
         backgroundColor: '#FFF',
-        fontFamily: 'sans-serif',
       }}
     >
       <div
-        className="size-full"
+        className="h-full w-full overflow-hidden"
         style={{
           backgroundColor: '#FFF',
         }}

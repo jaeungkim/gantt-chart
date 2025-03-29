@@ -1,10 +1,15 @@
-import Router from 'components/routers/Router';
+import Gantt from 'pages/Gantt';
 
 function App() {
   return (
-    <>
-      <Router />
-    </>
+    <Gantt
+      tasks={[]}
+      ganttHeight={500}
+      columnWidth={1000}
+      // onTasksChange={(updated) => {
+      //   console.log('[🛰️ onTasksChange from Router]', updated);
+      // }}
+    />
   );
 }
 
