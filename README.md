@@ -2,7 +2,7 @@
 
 <!-- ![React Gantt Chart](https://raw.githubusercontent.com/jaeungkim/@jaeungkim/gantt-chart/main/public/readmeImg.png) -->
 
-**React Gantt Chart** is a lightweight, high-performance Gantt chart component for React applications, for fast rendering and state management. It is designed to be highly customizable and easy to integrate into modern React projects.
+Lightweight, high-performance Gantt chart component for React applications, for fast rendering and state management. It is designed to be highly customizable and easy to integrate into modern React projects.
 
 🎯 Motivation
 
