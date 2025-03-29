@@ -4,8 +4,8 @@ function App() {
   return (
     <Gantt
       tasks={[]}
-      ganttHeight={500}
-      columnWidth={1000}
+      ganttHeight="100svh"
+      columnWidth="auto"
       // onTasksChange={(updated) => {
       //   console.log('[🛰️ onTasksChange from Router]', updated);
       // }}

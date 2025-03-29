@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs from 'utils/dayjs';
 import { GanttScaleKey, GanttBottomRowCell } from 'types/gantt';
 import { Task, TaskTransformed } from 'types/task';
 import { calculateDateOffsets } from './timeline';

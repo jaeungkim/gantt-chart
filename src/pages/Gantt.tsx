@@ -11,13 +11,11 @@ import GanttBar from './GanttBar';
 interface GanttProps {
   tasks: Task[];
   onTasksChange?: (updatedTasks: Task[]) => void;
-  ganttHeight: number;
-  columnWidth: number;
+  ganttHeight: number | string;
+  columnWidth: number | string;
 }
 
 function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
-  const [ganttHeightState, setGanttHeight] = useState(ganttHeight || 500);
-  const [columnWidthState, setColumnWidth] = useState(columnWidth || 1000);
   const [taskList, setTaskList] = useState<Task[]>(tasks || []);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -75,8 +73,10 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
       style={{
         position: 'relative',
         overflow: 'auto',
-        height: `${ganttHeightState}px`,
-        width: `${columnWidthState}px`,
+        height:
+          typeof ganttHeight === 'number' ? `${ganttHeight}px` : ganttHeight,
+        width:
+          typeof columnWidth === 'number' ? `${columnWidth}px` : columnWidth,
         backgroundColor: '#FFF',
         fontFamily: 'Noto Sans, sans-serif',
       }}

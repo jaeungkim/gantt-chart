@@ -1,10 +1,10 @@
 # @jaeungkim/gantt-chart
 
-<!-- ![React Gantt Chart](https://raw.githubusercontent.com/jaeungkim/@jaeungkim/gantt-chart/main/public/readmeImg.png) -->
+![React Gantt Chart](https://raw.githubusercontent.com/jaeungkim/@jaeungkim/gantt-chart/main/public/readmeImg.png)
 
 Lightweight, high-performance Gantt chart component for React applications, for fast rendering and state management. It is designed to be highly customizable and easy to integrate into modern React projects.
 
-🎯 Motivation
+## 🎯 Motivation
 
 I originally wanted to use Microsoft Project's Gantt Chart for personal project management, but it required subscription 😔. Thus, I decided to build my own Gantt chart, referencing various open-source projects and examples, including MS Project, DHTMLX, Frappe Gantt Chart, and etc.
 
@@ -12,161 +12,140 @@ Since there aren’t many open-source Gantt chart solutions available, I hope th
 
 Currently, this project is built specifically for React due to my development background, but in the future, I may explore making it available for other frameworks as well. Since this is my first open-source project, I look forward to learning and improving it with the community!
 
-## 🚀 Features
-- 📊 **Lightweight & Fast** – Optimized with Vite for lightning-fast performance.
-- 🏗 **Modern State Management** – Uses Zustand for efficient and minimal state handling.
-- 🔄 **Drag & Drop Support** – Easily move and resize tasks.
-<!-- - 🎨 **Customizable Themes** – Style your Gantt chart with Tailwind CSS or custom styles. -->
-- 🔗 **Dependencies Between Tasks** – Visualize relationships between tasks.
-- 📆 **Zoom & Pan** – Navigate large project timelines with ease.
-<!-- - 🔧 **API & Data Fetching** – Optional integration with React Query for backend connectivity. -->
-<!-- - 🌍 **Internationalization (i18n)** – Multi-language support for global usage. -->
+## ✨ Features
 
----
-<!-- 
-## 📦 Installation
+- 📆 Supports multiple timeline scales: Day, Week, Month, Year
+- 🔄 Drag-and-drop resizing (snap to configured intervals)
+- 🧲 Smart dependency lines (Finish-Start, Start-Start, Start-Finish, Finish-Finish)
+- 📦 Lightweight and framework-agnostic component design
 
-Install via npm:
+## 📺 [Demo is worth a thousand words](https://jaeungkim.com/gantt-chart)
 
-```sh
+## 🚀 Getting Started
+
+### Installation
+
+```bash
 npm install @jaeungkim/gantt-chart
-```
-
-Or with yarn:
-
-```sh
+# or
 yarn add @jaeungkim/gantt-chart
 ```
 
----
+```ts
+import { Gantt } from '@jaeungkim/gantt-chart';
+import type { Task } from '@jaeungkim/gantt-chart';
 
-## 🛠 Usage
-
-Basic example to integrate **React Gantt Chart** into your project:
-
-```tsx
-import React from "react";
-import GanttChart from "@jaeungkim/gantt-chart";
-
-const tasks = [
-  { id: 1, name: "Task 1", start: "2024-03-01", end: "2024-03-05", progress: 50 },
-  { id: 2, name: "Task 2", start: "2024-03-06", end: "2024-03-10", progress: 30 }
+const ReactGanttChart: Task[] = [
+  {
+    id: '1',
+    name: 'Project Kickoff',
+    startDate: '2024-06-01T09:00:00Z',
+    endDate: '2024-06-01T11:00:00Z',
+    parentId: null,
+    sequence: '1',
+    dependencies: [{ targetId: '1', type: 'FS' }],
+  },
+ ...
 ];
 
-export default function App() {
+export default function Example() {
   return (
-    <div style={{ width: "100%", height: "500px" }}>
-      <GanttChart tasks={tasks} />
+    <div style={{ width: 'auto', height: '100dvh' }}>
+      <ReactGanttChart
+        tasks={tasks}
+        ganttHeight="100%"
+        columnWidth="100%"
+        onTasksChange={(updated) => console.log(updated)}
+      />
     </div>
   );
 }
 ```
 
----
+### Props
 
-## 🎨 Customization
+| Prop            | Type                             | Description                                    |
+| --------------- | -------------------------------- | ---------------------------------------------- |
+| `tasks`         | `Task[]`                         | Array of task objects to render                |
+| `onTasksChange` | `(updatedTasks: Task[]) => void` | Callback fired when a task is moved or resized |
+| `ganttHeight`   | `number \| string`               | Height of the chart (`number` or `string`)     |
+| `columnWidth`   | `number \| string`               | Width of the chart (`number` or `string`)      |
 
-### **Theming with TailwindCSS**
+### Task Format
 
-You can apply custom styles using TailwindCSS or standard CSS:
-
-```css
-.gantt-container {
-  background-color: #f8f9fa;
-}
-```
-
-### **Custom Task Styling**
-
-You can pass a `taskRenderer` function to customize task appearance:
-
-```tsx
-<GanttChart
-  tasks={tasks}
-  taskRenderer={(task) => (
-    <div style={{ background: task.progress > 50 ? "#4caf50" : "#ff9800" }}>
-      {task.name}
-    </div>
-  )}
-/>
-```
-
----
-
-## 📡 API & Props
-
-| Prop         | Type       | Description                          |
-|-------------|-----------|--------------------------------------|
-| `tasks`     | `Task[]`   | Array of tasks for the Gantt chart  |
-| `onTaskClick` | `function` | Callback when a task is clicked    |
-| `zoomLevel` | `number`   | Adjust the zoom level (1-5)        |
-| `taskRenderer` | `function` | Custom render function for tasks |
-
-### **Task Object Structure**
+All dates must be in **UTC ISO string format**, like: `"2024-06-01T09:00:00Z"`.
+Internally, dates are parsed and converted to local time using `dayjs`.
 
 ```ts
 interface Task {
-  id: number;
+  id: string;
   name: string;
-  start: string;
-  end: string;
-  progress: number;
-  dependencies?: number[];
+  startDate: string; // UTC ISO string
+  endDate: string;   // UTC ISO string
+  parentId: string | null;
+  sequence: string;
+  dependencies?: TaskDependency[];
+}
+
+interface TaskDependency {
+  targetId: string;
+  type: 'FS' | 'SS' | 'FF' | 'SF';
 }
 ```
 
----
+## Timeline Scales
 
-## ⚡ Performance Optimizations
-- **Virtualized Rendering** – Uses `react-window` for handling large datasets efficiently.
-- **Zustand for State Management** – Avoids unnecessary re-renders.
-- **Code Splitting** – Load components lazily with `React.lazy()` and `Suspense`.
+The chart supports four built-in scales:
 
----
+- **`day`**  
+  - Label: Day  
+  - Tick Unit: Hour  
+  - Drag Step: 15 minutes  
 
-## 🛠 Contributing
-We welcome contributions! To get started:
+- **`week`**  
+  - Label: Week  
+  - Tick Unit: Day  
+  - Drag Step: 6 hours  
 
-1. **Fork the repo** and clone it locally:
-   ```sh
-   git clone https://github.com/your-username/@jaeungkim/gantt-chart.git
-   ```
-2. **Install dependencies:**
-   ```sh
-   npm install
-   ```
-3. **Run the dev server:**
-   ```sh
-   npm run dev
-   ```
-4. **Submit a pull request!** 🎉
+- **`month`**  
+  - Label: Month  
+  - Tick Unit: Day  
+  - Drag Step: 1 day  
 
----
+- **`year`**  
+  - Label: Year  
+  - Tick Unit: 7 days  
+  - Drag Step: 1 day  
 
-## ❓ FAQ
-### **1. How do I handle large datasets?**
-Use the `react-window` library for virtualization.
+You can switch between them using the dropdown at the top-right of the chart.
 
-### **2. Can I add task dependencies?**
-Yes! Provide an array of `dependencies` for each task.
+## Customization
 
-### **3. Does this support dark mode?**
-Yes, you can customize it with CSS or Tailwind.
+Currently at this stage it's not quite customizable other than importing your own tasks.
+But in near future, I will definitely make it customizable with adding features like
 
----
+- Timeline structure (`setupTimelineStructure`)
+- Header display (`GanttChartHeader`)
+- Bar visuals (`GanttBar`)
+- Tick intervals, formats, and drag steps (`GANTT_SCALE_CONFIG`)
 
-## 📜 License
-This project is licensed under the **MIT License** – feel free to use and modify it as needed.
+Stay Tuned~
 
----
+##  Roadmap
 
-## 🌟 Support & Community
-- **GitHub Issues** – Report bugs or request features [here](https://github.com/your-username/@jaeungkim/gantt-chart/issues).
-- **Discussions** – Join the community and share ideas.
+- [ ] Left sidebar for displaying tasks' names
+- [ ] Right sidebar for selected tasks' to view their information
+- [ ] Collapsible parent-child rows
+- [ ] Virtualized rows for large datasets
+- [ ] Inline editing for task names
+- [ ] Export to PNG or SVG
 
-If you find this project useful, please ⭐ star the repo and contribute!
+## 🤝 Contributing
 
----
+Pull requests are welcome!  
+If you find bugs or have suggestions, feel free to open an issue or contribute directly.
 
-**🚀 Build better project timelines with React Gantt Chart!**
- -->
+
+## 📄 License
+
+MIT © [jaeungkim](https://github.com/jaeungkim)
