@@ -2,7 +2,7 @@
 
 <!-- ![React Gantt Chart](https://raw.githubusercontent.com/jaeungkim/react-gantt-chart/main/public/readmeImg.png) -->
 
-**React Gantt Chart** is a lightweight, high-performance Gantt chart component for React applications, built with **Vite, Zustand, and React Query** for fast rendering and state management. It is designed to be highly customizable and easy to integrate into modern React projects.
+**React Gantt Chart** is a lightweight, high-performance Gantt chart component for React applications, for fast rendering and state management. It is designed to be highly customizable and easy to integrate into modern React projects.
 
 🎯 Motivation
 
@@ -16,11 +16,11 @@ Currently, this project is built specifically for React due to my development ba
 - 📊 **Lightweight & Fast** – Optimized with Vite for lightning-fast performance.
 - 🏗 **Modern State Management** – Uses Zustand for efficient and minimal state handling.
 - 🔄 **Drag & Drop Support** – Easily move and resize tasks.
-- 🎨 **Customizable Themes** – Style your Gantt chart with Tailwind CSS or custom styles.
+<!-- - 🎨 **Customizable Themes** – Style your Gantt chart with Tailwind CSS or custom styles. -->
 - 🔗 **Dependencies Between Tasks** – Visualize relationships between tasks.
 - 📆 **Zoom & Pan** – Navigate large project timelines with ease.
-- 🔧 **API & Data Fetching** – Optional integration with React Query for backend connectivity.
-- 🌍 **Internationalization (i18n)** – Multi-language support for global usage.
+<!-- - 🔧 **API & Data Fetching** – Optional integration with React Query for backend connectivity. -->
+<!-- - 🌍 **Internationalization (i18n)** – Multi-language support for global usage. -->
 
 ---
 <!-- 
