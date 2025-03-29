@@ -23,7 +23,7 @@ function calculateTaskDepth(sequence: string): number {
 export function transformTasks(
   tasks: Task[],
   timelineTicks: GanttBottomRowCell[],
-  selectedScale: GanttScaleKey, // still used for consistent ordering context
+  selectedScale: GanttScaleKey,
 ): TaskTransformed[] {
   const sortedTasks = sortTasksBySequence(tasks);
   let orderCounter = 0;
@@ -36,6 +36,7 @@ export function transformTasks(
       dayjs(task.startDate),
       dayjs(task.endDate),
       timelineTicks,
+      selectedScale
     );
 
     return {

@@ -1,3 +1,4 @@
+import { GANTT_SCALE_CONFIG } from 'constants/gantt';
 import React from 'react';
 import { useGanttStore } from 'stores/store';
 import { GanttBottomRowCell, GanttTopHeaderGroup } from 'types/gantt';
@@ -5,25 +6,58 @@ import { GanttBottomRowCell, GanttTopHeaderGroup } from 'types/gantt';
 interface GanttChartHeaderProps {
   topHeaderGroups: GanttTopHeaderGroup[];
   bottomRowCells: GanttBottomRowCell[];
+  selectedScale: string;
 }
 
 const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
-  topHeaderGroups,
   bottomRowCells,
+  topHeaderGroups, // unused in this new logic
 }) => {
-  const { transformedTasks, draggingTaskMeta } = useGanttStore();
+  const { selectedScale, transformedTasks, draggingTaskMeta } = useGanttStore();
   const draggingTask = transformedTasks.find(
     (t) => t.id === draggingTaskMeta?.taskId,
   );
 
+  const config = GANTT_SCALE_CONFIG[selectedScale];
+  const labelUnit = config.labelUnit;
+
+  // Dynamically group top headers based on scale
+  const groupedHeaderCells: { label: string; width: number }[] = [];
+  let currentKey = '';
+  let currentLabel = '';
+  let currentWidth = 0;
+
+  bottomRowCells.forEach((cell, i) => {
+    const key = cell.startDate.startOf(labelUnit).format('YYYY-MM-DD');
+    const label = config.formatHeaderLabel
+      ? config.formatHeaderLabel(cell.startDate)
+      : '';
+    const width = cell.widthPx;
+
+    if (key === currentKey) {
+      currentWidth += width;
+    } else {
+      if (currentKey) {
+        groupedHeaderCells.push({ label: currentLabel, width: currentWidth });
+      }
+      currentKey = key;
+      currentLabel = label;
+      currentWidth = width;
+    }
+
+    if (i === bottomRowCells.length - 1) {
+      groupedHeaderCells.push({ label: currentLabel, width: currentWidth });
+    }
+  });
+
   return (
     <div className="bg-base-200 sticky top-0 z-30">
-      {/* Top Grouped Header Row */}
+      {/* Top Header Group Row */}
       <div className="flex">
-        {topHeaderGroups.map((group, idx) => (
+        {groupedHeaderCells.map((group, idx) => (
           <div
             key={idx}
-            style={{ width: `${group.widthPx}px` }}
+            style={{ width: `${group.width}px` }}
             className="border border-gray-300 p-1 text-center text-sm font-bold"
           >
             {group.label}
@@ -31,32 +65,39 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
         ))}
       </div>
 
-      {/* Bottom Tick Row */}
+      {/* Bottom Row */}
       <div className="flex">
-        {bottomRowCells.map((cell, idx) => (
-          <div
-            key={idx}
-            style={{ width: `${cell.widthPx}px` }}
-            className="relative p-1 text-center text-xs"
-          >
-            {cell.startDate.format('D')}
-            {/* Optionally show drag range */}
-            {/* {draggingTask && (
+        {bottomRowCells.map((cell, idx) => {
+          const tickLabel = config.formatTickLabel?.(cell.startDate) || ''; // <- use this
+          return (
+            <div
+              key={idx}
+              style={{ width: `${cell.widthPx}px` }}
+              className="relative p-1 text-center text-xs"
+            >
+              {tickLabel}
+
+              {/* Optional: Show Dragging Start/End Indicators */}
+              {/* {draggingTaskMeta && draggingTask && (
               <>
-                {cell.startDate.isSame(dayjs(draggingTask.startDate), 'day') && (
-                  <div className="absolute left-1/2 -translate-x-1/2 text-[10px] text-blue-500">
-                    Start
-                  </div>
-                )}
-                {cell.startDate.isSame(dayjs(draggingTask.endDate), 'day') && (
-                  <div className="absolute left-1/2 -translate-x-1/2 text-[10px] text-green-500">
-                    End
-                  </div>
-                )}
+                {draggingTaskMeta.type !== 'right' &&
+                  cell.startDate.isSame(draggingTask.startDate, 'day') && (
+                    <div className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded bg-blue-300 px-2 py-1 text-[10px] shadow">
+                      {draggingTask.startDate.slice(0, 10)}
+                    </div>
+                  )}
+
+                {draggingTaskMeta.type !== 'left' &&
+                  cell.startDate.isSame(draggingTask.endDate, 'day') && (
+                    <div className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded bg-green-300 px-2 py-1 text-[10px] shadow">
+                      {draggingTask.endDate.slice(0, 10)}
+                    </div>
+                  )}
               </>
             )} */}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

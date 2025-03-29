@@ -14,11 +14,11 @@ interface GanttProps {
 
 function Gantt({ tasks, onTasksChange }: GanttProps) {
   const [taskList, setTaskList] = useState<Task[]>(tasks || []);
-  const selectedScale: GanttScaleKey = 'month';
 
   const {
     rawTasks,
     transformedTasks,
+    selectedScale,
     bottomRowCells,
     topHeaderGroups,
     setRawTasks,
@@ -72,6 +72,7 @@ function Gantt({ tasks, onTasksChange }: GanttProps) {
         <GanttChartHeader
           topHeaderGroups={topHeaderGroups}
           bottomRowCells={bottomRowCells}
+          selectedScale={selectedScale}
         />
         <div className="relative grow">
           {transformedTasks.map((task) => (

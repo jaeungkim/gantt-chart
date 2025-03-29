@@ -1,4 +1,4 @@
-import { GANTT_SCALE_CONFIG } from 'constants/gantt';
+import { GANTT_SCALE_CONFIG, TIMELINE_SHIFT_BUFFER } from 'constants/gantt';
 import { Dayjs } from 'dayjs';
 import {
   GanttBottomRowCell,
@@ -11,31 +11,33 @@ export function calculateDateOffsets(
   startDate: Dayjs,
   endDate: Dayjs,
   timelineTicks: GanttBottomRowCell[],
+  scaleKey: GanttScaleKey,
 ): { barMarginLeftAmount: number; barWidthSize: number } {
   if (!timelineTicks.length) return { barMarginLeftAmount: 0, barWidthSize: 0 };
 
-  const chartStartDate = timelineTicks[0].startDate;
+  const config = GANTT_SCALE_CONFIG[scaleKey];
+  console.log('config', config);
+  const paddedTickStart = timelineTicks[0].startDate;
 
-  const startOffsetDays = startDate.diff(chartStartDate, 'day', true);
-  const endOffsetDays = endDate.diff(chartStartDate, 'day', true);
+  // Shift to logical chartStart (excluding padding)
+  const chartStartDate = paddedTickStart.add(
+    TIMELINE_SHIFT_BUFFER * config.unitPerTick,
+    config.tickUnit,
+  );
 
-  const pxPerDay = getAveragePxPerDay(timelineTicks);
+  const offsetStart =
+    startDate.diff(chartStartDate, config.dragStepUnit, true) /
+    config.dragStepAmount;
 
-  const barMarginLeftAmount = startOffsetDays * pxPerDay;
-  const barWidthSize = Math.max(endOffsetDays - startOffsetDays, 1) * pxPerDay;
+  const offsetEnd =
+    endDate.diff(chartStartDate, config.dragStepUnit, true) /
+    config.dragStepAmount;
 
-  return {
-    barMarginLeftAmount,
-    barWidthSize,
-  };
-}
+  const pxPerStep = config.basePxPerDragStep;
+  const barMarginLeftAmount = offsetStart * pxPerStep;
+  const barWidthSize = Math.max(offsetEnd - offsetStart, 1) * pxPerStep;
 
-function getAveragePxPerDay(ticks: GanttBottomRowCell[]): number {
-  if (ticks.length < 2) return 16;
-
-  const dayDiff = ticks[1].startDate.diff(ticks[0].startDate, 'day', true);
-  const pxDiff = ticks[1].widthPx;
-  return pxDiff / dayDiff;
+  return { barMarginLeftAmount, barWidthSize };
 }
 
 export function findDateRangeFromTasks(
@@ -51,10 +53,6 @@ export function findDateRangeFromTasks(
     if (!Number.isNaN(end)) maxTimestamp = Math.max(maxTimestamp, end);
   }
 
-  if (minTimestamp === Infinity || maxTimestamp === -Infinity) {
-    throw new Error('No valid start or end dates found.');
-  }
-
   return { minDate: dayjs(minTimestamp), maxDate: dayjs(maxTimestamp) };
 }
 
@@ -65,8 +63,11 @@ export function padDateRange(
 ): { paddedMinDate: Dayjs; paddedMaxDate: Dayjs } {
   const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[selectedScale];
   return {
-    paddedMinDate: minDate.subtract(unitPerTick, tickUnit),
-    paddedMaxDate: maxDate.add(unitPerTick, tickUnit),
+    paddedMinDate: minDate.subtract(
+      TIMELINE_SHIFT_BUFFER * unitPerTick,
+      tickUnit,
+    ),
+    paddedMaxDate: maxDate.add(TIMELINE_SHIFT_BUFFER * unitPerTick, tickUnit),
   };
 }
 
@@ -97,7 +98,6 @@ export function createTopHeaderGroups(
   selectedScale: GanttScaleKey,
 ): GanttTopHeaderGroup[] {
   const { labelUnit, formatHeaderLabel } = GANTT_SCALE_CONFIG[selectedScale];
-
   const groups: GanttTopHeaderGroup[] = [];
 
   bottomCells.forEach((cell) => {

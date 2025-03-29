@@ -2,7 +2,7 @@ import { Dayjs } from 'dayjs';
 
 export type GanttScaleKey = 'hour' | 'day' | 'week' | 'month' | 'year';
 export interface GanttScaleConfig {
-  labelUnit: 'day' | 'week' | 'month' | 'year';
+  labelUnit: 'hour' | 'day' | 'week' | 'month' | 'year';
   tickUnit: 'minute' | 'hour' | 'day';
   unitPerTick: number;
 
