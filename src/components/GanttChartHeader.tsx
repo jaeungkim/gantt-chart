@@ -1,103 +1,118 @@
 import { GANTT_SCALE_CONFIG } from 'constants/gantt';
-import React from 'react';
-import { useGanttStore } from 'stores/store';
-import { GanttBottomRowCell, GanttTopHeaderGroup } from 'types/gantt';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  GanttBottomRowCell,
+  GanttScaleKey,
+  GanttTopHeaderGroup,
+} from 'types/gantt';
+import { createTopHeaderGroups } from 'utils/timeline';
 
 interface GanttChartHeaderProps {
   topHeaderGroups: GanttTopHeaderGroup[];
   bottomRowCells: GanttBottomRowCell[];
-  selectedScale: string;
+  selectedScale: GanttScaleKey;
+  scrollRef: React.RefObject<HTMLDivElement>;
 }
 
 const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
   bottomRowCells,
-  topHeaderGroups, // unused in this new logic
+  selectedScale,
+  scrollRef,
 }) => {
-  const { selectedScale, transformedTasks, draggingTaskMeta } = useGanttStore();
-  const draggingTask = transformedTasks.find(
-    (t) => t.id === draggingTaskMeta?.taskId,
+  const config = GANTT_SCALE_CONFIG[selectedScale];
+  const [stickyIndex, setStickyIndex] = useState(0);
+
+  // Top header groups
+  const topGroups = useMemo(
+    () => createTopHeaderGroups(bottomRowCells, selectedScale),
+    [bottomRowCells, selectedScale],
   );
 
-  const config = GANTT_SCALE_CONFIG[selectedScale];
-  const labelUnit = config.labelUnit;
-
-  // Dynamically group top headers based on scale
-  const groupedHeaderCells: { label: string; width: number }[] = [];
-  let currentKey = '';
-  let currentLabel = '';
-  let currentWidth = 0;
-
-  bottomRowCells.forEach((cell, i) => {
-    const key = cell.startDate.startOf(labelUnit).format('YYYY-MM-DD');
-    const label = config.formatHeaderLabel
-      ? config.formatHeaderLabel(cell.startDate)
-      : '';
-    const width = cell.widthPx;
-
-    if (key === currentKey) {
-      currentWidth += width;
-    } else {
-      if (currentKey) {
-        groupedHeaderCells.push({ label: currentLabel, width: currentWidth });
+  // Merge adjacent labels
+  const mergedGroups = useMemo(() => {
+    const merged: typeof topGroups = [];
+    for (const group of topGroups) {
+      const last = merged[merged.length - 1];
+      if (last && last.label === group.label) {
+        last.widthPx += group.widthPx;
+      } else {
+        merged.push({ ...group });
       }
-      currentKey = key;
-      currentLabel = label;
-      currentWidth = width;
     }
+    return merged;
+  }, [topGroups]);
 
-    if (i === bottomRowCells.length - 1) {
-      groupedHeaderCells.push({ label: currentLabel, width: currentWidth });
-    }
-  });
+  // Add left offset
+  const mergedGroupsWithLeft = useMemo(() => {
+    let offset = 0;
+    return mergedGroups.map((group) => {
+      const g = { ...group, left: offset };
+      offset += group.widthPx;
+      return g;
+    });
+  }, [mergedGroups]);
+
+  // Scroll tracking
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      const scrollLeft = el.scrollLeft;
+      for (let i = mergedGroupsWithLeft.length - 1; i >= 0; i--) {
+        if (scrollLeft >= mergedGroupsWithLeft[i].left) {
+          setStickyIndex(i);
+          break;
+        }
+      }
+    };
+
+    el.addEventListener('scroll', handleScroll);
+    handleScroll(); // on mount
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [mergedGroupsWithLeft]);
+
+  const stickyLabel = mergedGroupsWithLeft[stickyIndex]?.label ?? '';
 
   return (
     <div className="bg-base-200 sticky top-0 z-30">
-      {/* Top Header Group Row */}
-      <div className="flex">
-        {groupedHeaderCells.map((group, idx) => (
-          <div
-            key={idx}
-            style={{ width: `${group.width}px` }}
-            className="border border-gray-300 p-1 text-center text-sm font-bold"
-          >
-            {group.label}
+      <div className="flex min-w-max flex-col">
+        {/* Top Header Row */}
+        <div className="relative flex">
+          {/* Sticky floating label */}
+          <div className="bg-base-200 border-base-400 sticky left-0 h-10 z-40 flex w-24 shrink-0 items-center justify-center border-b border-solid text-sm font-bold">
+            {stickyLabel}
           </div>
-        ))}
-      </div>
 
-      {/* Bottom Row */}
-      <div className="flex">
-        {bottomRowCells.map((cell, idx) => {
-          const tickLabel = config.formatTickLabel?.(cell.startDate) || ''; // <- use this
-          return (
-            <div
-              key={idx}
-              style={{ width: `${cell.widthPx}px` }}
-              className="relative p-1 text-center text-xs"
-            >
-              {tickLabel}
+          {/* Scrollable header cells */}
+          <div className="flex">
+            {mergedGroupsWithLeft.map((group, idx) => (
+              <div
+                key={idx}
+                className="border-base-400 bg-base-200 border-b border-solid py-2 pr-4 text-left text-sm font-bold"
+                style={{ width: `${group.widthPx}px` }}
+              >
+                <p className="px-4">{idx === 0 ? '' : group.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
 
-              {/* Optional: Show Dragging Start/End Indicators */}
-              {/* {draggingTaskMeta && draggingTask && (
-              <>
-                {draggingTaskMeta.type !== 'right' &&
-                  cell.startDate.isSame(draggingTask.startDate, 'day') && (
-                    <div className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded bg-blue-300 px-2 py-1 text-[10px] shadow">
-                      {draggingTask.startDate.slice(0, 10)}
-                    </div>
-                  )}
-
-                {draggingTaskMeta.type !== 'left' &&
-                  cell.startDate.isSame(draggingTask.endDate, 'day') && (
-                    <div className="absolute top-full left-1/2 mt-1 -translate-x-1/2 rounded bg-green-300 px-2 py-1 text-[10px] shadow">
-                      {draggingTask.endDate.slice(0, 10)}
-                    </div>
-                  )}
-              </>
-            )} */}
-            </div>
-          );
-        })}
+        {/* Bottom tick row */}
+        <div className="flex">
+          {bottomRowCells.map((cell, idx) => {
+            const tickLabel = config.formatTickLabel?.(cell.startDate) || '';
+            return (
+              <div
+                key={idx}
+                className="relative p-1 text-center text-xs"
+                style={{ width: `${cell.widthPx}px` }}
+              >
+                {tickLabel}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

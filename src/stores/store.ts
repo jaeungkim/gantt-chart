@@ -23,6 +23,7 @@ interface GanttState {
   draggingTaskMeta: { taskId: string; type: 'bar' | 'left' | 'right' } | null;
 
   // Actions
+  setSelectedScale: (scale: GanttScaleKey) => void;
   setRawTasks: (rawTasks: Task[]) => void;
   setBottomRowCells: (cells: GanttBottomRowCell[]) => void;
   setTopHeaderGroups: (groups: GanttTopHeaderGroup[]) => void;
@@ -37,10 +38,16 @@ export const useGanttStore = create<GanttState>((set, get) => ({
   transformedTasks: [],
   bottomRowCells: [],
   topHeaderGroups: [],
-  selectedScale: 'month',
+  selectedScale: 'day',
   minDate: dayjs(),
   maxDate: dayjs(),
   draggingTaskMeta: null,
+
+  setSelectedScale: (scale) => {
+    const { rawTasks, bottomRowCells } = get();
+    const transformed = transformTasks(rawTasks, bottomRowCells, scale);
+    set({ selectedScale: scale, transformedTasks: transformed });
+  },
 
   setRawTasks: (rawTasks) => {
     const { bottomRowCells, selectedScale } = get();

@@ -1,11 +1,10 @@
 import { GANTT_SCALE_CONFIG, TIMELINE_SHIFT_BUFFER } from 'constants/gantt';
-import { Dayjs } from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
 import {
   GanttBottomRowCell,
   GanttScaleKey,
   GanttTopHeaderGroup,
 } from 'types/gantt';
-import dayjs from 'utils/dayjs';
 
 export function calculateDateOffsets(
   startDate: Dayjs,
@@ -13,29 +12,35 @@ export function calculateDateOffsets(
   timelineTicks: GanttBottomRowCell[],
   scaleKey: GanttScaleKey,
 ): { barMarginLeftAmount: number; barWidthSize: number } {
-  if (!timelineTicks.length) return { barMarginLeftAmount: 0, barWidthSize: 0 };
+  if (!timelineTicks.length) {
+    return { barMarginLeftAmount: 0, barWidthSize: 0 };
+  }
 
-  const config = GANTT_SCALE_CONFIG[scaleKey];
-  console.log('config', config);
-  const paddedTickStart = timelineTicks[0].startDate;
+  // Destructure the relevant config values
+  const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];
 
-  // Shift to logical chartStart (excluding padding)
-  const chartStartDate = paddedTickStart.add(
-    TIMELINE_SHIFT_BUFFER * config.unitPerTick,
-    config.tickUnit,
-  );
+  // Calculate total chart width in pixels
+  const totalPx = timelineTicks.reduce((sum, tick) => sum + tick.widthPx, 0);
 
-  const offsetStart =
-    startDate.diff(chartStartDate, config.dragStepUnit, true) /
-    config.dragStepAmount;
+  // Identify the earliest tick start and the latest tick start
+  const chartStartDate = timelineTicks[0].startDate;
+  const lastTickStartDate = timelineTicks[timelineTicks.length - 1].startDate;
 
-  const offsetEnd =
-    endDate.diff(chartStartDate, config.dragStepUnit, true) /
-    config.dragStepAmount;
+  // Calculate total chart duration in milliseconds
+  const totalDurationMs = dayjs(lastTickStartDate)
+    .add(unitPerTick, tickUnit)
+    .diff(chartStartDate);
 
-  const pxPerStep = config.basePxPerDragStep;
-  const barMarginLeftAmount = offsetStart * pxPerStep;
-  const barWidthSize = Math.max(offsetEnd - offsetStart, 1) * pxPerStep;
+  // Determine how many pixels correspond to one millisecond
+  const pxPerMs = totalPx / totalDurationMs;
+
+  // Calculate start/end offsets in milliseconds, then convert to pixels
+  const startOffsetMs = startDate.diff(chartStartDate);
+  const endOffsetMs = endDate.diff(chartStartDate);
+
+  const barMarginLeftAmount = startOffsetMs * pxPerMs;
+  // Ensure the width is at least 1 pixel if start/end are the same
+  const barWidthSize = Math.max(endOffsetMs - startOffsetMs, 1) * pxPerMs;
 
   return { barMarginLeftAmount, barWidthSize };
 }
@@ -76,18 +81,22 @@ export function createBottomRowCells(
   paddedMaxDate: Dayjs,
   selectedScale: GanttScaleKey,
 ): GanttBottomRowCell[] {
-  const { dragStepUnit, dragStepAmount, basePxPerDragStep } =
+  const { tickUnit, unitPerTick, basePxPerDragStep, dragStepUnit, dragStepAmount } =
     GANTT_SCALE_CONFIG[selectedScale];
 
   const cells: GanttBottomRowCell[] = [];
-  let current = paddedMinDate.startOf(dragStepUnit);
+  let current = paddedMinDate.startOf(tickUnit);
 
   while (current.isBefore(paddedMaxDate)) {
+    // How many drag steps fit in this tick?
+    const tickDurationInDragSteps = dayjs(current).add(unitPerTick, tickUnit).diff(current, dragStepUnit) / dragStepAmount;
+
     cells.push({
       startDate: current,
-      widthPx: basePxPerDragStep,
+      widthPx: tickDurationInDragSteps * basePxPerDragStep,
     });
-    current = current.add(dragStepAmount, dragStepUnit);
+
+    current = current.add(unitPerTick, tickUnit);
   }
 
   return cells;
@@ -100,25 +109,46 @@ export function createTopHeaderGroups(
   const { labelUnit, formatHeaderLabel } = GANTT_SCALE_CONFIG[selectedScale];
   const groups: GanttTopHeaderGroup[] = [];
 
-  bottomCells.forEach((cell) => {
-    const label =
-      formatHeaderLabel?.(cell.startDate) ??
-      cell.startDate.format('YYYY-MM-DD');
+  let currentKey: number | null = null;
+  let currentLabel = '';
+  let currentWidth = 0;
+  let currentStart: dayjs.Dayjs | null = null;
 
-    const existing = groups.find((g) => g.label === label);
-    if (existing) {
-      existing.widthPx += cell.widthPx;
+  bottomCells.forEach((cell, i) => {
+    const start = cell.startDate.startOf(labelUnit);
+    const key = start.valueOf(); // ✅ use timestamp instead of formatted string
+    const label = formatHeaderLabel?.(start) ?? start.format();
+
+    if (key === currentKey) {
+      currentWidth += cell.widthPx;
     } else {
+      if (currentKey !== null) {
+        groups.push({
+          label: currentLabel,
+          widthPx: currentWidth,
+          startDate: currentStart!,
+        });
+      }
+      currentKey = key;
+      currentLabel = label;
+      currentWidth = cell.widthPx;
+      currentStart = start;
+    }
+
+    // Last cell
+    if (i === bottomCells.length - 1) {
       groups.push({
-        label,
-        widthPx: cell.widthPx,
-        startDate: cell.startDate,
+        label: currentLabel,
+        widthPx: currentWidth,
+        startDate: currentStart!,
       });
     }
   });
 
   return groups;
 }
+
+
 
 export function setupTimelineStructure(
   tasks: Record<string, { startDate: string; endDate: string }>,

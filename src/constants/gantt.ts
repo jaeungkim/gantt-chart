@@ -1,28 +1,18 @@
 import { GanttScaleConfig, GanttScaleKey } from 'types/gantt';
 
 export const NODE_HEIGHT = 2.375 * 16;
-export const TIMELINE_SHIFT_BUFFER = 1;
+export const TIMELINE_SHIFT_BUFFER = 3;
 
 export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
-  hour: {
-    labelUnit: 'hour',
-    tickUnit: 'minute',
-    unitPerTick: 15,
-    dragStepUnit: 'minute',
-    dragStepAmount: 15,
-    basePxPerDragStep: 32, // 32 px per drag for 15 minutes
-    formatTickLabel: (d) => d.format('HH:mm'),
-    formatHeaderLabel: (d) => d.format('MMM D'),
-  },
   day: {
     labelUnit: 'day',
     tickUnit: 'hour',
     unitPerTick: 1,
     dragStepUnit: 'minute',
     dragStepAmount: 15,
-    basePxPerDragStep: 32, // 32 px per drag for 15 minutes
-    formatTickLabel: (d) => d.format('HH:mm'),
-    formatHeaderLabel: (d) => d.format('MMM D'),
+    basePxPerDragStep: 16,
+    formatTickLabel: (d) => d.format('h A'),  // → 9:12 AM, 12:00 PM, 3:45 PM      // 09:00, 10:00...
+    formatHeaderLabel: (d) => d.format('MMM D'),     // Jun 1
   },
   week: {
     labelUnit: 'week',
@@ -30,9 +20,9 @@ export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
     unitPerTick: 1,
     dragStepUnit: 'hour',
     dragStepAmount: 6,
-    basePxPerDragStep: 64, // 64 px per drag for 1 day
-    formatTickLabel: (d) => d.format('HH:mm'),
-    formatHeaderLabel: (d) => `Week ${d.isoWeek()}`,
+    basePxPerDragStep: 32,
+    formatTickLabel: (d) => d.format('D'),           // 1, 2, 3...
+    formatHeaderLabel: (d) => d.format('MMM'),       // Jun
   },
   month: {
     labelUnit: 'month',
@@ -40,19 +30,18 @@ export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
     unitPerTick: 1,
     dragStepUnit: 'day',
     dragStepAmount: 1,
-    basePxPerDragStep: 64, // 16 px per drag for 1 day
-    formatTickLabel: (d) => d.format('D'),
-    formatHeaderLabel: (d) => d.format('MMM YYYY'),
+    basePxPerDragStep: 64,
+    formatTickLabel: (d) => d.format('D'),           // 1, 2, 3...
+    formatHeaderLabel: (d) => d.format('MMM YYYY'),  // Jun 2024
   },
-
   year: {
     labelUnit: 'year',
     tickUnit: 'day',
     unitPerTick: 7,
     dragStepUnit: 'day',
     dragStepAmount: 1,
-    basePxPerDragStep: 8, // 8 px per drag for 1 day
-    formatTickLabel: (d) => d.format('MMM'),
-    formatHeaderLabel: (d) => d.format('YYYY'),
+    basePxPerDragStep: 16,
+    formatTickLabel: (d) => d.format('D'),         // Jan, Feb...
+    formatHeaderLabel: (d) => d.format('YYYY'),      // 2024
   },
 };
