@@ -1,6 +1,6 @@
 {
   "name": "@jaeungkim/gantt-chart",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "private": false,
   "type": "module",
   "main": "dist/index.cjs.js",
