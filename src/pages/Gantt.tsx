@@ -1,7 +1,8 @@
 import GanttChartHeader from 'components/GanttChartHeader';
-import { NODE_HEIGHT } from 'constants/gantt';
+import { GANTT_SCALE_CONFIG, NODE_HEIGHT } from 'constants/gantt';
 import { useEffect, useRef, useState } from 'react';
 import { useGanttStore } from 'stores/store';
+import { GanttScaleKey } from 'types/gantt';
 import { Task } from 'types/task';
 import { setupTimelineStructure } from 'utils/timeline';
 import { tasks as sourceTasks } from '../../db.json';
@@ -77,6 +78,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
         height: `${ganttHeightState}px`,
         width: '100%', // let parent control width
         backgroundColor: '#FFF',
+        fontFamily: 'Noto Sans, sans-serif',
       }}
     >
       <div
@@ -98,19 +100,23 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
             flexDirection: 'column',
           }}
         >
-          {/* <div
+          <div
             style={{
+              position: 'fixed',
+              top: '10px',
+              right: '16px',
+              zIndex: 50,
               display: 'flex',
               justifyContent: 'flex-end',
               alignItems: 'center',
-              padding: '4px 8px',
-              backgroundColor: '#FFF',
-              borderBottom: '1px solid #E6E7E9',
+              // padding: '4px 8px',
+              // backgroundColor: '#FFF',
+              // borderBottom: '1px solid #E6E7E9',
             }}
           >
             <select
               style={{
-                backgroundColor: '#FFF',
+                // backgroundColor: '#FFF',
                 padding: '4px 8px',
                 fontSize: '0.875rem',
                 borderRadius: '6px',
@@ -128,7 +134,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                 </option>
               ))}
             </select>
-          </div> */}
+          </div>
           {/* Shared scroll container */}
           <div
             ref={scrollRef}
@@ -153,6 +159,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                 bottomRowCells={bottomRowCells}
                 selectedScale={selectedScale}
                 scrollRef={scrollRef as React.RefObject<HTMLDivElement>}
+                // setSelectedScale={setSelectedScale}
               />
 
               {/* Bars */}

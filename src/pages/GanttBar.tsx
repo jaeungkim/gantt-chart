@@ -5,6 +5,7 @@ import {
   useGanttBarLeftHandleDrag,
   useGanttBarRightHandleDrag,
 } from 'hooks/useGanttBarDrag';
+import { useState } from 'react';
 import { useGanttStore } from 'stores/store';
 import { RenderedDependency, Task, TaskTransformed } from 'types/task';
 import { getSmartGanttPath } from 'utils/arrowPath';
@@ -16,6 +17,9 @@ interface GanttBarProps {
 }
 
 function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
+  const [leftHovered, setLeftHovered] = useState(false);
+  const [rightHovered, setRightHovered] = useState(false);
+
   const { onDragStart: onBarDragStart, tempLeft: tempLeftForBar } =
     useGanttBarDrag(currentTask, currentTask.barLeft, onTasksChange);
 
@@ -68,26 +72,30 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
     <button
       type="button"
       onMouseDown={onLeftHandleDragStart}
-      // className="absolute top-0 flex h-full cursor-w-resize items-center justify-center opacity-0 hover:opacity-100"
+      onMouseEnter={() => setLeftHovered(true)}
+      onMouseLeave={() => setLeftHovered(false)}
       style={{
         position: 'absolute',
         top: 0,
-        display: 'flex',
-        cursor: 'w-resize',
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: 100,
         left: '-1.15rem',
         width: '2rem',
         height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'w-resize',
+        background: 'transparent',
+        border: 'none',
+        padding: 0,
       }}
     >
       <HandleIcon
-        // className="size-6"
         style={{
           height: '1.5rem',
           width: '1.5rem',
           fill: '#919294',
+          opacity: leftHovered ? 1 : 0,
+          // transition: 'opacity 50ms ease-in-out',
         }}
       />
     </button>
@@ -97,24 +105,30 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
     <button
       type="button"
       onMouseDown={onRightHandleDragStart}
-      // className="absolute top-0 flex h-full cursor-w-resize items-center justify-center opacity-0 hover:opacity-100"
+      onMouseEnter={() => setRightHovered(true)}
+      onMouseLeave={() => setRightHovered(false)}
       style={{
         position: 'absolute',
         top: 0,
-        display: 'flex',
-        cursor: 'w-resize',
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: 100,
         right: '-1.15rem',
         width: '2rem',
         height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'w-resize',
+        background: 'transparent',
+        border: 'none',
+        padding: 0,
       }}
     >
       <HandleIcon
-        className="size-6"
         style={{
+          height: '1.5rem',
+          width: '1.5rem',
           fill: '#919294',
+          opacity: rightHovered ? 1 : 0,
+          // transition: 'opacity 150ms ease-in-out',
         }}
       />
     </button>

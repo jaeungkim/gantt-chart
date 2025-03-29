@@ -12,6 +12,7 @@ interface GanttChartHeaderProps {
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
   scrollRef: React.RefObject<HTMLDivElement>;
+  // setSelectedScale: (scale: GanttScaleKey) => void;
 }
 
 const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
@@ -116,7 +117,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: '#F0F1F2',
-              borderBottom: '1px solid #D6D6D8',
+              // borderBottom: '1px solid #D6D6D8',
               fontSize: '0.875rem',
               fontWeight: 'bold',
             }}
@@ -141,7 +142,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                   fontWeight: 'bold',
                   textAlign: 'left',
                   width: `${group.widthPx}px`,
-                  borderBottom: '1px solid #D6D6D8',
+                  // borderBottom: '1px solid #D6D6D8',
                   backgroundColor: '#F0F1F2',
                 }}
               >
@@ -163,6 +164,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
         <div
           // className="flex"
           style={{
+            borderTop: '1px solid #D6D6D8',
             display: 'flex',
           }}
         >
