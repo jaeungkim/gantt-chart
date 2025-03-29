@@ -67,12 +67,20 @@ function Gantt({ tasks, onTasksChange }: GanttProps) {
   }, [bottomRowCells, taskList]);
 
   return (
-    <div className="bg-base-50 h-full w-full overflow-hidden">
+    <div
+      className="h-full w-full overflow-hidden"
+      style={{
+        backgroundColor: '#FFF',
+      }}
+    >
       <section className="relative flex h-full w-full flex-col">
         {/* Dropdown */}
         <div className="fixed top-0.75 right-4 z-40">
           <select
-            className="bg-base-50 rounded-md px-2 py-0.5 text-sm font-medium"
+            style={{
+              backgroundColor: '#FFF',
+            }}
+            className="rounded-md px-2 py-0.5 text-sm font-medium"
             value={selectedScale}
             onChange={(e) => {
               const newScale = e.target.value;
@@ -104,8 +112,12 @@ function Gantt({ tasks, onTasksChange }: GanttProps) {
                 {transformedTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="border-base-300 bg-base-100 flex w-full items-center border-b border-solid"
-                    style={{ height: `${NODE_HEIGHT}px` }}
+                    className="flex w-full items-center border-b border-solid"
+                    style={{
+                      height: `${NODE_HEIGHT}px`,
+                      backgroundColor: '#FFF',
+                      borderColor: '#E6E7E9',
+                    }}
                   >
                     <GanttBar
                       allTasks={transformedTasks}

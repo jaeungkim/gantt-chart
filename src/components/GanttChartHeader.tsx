@@ -75,12 +75,23 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
   const stickyLabel = mergedGroupsWithLeft[stickyIndex]?.label ?? '';
 
   return (
-    <div className="bg-base-200 sticky top-0 z-30">
+    <div
+      className="sticky top-0 z-30"
+      style={{
+        backgroundColor: '#F0F1F2',
+      }}
+    >
       <div className="flex min-w-max flex-col">
         {/* Top Header Row */}
         <div className="relative flex h-8">
           {/* Sticky floating label */}
-          <div className="bg-base-200 border-base-400 sticky left-0 z-40 flex w-24 shrink-0 items-center justify-center border-b border-solid text-sm font-bold">
+          <div
+            className="sticky left-0 z-40 flex w-24 shrink-0 items-center justify-center border-b border-solid text-sm font-bold"
+            style={{
+              backgroundColor: '#F0F1F2',
+              borderColor: '#D6D6D8',
+            }}
+          >
             {stickyLabel}
           </div>
 
@@ -89,8 +100,12 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
             {mergedGroupsWithLeft.map((group, idx) => (
               <div
                 key={idx}
-                className="border-base-400 bg-base-200 border-b border-solid py-2 pr-4 text-left text-sm font-bold"
-                style={{ width: `${group.widthPx}px` }}
+                className="border-b border-solid py-2 pr-4 text-left text-sm font-bold"
+                style={{
+                  width: `${group.widthPx}px`,
+                  borderColor: '#D6D6D8',
+                  backgroundColor: '#F0F1F2',
+                }}
               >
                 <p className="px-4">{idx === 0 ? '' : group.label}</p>
               </div>

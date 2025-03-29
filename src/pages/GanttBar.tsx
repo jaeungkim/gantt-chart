@@ -75,7 +75,12 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
         height: '100%',
       }}
     >
-      <HandleIcon className="fill-base-500 size-6" />
+      <HandleIcon
+        className="size-6"
+        style={{
+          fill: '#919294',
+        }}
+      />
     </button>
   );
 
@@ -90,7 +95,12 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
         height: '100%',
       }}
     >
-      <HandleIcon className="fill-base-500 size-6" />
+      <HandleIcon
+        className="size-6"
+        style={{
+          fill: '#919294',
+        }}
+      />
     </button>
   );
 
@@ -146,9 +156,10 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
       <div
         role="button"
         tabIndex={0}
-        className="bg-base-400 relative flex items-center"
+        className="relative flex items-center"
         onMouseDown={onBarDragStart}
         style={{
+          backgroundColor: '#D6D6D8',
           marginLeft: `${barLeft}px`,
           width: `${barWidth}px`,
           height: `1rem`,
