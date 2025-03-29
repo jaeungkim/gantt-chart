@@ -1,8 +1,12 @@
 {
   "name": "react-gantt-chart",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
+  "description": "Lightweight React Gantt Chart component",
+  "keywords": ["gantt", "chart", "react", "timeline"],
+  "author": "jaeungkim",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
