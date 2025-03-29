@@ -7,7 +7,7 @@ interface LayoutProps {
 function Layout({ children }: LayoutProps) {
   return (
     <>
-      <main className="h-dvh">{children}</main>
+      <main className="">{children}</main>
     </>
   );
 }

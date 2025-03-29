@@ -38,7 +38,7 @@ export const useGanttStore = create<GanttState>((set, get) => ({
   transformedTasks: [],
   bottomRowCells: [],
   topHeaderGroups: [],
-  selectedScale: 'day',
+  selectedScale: 'month',
   minDate: dayjs(),
   maxDate: dayjs(),
   draggingTaskMeta: null,
