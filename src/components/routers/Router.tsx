@@ -21,10 +21,10 @@ const router = createBrowserRouter(
           path={`${ROUTE_PATH.gantt}/*`}
           element={
             <Gantt
-              tasks={[]} // or fetch/init demo tasks
-              onTasksChange={(updated) => {
-                console.log('[🛰️ onTasksChange from Router]', updated);
-              }}
+              tasks={[]}
+              // onTasksChange={(updated) => {
+              //   console.log('[🛰️ onTasksChange from Router]', updated);
+              // }}
             />
           }
         />

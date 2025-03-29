@@ -78,9 +78,9 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
     <div className="bg-base-200 sticky top-0 z-30">
       <div className="flex min-w-max flex-col">
         {/* Top Header Row */}
-        <div className="relative flex">
+        <div className="relative flex h-8">
           {/* Sticky floating label */}
-          <div className="bg-base-200 border-base-400 sticky left-0 h-10 z-40 flex w-24 shrink-0 items-center justify-center border-b border-solid text-sm font-bold">
+          <div className="bg-base-200 border-base-400 sticky left-0 z-40 flex w-24 shrink-0 items-center justify-center border-b border-solid text-sm font-bold">
             {stickyLabel}
           </div>
 
