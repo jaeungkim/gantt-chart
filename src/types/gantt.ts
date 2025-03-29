@@ -1,6 +1,6 @@
 import { Dayjs } from 'dayjs';
 
-export type GanttScaleKey = 'hour' | 'day' | 'week' | 'month' | 'year';
+export type GanttScaleKey = 'day' | 'week' | 'month' | 'year';
 export interface GanttScaleConfig {
   labelUnit: 'hour' | 'day' | 'week' | 'month' | 'year';
   tickUnit: 'minute' | 'hour' | 'day';

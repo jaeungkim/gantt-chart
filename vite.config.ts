@@ -5,5 +5,22 @@ import svgr from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), tsconfigPaths(), svgr()],
+  plugins: [
+    react({
+      include: ['**/*.tsx', '**/*.ts', '**/*.jsx', '**/*.js'],
+    }),
+    ,
+    tailwindcss(),
+    tsconfigPaths(),
+    svgr(),
+  ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
 });
