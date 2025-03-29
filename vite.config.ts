@@ -5,21 +5,21 @@ import svgr from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
-  plugins: [
-    react({
-      include: ['**/*.tsx', '**/*.ts', '**/*.jsx', '**/*.js'],
-    }),
-    ,
-    tailwindcss(),
-    tsconfigPaths(),
-    svgr(),
-  ],
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+  plugins: [react(), , tailwindcss(), tsconfigPaths(), svgr()],
+  build: {
+    lib: {
+      entry: 'src/index.tsx',
+      name: 'ReactGanttChart',
+      fileName: (format) => `index.${format}.js`,
+      formats: ['es', 'cjs'],
+    },
+    rollupOptions: {
+      external: ['react', 'react-dom'],
+      output: {
+        globals: {
+          react: 'React',
+          'react-dom': 'ReactDOM',
+        },
       },
     },
   },

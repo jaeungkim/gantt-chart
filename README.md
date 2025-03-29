@@ -1,6 +1,6 @@
-# React Gantt Chart
+# @jaeungkim/gantt-chart
 
-<!-- ![React Gantt Chart](https://raw.githubusercontent.com/jaeungkim/react-gantt-chart/main/public/readmeImg.png) -->
+<!-- ![React Gantt Chart](https://raw.githubusercontent.com/jaeungkim/@jaeungkim/gantt-chart/main/public/readmeImg.png) -->
 
 **React Gantt Chart** is a lightweight, high-performance Gantt chart component for React applications, for fast rendering and state management. It is designed to be highly customizable and easy to integrate into modern React projects.
 
@@ -29,13 +29,13 @@ Currently, this project is built specifically for React due to my development ba
 Install via npm:
 
 ```sh
-npm install react-gantt-chart
+npm install @jaeungkim/gantt-chart
 ```
 
 Or with yarn:
 
 ```sh
-yarn add react-gantt-chart
+yarn add @jaeungkim/gantt-chart
 ```
 
 ---
@@ -46,7 +46,7 @@ Basic example to integrate **React Gantt Chart** into your project:
 
 ```tsx
 import React from "react";
-import GanttChart from "react-gantt-chart";
+import GanttChart from "@jaeungkim/gantt-chart";
 
 const tasks = [
   { id: 1, name: "Task 1", start: "2024-03-01", end: "2024-03-05", progress: 50 },
@@ -129,7 +129,7 @@ We welcome contributions! To get started:
 
 1. **Fork the repo** and clone it locally:
    ```sh
-   git clone https://github.com/your-username/react-gantt-chart.git
+   git clone https://github.com/your-username/@jaeungkim/gantt-chart.git
    ```
 2. **Install dependencies:**
    ```sh
@@ -161,7 +161,7 @@ This project is licensed under the **MIT License** – feel free to use and modi
 ---
 
 ## 🌟 Support & Community
-- **GitHub Issues** – Report bugs or request features [here](https://github.com/your-username/react-gantt-chart/issues).
+- **GitHub Issues** – Report bugs or request features [here](https://github.com/your-username/@jaeungkim/gantt-chart/issues).
 - **Discussions** – Join the community and share ideas.
 
 If you find this project useful, please ⭐ star the repo and contribute!

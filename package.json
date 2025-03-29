@@ -1,24 +1,43 @@
 {
-  "name": "react-gantt-chart",
-  "private": true,
+  "name": "@jaeungkim/gantt-chart",
   "version": "0.1.0",
+  "private": false,
   "type": "module",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.es.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.cjs.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
   "description": "Lightweight React Gantt Chart component",
-  "keywords": ["gantt", "chart", "react", "timeline"],
+  "keywords": [
+    "gantt",
+    "chart",
+    "react",
+    "timeline"
+  ],
   "author": "jaeungkim",
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
-    "lint:prettier": "npx prettier --check \"src/**/*.{js,jsx,ts,tsx,css,scss}\"",
+    "lint:prettier": "prettier --check \"src/**/*.{js,jsx,ts,tsx,css,scss}\"",
     "lint:scripts": "npm run lint && npm run lint:prettier",
-    "format": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\" && npx prettier --write \"src/**/*.{js,jsx,ts,tsx,css,scss}\""
+    "format": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\" && prettier --write \"src/**/*.{js,jsx,ts,tsx,css,scss}\""
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
   },
   "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "dayjs": "^1.11.13",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
@@ -29,7 +48,6 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
-    "dayjs": "^1.11.13",
     "eslint": "^9.21.0",
     "eslint-config-prettier": "^10.0.2",
     "eslint-import-resolver-typescript": "^3.8.3",
@@ -45,11 +63,12 @@
     "react-router-dom": "^7.2.0",
     "tailwindcss": "^4.0.9",
     "ts-jest": "^29.2.6",
+    "tsup": "^8.4.0",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
     "vite": "^6.2.3",
+    "vite-plugin-dts": "^4.5.3",
     "vite-plugin-svgr": "^4.3.0",
-    "vite-tsconfig-paths": "^5.1.4",
-    "zustand": "^5.0.3"
+    "vite-tsconfig-paths": "^5.1.4"
   }
 }
