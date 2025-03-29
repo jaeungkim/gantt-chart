@@ -5,7 +5,7 @@ import { useGanttStore } from 'stores/store';
 import { GanttScaleKey } from 'types/gantt';
 import { Task } from 'types/task';
 import { setupTimelineStructure } from 'utils/timeline';
-import { tasks as sourceTasks } from '../../db.json';
+import sourceTasks from '../../db.ts';
 import GanttBar from './GanttBar';
 
 interface GanttProps {
@@ -29,8 +29,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
     setRawTasks,
     setBottomRowCells,
     setTopHeaderGroups,
-    setMinDate,
-    setMaxDate,
   } = useGanttStore();
 
   useEffect(() => {
@@ -54,8 +52,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
     setupTimelineStructure(
       taskRecord,
       selectedScale,
-      setMinDate,
-      setMaxDate,
       setBottomRowCells,
       setTopHeaderGroups,
     );
@@ -182,12 +178,13 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                     <div
                       key={task.id}
                       // className="flex w-full items-center border-b border-solid"
+                      // have to be NODE_HEIHGT px with border-bottom
                       style={{
                         display: 'flex',
                         width: '100%',
                         alignItems: 'center',
                         borderBottom: '1px solid #E6E7E9',
-                        height: `${NODE_HEIGHT}px`,
+                        height: `${NODE_HEIGHT - 1}px`,
                         backgroundColor: '#FFF',
                       }}
                     >

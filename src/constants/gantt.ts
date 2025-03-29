@@ -1,6 +1,6 @@
 import { GanttScaleConfig, GanttScaleKey } from 'types/gantt';
 
-export const NODE_HEIGHT = 2.375 * 16;
+export const NODE_HEIGHT = 38;
 export const TIMELINE_SHIFT_BUFFER = 3;
 
 export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {

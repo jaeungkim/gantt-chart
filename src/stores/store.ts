@@ -4,7 +4,6 @@ import {
   GanttTopHeaderGroup,
 } from 'types/gantt';
 import { Task, TaskTransformed } from 'types/task';
-import dayjs from 'utils/dayjs';
 import { transformTasks } from 'utils/transformData';
 import { create } from 'zustand';
 
@@ -17,19 +16,26 @@ interface GanttState {
   topHeaderGroups: GanttTopHeaderGroup[];
 
   selectedScale: GanttScaleKey;
-  minDate: dayjs.Dayjs;
-  maxDate: dayjs.Dayjs;
-
   draggingTaskMeta: { taskId: string; type: 'bar' | 'left' | 'right' } | null;
+  draggingBarDateRange: {
+    startDate: string;
+    endDate: string;
+    barLeft: number;
+    barWidth: number;
+  };
 
   // Actions
   setSelectedScale: (scale: GanttScaleKey) => void;
   setRawTasks: (rawTasks: Task[]) => void;
   setBottomRowCells: (cells: GanttBottomRowCell[]) => void;
   setTopHeaderGroups: (groups: GanttTopHeaderGroup[]) => void;
-  setMinDate: (date: dayjs.Dayjs) => void;
-  setMaxDate: (date: dayjs.Dayjs) => void;
   setDraggingTaskMeta: (meta: GanttState['draggingTaskMeta']) => void;
+  setDraggingBarDateRange: (range: {
+    startDate: string;
+    endDate: string;
+    barLeft: number;
+    barWidth: number;
+  }) => void;
   clearDraggingTaskMeta: () => void;
 }
 
@@ -39,8 +45,7 @@ export const useGanttStore = create<GanttState>((set, get) => ({
   bottomRowCells: [],
   topHeaderGroups: [],
   selectedScale: 'month',
-  minDate: dayjs(),
-  maxDate: dayjs(),
+  draggingBarDateRange: { startDate: '', endDate: '', barLeft: 0, barWidth: 0 },
   draggingTaskMeta: null,
 
   setSelectedScale: (scale) => {
@@ -49,6 +54,9 @@ export const useGanttStore = create<GanttState>((set, get) => ({
     set({ selectedScale: scale, transformedTasks: transformed });
   },
 
+  setDraggingBarDateRange: (range) => {
+    set({ draggingBarDateRange: range });
+  },
   setRawTasks: (rawTasks) => {
     const { bottomRowCells, selectedScale } = get();
     const transformed = transformTasks(rawTasks, bottomRowCells, selectedScale);
@@ -62,9 +70,6 @@ export const useGanttStore = create<GanttState>((set, get) => ({
   },
 
   setTopHeaderGroups: (groups) => set({ topHeaderGroups: groups }),
-
-  setMinDate: (date) => set({ minDate: date }),
-  setMaxDate: (date) => set({ maxDate: date }),
 
   setDraggingTaskMeta: (meta) => set({ draggingTaskMeta: meta }),
   clearDraggingTaskMeta: () => set({ draggingTaskMeta: null }),

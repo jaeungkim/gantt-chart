@@ -1,6 +1,6 @@
 # @jaeungkim/gantt-chart
 
-![React Gantt Chart](https://raw.githubusercontent.com/jaeungkim/@jaeungkim/gantt-chart/main/public/readmeImg.png)
+<!-- ![React Gantt Chart](https://raw.githubusercontent.com/jaeungkim/gantt-chart/main/public/readmeImg.png) -->
 
 Lightweight, high-performance Gantt chart component for React applications, for fast rendering and state management. It is designed to be highly customizable and easy to integrate into modern React projects.
 
@@ -34,6 +34,8 @@ yarn add @jaeungkim/gantt-chart
 ```ts
 import { Gantt } from '@jaeungkim/gantt-chart';
 import type { Task } from '@jaeungkim/gantt-chart';
+
+export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 
 const ReactGanttChart: Task[] = [
   {
@@ -87,9 +89,11 @@ interface Task {
   dependencies?: TaskDependency[];
 }
 
+export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
+
 interface TaskDependency {
   targetId: string;
-  type: 'FS' | 'SS' | 'FF' | 'SF';
+  type: DependencyType;
 }
 ```
 

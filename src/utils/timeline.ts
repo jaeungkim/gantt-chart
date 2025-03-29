@@ -81,15 +81,22 @@ export function createBottomRowCells(
   paddedMaxDate: Dayjs,
   selectedScale: GanttScaleKey,
 ): GanttBottomRowCell[] {
-  const { tickUnit, unitPerTick, basePxPerDragStep, dragStepUnit, dragStepAmount } =
-    GANTT_SCALE_CONFIG[selectedScale];
+  const {
+    tickUnit,
+    unitPerTick,
+    basePxPerDragStep,
+    dragStepUnit,
+    dragStepAmount,
+  } = GANTT_SCALE_CONFIG[selectedScale];
 
   const cells: GanttBottomRowCell[] = [];
   let current = paddedMinDate.startOf(tickUnit);
 
   while (current.isBefore(paddedMaxDate)) {
     // How many drag steps fit in this tick?
-    const tickDurationInDragSteps = dayjs(current).add(unitPerTick, tickUnit).diff(current, dragStepUnit) / dragStepAmount;
+    const tickDurationInDragSteps =
+      dayjs(current).add(unitPerTick, tickUnit).diff(current, dragStepUnit) /
+      dragStepAmount;
 
     cells.push({
       startDate: current,
@@ -148,19 +155,13 @@ export function createTopHeaderGroups(
   return groups;
 }
 
-
-
 export function setupTimelineStructure(
   tasks: Record<string, { startDate: string; endDate: string }>,
   selectedScale: GanttScaleKey,
-  updateMinDate: (date: Dayjs) => void,
-  updateMaxDate: (date: Dayjs) => void,
   updateBottomCells: (cells: GanttBottomRowCell[]) => void,
   updateHeaderGroups: (groups: GanttTopHeaderGroup[]) => void,
 ) {
   const { minDate, maxDate } = findDateRangeFromTasks(tasks);
-  updateMinDate(minDate);
-  updateMaxDate(maxDate);
 
   const { paddedMinDate, paddedMaxDate } = padDateRange(
     minDate,

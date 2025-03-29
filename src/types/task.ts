@@ -13,13 +13,7 @@ export interface TaskDependency {
   type: DependencyType;
 }
 
-export enum DependencyType {
-  FinishToStart = 'FS',
-  StartToStart = 'SS',
-  FinishToFinish = 'FF',
-  StartToFinish = 'SF',
-}
-
+export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 export interface TaskTransformed extends Task {
   barLeft: number;
   barWidth: number;

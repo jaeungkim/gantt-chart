@@ -1,10 +1,12 @@
 import { GANTT_SCALE_CONFIG } from 'constants/gantt';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useGanttStore } from 'stores/store';
 import {
   GanttBottomRowCell,
   GanttScaleKey,
   GanttTopHeaderGroup,
 } from 'types/gantt';
+import dayjs from 'utils/dayjs';
 import { createTopHeaderGroups } from 'utils/timeline';
 
 interface GanttChartHeaderProps {
@@ -20,6 +22,8 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
   selectedScale,
   scrollRef,
 }) => {
+  const { draggingBarDateRange } = useGanttStore();
+
   const config = GANTT_SCALE_CONFIG[selectedScale];
   const [stickyIndex, setStickyIndex] = useState(0);
 
@@ -75,6 +79,20 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
 
   const stickyLabel = mergedGroupsWithLeft[stickyIndex]?.label ?? '';
 
+  console.log('draggingBarDateRange', draggingBarDateRange);
+
+  // find the index of the cell that is in the range of draggingBarDateRange
+  const draggingBarDateRangeIndex = useMemo(() => {
+    if (!draggingBarDateRange) return -1;
+    const { startDate, endDate } = draggingBarDateRange;
+    return bottomRowCells.findIndex(
+      (cell) =>
+        cell.startDate.isSame(startDate, 'day') ||
+        cell.startDate.isSame(endDate, 'day'),
+    );
+  }, [draggingBarDateRange, bottomRowCells]);
+
+  console.log('draggingBarDateRangeIndex', draggingBarDateRangeIndex);
   return (
     <div
       // className="sticky top-0 z-30"
@@ -124,7 +142,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
           >
             {stickyLabel}
           </div>
-
           {/* Scrollable header cells */}
           <div
             // className="flex"
@@ -132,31 +149,33 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
               display: 'flex',
             }}
           >
-            {mergedGroupsWithLeft.map((group, idx) => (
-              <div
-                key={idx}
-                // className="border-b border-solid py-2 pr-4 text-left text-sm font-bold"
-                style={{
-                  padding: '8px 16px',
-                  fontSize: '0.875rem',
-                  fontWeight: 'bold',
-                  textAlign: 'left',
-                  width: `${group.widthPx}px`,
-                  // borderBottom: '1px solid #D6D6D8',
-                  backgroundColor: '#F0F1F2',
-                }}
-              >
-                <p
-                  // className="px-4"
+            {mergedGroupsWithLeft.map((group, idx) => {
+              return (
+                <div
+                  key={idx}
+                  // className="border-b border-solid py-2 pr-4 text-left text-sm font-bold"
                   style={{
-                    margin: 0,
-                    padding: '0 16px',
+                    padding: '8px 16px',
+                    fontSize: '0.875rem',
+                    fontWeight: 'bold',
+                    textAlign: 'left',
+                    width: `${group.widthPx}px`,
+                    // borderBottom: '1px solid #D6D6D8',
+                    backgroundColor: '#F0F1F2',
                   }}
                 >
-                  {idx === 0 ? '' : group.label}
-                </p>
-              </div>
-            ))}
+                  <p
+                    // className="px-4"
+                    style={{
+                      margin: 0,
+                      padding: '0 16px',
+                    }}
+                  >
+                    {idx === 0 ? '' : group.label}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -168,22 +187,57 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
             display: 'flex',
           }}
         >
-          {bottomRowCells.map((cell, idx) => {
-            const tickLabel = config.formatTickLabel?.(cell.startDate) || '';
-            return (
+          <div>
+            {draggingBarDateRange && (
               <div
-                key={idx}
-                // className="relative p-1 text-center text-xs"
                 style={{
-                  position: 'relative',
-                  padding: '4px',
-                  textAlign: 'center',
-                  fontSize: '0.75rem',
-                  width: `${cell.widthPx}px`,
+                  position: 'absolute',
+                  // left: `${cell.widthPx * draggingBarDateRangeIndex}px`,
+                  left: `${draggingBarDateRange.barLeft}px`,
+                  top: '32px',
+                  zIndex: 60,
+                  backgroundColor: '#F0F',
+                  width: `${draggingBarDateRange.barWidth}px`,
+                  height: '22px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                {tickLabel}
+                <div
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    justifyContent: 'between',
+                  }}
+                >
+                  <p>{dayjs(draggingBarDateRange.startDate).format('DD')}</p>
+                  <p>{dayjs(draggingBarDateRange.endDate).format('DD')}</p>
+                </div>
               </div>
+            )}
+          </div>
+          {bottomRowCells.map((cell, idx) => {
+            // console.log('cell', cell);
+            const tickLabel = config.formatTickLabel?.(cell.startDate) || '';
+            return (
+              <>
+                {/* show the date of draggingbardaterange absolutely when moving the bar with from index to barwidth */}
+
+                <div
+                  key={idx}
+                  // className="relative p-1 text-center text-xs"
+                  style={{
+                    position: 'relative',
+                    padding: '4px',
+                    textAlign: 'center',
+                    fontSize: '0.75rem',
+                    width: `${cell.widthPx}px`,
+                  }}
+                >
+                  {tickLabel}
+                </div>
+              </>
             );
           })}
         </div>

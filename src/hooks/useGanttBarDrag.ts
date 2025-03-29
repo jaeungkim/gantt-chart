@@ -4,6 +4,7 @@ import { useGanttStore } from 'stores/store';
 import { GanttScaleKey } from 'types/gantt';
 import { Task, TaskTransformed } from 'types/task';
 import dayjs from 'utils/dayjs';
+import { setupTimelineStructure } from 'utils/timeline';
 
 function getStepsFromOffset(offsetX: number, scaleKey: GanttScaleKey): number {
   const { basePxPerDragStep } = GANTT_SCALE_CONFIG[scaleKey];
@@ -22,6 +23,9 @@ export function useGanttBarDrag(
     setRawTasks,
     setDraggingTaskMeta,
     clearDraggingTaskMeta,
+    setBottomRowCells,
+    setTopHeaderGroups,
+    setDraggingBarDateRange,
   } = useGanttStore();
 
   const [tempLeft, setTempLeft] = useState(barLeft);
@@ -51,7 +55,27 @@ export function useGanttBarDrag(
     const steppedOffsetPx =
       stepDelta * GANTT_SCALE_CONFIG[selectedScale].basePxPerDragStep;
 
+    // calculate new start date (left) when we drag the bar
+    const newStartDate = dayjs(initialStartDateRef.current).add(
+      stepDelta * GANTT_SCALE_CONFIG[selectedScale].dragStepAmount,
+      GANTT_SCALE_CONFIG[selectedScale].dragStepUnit,
+    );
+
+    // calculate the new end date (right) when we drag the bar
+    const newEndDate = dayjs(initialEndDateRef.current).add(
+      stepDelta * GANTT_SCALE_CONFIG[selectedScale].dragStepAmount,
+      GANTT_SCALE_CONFIG[selectedScale].dragStepUnit,
+    );
+
+    console.log('newEndDate', newEndDate);
+    
     const newLeft = originalLeftRef.current + steppedOffsetPx;
+    setDraggingBarDateRange({
+      startDate: newStartDate.toISOString(),
+      endDate: newEndDate.toISOString(),
+      barLeft: task.barLeft + steppedOffsetPx,
+      barWidth: task.barWidth,
+    });
     setTempLeft(newLeft);
     tempLeftRef.current = newLeft;
   };
@@ -78,6 +102,18 @@ export function useGanttBarDrag(
         : t,
     );
 
+    // update timeline structure
+    setupTimelineStructure(
+      Object.fromEntries(
+        updatedTasks.map((t) => [
+          t.id,
+          { startDate: t.startDate, endDate: t.endDate },
+        ]),
+      ),
+      selectedScale,
+      setBottomRowCells,
+      setTopHeaderGroups,
+    );
     setRawTasks(updatedTasks);
     onTasksChange?.(updatedTasks);
 
@@ -101,6 +137,8 @@ export function useGanttBarLeftHandleDrag(
     setRawTasks,
     setDraggingTaskMeta,
     clearDraggingTaskMeta,
+    setBottomRowCells,
+    setTopHeaderGroups,
   } = useGanttStore();
 
   const [tempLeft, setTempLeft] = useState(barLeft);
@@ -169,6 +207,17 @@ export function useGanttBarLeftHandleDrag(
     });
 
     setRawTasks(updatedTasks);
+    setupTimelineStructure(
+      Object.fromEntries(
+        updatedTasks.map((t) => [
+          t.id,
+          { startDate: t.startDate, endDate: t.endDate },
+        ]),
+      ),
+      selectedScale,
+      setBottomRowCells,
+      setTopHeaderGroups,
+    );
     onTasksChange?.(updatedTasks);
     clearDraggingTaskMeta();
     startXRef.current = null;
@@ -189,6 +238,8 @@ export function useGanttBarRightHandleDrag(
     setRawTasks,
     setDraggingTaskMeta,
     clearDraggingTaskMeta,
+    setBottomRowCells,
+    setTopHeaderGroups,
   } = useGanttStore();
 
   const [tempWidth, setTempWidth] = useState(barWidth);
@@ -223,6 +274,7 @@ export function useGanttBarRightHandleDrag(
     const newWidth = originalWidthRef.current + steppedOffsetPx;
     if (newWidth < 1) return;
 
+    console.log('newWidth', newWidth);
     setTempWidth(newWidth);
     tempWidthRef.current = newWidth;
   };
@@ -248,6 +300,19 @@ export function useGanttBarRightHandleDrag(
 
     setRawTasks(updatedTasks);
     onTasksChange?.(updatedTasks);
+
+    // update timeline structure
+    setupTimelineStructure(
+      Object.fromEntries(
+        updatedTasks.map((t) => [
+          t.id,
+          { startDate: t.startDate, endDate: t.endDate },
+        ]),
+      ),
+      selectedScale,
+      setBottomRowCells,
+      setTopHeaderGroups,
+    );
     clearDraggingTaskMeta();
     startXRef.current = null;
   };

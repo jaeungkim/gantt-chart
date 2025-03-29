@@ -41,7 +41,6 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
       onTasksChange,
     );
 
-  // Drag state detection
   const { draggingTaskMeta } = useGanttStore();
   const isDraggingThis = draggingTaskMeta?.taskId === currentTask.id;
 
@@ -143,8 +142,9 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
 
       const rowHeightInPx = NODE_HEIGHT;
       const fromY =
-        (dependencyNode.order - 1) * rowHeightInPx + rowHeightInPx / 2;
-      const toY = (currentTask.order - 1) * rowHeightInPx + rowHeightInPx / 2;
+        (dependencyNode.order - 1) * rowHeightInPx + rowHeightInPx / 2 - 4;
+      const toY =
+        (currentTask.order - 1) * rowHeightInPx + rowHeightInPx / 2 + 4;
 
       let fromX: number;
       let toX: number;
