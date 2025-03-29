@@ -70,9 +70,9 @@ function Gantt({ tasks, onTasksChange }: GanttProps) {
     <div className="bg-base-50 h-full w-full overflow-hidden">
       <section className="relative flex h-full w-full flex-col">
         {/* Dropdown */}
-        <div className="fixed top-2 right-4 z-40">
+        <div className="fixed top-0.75 right-4 z-40">
           <select
-            className="bg-base-100 rounded-md px-2 py-1 text-sm font-medium"
+            className="bg-base-50 rounded-md px-2 py-0.5 text-sm font-medium"
             value={selectedScale}
             onChange={(e) => {
               const newScale = e.target.value;
