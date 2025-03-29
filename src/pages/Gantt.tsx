@@ -1,8 +1,7 @@
 import GanttChartHeader from 'components/GanttChartHeader';
-import { GANTT_SCALE_CONFIG, NODE_HEIGHT } from 'constants/gantt';
+import { NODE_HEIGHT } from 'constants/gantt';
 import { useEffect, useRef, useState } from 'react';
 import { useGanttStore } from 'stores/store';
-import { GanttScaleKey } from 'types/gantt';
 import { Task } from 'types/task';
 import { setupTimelineStructure } from 'utils/timeline';
 import { tasks as sourceTasks } from '../../db.json';
@@ -76,18 +75,30 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
         position: 'relative',
         overflow: 'auto',
         height: `${ganttHeightState}px`,
-        width: `${columnWidthState}px`,
+        width: '100%', // let parent control width
         backgroundColor: '#FFF',
       }}
     >
       <div
-        className="h-full w-full overflow-hidden"
+        // className="size-full overflow-hidden"
         style={{
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
           backgroundColor: '#FFF',
         }}
       >
-        <section className="relative flex h-full w-full flex-col">
-          <div
+        <section
+          // className="relative flex h-full w-full flex-col"
+          style={{
+            position: 'relative',
+            display: 'flex',
+            height: '100%',
+            width: '100%',
+            flexDirection: 'column',
+          }}
+        >
+          {/* <div
             style={{
               display: 'flex',
               justifyContent: 'flex-end',
@@ -117,10 +128,25 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                 </option>
               ))}
             </select>
-          </div>
+          </div> */}
           {/* Shared scroll container */}
-          <div ref={scrollRef} className="grow overflow-x-auto">
-            <div className="flex min-w-max flex-col">
+          <div
+            ref={scrollRef}
+            // className="grow overflow-x-auto"
+            style={{
+              flexGrow: 1,
+              overflowX: 'auto',
+            }}
+          >
+            <div
+              // className="flex min-w-max flex-col"
+              style={{
+                display: 'flex',
+                minWidth: 'max-content',
+                flexDirection: 'column',
+                // backgroundColor: '#FFF',
+              }}
+            >
               {/* Header */}
               <GanttChartHeader
                 topHeaderGroups={topHeaderGroups}
@@ -130,16 +156,32 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
               />
 
               {/* Bars */}
-              <div className="relative flex">
-                <div className="flex grow flex-col">
+              <div
+                // className="relative flex"
+                style={{
+                  position: 'relative',
+                  display: 'flex',
+                }}
+              >
+                <div
+                  // className="flex grow flex-col"
+                  style={{
+                    display: 'flex',
+                    flexGrow: 1,
+                    flexDirection: 'column',
+                  }}
+                >
                   {transformedTasks.map((task) => (
                     <div
                       key={task.id}
-                      className="flex w-full items-center border-b border-solid"
+                      // className="flex w-full items-center border-b border-solid"
                       style={{
+                        display: 'flex',
+                        width: '100%',
+                        alignItems: 'center',
+                        borderBottom: '1px solid #E6E7E9',
                         height: `${NODE_HEIGHT}px`,
                         backgroundColor: '#FFF',
-                        borderColor: '#E6E7E9',
                       }}
                     >
                       <GanttBar

@@ -1,6 +1,6 @@
 {
   "name": "@jaeungkim/gantt-chart",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "private": false,
   "type": "module",
   "main": "dist/index.cjs.js",
@@ -12,7 +12,11 @@
       "require": "./dist/index.cjs.js"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "description": "Lightweight React Gantt Chart component",
   "keywords": [
     "gantt",
@@ -29,7 +33,7 @@
   "homepage": "https://github.com/jaeungkim/gantt-chart#readme",
   "bugs": {
     "url": "https://github.com/jaeungkim/gantt-chart/issues"
-  },  
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -76,6 +80,7 @@
     "typescript-eslint": "^8.24.1",
     "vite": "^6.2.3",
     "vite-plugin-dts": "^4.5.3",
+    "vite-plugin-static-copy": "^2.3.0",
     "vite-plugin-svgr": "^4.3.0",
     "vite-tsconfig-paths": "^5.1.4"
   }

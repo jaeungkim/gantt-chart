@@ -68,16 +68,25 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
     <button
       type="button"
       onMouseDown={onLeftHandleDragStart}
-      className="absolute top-0 flex h-full cursor-w-resize items-center justify-center opacity-0 hover:opacity-100"
+      // className="absolute top-0 flex h-full cursor-w-resize items-center justify-center opacity-0 hover:opacity-100"
       style={{
+        position: 'absolute',
+        top: 0,
+        display: 'flex',
+        cursor: 'w-resize',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: 100,
         left: '-1.15rem',
         width: '2rem',
         height: '100%',
       }}
     >
       <HandleIcon
-        className="size-6"
+        // className="size-6"
         style={{
+          height: '1.5rem',
+          width: '1.5rem',
           fill: '#919294',
         }}
       />
@@ -88,8 +97,15 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
     <button
       type="button"
       onMouseDown={onRightHandleDragStart}
-      className="absolute top-0 flex h-full cursor-w-resize items-center justify-center opacity-0 hover:opacity-100"
+      // className="absolute top-0 flex h-full cursor-w-resize items-center justify-center opacity-0 hover:opacity-100"
       style={{
+        position: 'absolute',
+        top: 0,
+        display: 'flex',
+        cursor: 'w-resize',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: 100,
         right: '-1.15rem',
         width: '2rem',
         height: '100%',
@@ -156,9 +172,12 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
       <div
         role="button"
         tabIndex={0}
-        className="relative flex items-center"
+        // className="relative flex items-center"
         onMouseDown={onBarDragStart}
         style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
           backgroundColor: '#D6D6D8',
           marginLeft: `${barLeft}px`,
           width: `${barWidth}px`,
@@ -169,7 +188,18 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
         {renderRightHandle()}
       </div>
 
-      <svg className="pointer-events-none absolute top-0 left-0 z-10 size-full">
+      <svg
+        // className="pointer-events-none absolute top-0 left-0 z-10 size-full"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          zIndex: 10,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+        }}
+      >
         <defs>
           <marker
             id="arrowhead"
