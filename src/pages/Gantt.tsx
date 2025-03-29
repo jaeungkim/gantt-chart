@@ -76,7 +76,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
         position: 'relative',
         overflow: 'auto',
         height: `${ganttHeightState}px`,
-        width: '100%', // let parent control width
+        width: `${columnWidthState}px`,
         backgroundColor: '#FFF',
         fontFamily: 'Noto Sans, sans-serif',
       }}
@@ -102,8 +102,8 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
         >
           <div
             style={{
-              position: 'fixed',
-              top: '10px',
+              position: 'absolute',
+              top: '3px',
               right: '16px',
               zIndex: 50,
               display: 'flex',
