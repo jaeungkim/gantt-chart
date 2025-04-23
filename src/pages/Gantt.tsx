@@ -18,7 +18,7 @@ interface GanttProps {
 function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
   const [taskList, setTaskList] = useState<Task[]>(tasks || []);
   const scrollRef = useRef<HTMLDivElement>(null);
-
+  
   const {
     rawTasks,
     transformedTasks,
@@ -30,7 +30,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
     setBottomRowCells,
     setTopHeaderGroups,
   } = useGanttStore();
-
+  
   useEffect(() => {
     if (tasks.length === 0) {
       setTaskList(sourceTasks as Task[]);
@@ -38,7 +38,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
       setTaskList(tasks);
     }
   }, [tasks]);
-
+  
   useEffect(() => {
     if (!taskList.length) return;
 

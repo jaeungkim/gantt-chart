@@ -196,12 +196,14 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                   left: `${draggingBarDateRange.barLeft}px`,
                   top: '32px',
                   zIndex: 60,
-                  backgroundColor: '#F0F',
+                  backgroundColor: '#D6D6D8',
                   width: `${draggingBarDateRange.barWidth}px`,
                   height: '22px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  borderRadius: '100px',
+                  opacity: 0.7,
                 }}
               >
                 <div
@@ -211,8 +213,8 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                     justifyContent: 'between',
                   }}
                 >
-                  <p>{dayjs(draggingBarDateRange.startDate).format('DD')}</p>
-                  <p>{dayjs(draggingBarDateRange.endDate).format('DD')}</p>
+                  {/* <p>{dayjs(draggingBarDateRange.startDate).format('D')}</p>
+                  <p>{dayjs(draggingBarDateRange.endDate).format('D')}</p> */}
                 </div>
               </div>
             )}
