@@ -1,215 +1,171 @@
 import { GANTT_SCALE_CONFIG } from 'constants/gantt';
-import { useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useGanttStore } from 'stores/store';
 import { GanttScaleKey } from 'types/gantt';
 import { Task, TaskTransformed } from 'types/task';
 import dayjs from 'utils/dayjs';
 import { setupTimelineStructure } from 'utils/timeline';
 
-function getStepsFromOffset(offsetX: number, scaleKey: GanttScaleKey): number {
-  const { basePxPerDragStep } = GANTT_SCALE_CONFIG[scaleKey];
-  return Math.round(offsetX / basePxPerDragStep);
+/* helpers */
+const steps = (px: number, scale: GanttScaleKey) =>
+  Math.round(px / GANTT_SCALE_CONFIG[scale].basePxPerDragStep);
+
+type Mode = 'bar' | 'left' | 'right';
+interface Drag {
+  mode: Mode;
+  startX: number;
+  left0: number;
+  width0: number;
+  startDate0: string;
+  endDate0: string;
+  delta: number;
+  frame?: number;
 }
 
-// === FULL BAR DRAG ===
+/* main hook */
 export function useGanttBarDrag(
+  ref: React.RefObject<HTMLDivElement>,
   task: TaskTransformed,
-  barLeft: number,
-  onTasksChange?: (updatedTasks: Task[]) => void,
+  onTasksChange?: (t: Task[]) => void,
 ) {
-  const {
-    rawTasks,
-    selectedScale,
-    setRawTasks,
-    setDraggingTaskMeta,
-    clearDraggingTaskMeta,
-    setBottomRowCells,
-    setTopHeaderGroups,
-    setDraggingBarDateRange,
-  } = useGanttStore();
+  const rawTasks = useGanttStore((s) => s.rawTasks);
+  const selectedScale = useGanttStore((s) => s.selectedScale);
+  const setRawTasks = useGanttStore((s) => s.setRawTasks);
+  const setBottomRowCells = useGanttStore((s) => s.setBottomRowCells);
+  const setTopHeaderGroups = useGanttStore((s) => s.setTopHeaderGroups);
 
-  const [tempLeft, setTempLeft] = useState(barLeft);
-  const tempLeftRef = useRef(barLeft);
-  const startXRef = useRef<number | null>(null);
-  const originalLeftRef = useRef(barLeft);
-  const initialStartDateRef = useRef(task.startDate);
-  const initialEndDateRef = useRef(task.endDate);
+  const drag = useRef<Drag | null>(null);
 
-  const onDragStart = (e: React.MouseEvent) => {
-    startXRef.current = e.clientX;
-    originalLeftRef.current = barLeft;
-    initialStartDateRef.current = task.startDate;
-    initialEndDateRef.current = task.endDate;
-    setTempLeft(barLeft);
-    tempLeftRef.current = barLeft;
+  /* pointerdown ---------------------------------------------------------- */
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
 
-    setDraggingTaskMeta({ taskId: task.id, type: 'bar' });
-    document.addEventListener('mousemove', onDragging);
-    document.addEventListener('mouseup', onDragEnd);
-  };
+    const onDown = (e: PointerEvent) => {
+      /* Which part? */
+      let mode: Mode = 'bar';
+      const tgt = e.target as HTMLElement;
+      if (tgt.closest('[data-mode="left"]')) mode = 'left';
+      if (tgt.closest('[data-mode="right"]')) mode = 'right';
 
-  const onDragging = (e: MouseEvent) => {
-    if (startXRef.current === null) return;
-    const rawOffsetX = e.clientX - startXRef.current;
-    const stepDelta = getStepsFromOffset(rawOffsetX, selectedScale);
-    const steppedOffsetPx =
-      stepDelta * GANTT_SCALE_CONFIG[selectedScale].basePxPerDragStep;
+      drag.current = {
+        mode,
+        startX: e.clientX,
+        left0: task.barLeft,
+        width0: task.barWidth,
+        startDate0: task.startDate,
+        endDate0: task.endDate,
+        delta: 0,
+      };
 
-    // calculate new start date (left) when we drag the bar
-    const newStartDate = dayjs(initialStartDateRef.current).add(
-      stepDelta * GANTT_SCALE_CONFIG[selectedScale].dragStepAmount,
-      GANTT_SCALE_CONFIG[selectedScale].dragStepUnit,
-    );
+      /* capture this pointer so events keep coming even outside element */
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', onUp);
+    };
 
-    // calculate the new end date (right) when we drag the bar
-    const newEndDate = dayjs(initialEndDateRef.current).add(
-      stepDelta * GANTT_SCALE_CONFIG[selectedScale].dragStepAmount,
-      GANTT_SCALE_CONFIG[selectedScale].dragStepUnit,
-    );
+    el.addEventListener('pointerdown', onDown);
+    return () => el.removeEventListener('pointerdown', onDown);
+  }, [task.barLeft, task.barWidth]);
 
-    console.log('newEndDate', newEndDate);
-    
-    const newLeft = originalLeftRef.current + steppedOffsetPx;
-    setDraggingBarDateRange({
-      startDate: newStartDate.toISOString(),
-      endDate: newEndDate.toISOString(),
-      barLeft: task.barLeft + steppedOffsetPx,
-      barWidth: task.barWidth,
+  /* pointermove ----------------------------------------------------------- */
+  const onMove = (e: PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+
+    const next = steps(e.clientX - d.startX, selectedScale);
+    if (next === d.delta) return;
+    d.delta = next;
+
+    const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
+    const px = d.delta * basePxPerDragStep;
+
+    cancelAnimationFrame(d.frame!);
+    d.frame = requestAnimationFrame(() => {
+      if (!ref.current) return;
+
+      const absX = d.left0 + px;
+
+      if (d.mode === 'bar') {
+        ref.current.style.transform = `translateX(${absX}px)`;
+      } else if (d.mode === 'left') {
+        const w = Math.max(1, d.width0 - px);
+        ref.current.style.transform = `translateX(${absX}px)`;
+        ref.current.style.width = `${w}px`;
+      } else {
+        const w = Math.max(1, d.width0 + px);
+        ref.current.style.transform = `translateX(${d.left0}px)`;
+        ref.current.style.width = `${w}px`;
+      }
     });
-    setTempLeft(newLeft);
-    tempLeftRef.current = newLeft;
   };
 
-  const onDragEnd = () => {
-    document.removeEventListener('mousemove', onDragging);
-    document.removeEventListener('mouseup', onDragEnd);
+  /* pointerup ------------------------------------------------------------- */
+  const onUp = (e: PointerEvent) => {
+    const el = ref.current;
+    el?.removeEventListener('pointermove', onMove);
+    el?.removeEventListener('pointerup', onUp);
 
-    const finalOffset = tempLeftRef.current - originalLeftRef.current;
-    const stepDelta = getStepsFromOffset(finalOffset, selectedScale);
-    const { dragStepUnit, dragStepAmount } = GANTT_SCALE_CONFIG[selectedScale];
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    cancelAnimationFrame(d.frame!);
 
-    const updatedTasks = rawTasks.map((t) =>
-      t.id === task.id
-        ? {
+    /* compute final step from actual pointer position */
+    const delta = steps(e.clientX - d.startX, selectedScale);
+
+    console.log('delta', delta);
+    if (delta === 0) {
+      /* clear the preview styles we applied during the drag */
+      if (ref.current) ref.current.style.transform = '';
+      return;
+    }
+    const { dragStepAmount, dragStepUnit } = GANTT_SCALE_CONFIG[selectedScale];
+
+    const updated = rawTasks.map((t) => {
+      if (t.id !== task.id) return t;
+
+      switch (d.mode) {
+        case 'bar':
+          return {
             ...t,
-            startDate: dayjs(initialStartDateRef.current)
-              .add(stepDelta * dragStepAmount, dragStepUnit)
+            startDate: dayjs(d.startDate0)
+              .add(delta * dragStepAmount, dragStepUnit)
               .toISOString(),
-            endDate: dayjs(initialEndDateRef.current)
-              .add(stepDelta * dragStepAmount, dragStepUnit)
+            endDate: dayjs(d.endDate0)
+              .add(delta * dragStepAmount, dragStepUnit)
               .toISOString(),
-          }
-        : t,
-    );
+          };
 
-    // update timeline structure
-    setupTimelineStructure(
-      Object.fromEntries(
-        updatedTasks.map((t) => [
-          t.id,
-          { startDate: t.startDate, endDate: t.endDate },
-        ]),
-      ),
-      selectedScale,
-      setBottomRowCells,
-      setTopHeaderGroups,
-    );
-    setRawTasks(updatedTasks);
-    onTasksChange?.(updatedTasks);
+        case 'left': {
+          const ns = dayjs(d.startDate0).add(
+            delta * dragStepAmount,
+            dragStepUnit,
+          );
+          return ns.isAfter(dayjs(t.endDate))
+            ? t
+            : { ...t, startDate: ns.toISOString() };
+        }
 
-    clearDraggingTaskMeta();
-    startXRef.current = null;
-  };
-
-  return { onDragStart, tempLeft };
-}
-
-// === LEFT HANDLE ===
-export function useGanttBarLeftHandleDrag(
-  task: TaskTransformed,
-  barLeft: number,
-  barWidth: number,
-  onTasksChange?: (updatedTasks: Task[]) => void,
-) {
-  const {
-    rawTasks,
-    selectedScale,
-    setRawTasks,
-    setDraggingTaskMeta,
-    clearDraggingTaskMeta,
-    setBottomRowCells,
-    setTopHeaderGroups,
-  } = useGanttStore();
-
-  const [tempLeft, setTempLeft] = useState(barLeft);
-  const [tempWidth, setTempWidth] = useState(barWidth);
-  const tempLeftRef = useRef(barLeft);
-  const tempWidthRef = useRef(barWidth);
-
-  const startXRef = useRef<number | null>(null);
-  const originalLeftRef = useRef(barLeft);
-  const originalWidthRef = useRef(barWidth);
-  const initialStartDateRef = useRef(task.startDate);
-
-  const onDragStart = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    startXRef.current = e.clientX;
-    originalLeftRef.current = barLeft;
-    originalWidthRef.current = barWidth;
-    initialStartDateRef.current = task.startDate;
-
-    setTempLeft(barLeft);
-    setTempWidth(barWidth);
-    tempLeftRef.current = barLeft;
-    tempWidthRef.current = barWidth;
-
-    setDraggingTaskMeta({ taskId: task.id, type: 'left' });
-    document.addEventListener('mousemove', onDragging);
-    document.addEventListener('mouseup', onDragEnd);
-  };
-
-  const onDragging = (e: MouseEvent) => {
-    if (startXRef.current == null) return;
-
-    const rawOffsetX = e.clientX - startXRef.current;
-    const stepDelta = getStepsFromOffset(rawOffsetX, selectedScale);
-    const steppedOffsetPx =
-      stepDelta * GANTT_SCALE_CONFIG[selectedScale].basePxPerDragStep;
-
-    const newLeft = originalLeftRef.current + steppedOffsetPx;
-    const newWidth = originalWidthRef.current - steppedOffsetPx;
-
-    if (newWidth < 1) return;
-
-    setTempLeft(newLeft);
-    setTempWidth(newWidth);
-    tempLeftRef.current = newLeft;
-    tempWidthRef.current = newWidth;
-  };
-
-  const onDragEnd = () => {
-    document.removeEventListener('mousemove', onDragging);
-    document.removeEventListener('mouseup', onDragEnd);
-
-    const finalOffset = tempLeftRef.current - originalLeftRef.current;
-    const stepDelta = getStepsFromOffset(finalOffset, selectedScale);
-    const { dragStepUnit, dragStepAmount } = GANTT_SCALE_CONFIG[selectedScale];
-
-    const updatedTasks = rawTasks.map((t) => {
-      if (t.id !== task.id) return t;
-
-      const newStart = dayjs(initialStartDateRef.current).add(
-        stepDelta * dragStepAmount,
-        dragStepUnit,
-      );
-      if (newStart.isAfter(dayjs(t.endDate))) return t;
-      return { ...t, startDate: newStart.toISOString() };
+        case 'right': {
+          const ne = dayjs(d.endDate0).add(
+            delta * dragStepAmount,
+            dragStepUnit,
+          );
+          return ne.isBefore(dayjs(t.startDate))
+            ? t
+            : { ...t, endDate: ne.toISOString() };
+        }
+      }
     });
 
-    setRawTasks(updatedTasks);
+    /* commit & rebuild timeline */
+    setRawTasks(updated);
+    onTasksChange?.(updated);
+
     setupTimelineStructure(
       Object.fromEntries(
-        updatedTasks.map((t) => [
+        updated.map((t) => [
           t.id,
           { startDate: t.startDate, endDate: t.endDate },
         ]),
@@ -218,104 +174,5 @@ export function useGanttBarLeftHandleDrag(
       setBottomRowCells,
       setTopHeaderGroups,
     );
-    onTasksChange?.(updatedTasks);
-    clearDraggingTaskMeta();
-    startXRef.current = null;
   };
-
-  return { onDragStart, tempLeft, tempWidth };
-}
-
-// === RIGHT HANDLE ===
-export function useGanttBarRightHandleDrag(
-  task: TaskTransformed,
-  barWidth: number,
-  onTasksChange?: (updatedTasks: Task[]) => void,
-) {
-  const {
-    rawTasks,
-    selectedScale,
-    setRawTasks,
-    setDraggingTaskMeta,
-    clearDraggingTaskMeta,
-    setBottomRowCells,
-    setTopHeaderGroups,
-  } = useGanttStore();
-
-  const [tempWidth, setTempWidth] = useState(barWidth);
-  const tempWidthRef = useRef(barWidth);
-
-  const startXRef = useRef<number | null>(null);
-  const originalWidthRef = useRef(barWidth);
-  const initialEndDateRef = useRef(task.endDate);
-
-  const onDragStart = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    startXRef.current = e.clientX;
-    originalWidthRef.current = barWidth;
-    initialEndDateRef.current = task.endDate;
-
-    setTempWidth(barWidth);
-    tempWidthRef.current = barWidth;
-
-    setDraggingTaskMeta({ taskId: task.id, type: 'right' });
-    document.addEventListener('mousemove', onDragging);
-    document.addEventListener('mouseup', onDragEnd);
-  };
-
-  const onDragging = (e: MouseEvent) => {
-    if (startXRef.current === null) return;
-
-    const rawOffsetX = e.clientX - startXRef.current;
-    const stepDelta = getStepsFromOffset(rawOffsetX, selectedScale);
-    const steppedOffsetPx =
-      stepDelta * GANTT_SCALE_CONFIG[selectedScale].basePxPerDragStep;
-
-    const newWidth = originalWidthRef.current + steppedOffsetPx;
-    if (newWidth < 1) return;
-
-    console.log('newWidth', newWidth);
-    setTempWidth(newWidth);
-    tempWidthRef.current = newWidth;
-  };
-
-  const onDragEnd = () => {
-    document.removeEventListener('mousemove', onDragging);
-    document.removeEventListener('mouseup', onDragEnd);
-
-    const finalOffset = tempWidthRef.current - originalWidthRef.current;
-    const stepDelta = getStepsFromOffset(finalOffset, selectedScale);
-    const { dragStepUnit, dragStepAmount } = GANTT_SCALE_CONFIG[selectedScale];
-
-    const updatedTasks = rawTasks.map((t) => {
-      if (t.id !== task.id) return t;
-
-      const newEnd = dayjs(initialEndDateRef.current).add(
-        stepDelta * dragStepAmount,
-        dragStepUnit,
-      );
-      if (newEnd.isBefore(dayjs(t.startDate))) return t;
-      return { ...t, endDate: newEnd.toISOString() };
-    });
-
-    setRawTasks(updatedTasks);
-    onTasksChange?.(updatedTasks);
-
-    // update timeline structure
-    setupTimelineStructure(
-      Object.fromEntries(
-        updatedTasks.map((t) => [
-          t.id,
-          { startDate: t.startDate, endDate: t.endDate },
-        ]),
-      ),
-      selectedScale,
-      setBottomRowCells,
-      setTopHeaderGroups,
-    );
-    clearDraggingTaskMeta();
-    startXRef.current = null;
-  };
-
-  return { onDragStart, tempWidth };
 }

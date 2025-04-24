@@ -16,33 +16,32 @@ export function calculateDateOffsets(
     return { barMarginLeftAmount: 0, barWidthSize: 0 };
   }
 
-  // Destructure the relevant config values
   const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];
 
-  // Calculate total chart width in pixels
-  const totalPx = timelineTicks.reduce((sum, tick) => sum + tick.widthPx, 0);
+  let barMarginLeftAmount = 0;
+  let barWidthSize = 0;
 
-  // Identify the earliest tick start and the latest tick start
-  const chartStartDate = timelineTicks[0].startDate;
-  const lastTickStartDate = timelineTicks[timelineTicks.length - 1].startDate;
+  for (const tick of timelineTicks) {
+    const tickStart = tick.startDate;
+    const tickEnd = tickStart.add(unitPerTick, tickUnit);
+    const tickWidth = tick.widthPx;
 
-  // Calculate total chart duration in milliseconds
-  const totalDurationMs = dayjs(lastTickStartDate)
-    .add(unitPerTick, tickUnit)
-    .diff(chartStartDate);
+    if (tickEnd.isSameOrBefore(startDate)) {
+      barMarginLeftAmount += tickWidth;
+      continue;
+    }
 
-  // Determine how many pixels correspond to one millisecond
-  const pxPerMs = totalPx / totalDurationMs;
+    if (tickStart.isSameOrAfter(endDate)) {
+      break;
+    }
 
-  // Calculate start/end offsets in milliseconds, then convert to pixels
-  const startOffsetMs = startDate.diff(chartStartDate);
-  const endOffsetMs = endDate.diff(chartStartDate);
+    barWidthSize += tickWidth;
+  }
 
-  const barMarginLeftAmount = startOffsetMs * pxPerMs;
-  // Ensure the width is at least 1 pixel if start/end are the same
-  const barWidthSize = Math.max(endOffsetMs - startOffsetMs, 1) * pxPerMs;
-
-  return { barMarginLeftAmount, barWidthSize };
+  return {
+    barMarginLeftAmount,
+    barWidthSize: Math.max(barWidthSize, 1),
+  };
 }
 
 export function findDateRangeFromTasks(
@@ -142,7 +141,6 @@ export function createTopHeaderGroups(
       currentStart = start;
     }
 
-    // Last cell
     if (i === bottomCells.length - 1) {
       groups.push({
         label: currentLabel,

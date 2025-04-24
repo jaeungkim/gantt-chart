@@ -9,7 +9,9 @@ import timezone from 'dayjs/plugin/timezone';
 import updateLocale from 'dayjs/plugin/updateLocale';
 import utc from 'dayjs/plugin/utc';
 import weekday from 'dayjs/plugin/weekday';
+import duration from 'dayjs/plugin/duration';
 
+dayjs.extend(duration);
 dayjs.extend(weekday);
 dayjs.extend(isToday);
 dayjs.extend(utc);

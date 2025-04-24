@@ -6,7 +6,6 @@ import {
   GanttScaleKey,
   GanttTopHeaderGroup,
 } from 'types/gantt';
-import dayjs from 'utils/dayjs';
 import { createTopHeaderGroups } from 'utils/timeline';
 
 interface GanttChartHeaderProps {
@@ -14,7 +13,6 @@ interface GanttChartHeaderProps {
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
   scrollRef: React.RefObject<HTMLDivElement>;
-  // setSelectedScale: (scale: GanttScaleKey) => void;
 }
 
 const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
@@ -22,7 +20,9 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
   selectedScale,
   scrollRef,
 }) => {
-  const { draggingBarDateRange } = useGanttStore();
+  const draggingBarDateRange = useGanttStore(
+    (state) => state.draggingBarDateRange,
+  );
 
   const config = GANTT_SCALE_CONFIG[selectedScale];
   const [stickyIndex, setStickyIndex] = useState(0);
@@ -73,13 +73,11 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
     };
 
     el.addEventListener('scroll', handleScroll);
-    handleScroll(); // on mount
+    handleScroll();
     return () => el.removeEventListener('scroll', handleScroll);
   }, [mergedGroupsWithLeft]);
 
   const stickyLabel = mergedGroupsWithLeft[stickyIndex]?.label ?? '';
-
-  console.log('draggingBarDateRange', draggingBarDateRange);
 
   // find the index of the cell that is in the range of draggingBarDateRange
   const draggingBarDateRangeIndex = useMemo(() => {
@@ -92,7 +90,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
     );
   }, [draggingBarDateRange, bottomRowCells]);
 
-  console.log('draggingBarDateRangeIndex', draggingBarDateRangeIndex);
   return (
     <div
       // className="sticky top-0 z-30"
@@ -136,7 +133,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
               justifyContent: 'center',
               backgroundColor: '#F0F1F2',
               // borderBottom: '1px solid #D6D6D8',
-              fontSize: '0.875rem',
+              fontSize: '14px',
               fontWeight: 'bold',
             }}
           >
@@ -144,7 +141,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
           </div>
           {/* Scrollable header cells */}
           <div
-            // className="flex"
             style={{
               display: 'flex',
             }}
@@ -156,7 +152,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                   // className="border-b border-solid py-2 pr-4 text-left text-sm font-bold"
                   style={{
                     padding: '8px 16px',
-                    fontSize: '0.875rem',
+                    fontSize: '14px',
                     fontWeight: 'bold',
                     textAlign: 'left',
                     width: `${group.widthPx}px`,
@@ -192,7 +188,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
               <div
                 style={{
                   position: 'absolute',
-                  // left: `${cell.widthPx * draggingBarDateRangeIndex}px`,
                   left: `${draggingBarDateRange.barLeft}px`,
                   top: '32px',
                   zIndex: 60,
@@ -212,34 +207,27 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                     display: 'flex',
                     justifyContent: 'between',
                   }}
-                >
-                  {/* <p>{dayjs(draggingBarDateRange.startDate).format('D')}</p>
-                  <p>{dayjs(draggingBarDateRange.endDate).format('D')}</p> */}
-                </div>
+                ></div>
               </div>
             )}
           </div>
           {bottomRowCells.map((cell, idx) => {
-            // console.log('cell', cell);
             const tickLabel = config.formatTickLabel?.(cell.startDate) || '';
-            return (
-              <>
-                {/* show the date of draggingbardaterange absolutely when moving the bar with from index to barwidth */}
+            const bottomRowCellKey = `bottom-row-${cell.startDate}-${idx}`;
 
-                <div
-                  key={idx}
-                  // className="relative p-1 text-center text-xs"
-                  style={{
-                    position: 'relative',
-                    padding: '4px',
-                    textAlign: 'center',
-                    fontSize: '0.75rem',
-                    width: `${cell.widthPx}px`,
-                  }}
-                >
-                  {tickLabel}
-                </div>
-              </>
+            return (
+              <div
+                key={bottomRowCellKey}
+                style={{
+                  position: 'relative',
+                  padding: '4px 0',
+                  textAlign: 'center',
+                  fontSize: '12px',
+                  width: `${cell.widthPx}px`,
+                }}
+              >
+                {tickLabel}
+              </div>
             );
           })}
         </div>

@@ -18,19 +18,17 @@ interface GanttProps {
 function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
   const [taskList, setTaskList] = useState<Task[]>(tasks || []);
   const scrollRef = useRef<HTMLDivElement>(null);
-  
-  const {
-    rawTasks,
-    transformedTasks,
-    selectedScale,
-    setSelectedScale,
-    bottomRowCells,
-    topHeaderGroups,
-    setRawTasks,
-    setBottomRowCells,
-    setTopHeaderGroups,
-  } = useGanttStore();
-  
+
+  const rawTasks = useGanttStore((state) => state.rawTasks);
+  const setRawTasks = useGanttStore((state) => state.setRawTasks);
+  const transformedTasks = useGanttStore((state) => state.transformedTasks);
+  const selectedScale = useGanttStore((state) => state.selectedScale);
+  const setSelectedScale = useGanttStore((state) => state.setSelectedScale);
+  const bottomRowCells = useGanttStore((state) => state.bottomRowCells);
+  const setBottomRowCells = useGanttStore((state) => state.setBottomRowCells);
+  const topHeaderGroups = useGanttStore((state) => state.topHeaderGroups);
+  const setTopHeaderGroups = useGanttStore((state) => state.setTopHeaderGroups);
+
   useEffect(() => {
     if (tasks.length === 0) {
       setTaskList(sourceTasks as Task[]);
@@ -38,7 +36,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
       setTaskList(tasks);
     }
   }, [tasks]);
-  
+
   useEffect(() => {
     if (!taskList.length) return;
 
@@ -114,7 +112,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
               style={{
                 // backgroundColor: '#FFF',
                 padding: '4px 8px',
-                fontSize: '0.875rem',
+                fontSize: '14px',
                 borderRadius: '6px',
                 border: '1px solid #E6E7E9',
               }}
@@ -155,7 +153,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                 bottomRowCells={bottomRowCells}
                 selectedScale={selectedScale}
                 scrollRef={scrollRef as React.RefObject<HTMLDivElement>}
-                // setSelectedScale={setSelectedScale}
               />
 
               {/* Bars */}

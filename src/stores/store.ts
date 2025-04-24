@@ -6,6 +6,7 @@ import {
 import { Task, TaskTransformed } from 'types/task';
 import { transformTasks } from 'utils/transformData';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 interface GanttState {
   rawTasks: Task[];
@@ -37,40 +38,69 @@ interface GanttState {
     barWidth: number;
   }) => void;
   clearDraggingTaskMeta: () => void;
+  clearDraggingBarDateRange: () => void;
 }
 
-export const useGanttStore = create<GanttState>((set, get) => ({
-  rawTasks: [],
-  transformedTasks: [],
-  bottomRowCells: [],
-  topHeaderGroups: [],
-  selectedScale: 'month',
-  draggingBarDateRange: { startDate: '', endDate: '', barLeft: 0, barWidth: 0 },
-  draggingTaskMeta: null,
+export const useGanttStore = create<GanttState>()(
+  persist(
+    (set, get) => ({
+      rawTasks: [],
+      transformedTasks: [],
+      bottomRowCells: [],
+      topHeaderGroups: [],
+      selectedScale: 'month',
+      draggingBarDateRange: {
+        startDate: '',
+        endDate: '',
+        barLeft: 0,
+        barWidth: 0,
+      },
+      draggingTaskMeta: null,
 
-  setSelectedScale: (scale) => {
-    const { rawTasks, bottomRowCells } = get();
-    const transformed = transformTasks(rawTasks, bottomRowCells, scale);
-    set({ selectedScale: scale, transformedTasks: transformed });
-  },
+      setSelectedScale: (scale) => {
+        const { rawTasks, bottomRowCells } = get();
+        const transformed = transformTasks(rawTasks, bottomRowCells, scale);
+        set({ selectedScale: scale, transformedTasks: transformed });
+      },
 
-  setDraggingBarDateRange: (range) => {
-    set({ draggingBarDateRange: range });
-  },
-  setRawTasks: (rawTasks) => {
-    const { bottomRowCells, selectedScale } = get();
-    const transformed = transformTasks(rawTasks, bottomRowCells, selectedScale);
-    set({ rawTasks, transformedTasks: transformed });
-  },
+      setDraggingBarDateRange: (range) => {
+        set({ draggingBarDateRange: range });
+      },
+      setRawTasks: (rawTasks) => {
+        const { bottomRowCells, selectedScale } = get();
+        const transformed = transformTasks(
+          rawTasks,
+          bottomRowCells,
+          selectedScale,
+        );
+        set({ rawTasks, transformedTasks: transformed });
+      },
 
-  setBottomRowCells: (cells) => {
-    const { rawTasks, selectedScale } = get();
-    const transformed = transformTasks(rawTasks, cells, selectedScale);
-    set({ bottomRowCells: cells, transformedTasks: transformed });
-  },
+      setBottomRowCells: (cells) => {
+        const { rawTasks, selectedScale } = get();
+        const transformed = transformTasks(rawTasks, cells, selectedScale);
+        set({ bottomRowCells: cells, transformedTasks: transformed });
+      },
 
-  setTopHeaderGroups: (groups) => set({ topHeaderGroups: groups }),
+      setTopHeaderGroups: (groups) => set({ topHeaderGroups: groups }),
 
-  setDraggingTaskMeta: (meta) => set({ draggingTaskMeta: meta }),
-  clearDraggingTaskMeta: () => set({ draggingTaskMeta: null }),
-}));
+      setDraggingTaskMeta: (meta) => set({ draggingTaskMeta: meta }),
+      clearDraggingTaskMeta: () => set({ draggingTaskMeta: null }),
+
+      clearDraggingBarDateRange: () =>
+        set({
+          draggingBarDateRange: {
+            startDate: '',
+            endDate: '',
+            barLeft: 0,
+            barWidth: 0,
+          },
+        }),
+    }),
+    {
+      name: 'gantt-storage',
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({ selectedScale: state.selectedScale }),
+    },
+  ),
+);
