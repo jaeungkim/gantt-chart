@@ -76,7 +76,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
       }}
     >
       <div
-        // className="size-full overflow-hidden"
         style={{
           width: '100%',
           height: '100%',
@@ -85,7 +84,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
         }}
       >
         <section
-          // className="relative flex h-full w-full flex-col"
           style={{
             position: 'relative',
             display: 'flex',
@@ -103,9 +101,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
               display: 'flex',
               justifyContent: 'flex-end',
               alignItems: 'center',
-              // padding: '4px 8px',
-              // backgroundColor: '#FFF',
-              // borderBottom: '1px solid #E6E7E9',
             }}
           >
             <select
@@ -132,19 +127,16 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
           {/* Shared scroll container */}
           <div
             ref={scrollRef}
-            // className="grow overflow-x-auto"
             style={{
               flexGrow: 1,
               overflowX: 'auto',
             }}
           >
             <div
-              // className="flex min-w-max flex-col"
               style={{
                 display: 'flex',
                 minWidth: 'max-content',
                 flexDirection: 'column',
-                // backgroundColor: '#FFF',
               }}
             >
               {/* Header */}
@@ -157,14 +149,12 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
 
               {/* Bars */}
               <div
-                // className="relative flex"
                 style={{
                   position: 'relative',
                   display: 'flex',
                 }}
               >
                 <div
-                  // className="flex grow flex-col"
                   style={{
                     display: 'flex',
                     flexGrow: 1,
@@ -174,8 +164,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                   {transformedTasks.map((task) => (
                     <div
                       key={task.id}
-                      // className="flex w-full items-center border-b border-solid"
-                      // have to be NODE_HEIHGT px with border-bottom
                       style={{
                         display: 'flex',
                         width: '100%',
