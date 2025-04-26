@@ -6,7 +6,6 @@ import { Task, TaskTransformed } from 'types/task';
 import dayjs from 'utils/dayjs';
 import { setupTimelineStructure } from 'utils/timeline';
 
-/* helpers */
 const steps = (px: number, scale: GanttScaleKey) =>
   Math.round(px / GANTT_SCALE_CONFIG[scale].basePxPerDragStep);
 
@@ -22,7 +21,6 @@ interface Drag {
   frame?: number;
 }
 
-/* main hook */
 export function useGanttBarDrag(
   ref: React.RefObject<HTMLDivElement>,
   task: TaskTransformed,
@@ -36,13 +34,11 @@ export function useGanttBarDrag(
 
   const drag = useRef<Drag | null>(null);
 
-  /* pointerdown ---------------------------------------------------------- */
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
     const onDown = (e: PointerEvent) => {
-      /* Which part? */
       let mode: Mode = 'bar';
       const tgt = e.target as HTMLElement;
       if (tgt.closest('[data-mode="left"]')) mode = 'left';
@@ -58,7 +54,6 @@ export function useGanttBarDrag(
         delta: 0,
       };
 
-      /* capture this pointer so events keep coming even outside element */
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       el.addEventListener('pointermove', onMove);
       el.addEventListener('pointerup', onUp);
@@ -68,7 +63,6 @@ export function useGanttBarDrag(
     return () => el.removeEventListener('pointerdown', onDown);
   }, [task.barLeft, task.barWidth]);
 
-  /* pointermove ----------------------------------------------------------- */
   const onMove = (e: PointerEvent) => {
     const d = drag.current;
     if (!d) return;
@@ -100,7 +94,6 @@ export function useGanttBarDrag(
     });
   };
 
-  /* pointerup ------------------------------------------------------------- */
   const onUp = (e: PointerEvent) => {
     const el = ref.current;
     el?.removeEventListener('pointermove', onMove);
@@ -111,12 +104,10 @@ export function useGanttBarDrag(
     drag.current = null;
     cancelAnimationFrame(d.frame!);
 
-    /* compute final step from actual pointer position */
     const delta = steps(e.clientX - d.startX, selectedScale);
 
     console.log('delta', delta);
     if (delta === 0) {
-      /* clear the preview styles we applied during the drag */
       if (ref.current) ref.current.style.transform = '';
       return;
     }
@@ -159,20 +150,19 @@ export function useGanttBarDrag(
       }
     });
 
-    /* commit & rebuild timeline */
     setRawTasks(updated);
     onTasksChange?.(updated);
 
-    setupTimelineStructure(
-      Object.fromEntries(
-        updated.map((t) => [
-          t.id,
-          { startDate: t.startDate, endDate: t.endDate },
-        ]),
-      ),
-      selectedScale,
-      setBottomRowCells,
-      setTopHeaderGroups,
-    );
+    // setupTimelineStructure(
+    //   Object.fromEntries(
+    //     updated.map((t) => [
+    //       t.id,
+    //       { startDate: t.startDate, endDate: t.endDate },
+    //     ]),
+    //   ),
+    //   selectedScale,
+    //   setBottomRowCells,
+    //   setTopHeaderGroups,
+    // );
   };
 }

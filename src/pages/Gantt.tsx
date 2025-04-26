@@ -1,3 +1,4 @@
+import GanttBar from 'components/GanttBar.tsx';
 import GanttChartHeader from 'components/GanttChartHeader';
 import { GANTT_SCALE_CONFIG, NODE_HEIGHT } from 'constants/gantt';
 import { useEffect, useRef, useState } from 'react';
@@ -6,7 +7,6 @@ import { GanttScaleKey } from 'types/gantt';
 import { Task } from 'types/task';
 import { setupTimelineStructure } from 'utils/timeline';
 import sourceTasks from '../../db.ts';
-import GanttBar from './GanttBar';
 
 interface GanttProps {
   tasks: Task[];
@@ -47,17 +47,19 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
       ]),
     );
 
+
     setupTimelineStructure(
       taskRecord,
       selectedScale,
       setBottomRowCells,
       setTopHeaderGroups,
     );
-  }, [taskList, selectedScale]);
+  }, [rawTasks, taskList, selectedScale]);
 
   useEffect(() => {
     if (!bottomRowCells.length || !taskList.length) return;
     if (rawTasks.length === 0) {
+      console.log('2', taskList);
       setRawTasks(taskList);
     }
   }, [bottomRowCells, taskList]);
@@ -105,7 +107,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
           >
             <select
               style={{
-                // backgroundColor: '#FFF',
                 padding: '4px 8px',
                 fontSize: '14px',
                 borderRadius: '6px',
@@ -124,7 +125,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
               ))}
             </select>
           </div>
-          {/* Shared scroll container */}
+
           <div
             ref={scrollRef}
             style={{
@@ -139,7 +140,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                 flexDirection: 'column',
               }}
             >
-              {/* Header */}
               <GanttChartHeader
                 topHeaderGroups={topHeaderGroups}
                 bottomRowCells={bottomRowCells}
@@ -147,7 +147,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                 scrollRef={scrollRef as React.RefObject<HTMLDivElement>}
               />
 
-              {/* Bars */}
               <div
                 style={{
                   position: 'relative',

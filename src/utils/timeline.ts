@@ -1,10 +1,11 @@
 import { GANTT_SCALE_CONFIG, TIMELINE_SHIFT_BUFFER } from 'constants/gantt';
-import dayjs, { Dayjs } from 'dayjs';
+import { Dayjs } from 'dayjs';
 import {
   GanttBottomRowCell,
   GanttScaleKey,
   GanttTopHeaderGroup,
 } from 'types/gantt';
+import dayjs from 'utils/dayjs';
 
 export function calculateDateOffsets(
   startDate: Dayjs,

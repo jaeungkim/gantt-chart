@@ -14,8 +14,8 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: 'src/assets/styles/index.css', // your Tailwind output or manual styles
-          dest: '', // will output it as dist/index.css
+          src: 'src/assets/styles/index.css',
+          dest: '',
         },
       ],
     }),
