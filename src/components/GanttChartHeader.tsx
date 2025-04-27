@@ -122,7 +122,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                 <div
                   key={idx}
                   style={{
-                    padding: '8px 16px',
+                    padding: '8px 0px',
                     fontSize: '14px',
                     fontWeight: 'bold',
                     textAlign: 'left',
@@ -187,9 +187,10 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
               <div
                 key={bottomRowCellKey}
                 style={{
+                
                   position: 'relative',
                   padding: '4px 0',
-                  textAlign: 'center',
+                  // textAlign: 'center',
                   fontSize: '12px',
                   width: `${cell.widthPx}px`,
                 }}

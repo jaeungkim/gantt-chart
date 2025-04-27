@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { useGanttStore } from 'stores/store';
 import { GanttScaleKey } from 'types/gantt';
 import { Task } from 'types/task';
+import dayjs from 'utils/dayjs.ts';
 import { setupTimelineStructure } from 'utils/timeline';
 import sourceTasks from '../../db.ts';
 
@@ -28,7 +29,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
   const topHeaderGroups = useGanttStore((state) => state.topHeaderGroups);
   const setTopHeaderGroups = useGanttStore((state) => state.setTopHeaderGroups);
 
-  // ✅ On initial load or tasks prop change, set rawTasks
   useEffect(() => {
     if (tasks.length === 0) {
       setRawTasks(sourceTasks as Task[]);
@@ -37,24 +37,32 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
     }
   }, [tasks]);
 
-  // ✅ Whenever rawTasks or scale changes, update timeline structure
   useEffect(() => {
     if (!rawTasks.length) return;
 
-    const taskRecord = Object.fromEntries(
-      rawTasks.map((task) => [
+    const taskDatesRecord = Object.fromEntries(
+      transformedTasks.map((task) => [
         task.id,
         { startDate: task.startDate, endDate: task.endDate },
       ]),
     );
 
     setupTimelineStructure(
-      taskRecord,
+      taskDatesRecord,
       selectedScale,
       setBottomRowCells,
       setTopHeaderGroups,
     );
   }, [rawTasks, selectedScale]);
+
+  useEffect(() => {
+    const updatedTasksMap = transformedTasks.map((task) => ({
+      ...task,
+      startDate: dayjs(task.startDate).local().format('YYYY-MM-DD HH:mm:ss'),
+      endDate: dayjs(task.endDate).local().format('YYYY-MM-DD HH:mm:ss'),
+    }));
+    console.log('Updated Tasks:', updatedTasksMap);
+  }, [transformedTasks]);
 
   return (
     <section

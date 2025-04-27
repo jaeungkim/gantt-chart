@@ -21,27 +21,53 @@ export function calculateDateOffsets(
 
   let barMarginLeftAmount = 0;
   let barWidthSize = 0;
+  let insideTask = false;
 
   for (const tick of timelineTicks) {
     const tickStart = tick.startDate;
     const tickEnd = tickStart.add(unitPerTick, tickUnit);
     const tickWidth = tick.widthPx;
 
+    /* ─────────────────────────────────────────────
+       Tick completely before the task → full margin
+    ──────────────────────────────────────────────*/
     if (tickEnd.isSameOrBefore(startDate)) {
       barMarginLeftAmount += tickWidth;
       continue;
     }
 
+    /* ─────────────────────────────────────────────
+       Tick completely after the task → we're done
+    ──────────────────────────────────────────────*/
     if (tickStart.isSameOrAfter(endDate)) {
       break;
     }
 
-    barWidthSize += tickWidth;
+    /* ─────────────────────────────────────────────
+       Partial or full overlap with the task
+    ──────────────────────────────────────────────*/
+    const overlapStart = startDate.isAfter(tickStart) ? startDate : tickStart;
+    const overlapEnd = endDate.isBefore(tickEnd) ? endDate : tickEnd;
+
+    const tickDurationMs = tickEnd.diff(tickStart);
+    const overlapDurationMs = overlapEnd.diff(overlapStart);
+
+    const overlapRatio = overlapDurationMs / tickDurationMs; // 0‥1
+
+    if (!insideTask && overlapStart.isAfter(tickStart)) {
+      /* Task begins inside this tick → add margin for the part before it */
+      const beforeStartRatio = overlapStart.diff(tickStart) / tickDurationMs;
+      barMarginLeftAmount += beforeStartRatio * tickWidth;
+    }
+
+    /* Add the visible part’s width */
+    barWidthSize += overlapRatio * tickWidth;
+    insideTask = true;
   }
 
   return {
     barMarginLeftAmount,
-    barWidthSize: Math.max(barWidthSize, 1),
+    barWidthSize: Math.max(barWidthSize, 1), // keep the 1-px safeguard
   };
 }
 
@@ -93,7 +119,6 @@ export function createBottomRowCells(
   let current = paddedMinDate.startOf(tickUnit);
 
   while (current.isBefore(paddedMaxDate)) {
-    // How many drag steps fit in this tick?
     const tickDurationInDragSteps =
       dayjs(current).add(unitPerTick, tickUnit).diff(current, dragStepUnit) /
       dragStepAmount;
@@ -123,7 +148,7 @@ export function createTopHeaderGroups(
 
   bottomCells.forEach((cell, i) => {
     const start = cell.startDate.startOf(labelUnit);
-    const key = start.valueOf(); // ✅ use timestamp instead of formatted string
+    const key = start.valueOf();
     const label = formatHeaderLabel?.(start) ?? start.format();
 
     if (key === currentKey) {

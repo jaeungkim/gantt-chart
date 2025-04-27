@@ -10,12 +10,14 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 interface GanttState {
   rawTasks: Task[];
-  transformedTasks: TaskTransformed[];
 
   // Timeline rows
   bottomRowCells: GanttBottomRowCell[];
   topHeaderGroups: GanttTopHeaderGroup[];
   selectedScale: GanttScaleKey;
+
+  // Transformed tasks
+  transformedTasks: TaskTransformed[]; // Adjust the type as needed
 
   // Actions
   setSelectedScale: (scale: GanttScaleKey) => void;
@@ -26,41 +28,45 @@ interface GanttState {
 
 export const useGanttStore = create<GanttState>()(
   persist(
-    (set, get) => ({
-      rawTasks: [],
-      transformedTasks: [],
-      bottomRowCells: [],
-      topHeaderGroups: [],
-      selectedScale: 'month',
+    (set, get) => {
+      const recalc = (
+        raw = get().rawTasks,
+        cells = get().bottomRowCells,
+        scale = get().selectedScale,
+      ) => transformTasks(raw, cells, scale);
 
-      setSelectedScale: (scale) => {
-        const { rawTasks, bottomRowCells } = get();
-        const transformed = transformTasks(rawTasks, bottomRowCells, scale);
-        set({ selectedScale: scale, transformedTasks: transformed });
-      },
+      return {
+        rawTasks: [],
+        transformedTasks: [],
+        bottomRowCells: [],
+        topHeaderGroups: [],
+        selectedScale: 'month',
 
-      setRawTasks: (rawTasks) => {
-        const { bottomRowCells, selectedScale } = get();
-        const transformed = transformTasks(
-          rawTasks,
-          bottomRowCells,
-          selectedScale,
-        );
-        set({ rawTasks, transformedTasks: transformed });
-      },
+        setSelectedScale: (scale) =>
+          set({
+            selectedScale: scale,
+            transformedTasks: recalc(undefined, undefined, scale),
+          }),
 
-      setBottomRowCells: (cells) => {
-        const { rawTasks, selectedScale } = get();
-        const transformed = transformTasks(rawTasks, cells, selectedScale);
-        set({ bottomRowCells: cells, transformedTasks: transformed });
-      },
+        setRawTasks: (raw) =>
+          set({
+            rawTasks: raw,
+            transformedTasks: recalc(raw),
+          }),
 
-      setTopHeaderGroups: (groups) => set({ topHeaderGroups: groups }),
-    }),
+        setBottomRowCells: (cells) =>
+          set({
+            bottomRowCells: cells,
+            transformedTasks: recalc(undefined, cells),
+          }),
+
+        setTopHeaderGroups: (groups) => set({ topHeaderGroups: groups }),
+      };
+    },
     {
       name: 'gantt-storage',
       storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ selectedScale: state.selectedScale }),
+      partialize: (s) => ({ selectedScale: s.selectedScale }),
     },
   ),
 );

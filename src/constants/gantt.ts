@@ -21,8 +21,8 @@ export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
     dragStepUnit: 'hour',
     dragStepAmount: 6,
     basePxPerDragStep: 32,
-    formatTickLabel: (d) => d.format('D'),           // 1, 2, 3...
-    formatHeaderLabel: (d) => d.format('MMM'),       // Jun
+    formatTickLabel: (d) => d.format('D hh:mm'),           // 1, 2, 3...
+    formatHeaderLabel: (d) => d.format('MMM D'),       // Jun
   },
   month: {
     labelUnit: 'month',
