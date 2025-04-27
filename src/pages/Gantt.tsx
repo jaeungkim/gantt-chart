@@ -1,7 +1,7 @@
 import GanttBar from 'components/GanttBar.tsx';
 import GanttChartHeader from 'components/GanttChartHeader';
 import { GANTT_SCALE_CONFIG, NODE_HEIGHT } from 'constants/gantt';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useGanttStore } from 'stores/store';
 import { GanttScaleKey } from 'types/gantt';
 import { Task } from 'types/task';
@@ -16,7 +16,6 @@ interface GanttProps {
 }
 
 function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
-  const [taskList, setTaskList] = useState<Task[]>(tasks || []);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const rawTasks = useGanttStore((state) => state.rawTasks);
@@ -29,24 +28,25 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
   const topHeaderGroups = useGanttStore((state) => state.topHeaderGroups);
   const setTopHeaderGroups = useGanttStore((state) => state.setTopHeaderGroups);
 
+  // ✅ On initial load or tasks prop change, set rawTasks
   useEffect(() => {
     if (tasks.length === 0) {
-      setTaskList(sourceTasks as Task[]);
+      setRawTasks(sourceTasks as Task[]);
     } else {
-      setTaskList(tasks);
+      setRawTasks(tasks);
     }
   }, [tasks]);
 
+  // ✅ Whenever rawTasks or scale changes, update timeline structure
   useEffect(() => {
-    if (!taskList.length) return;
+    if (!rawTasks.length) return;
 
     const taskRecord = Object.fromEntries(
-      taskList.map((task) => [
+      rawTasks.map((task) => [
         task.id,
         { startDate: task.startDate, endDate: task.endDate },
       ]),
     );
-
 
     setupTimelineStructure(
       taskRecord,
@@ -54,15 +54,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
       setBottomRowCells,
       setTopHeaderGroups,
     );
-  }, [rawTasks, taskList, selectedScale]);
-
-  useEffect(() => {
-    if (!bottomRowCells.length || !taskList.length) return;
-    if (rawTasks.length === 0) {
-      console.log('2', taskList);
-      setRawTasks(taskList);
-    }
-  }, [bottomRowCells, taskList]);
+  }, [rawTasks, selectedScale]);
 
   return (
     <section

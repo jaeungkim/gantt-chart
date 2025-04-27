@@ -14,12 +14,10 @@ interface GanttBarProps {
 function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
 
-  /* 🟢  ALWAYS call the hook */
   useGanttBarDrag(barRef as any, currentTask, onTasksChange);
 
   const [hover, setHover] = useState<'none' | 'left' | 'right'>('none');
 
-  /* dependency arrows (unchanged) */
   const renderedDependencies: RenderedDependency[] = (
     currentTask.dependencies ?? []
   )
@@ -109,7 +107,6 @@ function GanttBar({ allTasks, currentTask, onTasksChange }: GanttBarProps) {
   );
 }
 
-/* styles */
 const handleStyle = (side: 'left' | 'right'): React.CSSProperties => ({
   position: 'absolute',
   top: 0,

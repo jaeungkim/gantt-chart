@@ -4,7 +4,6 @@ import { useGanttStore } from 'stores/store';
 import { GanttScaleKey } from 'types/gantt';
 import { Task, TaskTransformed } from 'types/task';
 import dayjs from 'utils/dayjs';
-import { setupTimelineStructure } from 'utils/timeline';
 
 const steps = (px: number, scale: GanttScaleKey) =>
   Math.round(px / GANTT_SCALE_CONFIG[scale].basePxPerDragStep);
@@ -29,8 +28,6 @@ export function useGanttBarDrag(
   const rawTasks = useGanttStore((s) => s.rawTasks);
   const selectedScale = useGanttStore((s) => s.selectedScale);
   const setRawTasks = useGanttStore((s) => s.setRawTasks);
-  const setBottomRowCells = useGanttStore((s) => s.setBottomRowCells);
-  const setTopHeaderGroups = useGanttStore((s) => s.setTopHeaderGroups);
 
   const drag = useRef<Drag | null>(null);
 
@@ -68,11 +65,15 @@ export function useGanttBarDrag(
     if (!d) return;
 
     const next = steps(e.clientX - d.startX, selectedScale);
+    const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
+    const px = next * basePxPerDragStep;
+
+    // 🛑 PREVENT drag if width would become invalid
+    if (d.mode === 'left' && d.width0 - px < 1) return;
+    if (d.mode === 'right' && d.width0 + px < 1) return;
+
     if (next === d.delta) return;
     d.delta = next;
-
-    const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
-    const px = d.delta * basePxPerDragStep;
 
     cancelAnimationFrame(d.frame!);
     d.frame = requestAnimationFrame(() => {
@@ -106,11 +107,11 @@ export function useGanttBarDrag(
 
     const delta = steps(e.clientX - d.startX, selectedScale);
 
-    console.log('delta', delta);
     if (delta === 0) {
       if (ref.current) ref.current.style.transform = '';
       return;
     }
+
     const { dragStepAmount, dragStepUnit } = GANTT_SCALE_CONFIG[selectedScale];
 
     const updated = rawTasks.map((t) => {
@@ -152,17 +153,5 @@ export function useGanttBarDrag(
 
     setRawTasks(updated);
     onTasksChange?.(updated);
-
-    // setupTimelineStructure(
-    //   Object.fromEntries(
-    //     updated.map((t) => [
-    //       t.id,
-    //       { startDate: t.startDate, endDate: t.endDate },
-    //     ]),
-    //   ),
-    //   selectedScale,
-    //   setBottomRowCells,
-    //   setTopHeaderGroups,
-    // );
   };
 }
