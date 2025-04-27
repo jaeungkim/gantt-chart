@@ -1,6 +1,5 @@
 import { GANTT_SCALE_CONFIG } from 'constants/gantt';
 import React, { useEffect, useMemo, useState } from 'react';
-import { useGanttStore } from 'stores/store';
 import {
   GanttBottomRowCell,
   GanttScaleKey,
@@ -20,20 +19,14 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
   selectedScale,
   scrollRef,
 }) => {
-  const draggingBarDateRange = useGanttStore(
-    (state) => state.draggingBarDateRange,
-  );
-
   const config = GANTT_SCALE_CONFIG[selectedScale];
   const [stickyIndex, setStickyIndex] = useState(0);
 
-  // Top header groups
   const topGroups = useMemo(
     () => createTopHeaderGroups(bottomRowCells, selectedScale),
     [bottomRowCells, selectedScale],
   );
 
-  // Merge adjacent labels
   const mergedGroups = useMemo(() => {
     const merged: typeof topGroups = [];
     for (const group of topGroups) {
@@ -47,7 +40,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
     return merged;
   }, [topGroups]);
 
-  // Add left offset
   const mergedGroupsWithLeft = useMemo(() => {
     let offset = 0;
     return mergedGroups.map((group) => {
@@ -57,7 +49,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
     });
   }, [mergedGroups]);
 
-  // Scroll tracking
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -79,20 +70,8 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
 
   const stickyLabel = mergedGroupsWithLeft[stickyIndex]?.label ?? '';
 
-  // find the index of the cell that is in the range of draggingBarDateRange
-  const draggingBarDateRangeIndex = useMemo(() => {
-    if (!draggingBarDateRange) return -1;
-    const { startDate, endDate } = draggingBarDateRange;
-    return bottomRowCells.findIndex(
-      (cell) =>
-        cell.startDate.isSame(startDate, 'day') ||
-        cell.startDate.isSame(endDate, 'day'),
-    );
-  }, [draggingBarDateRange, bottomRowCells]);
-
   return (
     <div
-      // className="sticky top-0 z-30"
       style={{
         position: 'sticky',
         top: 0,
@@ -101,27 +80,20 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
       }}
     >
       <div
-        // className="flex min-w-max flex-col"
         style={{
           display: 'flex',
           minWidth: 'max-content',
           flexDirection: 'column',
-          // backgroundColor: '#F0F1F2',
         }}
       >
-        {/* Top Header Row */}
         <div
-          // className="relative flex h-8"
           style={{
             position: 'relative',
             display: 'flex',
             height: '32px',
-            // backgroundColor: '#F0F1F2',
           }}
         >
-          {/* Sticky floating label */}
           <div
-            // className="sticky left-0 z-40 flex w-24 shrink-0 items-center justify-center border-b border-solid text-sm font-bold"
             style={{
               position: 'sticky',
               left: 0,
@@ -132,14 +104,14 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: '#F0F1F2',
-              // borderBottom: '1px solid #D6D6D8',
+
               fontSize: '14px',
               fontWeight: 'bold',
             }}
           >
             {stickyLabel}
           </div>
-          {/* Scrollable header cells */}
+
           <div
             style={{
               display: 'flex',
@@ -149,19 +121,17 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
               return (
                 <div
                   key={idx}
-                  // className="border-b border-solid py-2 pr-4 text-left text-sm font-bold"
                   style={{
                     padding: '8px 16px',
                     fontSize: '14px',
                     fontWeight: 'bold',
                     textAlign: 'left',
                     width: `${group.widthPx}px`,
-                    // borderBottom: '1px solid #D6D6D8',
+
                     backgroundColor: '#F0F1F2',
                   }}
                 >
                   <p
-                    // className="px-4"
                     style={{
                       margin: 0,
                       padding: '0 16px',
@@ -175,16 +145,14 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
           </div>
         </div>
 
-        {/* Bottom tick row */}
         <div
-          // className="flex"
           style={{
             borderTop: '1px solid #D6D6D8',
             display: 'flex',
           }}
         >
           <div>
-            {draggingBarDateRange && (
+            {/* {draggingBarDateRange && (
               <div
                 style={{
                   position: 'absolute',
@@ -209,7 +177,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                   }}
                 ></div>
               </div>
-            )}
+            )} */}
           </div>
           {bottomRowCells.map((cell, idx) => {
             const tickLabel = config.formatTickLabel?.(cell.startDate) || '';

@@ -15,30 +15,13 @@ interface GanttState {
   // Timeline rows
   bottomRowCells: GanttBottomRowCell[];
   topHeaderGroups: GanttTopHeaderGroup[];
-
   selectedScale: GanttScaleKey;
-  draggingTaskMeta: { taskId: string; type: 'bar' | 'left' | 'right' } | null;
-  draggingBarDateRange: {
-    startDate: string;
-    endDate: string;
-    barLeft: number;
-    barWidth: number;
-  };
 
   // Actions
   setSelectedScale: (scale: GanttScaleKey) => void;
   setRawTasks: (rawTasks: Task[]) => void;
   setBottomRowCells: (cells: GanttBottomRowCell[]) => void;
   setTopHeaderGroups: (groups: GanttTopHeaderGroup[]) => void;
-  setDraggingTaskMeta: (meta: GanttState['draggingTaskMeta']) => void;
-  setDraggingBarDateRange: (range: {
-    startDate: string;
-    endDate: string;
-    barLeft: number;
-    barWidth: number;
-  }) => void;
-  clearDraggingTaskMeta: () => void;
-  clearDraggingBarDateRange: () => void;
 }
 
 export const useGanttStore = create<GanttState>()(
@@ -49,13 +32,6 @@ export const useGanttStore = create<GanttState>()(
       bottomRowCells: [],
       topHeaderGroups: [],
       selectedScale: 'month',
-      draggingBarDateRange: {
-        startDate: '',
-        endDate: '',
-        barLeft: 0,
-        barWidth: 0,
-      },
-      draggingTaskMeta: null,
 
       setSelectedScale: (scale) => {
         const { rawTasks, bottomRowCells } = get();
@@ -63,9 +39,6 @@ export const useGanttStore = create<GanttState>()(
         set({ selectedScale: scale, transformedTasks: transformed });
       },
 
-      setDraggingBarDateRange: (range) => {
-        set({ draggingBarDateRange: range });
-      },
       setRawTasks: (rawTasks) => {
         const { bottomRowCells, selectedScale } = get();
         const transformed = transformTasks(
@@ -83,19 +56,6 @@ export const useGanttStore = create<GanttState>()(
       },
 
       setTopHeaderGroups: (groups) => set({ topHeaderGroups: groups }),
-
-      setDraggingTaskMeta: (meta) => set({ draggingTaskMeta: meta }),
-      clearDraggingTaskMeta: () => set({ draggingTaskMeta: null }),
-
-      clearDraggingBarDateRange: () =>
-        set({
-          draggingBarDateRange: {
-            startDate: '',
-            endDate: '',
-            barLeft: 0,
-            barWidth: 0,
-          },
-        }),
     }),
     {
       name: 'gantt-storage',
