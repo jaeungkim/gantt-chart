@@ -1,160 +1,152 @@
 import { GANTT_SCALE_CONFIG } from 'constants/gantt';
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { useGanttStore } from 'stores/store';
-import { GanttScaleKey } from 'types/gantt';
+import { GanttDragOffset } from 'types/gantt';
 import { Task, TaskTransformed } from 'types/task';
 import dayjs from 'utils/dayjs';
 
-const toDragSteps = (px: number, scale: GanttScaleKey) =>
-  Math.round(px / GANTT_SCALE_CONFIG[scale].basePxPerDragStep);
-
-type DragMode = 'bar' | 'left' | 'right';
-
-interface DragData {
+export type DragMode = 'bar' | 'left' | 'right';
+interface DragContext {
   mode: DragMode;
-  startX: number;
-  startLeft: number;
-  startWidth: number;
-  startDate: string;
-  endDate: string;
-  steps: number;
-  frame?: number;
+  initialClientX: number;
+  initialLeft: number;
+  initialWidth: number;
+  initialStartDate: string;
+  initialEndDate: string;
+  dragSteps: number;
 }
 
 export function useGanttBarDrag(
-  ref: React.RefObject<HTMLDivElement>,
   task: TaskTransformed,
-  onTasksChange?: (tasks: Task[]) => void,
+  onTasksChange?: (updatedTasks: Task[]) => void,
 ) {
-  const rawTasks = useGanttStore((s) => s.rawTasks);
-  const selectedScale = useGanttStore((s) => s.selectedScale);
-  const setRawTasks = useGanttStore((s) => s.setRawTasks);
+  const rawTasks = useGanttStore((store) => store.rawTasks);
+  const scale = useGanttStore((store) => store.selectedScale);
+  const setDragOffset = useGanttStore((store) => store.setDragOffset);
+  const clearDragOffset = useGanttStore((store) => store.clearDragOffset);
+  const setRawTasks = useGanttStore((store) => store.setRawTasks);
 
-  const dragRef = useRef<DragData | null>(null);
+  const dragContextRef = useRef<DragContext | null>(null);
+  const activePointerIdRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
+  const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
+    const target = e.target as HTMLElement;
+    const mode: DragMode = target.closest('[data-mode="left"]')
+      ? 'left'
+      : target.closest('[data-mode="right"]')
+        ? 'right'
+        : 'bar';
 
-    const handlePointerDown = (e: PointerEvent) => {
-      const target = e.target as HTMLElement;
-      const mode: DragMode = target.closest('[data-mode="left"]')
-        ? 'left'
-        : target.closest('[data-mode="right"]')
-          ? 'right'
-          : 'bar';
-
-      dragRef.current = {
-        mode,
-        startX: e.clientX,
-        startLeft: task.barLeft,
-        startWidth: task.barWidth,
-        startDate: task.startDate,
-        endDate: task.endDate,
-        steps: 0,
-      };
-
-      document.addEventListener('pointermove', handlePointerMove);
-      document.addEventListener('pointerup', handlePointerUp);
-      document.addEventListener('pointercancel', handlePointerUp);
+    dragContextRef.current = {
+      mode,
+      initialClientX: e.clientX,
+      initialLeft: task.barLeft,
+      initialWidth: task.barWidth,
+      initialStartDate: task.startDate,
+      initialEndDate: task.endDate,
+      dragSteps: 0,
     };
 
-    element.addEventListener('pointerdown', handlePointerDown);
-    return () => element.removeEventListener('pointerdown', handlePointerDown);
-  }, [task.barLeft, task.barWidth, selectedScale]);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    activePointerIdRef.current = e.pointerId;
 
-  const handlePointerMove = (e: PointerEvent) => {
-    const drag = dragRef.current;
-    if (!drag) return;
-
-    const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
-    const minWidthPx = basePxPerDragStep;
-    let deltaPx = e.clientX - drag.startX;
-
-    if (drag.mode === 'left') {
-      const limit = drag.startWidth - minWidthPx;
-      if (deltaPx > limit) deltaPx = limit;
-      if (deltaPx < 0)
-        deltaPx = Math.floor(deltaPx / basePxPerDragStep) * basePxPerDragStep;
-    } else if (drag.mode === 'right') {
-      const limit = drag.startWidth - minWidthPx;
-      if (-deltaPx > limit) deltaPx = -limit;
-      if (deltaPx > 0)
-        deltaPx = Math.ceil(deltaPx / basePxPerDragStep) * basePxPerDragStep;
-    }
-
-    const steps = toDragSteps(deltaPx, selectedScale);
-    if (steps === drag.steps) return;
-    drag.steps = steps;
-
-    cancelAnimationFrame(drag.frame!);
-    drag.frame = requestAnimationFrame(() => {
-      const node = ref.current;
-      if (!node) return;
-
-      const translateX = drag.startLeft + steps * basePxPerDragStep;
-
-      if (drag.mode === 'bar') {
-        node.style.transform = `translateX(${translateX}px)`;
-      } else if (drag.mode === 'left') {
-        node.style.transform = `translateX(${translateX}px)`;
-        node.style.width = `${drag.startWidth - steps * basePxPerDragStep}px`;
-      } else {
-        node.style.transform = `translateX(${drag.startLeft}px)`;
-        node.style.width = `${drag.startWidth + steps * basePxPerDragStep}px`;
-      }
-    });
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
   };
 
-  const handlePointerUp = () => {
-    document.removeEventListener('pointermove', handlePointerMove);
-    document.removeEventListener('pointerup', handlePointerUp);
-    document.removeEventListener('pointercancel', handlePointerUp);
+  const onPointerMove = (e: PointerEvent) => {
+    const ctx = dragContextRef.current;
+    if (!ctx) return;
 
-    const drag = dragRef.current;
-    if (!drag) return;
-    dragRef.current = null;
-    cancelAnimationFrame(drag.frame!);
+    const { basePxPerDragStep } = GANTT_SCALE_CONFIG[scale];
+    const minimumWidth = basePxPerDragStep;
 
-    const scaleConfig = GANTT_SCALE_CONFIG[selectedScale];
+    let deltaX = e.clientX - ctx.initialClientX;
+
+    if (ctx.mode === 'left') {
+      deltaX = Math.min(deltaX, ctx.initialWidth - minimumWidth);
+      if (deltaX < 0) {
+        deltaX = Math.floor(deltaX / basePxPerDragStep) * basePxPerDragStep;
+      }
+    } else if (ctx.mode === 'right') {
+      deltaX = Math.max(deltaX, -ctx.initialWidth + minimumWidth);
+      if (deltaX > 0) {
+        deltaX = Math.ceil(deltaX / basePxPerDragStep) * basePxPerDragStep;
+      }
+    }
+
+    const steps = Math.round(deltaX / basePxPerDragStep);
+    if (steps === ctx.dragSteps) return;
+
+    ctx.dragSteps = steps;
+
+    const draggedPx = ctx.dragSteps * basePxPerDragStep;
+    const offset: GanttDragOffset =
+      ctx.mode === 'bar'
+        ? { offsetX: draggedPx, offsetWidth: 0 }
+        : ctx.mode === 'left'
+          ? { offsetX: draggedPx, offsetWidth: -draggedPx }
+          : { offsetX: 0, offsetWidth: draggedPx };
+
+    setDragOffset(task.id, offset);
+  };
+
+  const onPointerUp = () => {
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    document.removeEventListener('pointercancel', onPointerUp);
+
+    const ctx = dragContextRef.current;
+    if (!ctx) return;
+
+    const { dragStepAmount, dragStepUnit } = GANTT_SCALE_CONFIG[scale];
+
+    const adjustDate = (date: string) =>
+      dayjs(date)
+        .add(
+          ctx.dragSteps * dragStepAmount,
+          dragStepUnit as dayjs.ManipulateType,
+        )
+        .toISOString();
 
     const updatedTasks = rawTasks.map((t) => {
       if (t.id !== task.id) return t;
 
-      if (drag.mode === 'bar') {
-        return {
-          ...t,
-          startDate: dayjs(drag.startDate)
-            .add(
-              drag.steps * scaleConfig.dragStepAmount,
-              scaleConfig.dragStepUnit,
-            )
-            .toISOString(),
-          endDate: dayjs(drag.endDate)
-            .add(
-              drag.steps * scaleConfig.dragStepAmount,
-              scaleConfig.dragStepUnit,
-            )
-            .toISOString(),
-        };
+      switch (ctx.mode) {
+        case 'bar':
+          return {
+            ...t,
+            startDate: adjustDate(ctx.initialStartDate),
+            endDate: adjustDate(ctx.initialEndDate),
+          } as Task;
+        case 'left':
+          return {
+            ...t,
+            startDate: adjustDate(ctx.initialStartDate),
+          } as Task;
+        default:
+          return {
+            ...t,
+            endDate: adjustDate(ctx.initialEndDate),
+          } as Task;
       }
-
-      if (drag.mode === 'left') {
-        const newStart = dayjs(drag.startDate).add(
-          drag.steps * scaleConfig.dragStepAmount,
-          scaleConfig.dragStepUnit,
-        );
-        return { ...t, startDate: newStart.toISOString() };
-      }
-
-      const newEnd = dayjs(drag.endDate).add(
-        drag.steps * scaleConfig.dragStepAmount,
-        scaleConfig.dragStepUnit,
-      );
-      return { ...t, endDate: newEnd.toISOString() };
     });
 
+    clearDragOffset(task.id);
     setRawTasks(updatedTasks);
     onTasksChange?.(updatedTasks);
+
+    const pointerId = activePointerIdRef.current;
+    if (pointerId !== null) {
+      document
+        .getElementById(`task-${task.id}`)
+        ?.releasePointerCapture(pointerId);
+    }
+
+    activePointerIdRef.current = null;
+    dragContextRef.current = null;
   };
+
+  return { onPointerDown };
 }

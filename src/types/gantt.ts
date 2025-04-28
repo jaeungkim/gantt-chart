@@ -25,3 +25,8 @@ export interface GanttTopHeaderGroup {
   widthPx: number;
   label: string;
 }
+
+export interface GanttDragOffset {
+  offsetX: number;
+  offsetWidth: number;
+}

@@ -22,6 +22,9 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
   const rawTasks = useGanttStore((state) => state.rawTasks);
   const setRawTasks = useGanttStore((state) => state.setRawTasks);
   const transformedTasks = useGanttStore((state) => state.transformedTasks);
+  const setTransformedTasks = useGanttStore(
+    (state) => state.setTransformedTasks,
+  );
   const selectedScale = useGanttStore((state) => state.selectedScale);
   const setSelectedScale = useGanttStore((state) => state.setSelectedScale);
   const bottomRowCells = useGanttStore((state) => state.bottomRowCells);
@@ -40,18 +43,12 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
   useEffect(() => {
     if (!rawTasks.length) return;
 
-    const taskDatesRecord = Object.fromEntries(
-      transformedTasks.map((task) => [
-        task.id,
-        { startDate: task.startDate, endDate: task.endDate },
-      ]),
-    );
-
     setupTimelineStructure(
-      taskDatesRecord,
+      rawTasks,
       selectedScale,
       setBottomRowCells,
       setTopHeaderGroups,
+      setTransformedTasks,
     );
   }, [rawTasks, selectedScale]);
 
@@ -120,7 +117,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
             >
               {Object.keys(GANTT_SCALE_CONFIG).map((scale) => (
                 <option key={scale} value={scale}>
-                  {GANTT_SCALE_CONFIG[scale as GanttScaleKey].labelUnit}
+                  {scale}
                 </option>
               ))}
             </select>
@@ -173,7 +170,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                       }}
                     >
                       <GanttBar
-                        allTasks={transformedTasks}
+                        transformedTasks={transformedTasks}
                         currentTask={task}
                         onTasksChange={onTasksChange}
                       />

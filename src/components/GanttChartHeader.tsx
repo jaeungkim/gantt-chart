@@ -104,7 +104,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: '#F0F1F2',
-
               fontSize: '14px',
               fontWeight: 'bold',
             }}
@@ -187,7 +186,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
               <div
                 key={bottomRowCellKey}
                 style={{
-                
                   position: 'relative',
                   padding: '4px 0',
                   // textAlign: 'center',

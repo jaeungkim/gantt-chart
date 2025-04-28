@@ -5,7 +5,9 @@ import {
   GanttScaleKey,
   GanttTopHeaderGroup,
 } from 'types/gantt';
+import { Task, TaskTransformed } from 'types/task';
 import dayjs from 'utils/dayjs';
+import { transformTasks } from './transformData';
 
 export function calculateDateOffsets(
   startDate: Dayjs,
@@ -28,46 +30,35 @@ export function calculateDateOffsets(
     const tickEnd = tickStart.add(unitPerTick, tickUnit);
     const tickWidth = tick.widthPx;
 
-    /* ─────────────────────────────────────────────
-       Tick completely before the task → full margin
-    ──────────────────────────────────────────────*/
     if (tickEnd.isSameOrBefore(startDate)) {
       barMarginLeftAmount += tickWidth;
       continue;
     }
 
-    /* ─────────────────────────────────────────────
-       Tick completely after the task → we're done
-    ──────────────────────────────────────────────*/
     if (tickStart.isSameOrAfter(endDate)) {
       break;
     }
 
-    /* ─────────────────────────────────────────────
-       Partial or full overlap with the task
-    ──────────────────────────────────────────────*/
     const overlapStart = startDate.isAfter(tickStart) ? startDate : tickStart;
     const overlapEnd = endDate.isBefore(tickEnd) ? endDate : tickEnd;
 
     const tickDurationMs = tickEnd.diff(tickStart);
     const overlapDurationMs = overlapEnd.diff(overlapStart);
 
-    const overlapRatio = overlapDurationMs / tickDurationMs; // 0‥1
+    const overlapRatio = overlapDurationMs / tickDurationMs;
 
     if (!insideTask && overlapStart.isAfter(tickStart)) {
-      /* Task begins inside this tick → add margin for the part before it */
       const beforeStartRatio = overlapStart.diff(tickStart) / tickDurationMs;
       barMarginLeftAmount += beforeStartRatio * tickWidth;
     }
 
-    /* Add the visible part’s width */
     barWidthSize += overlapRatio * tickWidth;
     insideTask = true;
   }
 
   return {
     barMarginLeftAmount,
-    barWidthSize: Math.max(barWidthSize, 1), // keep the 1-px safeguard
+    barWidthSize: Math.max(barWidthSize, 1),
   };
 }
 
@@ -139,6 +130,7 @@ export function createTopHeaderGroups(
   selectedScale: GanttScaleKey,
 ): GanttTopHeaderGroup[] {
   const { labelUnit, formatHeaderLabel } = GANTT_SCALE_CONFIG[selectedScale];
+
   const groups: GanttTopHeaderGroup[] = [];
 
   let currentKey: number | null = null;
@@ -180,12 +172,20 @@ export function createTopHeaderGroups(
 }
 
 export function setupTimelineStructure(
-  tasks: Record<string, { startDate: string; endDate: string }>,
+  rawTasks: Task[],
   selectedScale: GanttScaleKey,
   updateBottomCells: (cells: GanttBottomRowCell[]) => void,
   updateHeaderGroups: (groups: GanttTopHeaderGroup[]) => void,
+  updateTransformedTasks: (transformed: TaskTransformed[]) => void,
 ) {
-  const { minDate, maxDate } = findDateRangeFromTasks(tasks);
+  const { minDate, maxDate } = findDateRangeFromTasks(
+    Object.fromEntries(
+      rawTasks.map((rawTask) => [
+        rawTask.id,
+        { startDate: rawTask.startDate, endDate: rawTask.endDate },
+      ]),
+    ),
+  );
 
   const { paddedMinDate, paddedMaxDate } = padDateRange(
     minDate,
@@ -199,7 +199,9 @@ export function setupTimelineStructure(
     selectedScale,
   );
   const headerGroups = createTopHeaderGroups(bottomCells, selectedScale);
+  const transformedTasks = transformTasks(rawTasks, bottomCells, selectedScale);
 
   updateBottomCells(bottomCells);
   updateHeaderGroups(headerGroups);
+  updateTransformedTasks(transformedTasks);
 }
