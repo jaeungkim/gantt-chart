@@ -5,7 +5,6 @@ import { useEffect, useRef } from 'react';
 import { useGanttStore } from 'stores/store';
 import { GanttScaleKey } from 'types/gantt';
 import { Task } from 'types/task';
-import dayjs from 'utils/dayjs.ts';
 import { setupTimelineStructure } from 'utils/timeline';
 import sourceTasks from '../../db.ts';
 
@@ -52,14 +51,14 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
     );
   }, [rawTasks, selectedScale]);
 
-  useEffect(() => {
-    const updatedTasksMap = transformedTasks.map((task) => ({
-      ...task,
-      startDate: dayjs(task.startDate).local().format('YYYY-MM-DD HH:mm:ss'),
-      endDate: dayjs(task.endDate).local().format('YYYY-MM-DD HH:mm:ss'),
-    }));
-    console.log('Updated Tasks:', updatedTasksMap);
-  }, [transformedTasks]);
+  // useEffect(() => {
+  //   const updatedTasksMap = transformedTasks.map((task) => ({
+  //     ...task,
+  //     startDate: dayjs(task.startDate).local().format('YYYY-MM-DD HH:mm:ss'),
+  //     endDate: dayjs(task.endDate).local().format('YYYY-MM-DD HH:mm:ss'),
+  //   }));
+  //   console.log('Updated Tasks:', updatedTasksMap);
+  // }, [transformedTasks]);
 
   return (
     <section

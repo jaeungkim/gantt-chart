@@ -1,5 +1,6 @@
 import { GANTT_SCALE_CONFIG } from 'constants/gantt';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useGanttStore } from 'stores/store';
 import {
   GanttBottomRowCell,
   GanttScaleKey,
@@ -21,6 +22,13 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
 }) => {
   const config = GANTT_SCALE_CONFIG[selectedScale];
   const [stickyIndex, setStickyIndex] = useState(0);
+
+  const currentTask = useGanttStore((store) => store.currentTask);
+  const dragOffset = useGanttStore((store) => {
+    if (!currentTask) return '';
+    const taskId = currentTask.id as keyof typeof store.dragOffsets;
+    return store.dragOffsets[taskId] ?? '';
+  });
 
   const topGroups = useMemo(
     () => createTopHeaderGroups(bottomRowCells, selectedScale),
@@ -151,32 +159,26 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
           }}
         >
           <div>
-            {/* {draggingBarDateRange && (
+            {dragOffset && currentTask && (
               <div
                 style={{
                   position: 'absolute',
-                  left: `${draggingBarDateRange.barLeft}px`,
-                  top: '32px',
+                  left: `${dragOffset.offsetX + (currentTask?.barLeft ?? 0)}px`,
                   zIndex: 60,
                   backgroundColor: '#D6D6D8',
-                  width: `${draggingBarDateRange.barWidth}px`,
+                  width: `${dragOffset.offsetWidth + (currentTask?.barWidth ?? 0)}px`,
                   height: '22px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
                   borderRadius: '100px',
                   opacity: 0.7,
+                  fontSize: '12px',
+                  overflow: 'hidden',
                 }}
               >
-                <div
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    justifyContent: 'between',
-                  }}
-                ></div>
+                {/* TODO: to correctly show the drag offset */}
               </div>
-            )} */}
+            )}
           </div>
           {bottomRowCells.map((cell, idx) => {
             const tickLabel = config.formatTickLabel?.(cell.startDate) || '';
@@ -187,6 +189,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                 key={bottomRowCellKey}
                 style={{
                   position: 'relative',
+                  lineHeight: 'normal',
                   padding: '4px 0',
                   // textAlign: 'center',
                   fontSize: '12px',

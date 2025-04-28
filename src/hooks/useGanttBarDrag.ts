@@ -20,6 +20,7 @@ export function useGanttBarDrag(
   task: TaskTransformed,
   onTasksChange?: (updatedTasks: Task[]) => void,
 ) {
+  const setCurrentTask = useGanttStore((store) => store.setCurrentTask);
   const rawTasks = useGanttStore((store) => store.rawTasks);
   const scale = useGanttStore((store) => store.selectedScale);
   const setDragOffset = useGanttStore((store) => store.setDragOffset);
@@ -47,6 +48,8 @@ export function useGanttBarDrag(
       dragSteps: 0,
     };
 
+    setCurrentTask(task);
+
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     activePointerIdRef.current = e.pointerId;
 
@@ -60,6 +63,18 @@ export function useGanttBarDrag(
     if (!ctx) return;
 
     const { basePxPerDragStep } = GANTT_SCALE_CONFIG[scale];
+    const scaleConfig = GANTT_SCALE_CONFIG[scale];
+    const minutesPerPixel =
+      (scaleConfig.dragStepAmount *
+        {
+          minute: 1,
+          hour: 60,
+          day: 60 * 24,
+          week: 60 * 24 * 7,
+          month: 60 * 24 * 30,
+        }[scaleConfig.dragStepUnit]) /
+      scaleConfig.basePxPerDragStep;
+
     const minimumWidth = basePxPerDragStep;
 
     let deltaX = e.clientX - ctx.initialClientX;
@@ -82,12 +97,35 @@ export function useGanttBarDrag(
     ctx.dragSteps = steps;
 
     const draggedPx = ctx.dragSteps * basePxPerDragStep;
+    const totalDraggedMinutes = draggedPx * minutesPerPixel;
+
+    // on move update the offset start date and end date with updated values
+    const offsetStartDate = dayjs(ctx.initialStartDate).add(
+      totalDraggedMinutes,
+      'minute',
+    );
+
+    const offsetEndDate = dayjs(ctx.initialEndDate).add(
+      totalDraggedMinutes,
+      'minute',
+    );
+
     const offset: GanttDragOffset =
       ctx.mode === 'bar'
-        ? { offsetX: draggedPx, offsetWidth: 0 }
+        ? { offsetX: draggedPx, offsetWidth: 0, offsetStartDate, offsetEndDate }
         : ctx.mode === 'left'
-          ? { offsetX: draggedPx, offsetWidth: -draggedPx }
-          : { offsetX: 0, offsetWidth: draggedPx };
+          ? {
+              offsetX: draggedPx,
+              offsetWidth: -draggedPx,
+              offsetStartDate,
+              offsetEndDate,
+            }
+          : {
+              offsetX: 0,
+              offsetWidth: draggedPx,
+              offsetStartDate,
+              offsetEndDate,
+            };
 
     setDragOffset(task.id, offset);
   };
@@ -133,6 +171,7 @@ export function useGanttBarDrag(
       }
     });
 
+    setCurrentTask(null);
     clearDragOffset(task.id);
     setRawTasks(updatedTasks);
     onTasksChange?.(updatedTasks);

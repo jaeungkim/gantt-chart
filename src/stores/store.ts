@@ -17,6 +17,7 @@ interface GanttState {
   selectedScale: GanttScaleKey;
 
   /* ⏱  LIVE drag offsets (keyed by taskId) */
+  currentTask: TaskTransformed | null;
   dragOffsets: Record<string, GanttDragOffset>;
 
   // Transformed tasks
@@ -24,6 +25,7 @@ interface GanttState {
 
   // Actions
   setSelectedScale: (scale: GanttScaleKey) => void;
+  setCurrentTask: (task: TaskTransformed | null) => void;
   setRawTasks: (rawTasks: Task[]) => void;
   setBottomRowCells: (cells: GanttBottomRowCell[]) => void;
   setTopHeaderGroups: (groups: GanttTopHeaderGroup[]) => void;
@@ -42,8 +44,13 @@ export const useGanttStore = create<GanttState>()(
         bottomRowCells: [],
         topHeaderGroups: [],
         selectedScale: 'month',
+        currentTask: null,
         dragOffsets: {},
 
+        setCurrentTask: (task) =>
+          set({
+            currentTask: task,
+          }),
         setSelectedScale: (scale) =>
           set({
             selectedScale: scale,

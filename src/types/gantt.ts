@@ -29,4 +29,6 @@ export interface GanttTopHeaderGroup {
 export interface GanttDragOffset {
   offsetX: number;
   offsetWidth: number;
+  offsetStartDate: Dayjs;
+  offsetEndDate: Dayjs;
 }
