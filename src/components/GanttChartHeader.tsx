@@ -101,7 +101,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
             height: '32px',
           }}
         >
-          <div
+          {/* <div
             style={{
               position: 'sticky',
               left: 0,
@@ -110,14 +110,14 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
               width: '96px',
               flexShrink: 0,
               alignItems: 'center',
-              justifyContent: 'center',
+              justifyContent: 'start',
               backgroundColor: '#F0F1F2',
               fontSize: '14px',
               fontWeight: 'bold',
             }}
           >
             {stickyLabel}
-          </div>
+          </div> */}
 
           <div
             style={{
@@ -134,14 +134,13 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                     fontWeight: 'bold',
                     textAlign: 'left',
                     width: `${group.widthPx}px`,
-
                     backgroundColor: '#F0F1F2',
                   }}
                 >
                   <p
                     style={{
                       margin: 0,
-                      padding: '0 16px',
+                      padding: '0 0px',
                     }}
                   >
                     {idx === 0 ? '' : group.label}
