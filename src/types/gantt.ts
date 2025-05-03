@@ -3,13 +3,13 @@ import { Dayjs } from 'dayjs';
 export type GanttScaleKey = 'day' | 'week' | 'month' | 'year';
 export interface GanttScaleConfig {
   labelUnit: 'hour' | 'day' | 'week' | 'month' | 'year';
-  tickUnit: 'minute' | 'hour' | 'day';
+  tickUnit: 'minute' | 'hour' | 'day' | 'week' | 'month';
   unitPerTick: number;
 
-  dragStepUnit: 'minute' | 'hour' | 'day';
+  dragStepUnit: 'minute' | 'hour' | 'day' | 'week';
   dragStepAmount: number;
 
-  basePxPerDragStep: number; // number of px per drag step (how much user can drag in px)
+  basePxPerDragStep: number;
 
   formatTickLabel?: (date: Dayjs) => string;
   formatHeaderLabel?: (date: Dayjs) => string;

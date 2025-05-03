@@ -100,32 +100,38 @@ export function useGanttBarDrag(
     const totalDraggedMinutes = draggedPx * minutesPerPixel;
 
     // on move update the offset start date and end date with updated values
-    const offsetStartDate = dayjs(ctx.initialStartDate).add(
-      totalDraggedMinutes,
-      'minute',
-    );
-
-    const offsetEndDate = dayjs(ctx.initialEndDate).add(
-      totalDraggedMinutes,
-      'minute',
-    );
-
+    let offsetStartDate = dayjs(ctx.initialStartDate);
+    let offsetEndDate = dayjs(ctx.initialEndDate);
+    
+    if (ctx.mode === 'bar') {
+      offsetStartDate = offsetStartDate.add(totalDraggedMinutes, 'minute');
+      offsetEndDate = offsetEndDate.add(totalDraggedMinutes, 'minute');
+    } else if (ctx.mode === 'left') {
+      offsetStartDate = offsetStartDate.add(totalDraggedMinutes, 'minute');
+      // endDate stays the same
+    } else if (ctx.mode === 'right') {
+      offsetEndDate = offsetEndDate.add(totalDraggedMinutes, 'minute');
+      // startDate stays the same
+    }
+    
+    
     const offset: GanttDragOffset =
-      ctx.mode === 'bar'
-        ? { offsetX: draggedPx, offsetWidth: 0, offsetStartDate, offsetEndDate }
-        : ctx.mode === 'left'
-          ? {
-              offsetX: draggedPx,
-              offsetWidth: -draggedPx,
-              offsetStartDate,
-              offsetEndDate,
-            }
-          : {
-              offsetX: 0,
-              offsetWidth: draggedPx,
-              offsetStartDate,
-              offsetEndDate,
-            };
+    ctx.mode === 'bar'
+      ? { offsetX: draggedPx, offsetWidth: 0, offsetStartDate, offsetEndDate }
+      : ctx.mode === 'left'
+      ? {
+          offsetX: draggedPx,
+          offsetWidth: -draggedPx,
+          offsetStartDate,
+          offsetEndDate,
+        }
+      : {
+          offsetX: 0,
+          offsetWidth: draggedPx,
+          offsetStartDate,
+          offsetEndDate,
+        };
+  
 
     setDragOffset(task.id, offset);
   };
