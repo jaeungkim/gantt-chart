@@ -71,7 +71,7 @@ export default function GanttBar({
           background: '#D6D6D8',
           transform: `translateX(${currentTask.barLeft + offsetX}px)`,
           width: currentTask.barWidth + offsetWidth,
-          height: 16,
+          height: NODE_HEIGHT / 2,
           userSelect: 'none',
         }}
       >

@@ -37,7 +37,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
 
   const mergedGroups = useMemo(() => {
     const merged: typeof topGroups = [];
-    // console.log('topGroups', topGroups);
     for (const group of topGroups) {
       const last = merged[merged.length - 1];
       if (last && last.label === group.label) {
@@ -77,8 +76,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
     return () => el.removeEventListener('scroll', handleScroll);
   }, [mergedGroupsWithLeft]);
 
-  const stickyLabel = mergedGroupsWithLeft[stickyIndex]?.label ?? '';
-
   return (
     <div
       style={{
@@ -104,31 +101,11 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
         >
           <div
             style={{
-              position: 'sticky',
-              left: 0,
-              zIndex: 40,
-              display: 'flex',
-              width: `${bottomRowCells[0]?.widthPx ?? 0}px`,
-              flexShrink: 0,
-              alignItems: 'center',
-              justifyContent: 'start',
-              backgroundColor: '#F0F1F2',
-              whiteSpace: 'nowrap',
-              fontSize: '14px',
-              fontWeight: 'bold',
-            }}
-          >
-            {stickyLabel}
-          </div>
-
-          <div
-            style={{
               display: 'flex',
             }}
           >
-            {/* start with 0+1 index not 0 */}
             {mergedGroupsWithLeft.map((group, idx) => {
-              if (idx === 0) return;
+              const isSticky = idx === stickyIndex;
               return (
                 <div
                   key={idx}
@@ -138,16 +115,22 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                     fontWeight: 'bold',
                     textAlign: 'left',
                     width: `${group.widthPx}px`,
+                    zIndex: 40,
                     backgroundColor: '#F0F1F2',
+                    ...(isSticky && {
+                      position: 'sticky',
+                      left: 0,
+                    }),
                   }}
                 >
                   <p
                     style={{
                       margin: 0,
                       padding: '0 0px',
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    {idx === 0 ? '' : group.label}
+                    {group.label}
                   </p>
                 </div>
               );
@@ -206,7 +189,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                   position: 'relative',
                   lineHeight: 'normal',
                   padding: '4px 0',
-                  // textAlign: 'center',
                   fontSize: '12px',
                   width: `${cell.widthPx}px`,
                 }}

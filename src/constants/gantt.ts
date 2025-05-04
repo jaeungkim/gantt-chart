@@ -5,7 +5,7 @@ export const TIMELINE_SHIFT_BUFFER = 3;
 
 export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
   day: {
-    labelUnit: 'day',
+    labelUnit: 'day', // laebel unit for the top header
     tickUnit: 'hour',
     unitPerTick: 1,
     dragStepUnit: 'hour',
@@ -15,14 +15,14 @@ export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
     formatHeaderLabel: (d) => d.format('MMM D'),
   },
   week: {
-    labelUnit: 'week',
+    labelUnit: 'month', 
     tickUnit: 'day',
     unitPerTick: 1,
     dragStepUnit: 'hour',
     dragStepAmount: 6,
     basePxPerDragStep: 54,
     formatTickLabel: (d) => d.format('D'),
-    formatHeaderLabel: (d) => d.format('MMM D'),
+    formatHeaderLabel: (d) => d.format('MMM'),
   },
   month: {
     labelUnit: 'month',

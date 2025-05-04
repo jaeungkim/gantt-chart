@@ -136,9 +136,8 @@ export function createTopHeaderGroups(
   let currentKey: number | null = null;
   let currentLabel = '';
   let currentWidth = 0;
-  let currentStart: dayjs.Dayjs | null = null;
+  let currentStart: Dayjs | null = null;
 
-  console.log('bottomCells', bottomCells);
   bottomCells.forEach((cell, i) => {
     const start = cell.startDate.startOf(labelUnit);
     const key = start.valueOf();
