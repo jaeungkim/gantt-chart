@@ -12,13 +12,13 @@ interface GanttChartHeaderProps {
   topHeaderGroups: GanttTopHeaderGroup[];
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
-  scrollRef: React.RefObject<HTMLDivElement>;
+  // scrollRef: React.RefObject<HTMLDivElement>;
 }
 
 const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
   bottomRowCells,
   selectedScale,
-  scrollRef,
+  // scrollRef,
 }) => {
   const config = GANTT_SCALE_CONFIG[selectedScale];
   const [stickyIndex, setStickyIndex] = useState(0);
@@ -57,28 +57,10 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
     });
   }, [mergedGroups]);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const handleScroll = () => {
-      const scrollLeft = el.scrollLeft;
-      for (let i = mergedGroupsWithLeft.length - 1; i >= 0; i--) {
-        if (scrollLeft >= mergedGroupsWithLeft[i].left) {
-          setStickyIndex(i);
-          break;
-        }
-      }
-    };
-
-    el.addEventListener('scroll', handleScroll);
-    handleScroll();
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, [mergedGroupsWithLeft]);
-
   return (
     <div
       style={{
+        width: 'fit-content',
         position: 'sticky',
         top: 0,
         zIndex: 30,

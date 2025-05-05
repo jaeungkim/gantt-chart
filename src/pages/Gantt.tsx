@@ -1,5 +1,6 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
 import GanttBar from 'components/GanttBar.tsx';
-import GanttChartHeader from 'components/GanttChartHeader';
+import GanttChartHeader from 'components/GanttChartHeader.tsx';
 import { GANTT_SCALE_CONFIG, NODE_HEIGHT } from 'constants/gantt';
 import { useEffect, useRef } from 'react';
 import { useGanttStore } from 'stores/store';
@@ -7,7 +8,6 @@ import { GanttScaleKey } from 'types/gantt';
 import { Task } from 'types/task';
 import { setupTimelineStructure } from 'utils/timeline';
 import sourceTasks from '../../db.ts';
-import dayjs from 'utils/dayjs.ts';
 
 interface GanttProps {
   tasks: Task[];
@@ -52,14 +52,42 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
     );
   }, [rawTasks, selectedScale]);
 
-  useEffect(() => {
-    const updatedTasksMap = transformedTasks.map((task) => ({
-      ...task,
-      startDate: dayjs(task.startDate).local().format('YYYY-MM-DD HH:mm:ss'),
-      endDate: dayjs(task.endDate).local().format('YYYY-MM-DD HH:mm:ss'),
-    }));
-    console.log('Updated Tasks:', updatedTasksMap);
-  }, [transformedTasks]);
+  // Virtualization
+  const parentRef = useRef(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: transformedTasks.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => NODE_HEIGHT,
+    overscan: 5,
+  });
+
+  const columnVirtualizer = useVirtualizer({
+    horizontal: true,
+    count: bottomRowCells.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () =>
+      GANTT_SCALE_CONFIG[selectedScale].basePxPerDragStep *
+      GANTT_SCALE_CONFIG[selectedScale].dragStepAmount,
+    overscan: 5,
+  });
+
+  const virtualItems = columnVirtualizer.getVirtualItems();
+  const visibleStartPx = virtualItems[0]?.start ?? 0;
+  const lastVirtualItem = virtualItems[virtualItems.length - 1];
+  const visibleEndPx = lastVirtualItem
+    ? lastVirtualItem.start + lastVirtualItem.size
+    : 0;
+
+  function isBarVisible(
+    barLeft: number,
+    barWidth: number,
+    visibleStartPx: number,
+    visibleEndPx: number,
+  ) {
+    const barRight = barLeft + barWidth;
+    return barRight >= visibleStartPx && barLeft <= visibleEndPx;
+  }
 
   return (
     <section
@@ -124,60 +152,63 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
           </div>
 
           <div
-            ref={scrollRef}
+            ref={parentRef}
+            className="List"
             style={{
-              flexGrow: 1,
-              overflowX: 'auto',
+              height: `100%`,
+              width: `100%`,
+              overflow: 'auto',
             }}
           >
+            <GanttChartHeader
+              topHeaderGroups={topHeaderGroups}
+              bottomRowCells={bottomRowCells}
+              selectedScale={selectedScale}
+            />
+
             <div
               style={{
-                display: 'flex',
-                minWidth: 'max-content',
-                flexDirection: 'column',
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: `${columnVirtualizer.getTotalSize()}px`,
+                position: 'relative',
               }}
             >
-              <GanttChartHeader
-                topHeaderGroups={topHeaderGroups}
-                bottomRowCells={bottomRowCells}
-                selectedScale={selectedScale}
-                scrollRef={scrollRef as React.RefObject<HTMLDivElement>}
-              />
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const task = transformedTasks[virtualRow.index];
+                const barLeft = task.barLeft ?? 0;
+                const barWidth = task.barWidth ?? 0;
 
-              <div
-                style={{
-                  position: 'relative',
-                  display: 'flex',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    flexGrow: 1,
-                    flexDirection: 'column',
-                  }}
-                >
-                  {transformedTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      style={{
-                        display: 'flex',
-                        width: '100%',
-                        alignItems: 'center',
-                        borderBottom: '1px solid #E6E7E9',
-                        height: `${NODE_HEIGHT - 1}px`,
-                        backgroundColor: '#FFF',
-                      }}
-                    >
+                const shouldRender = isBarVisible(
+                  barLeft,
+                  barWidth,
+                  visibleStartPx,
+                  visibleEndPx,
+                );
+
+                return (
+                  <div
+                    key={virtualRow.key}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      height: `${virtualRow.size - 1}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                      display: 'flex',
+                      width: '100%',
+                      alignItems: 'center',
+                      borderBottom: '1px solid #E6E7E9',
+                    }}
+                  >
+                    {shouldRender && (
                       <GanttBar
-                        transformedTasks={transformedTasks}
                         currentTask={task}
                         onTasksChange={onTasksChange}
                       />
-                    </div>
-                  ))}
-                </div>
-              </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
