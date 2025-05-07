@@ -1,8 +1,9 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import GanttBar from 'components/GanttBar.tsx';
 import GanttChartHeader from 'components/GanttChartHeader.tsx';
+import GanttDependencyArrows from 'components/GanttDependencyArrows.tsx';
 import { GANTT_SCALE_CONFIG, NODE_HEIGHT } from 'constants/gantt';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useGanttStore } from 'stores/store';
 import { GanttScaleKey } from 'types/gantt';
 import { Task } from 'types/task';
@@ -66,9 +67,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
     horizontal: true,
     count: bottomRowCells.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () =>
-      GANTT_SCALE_CONFIG[selectedScale].basePxPerDragStep *
-      GANTT_SCALE_CONFIG[selectedScale].dragStepAmount,
+    estimateSize: (index) => bottomRowCells[index]?.widthPx ?? 32,
     overscan: 5,
   });
 
@@ -88,6 +87,25 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
     const barRight = barLeft + barWidth;
     return barRight >= visibleStartPx && barLeft <= visibleEndPx;
   }
+
+  const totalWidth = useMemo(
+    () => bottomRowCells.reduce((sum, c) => sum + c.widthPx, 0),
+    [bottomRowCells],
+  );
+
+  const visibleRowIndexes = rowVirtualizer
+    .getVirtualItems()
+    .map((item) => item.index);
+
+  useEffect(() => {
+    if (!bottomRowCells.length) return;
+
+    const id = requestAnimationFrame(() => {
+      columnVirtualizer.measure();
+    });
+
+    return () => cancelAnimationFrame(id);
+  }, [bottomRowCells, columnVirtualizer]);
 
   return (
     <section
@@ -164,15 +182,21 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
               topHeaderGroups={topHeaderGroups}
               bottomRowCells={bottomRowCells}
               selectedScale={selectedScale}
+              width={totalWidth}
             />
 
             <div
               style={{
                 height: `${rowVirtualizer.getTotalSize()}px`,
-                width: `${columnVirtualizer.getTotalSize()}px`,
+                width: `${totalWidth}px`,
                 position: 'relative',
               }}
             >
+              <GanttDependencyArrows
+                transformedTasks={transformedTasks}
+                visibleRowIndexes={visibleRowIndexes}
+              />
+
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const task = transformedTasks[virtualRow.index];
                 const barLeft = task.barLeft ?? 0;
@@ -187,7 +211,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
 
                 return (
                   <div
-                    key={virtualRow.key}
+                    key={virtualRow.index}
                     style={{
                       position: 'absolute',
                       top: 0,
@@ -201,10 +225,12 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                     }}
                   >
                     {shouldRender && (
-                      <GanttBar
-                        currentTask={task}
-                        onTasksChange={onTasksChange}
-                      />
+                      <>
+                        <GanttBar
+                          currentTask={task}
+                          onTasksChange={onTasksChange}
+                        />
+                      </>
                     )}
                   </div>
                 );

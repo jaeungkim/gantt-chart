@@ -12,12 +12,14 @@ interface GanttChartHeaderProps {
   topHeaderGroups: GanttTopHeaderGroup[];
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
+  width: number;
   // scrollRef: React.RefObject<HTMLDivElement>;
 }
 
 const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
   bottomRowCells,
   selectedScale,
+  width,
   // scrollRef,
 }) => {
   const config = GANTT_SCALE_CONFIG[selectedScale];
@@ -60,7 +62,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
   return (
     <div
       style={{
-        width: 'fit-content',
+        width: `${width}px`,
         position: 'sticky',
         top: 0,
         zIndex: 30,
@@ -70,7 +72,6 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
       <div
         style={{
           display: 'flex',
-          minWidth: 'max-content',
           flexDirection: 'column',
         }}
       >

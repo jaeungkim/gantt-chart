@@ -5,27 +5,40 @@ import { getSmartGanttPath } from 'utils/arrowPath';
 
 interface Props {
   transformedTasks: TaskTransformed[];
-  currentTask: TaskTransformed;
+  visibleRowIndexes: number[];
 }
 
 export default function GanttDependencyArrows({
   transformedTasks,
-  currentTask,
+  visibleRowIndexes,
 }: Props) {
-  const liveOffset = useGanttStore(
-    (store) => store.dragOffsets[currentTask.id],
-  );
-  const offsetX = liveOffset?.offsetX ?? 0;
-  const offsetWidth = liveOffset?.offsetWidth ?? 0;
+  const liveOffsets = useGanttStore((store) => store.dragOffsets);
+  const visibleRowSet = new Set(visibleRowIndexes);
 
-  const dependencies: RenderedDependency[] = (currentTask.dependencies ?? [])
-    .map((dep) => {
+  const dependencies: RenderedDependency[] = [];
+
+  for (const currentTask of transformedTasks) {
+    const sourceIndex = currentTask.order - 1;
+
+    // Only render arrows for tasks in visible range
+    if (!visibleRowSet.has(sourceIndex)) continue;
+
+    const offset = liveOffsets[currentTask.id];
+    const offsetX = offset?.offsetX ?? 0;
+    const offsetWidth = offset?.offsetWidth ?? 0;
+
+    for (const dep of currentTask.dependencies ?? []) {
       const targetTask = transformedTasks.find((t) => t.id === dep.targetId);
-      if (!targetTask) return null;
+      if (!targetTask) continue;
+
+      const targetIndex = targetTask.order - 1;
+
+      // Optional: if you want to render arrows only when target is also visible
+      // if (!visibleRowSet.has(sourceIndex) && !visibleRowSet.has(targetIndex)) continue;
 
       const rowHeight = NODE_HEIGHT;
-      const fromY = (targetTask.order - 1) * rowHeight + rowHeight / 2 - 4;
-      const toY = (currentTask.order - 1) * rowHeight + rowHeight / 2 + 4;
+      const fromY = targetIndex * rowHeight + rowHeight / 2 - 4;
+      const toY = sourceIndex * rowHeight + rowHeight / 2 + 4;
 
       const leftX = targetTask.barLeft;
       const rightX = targetTask.barLeft + targetTask.barWidth;
@@ -42,9 +55,9 @@ export default function GanttDependencyArrows({
         } as const
       )[dep.type];
 
-      return { ...dep, fromX, fromY, toX, toY };
-    })
-    .filter(Boolean) as RenderedDependency[];
+      dependencies.push({ ...dep, fromX, fromY, toX, toY });
+    }
+  }
 
   return (
     <svg
