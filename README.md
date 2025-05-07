@@ -32,12 +32,12 @@ yarn add @jaeungkim/gantt-chart
 ```
 
 ```ts
-import { Gantt } from '@jaeungkim/gantt-chart';
+import { ReactGanttChart } from '@jaeungkim/gantt-chart';
 import type { Task } from '@jaeungkim/gantt-chart';
 
 export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 
-const ReactGanttChart: Task[] = [
+const tasks: Task[] = [
   {
     id: '1',
     name: 'Project Kickoff',
@@ -101,25 +101,25 @@ interface TaskDependency {
 
 The chart supports four built-in scales:
 
-- **`day`**  
-  - Label: Day  
-  - Tick Unit: Hour  
-  - Drag Step: 15 minutes  
+- **`day`**
+  - Label: Day
+  - Tick Unit: Hour
+  - Drag Step: 15 minutes
 
-- **`week`**  
-  - Label: Week  
-  - Tick Unit: Day  
-  - Drag Step: 6 hours  
+- **`week`**
+  - Label: Week
+  - Tick Unit: Day
+  - Drag Step: 6 hours
 
-- **`month`**  
-  - Label: Month  
-  - Tick Unit: Day  
-  - Drag Step: 1 day  
+- **`month`**
+  - Label: Month
+  - Tick Unit: Day
+  - Drag Step: 1 day
 
-- **`year`**  
-  - Label: Year  
-  - Tick Unit: 7 days  
-  - Drag Step: 1 day  
+- **`year`**
+  - Label: Year
+  - Tick Unit: 7 days
+  - Drag Step: 1 day
 
 You can switch between them using the dropdown at the top-right of the chart.
 
@@ -146,7 +146,7 @@ Stay Tuned~
 
 ## 🤝 Contributing
 
-Pull requests are welcome!  
+Pull requests are welcome!
 If you find bugs or have suggestions, feel free to open an issue or contribute directly.
 
 
