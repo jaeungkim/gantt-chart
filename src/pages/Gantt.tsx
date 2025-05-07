@@ -18,8 +18,6 @@ interface GanttProps {
 }
 
 function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
   const rawTasks = useGanttStore((state) => state.rawTasks);
   const setRawTasks = useGanttStore((state) => state.setRawTasks);
   const transformedTasks = useGanttStore((state) => state.transformedTasks);
@@ -183,6 +181,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
               bottomRowCells={bottomRowCells}
               selectedScale={selectedScale}
               width={totalWidth}
+              scrollRef={parentRef}
             />
 
             <div
