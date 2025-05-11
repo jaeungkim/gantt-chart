@@ -190,7 +190,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
                 style={{
                   position: 'relative',
                   lineHeight: 'normal',
-                  padding: '4px 0',
+                  padding: '4px 0px',
                   fontSize: '12px',
                   width: `${cell.widthPx}px`,
                 }}

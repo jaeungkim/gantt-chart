@@ -17,6 +17,9 @@ Currently, this project is built specifically for React due to my development ba
 - 📆 Supports multiple timeline scales: Day, Week, Month, Year
 - 🔄 Drag-and-drop resizing (snap to configured intervals)
 - 🧲 Smart dependency lines (Finish-Start, Start-Start, Start-Finish, Finish-Finish)
+- ⚡ Virtualized rendering for performance:
+  - Only visible bars are rendered
+  - Supports row and column virtualization using @tanstack/react-virtual
 - 📦 Lightweight and framework-agnostic component design
 
 ## 📺 [Demo is worth a thousand words](https://jaeungkim.com/gantt-chart)
@@ -32,12 +35,12 @@ yarn add @jaeungkim/gantt-chart
 ```
 
 ```ts
-import { Gantt } from '@jaeungkim/gantt-chart';
+import { ReactGanttChart } from '@jaeungkim/gantt-chart';
 import type { Task } from '@jaeungkim/gantt-chart';
 
 export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 
-const ReactGanttChart: Task[] = [
+const tasks: Task[] = [
   {
     id: '1',
     name: 'Project Kickoff',
@@ -55,8 +58,8 @@ export default function Example() {
     <div style={{ width: 'auto', height: '100dvh' }}>
       <ReactGanttChart
         tasks={tasks}
-        ganttHeight="100%"
-        columnWidth="100%"
+        ganttHeight={300}
+        columnWidth={1000}
         onTasksChange={(updated) => console.log(updated)}
       />
     </div>
@@ -104,7 +107,7 @@ The chart supports four built-in scales:
 - **`day`**  
   - Label: Day  
   - Tick Unit: Hour  
-  - Drag Step: 15 minutes  
+  - Drag Step: 1 Hour  
 
 - **`week`**  
   - Label: Week  
@@ -112,14 +115,14 @@ The chart supports four built-in scales:
   - Drag Step: 6 hours  
 
 - **`month`**  
-  - Label: Month  
+  - Label: Month
   - Tick Unit: Day  
   - Drag Step: 1 day  
 
 - **`year`**  
   - Label: Year  
-  - Tick Unit: 7 days  
-  - Drag Step: 1 day  
+  - Tick Unit: Month  
+  - Drag Step: 7 days  
 
 You can switch between them using the dropdown at the top-right of the chart.
 
@@ -140,7 +143,6 @@ Stay Tuned~
 - [ ] Left sidebar for displaying tasks' names
 - [ ] Right sidebar for selected tasks' to view their information
 - [ ] Collapsible parent-child rows
-- [ ] Virtualized rows for large datasets
 - [ ] Inline editing for task names
 - [ ] Export to PNG or SVG
 

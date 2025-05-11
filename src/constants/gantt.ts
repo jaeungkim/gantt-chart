@@ -1,11 +1,11 @@
 import { GanttScaleConfig, GanttScaleKey } from 'types/gantt';
 
 export const NODE_HEIGHT = 38;
-export const TIMELINE_SHIFT_BUFFER = 3;
+export const TIMELINE_SHIFT_BUFFER = 5;
 
 export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
   day: {
-    labelUnit: 'day', // laebel unit for the top header
+    labelUnit: 'day',
     tickUnit: 'hour',
     unitPerTick: 1,
     dragStepUnit: 'hour',

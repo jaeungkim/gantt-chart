@@ -90,7 +90,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
     () => bottomRowCells.reduce((sum, c) => sum + c.widthPx, 0),
     [bottomRowCells],
   );
-
+  
   const visibleRowIndexes = rowVirtualizer
     .getVirtualItems()
     .map((item) => item.index);
