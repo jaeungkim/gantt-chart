@@ -10,17 +10,11 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 interface GanttState {
   rawTasks: Task[];
-
-  // Timeline rows
   bottomRowCells: GanttBottomRowCell[];
   topHeaderGroups: GanttTopHeaderGroup[];
   selectedScale: GanttScaleKey;
-
-  /* ⏱  LIVE drag offsets (keyed by taskId) */
   currentTask: TaskTransformed | null;
   dragOffsets: Record<string, GanttDragOffset>;
-
-  // Transformed tasks
   transformedTasks: TaskTransformed[];
 
   // Actions
@@ -30,14 +24,17 @@ interface GanttState {
   setBottomRowCells: (cells: GanttBottomRowCell[]) => void;
   setTopHeaderGroups: (groups: GanttTopHeaderGroup[]) => void;
   setTransformedTasks: (tasks: TaskTransformed[]) => void;
-
-  setDragOffset: (id: string, o: GanttDragOffset) => void;
+  setDragOffset: (id: string, offset: GanttDragOffset) => void;
   clearDragOffset: (id: string) => void;
+  
+  // Computed selectors (to avoid re-renders)
+  getCurrentDragOffset: (taskId: string) => GanttDragOffset | null;
+  getTotalWidth: () => number;
 }
 
 export const useGanttStore = create<GanttState>()(
   persist(
-    (set) => {
+    (set, get) => {
       return {
         rawTasks: [],
         transformedTasks: [],
@@ -47,46 +44,40 @@ export const useGanttStore = create<GanttState>()(
         currentTask: null,
         dragOffsets: {},
 
-        setCurrentTask: (task) =>
-          set({
-            currentTask: task,
-          }),
-        setSelectedScale: (scale) =>
-          set({
-            selectedScale: scale,
-          }),
-
-        setRawTasks: (raw) =>
-          set({
-            rawTasks: raw,
-          }),
-
-        setBottomRowCells: (cells) =>
-          set({
-            bottomRowCells: cells,
-          }),
-
+        setCurrentTask: (task) => set({ currentTask: task }),
+        setSelectedScale: (scale) => set({ selectedScale: scale }),
+        setRawTasks: (raw) => set({ rawTasks: raw }),
+        setBottomRowCells: (cells) => set({ bottomRowCells: cells }),
         setTopHeaderGroups: (groups) => set({ topHeaderGroups: groups }),
-
-        setTransformedTasks: (tasks) =>
-          set({
-            transformedTasks: tasks,
-          }),
+        setTransformedTasks: (tasks) => set({ transformedTasks: tasks }),
 
         setDragOffset: (id, offset) =>
-          set((s) => ({ dragOffsets: { ...s.dragOffsets, [id]: offset } })),
+          set((state) => ({
+            dragOffsets: { ...state.dragOffsets, [id]: offset }
+          })),
 
         clearDragOffset: (id) =>
-          set((s) => {
-            const { [id]: _removed, ...rest } = s.dragOffsets;
+          set((state) => {
+            const { [id]: _removed, ...rest } = state.dragOffsets;
             return { dragOffsets: rest };
           }),
+
+        // Computed selectors to avoid unnecessary re-renders
+        getCurrentDragOffset: (taskId: string) => {
+          const state = get();
+          return state.dragOffsets[taskId] || null;
+        },
+
+        getTotalWidth: () => {
+          const state = get();
+          return state.bottomRowCells.reduce((sum, cell) => sum + cell.widthPx, 0);
+        },
       };
     },
     {
       name: 'gantt-storage',
       storage: createJSONStorage(() => sessionStorage),
-      partialize: (s) => ({ selectedScale: s.selectedScale }),
+      partialize: (state) => ({ selectedScale: state.selectedScale }),
     },
   ),
 );

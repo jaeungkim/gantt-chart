@@ -11,7 +11,7 @@ export function getSmartGanttPath(
   startX: number,
   startY: number,
   endX: number,
-  endY: number,
+  endY: number
 ): string {
   if (startY < 0 || endY < 0) {
     return `M ${startX} ${startY} h ${(endX - startX) / 2}`;
@@ -49,31 +49,31 @@ export function getSmartGanttPath(
     // Sub-helper to pick direction
     function getFSDirection(): string {
       if ((movingRight || movingLeft) && movingDown && !thresholdExceeded) {
-        return 'downSmallHorizontal';
+        return "downSmallHorizontal";
       }
       if ((movingRight || movingLeft) && movingUp && !thresholdExceeded) {
-        return 'upSmallHorizontal';
+        return "upSmallHorizontal";
       }
       if (movingDown && movingLeft) {
-        return 'downLeft';
+        return "downLeft";
       }
       if (movingDown && movingRight) {
-        return 'downRight';
+        return "downRight";
       }
       if (movingUp && movingLeft) {
-        return 'upLeft';
+        return "upLeft";
       }
       if (movingUp && movingRight) {
-        return 'upRight';
+        return "upRight";
       }
-      return ''; // Default
+      return ""; // Default
     }
 
     let path = initialPath;
     const direction = getFSDirection();
 
     switch (direction) {
-      case 'downRight': {
+      case "downRight": {
         path += ` h ${halfHorizontalDistance - cornerRadius}`;
         path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} ${cornerRadius}`;
         path += ` v ${deltaY - cornerRadius * 2}`;
@@ -81,7 +81,7 @@ export function getSmartGanttPath(
         path += ` h ${halfHorizontalDistance - cornerRadius}`;
         break;
       }
-      case 'upRight': {
+      case "upRight": {
         path += ` h ${halfHorizontalDistance - cornerRadius}`;
         path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} -${cornerRadius}`;
         path += ` v -${absDeltaY - cornerRadius * 2}`;
@@ -89,8 +89,8 @@ export function getSmartGanttPath(
         path += ` h ${halfHorizontalDistance - cornerRadius}`;
         break;
       }
-      case 'downLeft':
-      case 'downSmallHorizontal': {
+      case "downLeft":
+      case "downSmallHorizontal": {
         const halfwayY = startY + deltaY / 2;
         path += ` h ${stepOffset}`;
         path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} ${cornerRadius}`;
@@ -103,8 +103,8 @@ export function getSmartGanttPath(
         path += ` h ${stepOffset}`;
         break;
       }
-      case 'upLeft':
-      case 'upSmallHorizontal': {
+      case "upLeft":
+      case "upSmallHorizontal": {
         const halfwayY = startY + deltaY / 2;
         path += ` h ${stepOffset}`;
         path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} -${cornerRadius}`;
@@ -162,32 +162,32 @@ export function getSmartGanttPath(
     // Sub-helper to pick direction
     function getSFDirection(): string {
       if ((movingRight || movingLeft) && movingDown && !thresholdExceeded) {
-        return 'downSmallHorizontal';
+        return "downSmallHorizontal";
       }
       if ((movingRight || movingLeft) && movingUp && !thresholdExceeded) {
-        return 'upSmallHorizontal';
+        return "upSmallHorizontal";
       }
       if (movingDown && movingLeft) {
-        return 'downLeft';
+        return "downLeft";
       }
       if (movingDown && movingRight) {
-        return 'downRight';
+        return "downRight";
       }
       if (movingUp && movingLeft) {
-        return 'upLeft';
+        return "upLeft";
       }
       if (movingUp && movingRight) {
-        return 'upRight';
+        return "upRight";
       }
-      return '';
+      return "";
     }
 
     let path = initialPath;
     const direction = getSFDirection();
 
     switch (direction) {
-      case 'downRight':
-      case 'downSmallHorizontal': {
+      case "downRight":
+      case "downSmallHorizontal": {
         path += ` h ${-stepOffset}`;
         path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} ${cornerRadius}`;
         path += ` v ${halfVerticalDistance - cornerRadius * 2}`;
@@ -199,8 +199,8 @@ export function getSmartGanttPath(
         path += ` h ${-stepOffset}`;
         break;
       }
-      case 'upRight':
-      case 'upSmallHorizontal': {
+      case "upRight":
+      case "upSmallHorizontal": {
         path += ` h ${-stepOffset}`;
         path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} -${cornerRadius}`;
         path += ` v ${-(halfVerticalDistance - cornerRadius * 2)}`;
@@ -212,7 +212,7 @@ export function getSmartGanttPath(
         path += ` h ${-stepOffset}`;
         break;
       }
-      case 'downLeft': {
+      case "downLeft": {
         path += ` h ${-halfHorizontalDistance + cornerRadius}`;
         path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} ${cornerRadius}`;
         path += ` v ${absDeltaY - cornerRadius * 2}`;
@@ -220,7 +220,7 @@ export function getSmartGanttPath(
         path += ` h ${-halfHorizontalDistance + cornerRadius}`;
         break;
       }
-      case 'upLeft': {
+      case "upLeft": {
         path += ` h ${-(halfHorizontalDistance - cornerRadius)}`;
         path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} -${cornerRadius}`;
         path += ` v ${-(absDeltaY - cornerRadius * 2)}`;
@@ -271,13 +271,13 @@ export function getSmartGanttPath(
   // MAIN SWITCH FOR DEPENDENCY TYPE
   // --------------------------------------------------------------------------
   switch (dependencyType) {
-    case 'FS':
+    case "FS":
       return getFSPath();
-    case 'FF':
+    case "FF":
       return getFFPath();
-    case 'SF':
+    case "SF":
       return getSFPath();
-    case 'SS':
+    case "SS":
       return getSSPath();
     default:
       // Fallback: simple line

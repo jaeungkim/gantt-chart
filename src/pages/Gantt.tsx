@@ -1,14 +1,14 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
-import GanttBar from 'components/GanttBar.tsx';
-import GanttChartHeader from 'components/GanttChartHeader.tsx';
-import GanttDependencyArrows from 'components/GanttDependencyArrows.tsx';
-import { GANTT_SCALE_CONFIG, NODE_HEIGHT } from 'constants/gantt';
-import { useEffect, useMemo, useRef } from 'react';
-import { useGanttStore } from 'stores/store';
-import { GanttScaleKey } from 'types/gantt';
-import { Task } from 'types/task';
-import { setupTimelineStructure } from 'utils/timeline';
-import sourceTasks from '../../db.ts';
+import { useVirtualizer } from "@tanstack/react-virtual";
+import GanttBar from "components/GanttBar.tsx";
+import GanttChartHeader from "components/GanttChartHeader.tsx";
+import GanttDependencyArrows from "components/GanttDependencyArrows.tsx";
+import { GANTT_SCALE_CONFIG, NODE_HEIGHT } from "constants/gantt";
+import { useEffect, useRef } from "react";
+import { useGanttStore } from "stores/store";
+import { GanttScaleKey } from "types/gantt";
+import { Task } from "types/task";
+import { setupTimelineStructure } from "utils/timeline";
+import sourceTasks from "../../db.ts";
 
 interface GanttProps {
   tasks: Task[];
@@ -22,7 +22,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
   const setRawTasks = useGanttStore((state) => state.setRawTasks);
   const transformedTasks = useGanttStore((state) => state.transformedTasks);
   const setTransformedTasks = useGanttStore(
-    (state) => state.setTransformedTasks,
+    (state) => state.setTransformedTasks
   );
   const selectedScale = useGanttStore((state) => state.selectedScale);
   const setSelectedScale = useGanttStore((state) => state.setSelectedScale);
@@ -30,15 +30,18 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
   const setBottomRowCells = useGanttStore((state) => state.setBottomRowCells);
   const topHeaderGroups = useGanttStore((state) => state.topHeaderGroups);
   const setTopHeaderGroups = useGanttStore((state) => state.setTopHeaderGroups);
+  const getTotalWidth = useGanttStore((state) => state.getTotalWidth);
 
+  // Initialize tasks
   useEffect(() => {
     if (tasks.length === 0) {
       setRawTasks(sourceTasks as Task[]);
     } else {
       setRawTasks(tasks);
     }
-  }, [tasks]);
+  }, [tasks, setRawTasks]);
 
+  // Setup timeline structure when rawTasks or scale changes
   useEffect(() => {
     if (!rawTasks.length) return;
 
@@ -47,12 +50,18 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
       selectedScale,
       setBottomRowCells,
       setTopHeaderGroups,
-      setTransformedTasks,
+      setTransformedTasks
     );
-  }, [rawTasks, selectedScale]);
+  }, [
+    rawTasks,
+    selectedScale,
+    setBottomRowCells,
+    setTopHeaderGroups,
+    setTransformedTasks,
+  ]);
 
-  // Virtualization
-  const parentRef = useRef(null);
+  // Virtualization setup
+  const parentRef = useRef<HTMLDivElement>(null);
 
   const rowVirtualizer = useVirtualizer({
     count: transformedTasks.length,
@@ -69,32 +78,25 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
     overscan: 5,
   });
 
+  // Get visible items and calculate dimensions
   const virtualItems = columnVirtualizer.getVirtualItems();
   const visibleStartPx = virtualItems[0]?.start ?? 0;
   const lastVirtualItem = virtualItems[virtualItems.length - 1];
   const visibleEndPx = lastVirtualItem
     ? lastVirtualItem.start + lastVirtualItem.size
     : 0;
-
-  function isBarVisible(
-    barLeft: number,
-    barWidth: number,
-    visibleStartPx: number,
-    visibleEndPx: number,
-  ) {
-    const barRight = barLeft + barWidth;
-    return barRight >= visibleStartPx && barLeft <= visibleEndPx;
-  }
-
-  const totalWidth = useMemo(
-    () => bottomRowCells.reduce((sum, c) => sum + c.widthPx, 0),
-    [bottomRowCells],
-  );
-  
+  const totalWidth = getTotalWidth();
   const visibleRowIndexes = rowVirtualizer
     .getVirtualItems()
     .map((item) => item.index);
 
+  // Optimized visibility check function
+  function isBarVisible(barLeft: number, barWidth: number) {
+    const barRight = barLeft + barWidth;
+    return barRight >= visibleStartPx && barLeft <= visibleEndPx;
+  }
+
+  // Measure column virtualizer when cells change
   useEffect(() => {
     if (!bottomRowCells.length) return;
 
@@ -105,59 +107,28 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
     return () => cancelAnimationFrame(id);
   }, [bottomRowCells, columnVirtualizer]);
 
+  const handleScaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedScale(e.target.value as GanttScaleKey);
+  };
+
   return (
     <section
+      className="gantt-container"
       style={{
-        position: 'relative',
-        overflow: 'auto',
         height:
-          typeof ganttHeight === 'number' ? `${ganttHeight}px` : ganttHeight,
+          typeof ganttHeight === "number" ? `${ganttHeight}px` : ganttHeight,
         width:
-          typeof columnWidth === 'number' ? `${columnWidth}px` : columnWidth,
-        backgroundColor: '#FFF',
-        fontFamily: 'Noto Sans, sans-serif',
+          typeof columnWidth === "number" ? `${columnWidth}px` : columnWidth,
       }}
     >
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          overflow: 'hidden',
-          backgroundColor: '#FFF',
-        }}
-      >
-        <section
-          style={{
-            position: 'relative',
-            display: 'flex',
-            height: '100%',
-            width: '100%',
-            flexDirection: 'column',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              top: '3px',
-              right: '16px',
-              zIndex: 50,
-              display: 'flex',
-              justifyContent: 'flex-end',
-              alignItems: 'center',
-            }}
-          >
+      <div className="gantt-inner">
+        <section className="gantt-section">
+          {/* Scale selector */}
+          <div className="gantt-scale-selector">
             <select
-              style={{
-                padding: '4px 8px',
-                fontSize: '14px',
-                borderRadius: '6px',
-                border: '1px solid #E6E7E9',
-              }}
+              className="gantt-scale-select"
               value={selectedScale}
-              onChange={(e) => {
-                const newScale = e.target.value;
-                setSelectedScale(newScale as GanttScaleKey);
-              }}
+              onChange={handleScaleChange}
             >
               {Object.keys(GANTT_SCALE_CONFIG).map((scale) => (
                 <option key={scale} value={scale}>
@@ -167,15 +138,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
             </select>
           </div>
 
-          <div
-            ref={parentRef}
-            className="List"
-            style={{
-              height: `100%`,
-              width: `100%`,
-              overflow: 'auto',
-            }}
-          >
+          <div ref={parentRef} className="gantt-list">
             <GanttChartHeader
               topHeaderGroups={topHeaderGroups}
               bottomRowCells={bottomRowCells}
@@ -185,10 +148,10 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
             />
 
             <div
+              className="gantt-content"
               style={{
                 height: `${rowVirtualizer.getTotalSize()}px`,
                 width: `${totalWidth}px`,
-                position: 'relative',
               }}
             >
               <GanttDependencyArrows
@@ -201,35 +164,20 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                 const barLeft = task.barLeft ?? 0;
                 const barWidth = task.barWidth ?? 0;
 
-                const shouldRender = isBarVisible(
-                  barLeft,
-                  barWidth,
-                  visibleStartPx,
-                  visibleEndPx,
-                );
-
                 return (
                   <div
                     key={virtualRow.index}
+                    className="gantt-task-row"
                     style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
                       height: `${virtualRow.size - 1}px`,
                       transform: `translateY(${virtualRow.start}px)`,
-                      display: 'flex',
-                      width: '100%',
-                      alignItems: 'center',
-                      borderBottom: '1px solid #E6E7E9',
                     }}
                   >
-                    {shouldRender && (
-                      <>
-                        <GanttBar
-                          currentTask={task}
-                          onTasksChange={onTasksChange}
-                        />
-                      </>
+                    {isBarVisible(barLeft, barWidth) && (
+                      <GanttBar
+                        currentTask={task}
+                        onTasksChange={onTasksChange}
+                      />
                     )}
                   </div>
                 );

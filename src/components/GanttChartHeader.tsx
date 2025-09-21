@@ -1,19 +1,19 @@
-import { GANTT_SCALE_CONFIG } from 'constants/gantt';
-import React, { useEffect, useMemo, useState } from 'react';
-import { useGanttStore } from 'stores/store';
+import { GANTT_SCALE_CONFIG } from "constants/gantt";
+import React, { useEffect, useState, useCallback } from "react";
+import { useGanttStore } from "stores/store";
 import {
   GanttBottomRowCell,
   GanttScaleKey,
   GanttTopHeaderGroup,
-} from 'types/gantt';
-import { createTopHeaderGroups } from 'utils/timeline';
+} from "types/gantt";
+import { createTopHeaderGroups } from "utils/timeline";
 
 interface GanttChartHeaderProps {
   topHeaderGroups: GanttTopHeaderGroup[];
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
   width: number;
-  scrollRef: any;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
@@ -25,175 +25,123 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
   const config = GANTT_SCALE_CONFIG[selectedScale];
   const [stickyIndex, setStickyIndex] = useState(0);
 
-  const currentTask = useGanttStore((store) => store.currentTask);
-  const dragOffset = useGanttStore((store) => {
-    if (!currentTask) return '';
-    const taskId = currentTask.id as keyof typeof store.dragOffsets;
-    return store.dragOffsets[taskId] ?? '';
-  });
-
-  const topGroups = useMemo(
-    () => createTopHeaderGroups(bottomRowCells, selectedScale),
-    [bottomRowCells, selectedScale],
+  const currentTask = useGanttStore((state) => state.currentTask);
+  const getCurrentDragOffset = useGanttStore(
+    (state) => state.getCurrentDragOffset
   );
 
-  const mergedGroups = useMemo(() => {
-    const merged: typeof topGroups = [];
-    for (const group of topGroups) {
-      const last = merged[merged.length - 1];
-      if (last && last.label === group.label) {
-        last.widthPx += group.widthPx;
-      } else {
-        merged.push({ ...group });
+  // Get drag offset for current task
+  const dragOffset = currentTask ? getCurrentDragOffset(currentTask.id) : null;
+
+  // Create top header groups (simplified without useMemo)
+  const topGroups = createTopHeaderGroups(bottomRowCells, selectedScale);
+
+  // Merge groups with same labels (simplified without useMemo)
+  const mergedGroups: GanttTopHeaderGroup[] = [];
+  for (const group of topGroups) {
+    const last = mergedGroups[mergedGroups.length - 1];
+    if (last && last.label === group.label) {
+      last.widthPx += group.widthPx;
+    } else {
+      mergedGroups.push({ ...group });
+    }
+  }
+
+  // Add left positions to merged groups (simplified without useMemo)
+  let offset = 0;
+  const mergedGroupsWithLeft = mergedGroups.map((group) => {
+    const g = { ...group, left: offset };
+    offset += group.widthPx;
+    return g;
+  });
+
+  // Handle scroll to update sticky index
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const scrollLeft = el.scrollLeft;
+    for (let i = mergedGroupsWithLeft.length - 1; i >= 0; i--) {
+      if (scrollLeft >= mergedGroupsWithLeft[i].left) {
+        setStickyIndex(i);
+        break;
       }
     }
-    return merged;
-  }, [topGroups]);
-
-  const mergedGroupsWithLeft = useMemo(() => {
-    let offset = 0;
-    return mergedGroups.map((group) => {
-      const g = { ...group, left: offset };
-      offset += group.widthPx;
-      return g;
-    });
-  }, [mergedGroups]);
+  }, [mergedGroupsWithLeft, scrollRef]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const handleScroll = () => {
-      const scrollLeft = el.scrollLeft;
-      for (let i = mergedGroupsWithLeft.length - 1; i >= 0; i--) {
-        if (scrollLeft >= mergedGroupsWithLeft[i].left) {
-          setStickyIndex(i);
-          break;
-        }
-      }
-    };
-
-    el.addEventListener('scroll', handleScroll);
-    handleScroll();
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, [mergedGroupsWithLeft]);
+    el.addEventListener("scroll", handleScroll);
+    handleScroll(); // Initial call
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [handleScroll, scrollRef]);
 
   return (
-    <div
-      style={{
-        width: `${width}px`,
-        position: 'sticky',
-        top: 0,
-        zIndex: 30,
-        backgroundColor: '#F0F1F2',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <div
-          style={{
-            position: 'relative',
-            display: 'flex',
-            height: '32px',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-            }}
-          >
+    <div className="gantt-header" style={{ width: `${width}px` }}>
+      <div className="gantt-header-content">
+        {/* Top header groups */}
+        <div className="gantt-top-header">
+          <div className="gantt-top-groups">
             {mergedGroupsWithLeft.map((group, idx) => {
               const isSticky = idx === stickyIndex;
               return (
                 <div
                   key={idx}
+                  className={`gantt-top-group ${isSticky ? "sticky" : ""}`}
                   style={{
-                    padding: '8px 0px',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    textAlign: 'left',
                     width: `${group.widthPx}px`,
-                    zIndex: 40,
-                    backgroundColor: '#F0F1F2',
-                    ...(isSticky && {
-                      position: 'sticky',
-                      left: 0,
-                    }),
+                    ...(isSticky && { left: 0 }),
                   }}
                 >
-                  <p
-                    style={{
-                      margin: 0,
-                      padding: '0 0px',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {group.label}
-                  </p>
+                  <p className="gantt-top-group-label">{group.label}</p>
                 </div>
               );
             })}
           </div>
         </div>
 
-        <div
-          style={{
-            borderTop: '1px solid #D6D6D8',
-            display: 'flex',
-          }}
-        >
+        {/* Bottom row cells */}
+        <div className="gantt-bottom-row">
           <div>
+            {/* Drag preview */}
             {dragOffset && currentTask && (
               <div
+                className="gantt-drag-preview"
                 style={{
-                  position: 'absolute',
                   left: `${dragOffset.offsetX + (currentTask?.barLeft ?? 0)}px`,
-                  zIndex: 60,
-                  backgroundColor: '#D6D6D8',
-                  width: `${dragOffset.offsetWidth + (currentTask?.barWidth ?? 0)}px`,
-                  height: '22px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  borderRadius: '100px',
-                  opacity: 0.7,
-                  fontSize: '12px',
-                  overflow: 'hidden',
-                  justifyContent: 'space-between',
+                  width: `${
+                    dragOffset.offsetWidth + (currentTask?.barWidth ?? 0)
+                  }px`,
                 }}
               >
-                {selectedScale === 'week' && (
+                {selectedScale === "week" && (
                   <>
-                    <p>{dragOffset.offsetStartDate.format('h A')}</p>
-                    <p>{dragOffset.offsetEndDate.format('h A')}</p>
+                    <p>{dragOffset.offsetStartDate.format("h A")}</p>
+                    <p>{dragOffset.offsetEndDate.format("h A")}</p>
                   </>
                 )}
-                {selectedScale === 'year' && (
+                {selectedScale === "year" && (
                   <>
-                    <p>{dragOffset.offsetStartDate.format('D')}</p>
-                    <p>{dragOffset.offsetEndDate.format('D')}</p>
+                    <p>{dragOffset.offsetStartDate.format("D")}</p>
+                    <p>{dragOffset.offsetEndDate.format("D")}</p>
                   </>
                 )}
               </div>
             )}
           </div>
+
+          {/* Bottom row cells */}
           {bottomRowCells.map((cell, idx) => {
-            const tickLabel = config.formatTickLabel?.(cell.startDate) || '';
+            const tickLabel = config.formatTickLabel?.(cell.startDate) || "";
             const bottomRowCellKey = `bottom-row-${cell.startDate}-${idx}`;
 
             return (
               <div
                 key={bottomRowCellKey}
-                style={{
-                  position: 'relative',
-                  lineHeight: 'normal',
-                  padding: '4px 0px',
-                  fontSize: '12px',
-                  width: `${cell.widthPx}px`,
-                }}
+                className="gantt-bottom-cell"
+                style={{ width: `${cell.widthPx}px` }}
               >
                 {tickLabel}
               </div>

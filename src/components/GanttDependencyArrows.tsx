@@ -1,7 +1,7 @@
-import { NODE_HEIGHT } from 'constants/gantt';
-import { useGanttStore } from 'stores/store';
-import { RenderedDependency, TaskTransformed } from 'types/task';
-import { getSmartGanttPath } from 'utils/arrowPath';
+import { NODE_HEIGHT } from "constants/gantt";
+import { useGanttStore } from "stores/store";
+import { RenderedDependency, TaskTransformed } from "types/task";
+import { getSmartGanttPath } from "utils/arrowPath";
 
 interface Props {
   transformedTasks: TaskTransformed[];
@@ -61,14 +61,9 @@ export default function GanttDependencyArrows({
 
   return (
     <svg
+      className="gantt-dependency-arrows"
       style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
         height: `${transformedTasks.length * NODE_HEIGHT}px`,
-        pointerEvents: 'none',
-        zIndex: 5,
       }}
     >
       <defs>
@@ -87,16 +82,16 @@ export default function GanttDependencyArrows({
       {dependencies.map((dep, index) => (
         <path
           key={index}
+          className="gantt-dependency-arrow"
           d={getSmartGanttPath(
             dep.type,
             dep.fromX,
             dep.fromY,
             dep.toX,
-            dep.toY,
+            dep.toY
           )}
           markerEnd="url(#arrowhead)"
           fill="none"
-          style={{ stroke: '#000', strokeWidth: 0.75 }}
         />
       ))}
     </svg>

@@ -1,5 +1,0 @@
-*.md
-.cache
-package.json
-package-lock.json
-build
