@@ -9,16 +9,6 @@ import { Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 import { transformTasks } from "./transformData";
 
-// Cache for scale configurations to avoid repeated lookups
-const scaleConfigCache = new Map<GanttScaleKey, any>();
-
-function getScaleConfig(scaleKey: GanttScaleKey) {
-  if (!scaleConfigCache.has(scaleKey)) {
-    scaleConfigCache.set(scaleKey, GANTT_SCALE_CONFIG[scaleKey]);
-  }
-  return scaleConfigCache.get(scaleKey);
-}
-
 export function calculateDateOffsets(
   startDate: Dayjs,
   endDate: Dayjs,
@@ -29,75 +19,79 @@ export function calculateDateOffsets(
     return { barMarginLeftAmount: 0, barWidthSize: 0 };
   }
 
-  const { tickUnit, unitPerTick } = getScaleConfig(scaleKey);
+  const config = GANTT_SCALE_CONFIG[scaleKey];
+  const { tickUnit, unitPerTick } = config;
 
-  let barMarginLeftAmount = 0;
-  let barWidthSize = 0;
-  let insideTask = false;
+  let leftMargin = 0;
+  let barWidth = 0;
+  let hasStarted = false;
 
-  // Pre-calculate start and end timestamps for faster comparison
-  const startTimestamp = startDate.valueOf();
-  const endTimestamp = endDate.valueOf();
+  const startTime = startDate.valueOf();
+  const endTime = endDate.valueOf();
 
   for (const tick of timelineTicks) {
     const tickStart = tick.startDate;
     const tickEnd = tickStart.add(unitPerTick, tickUnit);
     const tickWidth = tick.widthPx;
 
-    const tickEndTimestamp = tickEnd.valueOf();
-    const tickStartTimestamp = tickStart.valueOf();
+    const tickStartTime = tickStart.valueOf();
+    const tickEndTime = tickEnd.valueOf();
 
-    if (tickEndTimestamp <= startTimestamp) {
-      barMarginLeftAmount += tickWidth;
+    // Skip ticks before task starts
+    if (tickEndTime <= startTime) {
+      leftMargin += tickWidth;
       continue;
     }
 
-    if (tickStartTimestamp >= endTimestamp) {
+    // Stop if we've passed the task end
+    if (tickStartTime >= endTime) {
       break;
     }
 
-    const overlapStart =
-      startTimestamp > tickStartTimestamp ? startDate : tickStart;
-    const overlapEnd = endTimestamp < tickEndTimestamp ? endDate : tickEnd;
+    // Calculate overlap
+    const overlapStart = startTime > tickStartTime ? startDate : tickStart;
+    const overlapEnd = endTime < tickEndTime ? endDate : tickEnd;
 
-    const tickDurationMs = tickEndTimestamp - tickStartTimestamp;
-    const overlapDurationMs = overlapEnd.valueOf() - overlapStart.valueOf();
+    const tickDuration = tickEndTime - tickStartTime;
+    const overlapDuration = overlapEnd.valueOf() - overlapStart.valueOf();
+    const overlapRatio = overlapDuration / tickDuration;
 
-    const overlapRatio = overlapDurationMs / tickDurationMs;
-
-    if (!insideTask && overlapStart.valueOf() > tickStartTimestamp) {
+    // Add partial width for the first overlapping tick
+    if (!hasStarted && overlapStart.valueOf() > tickStartTime) {
       const beforeStartRatio =
-        (overlapStart.valueOf() - tickStartTimestamp) / tickDurationMs;
-      barMarginLeftAmount += beforeStartRatio * tickWidth;
+        (overlapStart.valueOf() - tickStartTime) / tickDuration;
+      leftMargin += beforeStartRatio * tickWidth;
     }
 
-    barWidthSize += overlapRatio * tickWidth;
-    insideTask = true;
+    barWidth += overlapRatio * tickWidth;
+    hasStarted = true;
   }
 
   return {
-    barMarginLeftAmount,
-    barWidthSize: Math.max(barWidthSize, 1),
+    barMarginLeftAmount: leftMargin,
+    barWidthSize: Math.max(barWidth, 1),
   };
 }
 
 export function findDateRangeFromTasks(
   tasks: Record<string, { startDate: string; endDate: string }>
 ): { minDate: Dayjs; maxDate: Dayjs } {
-  let minTimestamp = Infinity;
-  let maxTimestamp = -Infinity;
+  let minTime = Infinity;
+  let maxTime = -Infinity;
 
-  // Use for...in for better performance with object iteration
   for (const taskId in tasks) {
     const { startDate, endDate } = tasks[taskId];
     const start = dayjs(startDate).valueOf();
     const end = dayjs(endDate).valueOf();
 
-    if (!Number.isNaN(start)) minTimestamp = Math.min(minTimestamp, start);
-    if (!Number.isNaN(end)) maxTimestamp = Math.max(maxTimestamp, end);
+    if (!Number.isNaN(start)) minTime = Math.min(minTime, start);
+    if (!Number.isNaN(end)) maxTime = Math.max(maxTime, end);
   }
 
-  return { minDate: dayjs(minTimestamp), maxDate: dayjs(maxTimestamp) };
+  return {
+    minDate: dayjs(minTime),
+    maxDate: dayjs(maxTime),
+  };
 }
 
 export function padDateRange(
@@ -105,7 +99,8 @@ export function padDateRange(
   maxDate: Dayjs,
   selectedScale: GanttScaleKey
 ): { paddedMinDate: Dayjs; paddedMaxDate: Dayjs } {
-  const { tickUnit, unitPerTick } = getScaleConfig(selectedScale);
+  const config = GANTT_SCALE_CONFIG[selectedScale];
+  const { tickUnit, unitPerTick } = config;
   const bufferAmount = TIMELINE_SHIFT_BUFFER * unitPerTick;
 
   return {
@@ -119,29 +114,28 @@ export function createBottomRowCells(
   paddedMaxDate: Dayjs,
   selectedScale: GanttScaleKey
 ): GanttBottomRowCell[] {
+  const config = GANTT_SCALE_CONFIG[selectedScale];
   const {
     tickUnit,
     unitPerTick,
     basePxPerDragStep,
     dragStepUnit,
     dragStepAmount,
-  } = getScaleConfig(selectedScale);
+  } = config;
 
   const cells: GanttBottomRowCell[] = [];
   let current = paddedMinDate.startOf(tickUnit);
-  const maxDateValue = paddedMaxDate.valueOf();
-
-  // Pre-calculate drag step ratio for better performance
+  const maxTime = paddedMaxDate.valueOf();
   const dragStepRatio = basePxPerDragStep / dragStepAmount;
 
-  while (current.valueOf() < maxDateValue) {
+  while (current.valueOf() < maxTime) {
     const nextTick = current.add(unitPerTick, tickUnit);
-    const tickDurationInDragSteps =
-      nextTick.diff(current, dragStepUnit) * dragStepRatio;
+    const tickDuration = nextTick.diff(current, dragStepUnit);
+    const widthPx = tickDuration * dragStepRatio;
 
     cells.push({
       startDate: current,
-      widthPx: tickDurationInDragSteps,
+      widthPx,
     });
 
     current = nextTick;
@@ -154,48 +148,38 @@ export function createTopHeaderGroups(
   bottomCells: GanttBottomRowCell[],
   selectedScale: GanttScaleKey
 ): GanttTopHeaderGroup[] {
-  const { labelUnit, formatHeaderLabel } = getScaleConfig(selectedScale);
+  const config = GANTT_SCALE_CONFIG[selectedScale];
+  const { labelUnit, formatHeaderLabel } = config;
+
+  if (bottomCells.length === 0) return [];
 
   const groups: GanttTopHeaderGroup[] = [];
-  const cellCount = bottomCells.length;
+  let currentGroup: GanttTopHeaderGroup | null = null;
 
-  if (cellCount === 0) return groups;
-
-  let currentKey: number | null = null;
-  let currentLabel = "";
-  let currentWidth = 0;
-  let currentStart: Dayjs | null = null;
-
-  for (let i = 0; i < cellCount; i++) {
-    const cell = bottomCells[i];
+  for (const cell of bottomCells) {
     const start = cell.startDate.startOf(labelUnit);
     const key = start.valueOf();
     const label = formatHeaderLabel?.(start) ?? start.format();
 
-    if (key === currentKey) {
-      currentWidth += cell.widthPx;
+    if (currentGroup && currentGroup.startDate.valueOf() === key) {
+      // Merge with existing group
+      currentGroup.widthPx += cell.widthPx;
     } else {
-      if (currentKey !== null) {
-        groups.push({
-          label: currentLabel,
-          widthPx: currentWidth,
-          startDate: currentStart!,
-        });
+      // Start new group
+      if (currentGroup) {
+        groups.push(currentGroup);
       }
-      currentKey = key;
-      currentLabel = label;
-      currentWidth = cell.widthPx;
-      currentStart = start;
+      currentGroup = {
+        label,
+        widthPx: cell.widthPx,
+        startDate: start,
+      };
     }
   }
 
   // Add the last group
-  if (currentKey !== null) {
-    groups.push({
-      label: currentLabel,
-      widthPx: currentWidth,
-      startDate: currentStart!,
-    });
+  if (currentGroup) {
+    groups.push(currentGroup);
   }
 
   return groups;
@@ -208,21 +192,23 @@ export function setupTimelineStructure(
   updateHeaderGroups: (groups: GanttTopHeaderGroup[]) => void,
   updateTransformedTasks: (transformed: TaskTransformed[]) => void
 ) {
-  // Create task map more efficiently
-  const taskMap = new Map<string, { startDate: string; endDate: string }>();
-  for (const task of rawTasks) {
-    taskMap.set(task.id, { startDate: task.startDate, endDate: task.endDate });
-  }
-
-  const { minDate, maxDate } = findDateRangeFromTasks(
-    Object.fromEntries(taskMap)
+  // Create task data map
+  const taskData = Object.fromEntries(
+    rawTasks.map((task) => [
+      task.id,
+      { startDate: task.startDate, endDate: task.endDate },
+    ])
   );
+
+  // Find date range and add padding
+  const { minDate, maxDate } = findDateRangeFromTasks(taskData);
   const { paddedMinDate, paddedMaxDate } = padDateRange(
     minDate,
     maxDate,
     selectedScale
   );
 
+  // Create timeline components
   const bottomCells = createBottomRowCells(
     paddedMinDate,
     paddedMaxDate,
@@ -231,7 +217,7 @@ export function setupTimelineStructure(
   const headerGroups = createTopHeaderGroups(bottomCells, selectedScale);
   const transformedTasks = transformTasks(rawTasks, bottomCells, selectedScale);
 
-  // Batch updates to reduce re-renders
+  // Update all components
   updateBottomCells(bottomCells);
   updateHeaderGroups(headerGroups);
   updateTransformedTasks(transformedTasks);

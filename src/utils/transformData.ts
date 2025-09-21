@@ -1,15 +1,21 @@
-import { GANTT_SCALE_CONFIG } from "constants/gantt";
-import { Dayjs } from "dayjs";
 import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 import { calculateDateOffsets } from "./timeline";
 
+// Helper function to parse sequence numbers
+function parseSequence(sequence: string): number[] {
+  return sequence.split(".").map(Number);
+}
+
+// Sort tasks by their sequence hierarchy
 function sortTasksBySequence(tasks: Task[]): Task[] {
   return [...tasks].sort((a, b) => {
-    const aParts = a.sequence.split(".").map(Number);
-    const bParts = b.sequence.split(".").map(Number);
-    for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+    const aParts = parseSequence(a.sequence);
+    const bParts = parseSequence(b.sequence);
+    const maxLength = Math.max(aParts.length, bParts.length);
+
+    for (let i = 0; i < maxLength; i++) {
       const aVal = aParts[i] || 0;
       const bVal = bParts[i] || 0;
       if (aVal !== bVal) return aVal - bVal;
@@ -18,47 +24,9 @@ function sortTasksBySequence(tasks: Task[]): Task[] {
   });
 }
 
+// Calculate task depth from sequence
 function calculateTaskDepth(sequence: string): number {
   return sequence.split(".").length - 1;
-}
-
-/* ms values for quick math */
-const MS_MIN = 60_000;
-const MS_HOUR = 3_600_000;
-const MS_DAY = 86_400_000;
-const MS_WEEK = 604_800_000;
-
-const UNIT_TO_MS = {
-  minute: MS_MIN,
-  hour: MS_HOUR,
-  day: MS_DAY,
-  week: MS_WEEK,
-} as const;
-
-export function alignToScaleBoundary(
-  d: Dayjs,
-  scale: GanttScaleKey,
-  dir: "floor" | "ceil" = "floor"
-): Dayjs {
-  const { dragStepUnit, dragStepAmount } = GANTT_SCALE_CONFIG[scale];
-
-  /* day-based grids were already correct */
-  if (dragStepUnit === "day") {
-    return dir === "floor"
-      ? d.startOf("day")
-      : d.startOf("day").add(dragStepAmount, "day");
-  }
-
-  const stepMs = dragStepAmount * UNIT_TO_MS[dragStepUnit];
-  const t = d.millisecond(0).valueOf();
-  const offset = d.utcOffset() * 60_000;
-
-  const snapped =
-    dir === "floor"
-      ? Math.floor((t - offset) / stepMs) * stepMs + offset
-      : Math.ceil((t - offset) / stepMs) * stepMs + offset;
-
-  return dayjs(snapped); // returned in LOCAL zone
 }
 
 export function transformTasks(
@@ -67,26 +35,12 @@ export function transformTasks(
   selectedScale: GanttScaleKey
 ): TaskTransformed[] {
   const sortedTasks = sortTasksBySequence(tasks);
-  let orderCounter = 0;
 
-  return sortedTasks.map((task) => {
-    orderCounter++;
+  return sortedTasks.map((task, index) => {
     const depth = calculateTaskDepth(task.sequence);
+    const order = index + 1;
 
-    // TODO: not sure if we need this or not
-
-    // const alignedStart = alignToScaleBoundary(
-    //   dayjs(task.startDate),
-    //   selectedScale,
-    //   'floor',
-    // );
-
-    // const alignedEnd = alignToScaleBoundary(
-    //   dayjs(task.endDate),
-    //   selectedScale,
-    //   'ceil',
-    // );
-
+    // Calculate bar position and width
     const { barMarginLeftAmount, barWidthSize } = calculateDateOffsets(
       dayjs(task.startDate),
       dayjs(task.endDate),
@@ -99,8 +53,8 @@ export function transformTasks(
       barLeft: barMarginLeftAmount,
       barWidth: barWidthSize,
       depth,
-      order: orderCounter,
-      originalOrder: orderCounter,
+      order,
+      originalOrder: order,
     };
   });
 }

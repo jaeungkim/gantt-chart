@@ -1,28 +1,106 @@
-import { GANTT_SCALE_CONFIG } from 'constants/gantt';
-import { useRef, useCallback } from 'react';
-import { useGanttStore } from 'stores/store';
-import { GanttDragOffset } from 'types/gantt';
-import { Task, TaskTransformed } from 'types/task';
-import dayjs from 'utils/dayjs';
+import { GANTT_SCALE_CONFIG } from "constants/gantt";
+import { useRef } from "react";
+import { useGanttStore } from "stores/store";
+import { GanttDragOffset } from "types/gantt";
+import { Task, TaskTransformed } from "types/task";
+import dayjs from "utils/dayjs";
 
-export type DragMode = 'bar' | 'left' | 'right';
+export type DragMode = "bar" | "left" | "right";
 
 interface DragContext {
   mode: DragMode;
   initialClientX: number;
-  initialLeft: number;
-  initialWidth: number;
-  initialStartDate: string;
-  initialEndDate: string;
+  initialStartDate: dayjs.Dayjs;
+  initialEndDate: dayjs.Dayjs;
   dragSteps: number;
   basePxPerDragStep: number;
   minutesPerPixel: number;
   minimumWidth: number;
 }
 
+// Time unit multipliers for cleaner calculation
+const TIME_UNIT_MULTIPLIERS = {
+  minute: 1,
+  hour: 60,
+  day: 60 * 24,
+  week: 60 * 24 * 7,
+  month: 60 * 24 * 30,
+} as const;
+
+// Helper functions outside component to avoid dependency issues
+const calculateDragConstraints = (
+  deltaX: number,
+  mode: DragMode,
+  initialWidth: number,
+  basePxPerDragStep: number
+) => {
+  if (mode === "left") {
+    const maxDelta = initialWidth - basePxPerDragStep;
+    return Math.min(deltaX, maxDelta);
+  }
+  if (mode === "right") {
+    const minDelta = -initialWidth + basePxPerDragStep;
+    return Math.max(deltaX, minDelta);
+  }
+  return deltaX;
+};
+
+const snapToGrid = (
+  deltaX: number,
+  mode: DragMode,
+  basePxPerDragStep: number
+) => {
+  if (mode === "left" && deltaX < 0) {
+    return Math.floor(deltaX / basePxPerDragStep) * basePxPerDragStep;
+  }
+  if (mode === "right" && deltaX > 0) {
+    return Math.ceil(deltaX / basePxPerDragStep) * basePxPerDragStep;
+  }
+  return deltaX;
+};
+
+const createDragOffset = (
+  mode: DragMode,
+  draggedPx: number,
+  offsetStartDate: dayjs.Dayjs,
+  offsetEndDate: dayjs.Dayjs
+): GanttDragOffset => {
+  switch (mode) {
+    case "bar":
+      return {
+        offsetStartDate,
+        offsetEndDate,
+        offsetX: draggedPx,
+        offsetWidth: 0,
+      };
+    case "left":
+      return {
+        offsetStartDate,
+        offsetEndDate,
+        offsetX: draggedPx,
+        offsetWidth: -draggedPx,
+      };
+    case "right":
+      return {
+        offsetStartDate,
+        offsetEndDate,
+        offsetX: 0,
+        offsetWidth: draggedPx,
+      };
+    default:
+      return { offsetStartDate, offsetEndDate, offsetX: 0, offsetWidth: 0 };
+  }
+};
+
+const detectDragMode = (target: HTMLElement): DragMode => {
+  if (target.closest('[data-mode="left"]')) return "left";
+  if (target.closest('[data-mode="right"]')) return "right";
+  return "bar";
+};
+
 export function useGanttBarDrag(
   task: TaskTransformed,
-  onTasksChange?: (updatedTasks: Task[]) => void,
+  onTasksChange?: (updatedTasks: Task[]) => void
 ) {
   const setCurrentTask = useGanttStore((state) => state.setCurrentTask);
   const rawTasks = useGanttStore((state) => state.rawTasks);
@@ -34,126 +112,104 @@ export function useGanttBarDrag(
   const dragContextRef = useRef<DragContext | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
 
-  // Pre-calculate scale configuration to avoid repeated lookups
+  // Get scale configuration once
   const scaleConfig = GANTT_SCALE_CONFIG[scale];
   const basePxPerDragStep = scaleConfig.basePxPerDragStep;
-  const minutesPerPixel = (scaleConfig.dragStepAmount * {
-    minute: 1,
-    hour: 60,
-    day: 60 * 24,
-    week: 60 * 24 * 7,
-    month: 60 * 24 * 30,
-  }[scaleConfig.dragStepUnit]) / basePxPerDragStep;
+  const minutesPerPixel =
+    (scaleConfig.dragStepAmount *
+      TIME_UNIT_MULTIPLIERS[scaleConfig.dragStepUnit]) /
+    basePxPerDragStep;
 
-  const onPointerMove = useCallback((e: PointerEvent) => {
+  const onPointerMove = (e: PointerEvent) => {
     const ctx = dragContextRef.current;
     if (!ctx) return;
 
     let deltaX = e.clientX - ctx.initialClientX;
 
-    // Apply constraints based on drag mode
-    if (ctx.mode === 'left') {
-      deltaX = Math.min(deltaX, ctx.initialWidth - ctx.minimumWidth);
-      if (deltaX < 0) {
-        deltaX = Math.floor(deltaX / ctx.basePxPerDragStep) * ctx.basePxPerDragStep;
-      }
-    } else if (ctx.mode === 'right') {
-      deltaX = Math.max(deltaX, -ctx.initialWidth + ctx.minimumWidth);
-      if (deltaX > 0) {
-        deltaX = Math.ceil(deltaX / ctx.basePxPerDragStep) * ctx.basePxPerDragStep;
-      }
-    }
+    // Apply constraints and snap to grid
+    deltaX = calculateDragConstraints(
+      deltaX,
+      ctx.mode,
+      task.barWidth,
+      basePxPerDragStep
+    );
+    deltaX = snapToGrid(deltaX, ctx.mode, basePxPerDragStep);
 
     const steps = Math.round(deltaX / ctx.basePxPerDragStep);
     if (steps === ctx.dragSteps) return;
 
     ctx.dragSteps = steps;
-
-    const draggedPx = ctx.dragSteps * ctx.basePxPerDragStep;
+    const draggedPx = steps * ctx.basePxPerDragStep;
     const totalDraggedMinutes = draggedPx * ctx.minutesPerPixel;
 
-    // Calculate offset dates
-    let offsetStartDate = dayjs(ctx.initialStartDate);
-    let offsetEndDate = dayjs(ctx.initialEndDate);
-    
-    if (ctx.mode === 'bar') {
-      offsetStartDate = offsetStartDate.add(totalDraggedMinutes, 'minute');
-      offsetEndDate = offsetEndDate.add(totalDraggedMinutes, 'minute');
-    } else if (ctx.mode === 'left') {
-      offsetStartDate = offsetStartDate.add(totalDraggedMinutes, 'minute');
-    } else if (ctx.mode === 'right') {
-      offsetEndDate = offsetEndDate.add(totalDraggedMinutes, 'minute');
-    }
-    
-    // Create offset object
-    const offset: GanttDragOffset =
-      ctx.mode === 'bar'
-        ? { offsetX: draggedPx, offsetWidth: 0, offsetStartDate, offsetEndDate }
-        : ctx.mode === 'left'
-        ? {
-            offsetX: draggedPx,
-            offsetWidth: -draggedPx,
-            offsetStartDate,
-            offsetEndDate,
-          }
-        : {
-            offsetX: 0,
-            offsetWidth: draggedPx,
-            offsetStartDate,
-            offsetEndDate,
-          };
+    // Calculate new dates based on mode
+    const offsetStartDate =
+      ctx.mode === "right"
+        ? ctx.initialStartDate
+        : ctx.initialStartDate.add(totalDraggedMinutes, "minute");
 
+    const offsetEndDate =
+      ctx.mode === "left"
+        ? ctx.initialEndDate
+        : ctx.initialEndDate.add(totalDraggedMinutes, "minute");
+
+    const offset = createDragOffset(
+      ctx.mode,
+      draggedPx,
+      offsetStartDate,
+      offsetEndDate
+    );
     setDragOffset(task.id, offset);
-  }, [task.id, setDragOffset]);
+  };
 
-  const onPointerUp = useCallback(() => {
-    document.removeEventListener('pointermove', onPointerMove);
-    document.removeEventListener('pointerup', onPointerUp);
-    document.removeEventListener('pointercancel', onPointerUp);
+  const onPointerUp = () => {
+    // Remove event listeners
+    document.removeEventListener("pointermove", onPointerMove);
+    document.removeEventListener("pointerup", onPointerUp);
+    document.removeEventListener("pointercancel", onPointerUp);
 
     const ctx = dragContextRef.current;
     if (!ctx) return;
 
+    // Update tasks with new dates
     const { dragStepAmount, dragStepUnit } = scaleConfig;
-
-    const adjustDate = (date: string) =>
-      dayjs(date)
+    const adjustDate = (date: dayjs.Dayjs) =>
+      date
         .add(
           ctx.dragSteps * dragStepAmount,
-          dragStepUnit as dayjs.ManipulateType,
+          dragStepUnit as dayjs.ManipulateType
         )
         .toISOString();
 
-    // Update tasks based on drag mode
     const updatedTasks = rawTasks.map((t) => {
       if (t.id !== task.id) return t;
 
       switch (ctx.mode) {
-        case 'bar':
+        case "bar":
           return {
             ...t,
-            startDate: adjustDate(ctx.initialStartDate),
-            endDate: adjustDate(ctx.initialEndDate),
-          } as Task;
-        case 'left':
+            startDate: adjustDate(dayjs(t.startDate)),
+            endDate: adjustDate(dayjs(t.endDate)),
+          };
+        case "left":
           return {
             ...t,
-            startDate: adjustDate(ctx.initialStartDate),
-          } as Task;
+            startDate: adjustDate(dayjs(t.startDate)),
+          };
+        case "right":
+          return {
+            ...t,
+            endDate: adjustDate(dayjs(t.endDate)),
+          };
         default:
-          return {
-            ...t,
-            endDate: adjustDate(ctx.initialEndDate),
-          } as Task;
+          return t;
       }
     });
 
-    setCurrentTask(null);
-    clearDragOffset(task.id);
     setRawTasks(updatedTasks);
     onTasksChange?.(updatedTasks);
 
-    // Cleanup pointer capture
+    // Cleanup
     const pointerId = activePointerIdRef.current;
     if (pointerId !== null) {
       document
@@ -163,23 +219,20 @@ export function useGanttBarDrag(
 
     activePointerIdRef.current = null;
     dragContextRef.current = null;
-  }, [task.id, rawTasks, scaleConfig, setCurrentTask, clearDragOffset, setRawTasks, onTasksChange, onPointerMove]);
+    setCurrentTask(null);
+    clearDragOffset(task.id);
+  };
 
-  const onPointerDown: React.PointerEventHandler<HTMLDivElement> = useCallback((e) => {
+  const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
     const target = e.target as HTMLElement;
-    const mode: DragMode = target.closest('[data-mode="left"]')
-      ? 'left'
-      : target.closest('[data-mode="right"]')
-        ? 'right'
-        : 'bar';
+    const mode = detectDragMode(target);
 
+    // Setup drag context
     dragContextRef.current = {
       mode,
       initialClientX: e.clientX,
-      initialLeft: task.barLeft,
-      initialWidth: task.barWidth,
-      initialStartDate: task.startDate,
-      initialEndDate: task.endDate,
+      initialStartDate: dayjs(task.startDate),
+      initialEndDate: dayjs(task.endDate),
       dragSteps: 0,
       basePxPerDragStep,
       minutesPerPixel,
@@ -188,13 +241,14 @@ export function useGanttBarDrag(
 
     setCurrentTask(task);
 
+    // Setup event listeners
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     activePointerIdRef.current = e.pointerId;
 
-    document.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('pointerup', onPointerUp);
-    document.addEventListener('pointercancel', onPointerUp);
-  }, [task, basePxPerDragStep, minutesPerPixel, setCurrentTask, onPointerMove, onPointerUp]);
+    document.addEventListener("pointermove", onPointerMove);
+    document.addEventListener("pointerup", onPointerUp);
+    document.addEventListener("pointercancel", onPointerUp);
+  };
 
   return { onPointerDown };
 }

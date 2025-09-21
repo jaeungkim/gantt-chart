@@ -1,5 +1,5 @@
 import { GANTT_SCALE_CONFIG } from "constants/gantt";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useGanttStore } from "stores/store";
 import {
   GanttBottomRowCell,
@@ -14,6 +14,72 @@ interface GanttChartHeaderProps {
   selectedScale: GanttScaleKey;
   width: number;
   scrollRef: React.RefObject<HTMLDivElement | null>;
+}
+
+// Helper function to merge groups with same labels
+function mergeHeaderGroups(
+  groups: GanttTopHeaderGroup[]
+): GanttTopHeaderGroup[] {
+  const merged: GanttTopHeaderGroup[] = [];
+
+  for (const group of groups) {
+    const last = merged[merged.length - 1];
+    if (last && last.label === group.label) {
+      last.widthPx += group.widthPx;
+    } else {
+      merged.push({ ...group });
+    }
+  }
+
+  return merged;
+}
+
+// Helper function to add left positions to groups
+function addLeftPositions(
+  groups: GanttTopHeaderGroup[]
+): (GanttTopHeaderGroup & { left: number })[] {
+  let offset = 0;
+  return groups.map((group) => {
+    const groupWithLeft = { ...group, left: offset };
+    offset += group.widthPx;
+    return groupWithLeft;
+  });
+}
+
+// Drag preview component
+function DragPreview({
+  dragOffset,
+  currentTask,
+  selectedScale,
+}: {
+  dragOffset: any;
+  currentTask: any;
+  selectedScale: GanttScaleKey;
+}) {
+  if (!dragOffset || !currentTask) return null;
+
+  return (
+    <div
+      className="gantt-drag-preview"
+      style={{
+        left: `${dragOffset.offsetX + (currentTask?.barLeft ?? 0)}px`,
+        width: `${dragOffset.offsetWidth + (currentTask?.barWidth ?? 0)}px`,
+      }}
+    >
+      {selectedScale === "week" && (
+        <>
+          <p>{dragOffset.offsetStartDate.format("h A")}</p>
+          <p>{dragOffset.offsetEndDate.format("h A")}</p>
+        </>
+      )}
+      {selectedScale === "year" && (
+        <>
+          <p>{dragOffset.offsetStartDate.format("D")}</p>
+          <p>{dragOffset.offsetEndDate.format("D")}</p>
+        </>
+      )}
+    </div>
+  );
 }
 
 const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
@@ -33,50 +99,29 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
   // Get drag offset for current task
   const dragOffset = currentTask ? getCurrentDragOffset(currentTask.id) : null;
 
-  // Create top header groups (simplified without useMemo)
+  // Create and process header groups
   const topGroups = createTopHeaderGroups(bottomRowCells, selectedScale);
-
-  // Merge groups with same labels (simplified without useMemo)
-  const mergedGroups: GanttTopHeaderGroup[] = [];
-  for (const group of topGroups) {
-    const last = mergedGroups[mergedGroups.length - 1];
-    if (last && last.label === group.label) {
-      last.widthPx += group.widthPx;
-    } else {
-      mergedGroups.push({ ...group });
-    }
-  }
-
-  // Add left positions to merged groups (simplified without useMemo)
-  let offset = 0;
-  const mergedGroupsWithLeft = mergedGroups.map((group) => {
-    const g = { ...group, left: offset };
-    offset += group.widthPx;
-    return g;
-  });
-
-  // Handle scroll to update sticky index
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const scrollLeft = el.scrollLeft;
-    for (let i = mergedGroupsWithLeft.length - 1; i >= 0; i--) {
-      if (scrollLeft >= mergedGroupsWithLeft[i].left) {
-        setStickyIndex(i);
-        break;
-      }
-    }
-  }, [mergedGroupsWithLeft, scrollRef]);
+  const mergedGroups = mergeHeaderGroups(topGroups);
+  const groupsWithPositions = addLeftPositions(mergedGroups);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
+    const handleScroll = () => {
+      const scrollLeft = el.scrollLeft;
+      for (let i = groupsWithPositions.length - 1; i >= 0; i--) {
+        if (scrollLeft >= groupsWithPositions[i].left) {
+          setStickyIndex(i);
+          break;
+        }
+      }
+    };
+
     el.addEventListener("scroll", handleScroll);
     handleScroll(); // Initial call
     return () => el.removeEventListener("scroll", handleScroll);
-  }, [handleScroll, scrollRef]);
+  }, [groupsWithPositions, scrollRef]);
 
   return (
     <div className="gantt-header" style={{ width: `${width}px` }}>
@@ -84,7 +129,7 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
         {/* Top header groups */}
         <div className="gantt-top-header">
           <div className="gantt-top-groups">
-            {mergedGroupsWithLeft.map((group, idx) => {
+            {groupsWithPositions.map((group, idx) => {
               const isSticky = idx === stickyIndex;
               return (
                 <div
@@ -105,31 +150,11 @@ const GanttChartHeader: React.FC<GanttChartHeaderProps> = ({
         {/* Bottom row cells */}
         <div className="gantt-bottom-row">
           <div>
-            {/* Drag preview */}
-            {dragOffset && currentTask && (
-              <div
-                className="gantt-drag-preview"
-                style={{
-                  left: `${dragOffset.offsetX + (currentTask?.barLeft ?? 0)}px`,
-                  width: `${
-                    dragOffset.offsetWidth + (currentTask?.barWidth ?? 0)
-                  }px`,
-                }}
-              >
-                {selectedScale === "week" && (
-                  <>
-                    <p>{dragOffset.offsetStartDate.format("h A")}</p>
-                    <p>{dragOffset.offsetEndDate.format("h A")}</p>
-                  </>
-                )}
-                {selectedScale === "year" && (
-                  <>
-                    <p>{dragOffset.offsetStartDate.format("D")}</p>
-                    <p>{dragOffset.offsetEndDate.format("D")}</p>
-                  </>
-                )}
-              </div>
-            )}
+            <DragPreview
+              dragOffset={dragOffset}
+              currentTask={currentTask}
+              selectedScale={selectedScale}
+            />
           </div>
 
           {/* Bottom row cells */}

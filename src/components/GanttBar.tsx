@@ -16,16 +16,16 @@ export default function GanttBar({
 }: GanttBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
   const { onPointerDown } = useGanttBarDrag(currentTask, onTasksChange);
+  const [hoveredHandle, setHoveredHandle] = useState<"none" | "left" | "right">("none");
 
-  const liveOffset = useGanttStore(
-    (store) => store.dragOffsets[currentTask.id]
-  );
+  // Get drag offset with fallback
+  const liveOffset = useGanttStore((store) => store.dragOffsets[currentTask.id]);
   const offsetX = liveOffset?.offsetX ?? 0;
   const offsetWidth = liveOffset?.offsetWidth ?? 0;
 
-  const [hoveredHandle, setHoveredHandle] = useState<"none" | "left" | "right">(
-    "none"
-  );
+  // Calculate final position and dimensions
+  const finalLeft = currentTask.barLeft + offsetX;
+  const finalWidth = currentTask.barWidth + offsetWidth;
 
   return (
     <div
@@ -34,8 +34,8 @@ export default function GanttBar({
       className="gantt-task-bar"
       onPointerDown={onPointerDown}
       style={{
-        transform: `translateX(${currentTask.barLeft + offsetX}px)`,
-        width: currentTask.barWidth + offsetWidth,
+        transform: `translateX(${finalLeft}px)`,
+        width: finalWidth,
         height: NODE_HEIGHT / 2,
       }}
     >
