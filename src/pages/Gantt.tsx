@@ -32,7 +32,6 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
   const setTopHeaderGroups = useGanttStore((state) => state.setTopHeaderGroups);
   const getTotalWidth = useGanttStore((state) => state.getTotalWidth);
 
-  // Initialize tasks
   useEffect(() => {
     if (tasks.length === 0) {
       setRawTasks(sourceTasks as Task[]);
