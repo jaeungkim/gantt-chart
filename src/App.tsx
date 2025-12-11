@@ -1,13 +1,8 @@
-import Gantt from 'pages/Gantt';
+import Gantt from "pages/Gantt";
+import { sourceTasks } from "../db";
 
 function App() {
-  return (
-    <Gantt
-      tasks={[]}
-      ganttHeight="100svh"
-      columnWidth="auto"
-    />
-  );
+  return <Gantt tasks={sourceTasks} height="100svh" width="100%" />;
 }
 
 export default App;

@@ -5,7 +5,6 @@ import { getSmartGanttPath } from "utils/arrowPath";
 
 interface Props {
   transformedTasks: TaskTransformed[];
-  visibleRowIndexes: number[];
 }
 
 // Helper function to calculate arrow coordinates
@@ -40,18 +39,14 @@ function calculateArrowCoords(
   return { fromX, fromY, toX, toY };
 }
 
-// Helper function to build dependencies array
+// 의존성 배열 빌드
 function buildDependencies(
   transformedTasks: TaskTransformed[],
-  visibleRowSet: Set<number>,
   liveOffsets: Record<string, { offsetX: number; offsetWidth: number }>
 ): RenderedDependency[] {
   const dependencies: RenderedDependency[] = [];
 
   for (const currentTask of transformedTasks) {
-    const sourceIndex = currentTask.order - 1;
-    if (!visibleRowSet.has(sourceIndex)) continue;
-
     const offset = liveOffsets[currentTask.id] ?? { offsetX: 0, offsetWidth: 0 };
 
     for (const dep of currentTask.dependencies ?? []) {
@@ -74,11 +69,9 @@ function buildDependencies(
 
 export default function GanttDependencyArrows({
   transformedTasks,
-  visibleRowIndexes,
 }: Props) {
   const liveOffsets = useGanttStore((store) => store.dragOffsets);
-  const visibleRowSet = new Set(visibleRowIndexes);
-  const dependencies = buildDependencies(transformedTasks, visibleRowSet, liveOffsets);
+  const dependencies = buildDependencies(transformedTasks, liveOffsets);
 
   return (
     <svg
@@ -90,13 +83,16 @@ export default function GanttDependencyArrows({
       <defs>
         <marker
           id="arrowhead"
-          markerWidth="6"
-          markerHeight="6"
-          refX="5.25"
-          refY="3"
+          markerWidth="8"
+          markerHeight="8"
+          refX="7"
+          refY="4"
           orient="auto"
         >
-          <polygon points="0 0, 6 3, 0 6" />
+          <polygon
+            className="gantt-dependency-arrow-head"
+            points="0 0, 8 4, 0 8"
+          />
         </marker>
       </defs>
 

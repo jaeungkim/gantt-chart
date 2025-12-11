@@ -1,9 +1,20 @@
 import { NODE_HEIGHT } from "constants/gantt";
 import { useGanttBarDrag } from "hooks/useGanttBarDrag";
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { useGanttStore } from "stores/store";
+import { GanttScaleKey } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
-import DragHandle from "./DragHandle";
+
+// 엣지 감지 영역 (px)
+const EDGE_THRESHOLD = 8;
+
+// 스케일별 날짜 포맷
+const DATE_FORMATS: Record<GanttScaleKey, string> = {
+  day: "MMM D, h A",
+  week: "MMM D",
+  month: "MMM D",
+  year: "MMM YYYY",
+};
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
@@ -16,39 +27,66 @@ export default function GanttBar({
 }: GanttBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
   const { onPointerDown } = useGanttBarDrag(currentTask, onTasksChange);
-  const [hoveredHandle, setHoveredHandle] = useState<"none" | "left" | "right">("none");
+  const [cursor, setCursor] = useState<"grab" | "ew-resize">("grab");
 
-  // Get drag offset with fallback
+  // 드래그 오프셋 가져오기
   const liveOffset = useGanttStore((store) => store.dragOffsets[currentTask.id]);
+  const isDragging = useGanttStore((store) => store.currentTask?.id === currentTask.id);
+  const selectedScale = useGanttStore((store) => store.selectedScale);
+  
   const offsetX = liveOffset?.offsetX ?? 0;
   const offsetWidth = liveOffset?.offsetWidth ?? 0;
 
-  // Calculate final position and dimensions
+  // 최종 위치 및 크기 계산
   const finalLeft = currentTask.barLeft + offsetX;
   const finalWidth = currentTask.barWidth + offsetWidth;
+
+  // 마우스 위치에 따른 커서 변경
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const bar = barRef.current;
+    if (!bar) return;
+
+    const rect = bar.getBoundingClientRect();
+    const relativeX = e.clientX - rect.left;
+
+    if (relativeX <= EDGE_THRESHOLD || relativeX >= rect.width - EDGE_THRESHOLD) {
+      setCursor("ew-resize");
+    } else {
+      setCursor("grab");
+    }
+  }, []);
+
+  // 툴팁 텍스트 생성
+  const format = DATE_FORMATS[selectedScale];
+  const startText = liveOffset?.offsetStartDate.format(format);
+  const endText = liveOffset?.offsetEndDate.format(format);
 
   return (
     <div
       ref={barRef}
       id={`task-${currentTask.id}`}
-      className="gantt-task-bar"
+      className={`gantt-task-bar ${isDragging ? "dragging" : ""}`}
       onPointerDown={onPointerDown}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setCursor("grab")}
       style={{
         transform: `translateX(${finalLeft}px)`,
         width: finalWidth,
         height: NODE_HEIGHT / 2,
+        cursor: isDragging ? "grabbing" : cursor,
       }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Task: ${currentTask.name}`}
     >
-      <DragHandle
-        side="left"
-        hoveredHandle={hoveredHandle}
-        setHoveredHandle={setHoveredHandle}
-      />
-      <DragHandle
-        side="right"
-        hoveredHandle={hoveredHandle}
-        setHoveredHandle={setHoveredHandle}
-      />
+      <span className="gantt-task-name">{currentTask.name}</span>
+      
+      {/* 드래그 중 툴팁 */}
+      {isDragging && liveOffset && (
+        <div className="gantt-bar-tooltip" role="status" aria-live="polite">
+          {startText} → {endText}
+        </div>
+      )}
     </div>
   );
 }

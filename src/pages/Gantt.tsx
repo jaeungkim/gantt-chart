@@ -1,149 +1,141 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
-import GanttBar from "components/GanttBar.tsx";
-import GanttChartHeader from "components/GanttChartHeader.tsx";
-import GanttDependencyArrows from "components/GanttDependencyArrows.tsx";
-import { GANTT_SCALE_CONFIG, NODE_HEIGHT } from "constants/gantt";
+import GanttBar from "components/GanttBar";
+import GanttChartHeader from "components/GanttChartHeader";
+import GanttDependencyArrows from "components/GanttDependencyArrows";
+import ScaleSelector from "components/ScaleSelector";
+import TodayMarker from "components/TodayMarker";
 import { useEffect, useRef } from "react";
-import { useGanttStore } from "stores/store";
-import { GanttScaleKey } from "types/gantt";
+import { useGanttSelectors } from "hooks/useGanttSelectors";
+import { useGanttVirtualization } from "hooks/useGanttVirtualization";
+import { useResolvedTheme } from "hooks/useResolvedTheme";
+import { GanttScaleKey, GanttTheme } from "types/gantt";
 import { Task } from "types/task";
-import { setupTimelineStructure } from "utils/timeline";
-import sourceTasks from "../../db.ts";
+import { computeTimelineData } from "utils/timeline";
 
-interface GanttProps {
-  tasks: Task[];
+/** Gantt 컴포넌트 기본값 */
+const DEFAULT_HEIGHT = 600;
+const DEFAULT_WIDTH = "100%";
+const DEFAULT_SCALE: GanttScaleKey = "month";
+
+export interface GanttProps {
+  /** 태스크 데이터 배열 */
+  tasks?: Task[];
+  /** 태스크 변경 시 호출되는 콜백 */
   onTasksChange?: (updatedTasks: Task[]) => void;
-  ganttHeight: number | string;
-  columnWidth: number | string;
+  /** 차트 높이 (px 또는 CSS 값) */
+  height?: number | string;
+  /** 차트 너비 (px 또는 CSS 값) */
+  width?: number | string;
+  /** 테마 설정 - 'light', 'dark', 또는 'system' */
+  theme?: GanttTheme;
+  /** 기본 스케일 설정 */
+  defaultScale?: GanttScaleKey;
+  /** 추가 CSS 클래스명 */
+  className?: string;
 }
 
-function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
-  const rawTasks = useGanttStore((state) => state.rawTasks);
-  const setRawTasks = useGanttStore((state) => state.setRawTasks);
-  const transformedTasks = useGanttStore((state) => state.transformedTasks);
-  const setTransformedTasks = useGanttStore(
-    (state) => state.setTransformedTasks
-  );
-  const selectedScale = useGanttStore((state) => state.selectedScale);
-  const setSelectedScale = useGanttStore((state) => state.setSelectedScale);
-  const bottomRowCells = useGanttStore((state) => state.bottomRowCells);
-  const setBottomRowCells = useGanttStore((state) => state.setBottomRowCells);
-  const topHeaderGroups = useGanttStore((state) => state.topHeaderGroups);
-  const setTopHeaderGroups = useGanttStore((state) => state.setTopHeaderGroups);
-  const getTotalWidth = useGanttStore((state) => state.getTotalWidth);
+/**
+ * Gantt 차트 메인 컴포넌트
+ * 가상화를 사용하여 대량의 태스크를 효율적으로 렌더링
+ */
+function Gantt({
+  tasks = [],
+  onTasksChange,
+  height = DEFAULT_HEIGHT,
+  width = DEFAULT_WIDTH,
+  theme,
+  defaultScale = DEFAULT_SCALE,
+  className,
+}: GanttProps) {
+  // 스토어 상태 및 액션
+  const {
+    rawTasks,
+    transformedTasks,
+    bottomRowCells,
+    selectedScale,
+    setRawTasks,
+    setTransformedTasks,
+    setBottomRowCells,
+    setSelectedScale,
+    getTotalWidth,
+  } = useGanttSelectors();
 
+  // 스크롤 컨테이너 ref
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 가상화 훅
+  const { rowVirtualizer, isBarVisible } = useGanttVirtualization({
+    transformedTasks,
+    bottomRowCells,
+    scrollRef,
+  });
+
+  // 테마 훅
+  const { containerClassName, dataTheme } = useResolvedTheme(
+    theme,
+    className ? `gantt-container ${className}` : "gantt-container"
+  );
+
+  // 초기 스케일 설정
   useEffect(() => {
-    if (tasks.length === 0) {
-      setRawTasks(sourceTasks as Task[]);
-    } else {
+    if (defaultScale && defaultScale !== selectedScale) {
+      setSelectedScale(defaultScale);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 태스크 데이터 동기화
+  useEffect(() => {
+    if (tasks.length > 0) {
       setRawTasks(tasks);
     }
   }, [tasks, setRawTasks]);
 
-  // Setup timeline structure when rawTasks or scale changes
+  // 타임라인 구조 설정
   useEffect(() => {
     if (!rawTasks.length) return;
 
-    setupTimelineStructure(
+    const { bottomCells, transformedTasks: transformed } = computeTimelineData(
       rawTasks,
-      selectedScale,
-      setBottomRowCells,
-      setTopHeaderGroups,
-      setTransformedTasks
+      selectedScale
     );
-  }, [
-    rawTasks,
-    selectedScale,
-    setBottomRowCells,
-    setTopHeaderGroups,
-    setTransformedTasks,
-  ]);
 
-  // Virtualization setup
-  const parentRef = useRef<HTMLDivElement>(null);
+    setBottomRowCells(bottomCells);
+    setTransformedTasks(transformed);
+  }, [rawTasks, selectedScale, setBottomRowCells, setTransformedTasks]);
 
-  const rowVirtualizer = useVirtualizer({
-    count: transformedTasks.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => NODE_HEIGHT,
-    overscan: 5,
-  });
+  // 스케일 변경 핸들러
+  const handleScaleChange = (scale: GanttScaleKey) => {
+    setSelectedScale(scale);
+  };
 
-  const columnVirtualizer = useVirtualizer({
-    horizontal: true,
-    count: bottomRowCells.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: (index) => bottomRowCells[index]?.widthPx ?? 32,
-    overscan: 5,
-  });
-
-  // Get visible items and calculate dimensions
-  const virtualItems = columnVirtualizer.getVirtualItems();
-  const visibleStartPx = virtualItems[0]?.start ?? 0;
-  const lastVirtualItem = virtualItems[virtualItems.length - 1];
-  const visibleEndPx = lastVirtualItem
-    ? lastVirtualItem.start + lastVirtualItem.size
-    : 0;
+  // 전체 너비 계산
   const totalWidth = getTotalWidth();
-  const visibleRowIndexes = rowVirtualizer
-    .getVirtualItems()
-    .map((item) => item.index);
 
-  // Optimized visibility check function
-  function isBarVisible(barLeft: number, barWidth: number) {
-    const barRight = barLeft + barWidth;
-    return barRight >= visibleStartPx && barLeft <= visibleEndPx;
-  }
-
-  // Measure column virtualizer when cells change
-  useEffect(() => {
-    if (!bottomRowCells.length) return;
-
-    const id = requestAnimationFrame(() => {
-      columnVirtualizer.measure();
-    });
-
-    return () => cancelAnimationFrame(id);
-  }, [bottomRowCells, columnVirtualizer]);
-
-  const handleScaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedScale(e.target.value as GanttScaleKey);
+  // 스타일 계산
+  const containerStyle = {
+    height: typeof height === "number" ? `${height}px` : height,
+    width: typeof width === "number" ? `${width}px` : width,
   };
 
   return (
     <section
-      className="gantt-container"
-      style={{
-        height:
-          typeof ganttHeight === "number" ? `${ganttHeight}px` : ganttHeight,
-        width:
-          typeof columnWidth === "number" ? `${columnWidth}px` : columnWidth,
-      }}
+      className={containerClassName}
+      data-theme={dataTheme}
+      style={containerStyle}
     >
       <div className="gantt-inner">
         <section className="gantt-section">
-          {/* Scale selector */}
-          <div className="gantt-scale-selector">
-            <select
-              className="gantt-scale-select"
-              value={selectedScale}
-              onChange={handleScaleChange}
-            >
-              {Object.keys(GANTT_SCALE_CONFIG).map((scale) => (
-                <option key={scale} value={scale}>
-                  {scale}
-                </option>
-              ))}
-            </select>
-          </div>
+          <ScaleSelector
+            selectedScale={selectedScale}
+            onScaleChange={handleScaleChange}
+          />
 
-          <div ref={parentRef} className="gantt-list">
+          <div ref={scrollRef} className="gantt-list">
             <GanttChartHeader
-              topHeaderGroups={topHeaderGroups}
               bottomRowCells={bottomRowCells}
               selectedScale={selectedScale}
               width={totalWidth}
-              scrollRef={parentRef}
+              scrollRef={scrollRef}
             />
 
             <div
@@ -153,10 +145,11 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
                 width: `${totalWidth}px`,
               }}
             >
-              <GanttDependencyArrows
-                transformedTasks={transformedTasks}
-                visibleRowIndexes={visibleRowIndexes}
+              <TodayMarker
+                bottomRowCells={bottomRowCells}
+                height={rowVirtualizer.getTotalSize()}
               />
+              <GanttDependencyArrows transformedTasks={transformedTasks} />
 
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const task = transformedTasks[virtualRow.index];
@@ -165,7 +158,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
 
                 return (
                   <div
-                    key={virtualRow.index}
+                    key={task.id}
                     className="gantt-task-row"
                     style={{
                       height: `${virtualRow.size - 1}px`,
@@ -185,6 +178,7 @@ function Gantt({ tasks, onTasksChange, ganttHeight, columnWidth }: GanttProps) {
           </div>
         </section>
       </div>
+
     </section>
   );
 }

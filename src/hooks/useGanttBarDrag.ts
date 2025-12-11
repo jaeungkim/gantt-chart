@@ -1,6 +1,6 @@
 import { GANTT_SCALE_CONFIG } from "constants/gantt";
 import { useRef } from "react";
-import { useGanttStore } from "stores/store";
+import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { GanttDragOffset } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
@@ -15,10 +15,9 @@ interface DragContext {
   dragSteps: number;
   basePxPerDragStep: number;
   minutesPerPixel: number;
-  minimumWidth: number;
 }
 
-// Time unit multipliers for cleaner calculation
+// 시간 단위 변환 상수
 const TIME_UNIT_MULTIPLIERS = {
   minute: 1,
   hour: 60,
@@ -27,29 +26,28 @@ const TIME_UNIT_MULTIPLIERS = {
   month: 60 * 24 * 30,
 } as const;
 
-// Helper functions outside component to avoid dependency issues
+// 드래그 제약 계산
 const calculateDragConstraints = (
   deltaX: number,
   mode: DragMode,
   initialWidth: number,
   basePxPerDragStep: number
-) => {
+): number => {
   if (mode === "left") {
-    const maxDelta = initialWidth - basePxPerDragStep;
-    return Math.min(deltaX, maxDelta);
+    return Math.min(deltaX, initialWidth - basePxPerDragStep);
   }
   if (mode === "right") {
-    const minDelta = -initialWidth + basePxPerDragStep;
-    return Math.max(deltaX, minDelta);
+    return Math.max(deltaX, -initialWidth + basePxPerDragStep);
   }
   return deltaX;
 };
 
+// 그리드에 스냅
 const snapToGrid = (
   deltaX: number,
   mode: DragMode,
   basePxPerDragStep: number
-) => {
+): number => {
   if (mode === "left" && deltaX < 0) {
     return Math.floor(deltaX / basePxPerDragStep) * basePxPerDragStep;
   }
@@ -59,80 +57,74 @@ const snapToGrid = (
   return deltaX;
 };
 
+// 드래그 오프셋 생성
 const createDragOffset = (
   mode: DragMode,
   draggedPx: number,
   offsetStartDate: dayjs.Dayjs,
   offsetEndDate: dayjs.Dayjs
 ): GanttDragOffset => {
+  const baseOffset = { offsetStartDate, offsetEndDate };
+
   switch (mode) {
     case "bar":
-      return {
-        offsetStartDate,
-        offsetEndDate,
-        offsetX: draggedPx,
-        offsetWidth: 0,
-      };
+      return { ...baseOffset, offsetX: draggedPx, offsetWidth: 0 };
     case "left":
-      return {
-        offsetStartDate,
-        offsetEndDate,
-        offsetX: draggedPx,
-        offsetWidth: -draggedPx,
-      };
+      return { ...baseOffset, offsetX: draggedPx, offsetWidth: -draggedPx };
     case "right":
-      return {
-        offsetStartDate,
-        offsetEndDate,
-        offsetX: 0,
-        offsetWidth: draggedPx,
-      };
+      return { ...baseOffset, offsetX: 0, offsetWidth: draggedPx };
     default:
-      return { offsetStartDate, offsetEndDate, offsetX: 0, offsetWidth: 0 };
+      return { ...baseOffset, offsetX: 0, offsetWidth: 0 };
   }
 };
 
-const detectDragMode = (target: HTMLElement): DragMode => {
-  if (target.closest('[data-mode="left"]')) return "left";
-  if (target.closest('[data-mode="right"]')) return "right";
+// 엣지 감지 영역 (px)
+const EDGE_THRESHOLD = 8;
+
+// 드래그 모드 감지 (클릭 위치 기반)
+const detectDragMode = (e: React.PointerEvent<HTMLDivElement>): DragMode => {
+  const target = e.currentTarget;
+  const rect = target.getBoundingClientRect();
+  const relativeX = e.clientX - rect.left;
+
+  if (relativeX <= EDGE_THRESHOLD) return "left";
+  if (relativeX >= rect.width - EDGE_THRESHOLD) return "right";
   return "bar";
 };
 
+/**
+ * Gantt 바 드래그 기능을 제공하는 훅
+ * 바 이동, 시작일 조정, 종료일 조정 지원
+ */
 export function useGanttBarDrag(
   task: TaskTransformed,
   onTasksChange?: (updatedTasks: Task[]) => void
 ) {
-  const setCurrentTask = useGanttStore((state) => state.setCurrentTask);
-  const rawTasks = useGanttStore((state) => state.rawTasks);
-  const scale = useGanttStore((state) => state.selectedScale);
-  const setDragOffset = useGanttStore((state) => state.setDragOffset);
-  const clearDragOffset = useGanttStore((state) => state.clearDragOffset);
-  const setRawTasks = useGanttStore((state) => state.setRawTasks);
+  // 통합된 셀렉터 사용
+  const {
+    rawTasks,
+    selectedScale,
+    setCurrentTask,
+    setDragOffset,
+    clearDragOffset,
+    setRawTasks,
+  } = useGanttSelectors();
 
   const dragContextRef = useRef<DragContext | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
 
-  // Get scale configuration once
-  const scaleConfig = GANTT_SCALE_CONFIG[scale];
-  const basePxPerDragStep = scaleConfig.basePxPerDragStep;
+  // 스케일 설정
+  const scaleConfig = GANTT_SCALE_CONFIG[selectedScale];
+  const { basePxPerDragStep, dragStepAmount, dragStepUnit } = scaleConfig;
   const minutesPerPixel =
-    (scaleConfig.dragStepAmount *
-      TIME_UNIT_MULTIPLIERS[scaleConfig.dragStepUnit]) /
-    basePxPerDragStep;
+    (dragStepAmount * TIME_UNIT_MULTIPLIERS[dragStepUnit]) / basePxPerDragStep;
 
   const onPointerMove = (e: PointerEvent) => {
     const ctx = dragContextRef.current;
     if (!ctx) return;
 
     let deltaX = e.clientX - ctx.initialClientX;
-
-    // Apply constraints and snap to grid
-    deltaX = calculateDragConstraints(
-      deltaX,
-      ctx.mode,
-      task.barWidth,
-      basePxPerDragStep
-    );
+    deltaX = calculateDragConstraints(deltaX, ctx.mode, task.barWidth, basePxPerDragStep);
     deltaX = snapToGrid(deltaX, ctx.mode, basePxPerDragStep);
 
     const steps = Math.round(deltaX / ctx.basePxPerDragStep);
@@ -142,7 +134,6 @@ export function useGanttBarDrag(
     const draggedPx = steps * ctx.basePxPerDragStep;
     const totalDraggedMinutes = draggedPx * ctx.minutesPerPixel;
 
-    // Calculate new dates based on mode
     const offsetStartDate =
       ctx.mode === "right"
         ? ctx.initialStartDate
@@ -153,17 +144,10 @@ export function useGanttBarDrag(
         ? ctx.initialEndDate
         : ctx.initialEndDate.add(totalDraggedMinutes, "minute");
 
-    const offset = createDragOffset(
-      ctx.mode,
-      draggedPx,
-      offsetStartDate,
-      offsetEndDate
-    );
-    setDragOffset(task.id, offset);
+    setDragOffset(task.id, createDragOffset(ctx.mode, draggedPx, offsetStartDate, offsetEndDate));
   };
 
   const onPointerUp = () => {
-    // Remove event listeners
     document.removeEventListener("pointermove", onPointerMove);
     document.removeEventListener("pointerup", onPointerUp);
     document.removeEventListener("pointercancel", onPointerUp);
@@ -171,16 +155,11 @@ export function useGanttBarDrag(
     const ctx = dragContextRef.current;
     if (!ctx) return;
 
-    // Update tasks with new dates
-    const { dragStepAmount, dragStepUnit } = scaleConfig;
+    // 날짜 조정 함수
     const adjustDate = (date: dayjs.Dayjs) =>
-      date
-        .add(
-          ctx.dragSteps * dragStepAmount,
-          dragStepUnit as dayjs.ManipulateType
-        )
-        .toISOString();
+      date.add(ctx.dragSteps * dragStepAmount, dragStepUnit as dayjs.ManipulateType).toISOString();
 
+    // 태스크 업데이트
     const updatedTasks = rawTasks.map((t) => {
       if (t.id !== task.id) return t;
 
@@ -192,15 +171,9 @@ export function useGanttBarDrag(
             endDate: adjustDate(dayjs(t.endDate)),
           };
         case "left":
-          return {
-            ...t,
-            startDate: adjustDate(dayjs(t.startDate)),
-          };
+          return { ...t, startDate: adjustDate(dayjs(t.startDate)) };
         case "right":
-          return {
-            ...t,
-            endDate: adjustDate(dayjs(t.endDate)),
-          };
+          return { ...t, endDate: adjustDate(dayjs(t.endDate)) };
         default:
           return t;
       }
@@ -209,12 +182,10 @@ export function useGanttBarDrag(
     setRawTasks(updatedTasks);
     onTasksChange?.(updatedTasks);
 
-    // Cleanup
+    // 정리
     const pointerId = activePointerIdRef.current;
     if (pointerId !== null) {
-      document
-        .getElementById(`task-${task.id}`)
-        ?.releasePointerCapture(pointerId);
+      document.getElementById(`task-${task.id}`)?.releasePointerCapture(pointerId);
     }
 
     activePointerIdRef.current = null;
@@ -224,10 +195,8 @@ export function useGanttBarDrag(
   };
 
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
-    const target = e.target as HTMLElement;
-    const mode = detectDragMode(target);
+    const mode = detectDragMode(e);
 
-    // Setup drag context
     dragContextRef.current = {
       mode,
       initialClientX: e.clientX,
@@ -236,12 +205,9 @@ export function useGanttBarDrag(
       dragSteps: 0,
       basePxPerDragStep,
       minutesPerPixel,
-      minimumWidth: basePxPerDragStep,
     };
 
     setCurrentTask(task);
-
-    // Setup event listeners
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     activePointerIdRef.current = e.pointerId;
 

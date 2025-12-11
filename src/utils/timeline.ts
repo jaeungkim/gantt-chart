@@ -9,6 +9,11 @@ import { Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 import { transformTasks } from "./transformData";
 
+export interface TimelineData {
+  bottomCells: GanttBottomRowCell[];
+  transformedTasks: TaskTransformed[];
+}
+
 export function calculateDateOffsets(
   startDate: Dayjs,
   endDate: Dayjs,
@@ -37,18 +42,18 @@ export function calculateDateOffsets(
     const tickStartTime = tickStart.valueOf();
     const tickEndTime = tickEnd.valueOf();
 
-    // Skip ticks before task starts
+    // 태스크 시작 전 틱은 스킵
     if (tickEndTime <= startTime) {
       leftMargin += tickWidth;
       continue;
     }
 
-    // Stop if we've passed the task end
+    // 태스크 종료 후면 중단
     if (tickStartTime >= endTime) {
       break;
     }
 
-    // Calculate overlap
+    // 겹치는 영역 계산
     const overlapStart = startTime > tickStartTime ? startDate : tickStart;
     const overlapEnd = endTime < tickEndTime ? endDate : tickEnd;
 
@@ -56,7 +61,7 @@ export function calculateDateOffsets(
     const overlapDuration = overlapEnd.valueOf() - overlapStart.valueOf();
     const overlapRatio = overlapDuration / tickDuration;
 
-    // Add partial width for the first overlapping tick
+    // 첫 번째 겹치는 틱의 부분 너비 추가
     if (!hasStarted && overlapStart.valueOf() > tickStartTime) {
       const beforeStartRatio =
         (overlapStart.valueOf() - tickStartTime) / tickDuration;
@@ -73,16 +78,15 @@ export function calculateDateOffsets(
   };
 }
 
-export function findDateRangeFromTasks(
-  tasks: Record<string, { startDate: string; endDate: string }>
+function findDateRangeFromTasks(
+  tasks: Task[]
 ): { minDate: Dayjs; maxDate: Dayjs } {
   let minTime = Infinity;
   let maxTime = -Infinity;
 
-  for (const taskId in tasks) {
-    const { startDate, endDate } = tasks[taskId];
-    const start = dayjs(startDate).valueOf();
-    const end = dayjs(endDate).valueOf();
+  for (const task of tasks) {
+    const start = dayjs(task.startDate).valueOf();
+    const end = dayjs(task.endDate).valueOf();
 
     if (!Number.isNaN(start)) minTime = Math.min(minTime, start);
     if (!Number.isNaN(end)) maxTime = Math.max(maxTime, end);
@@ -94,7 +98,7 @@ export function findDateRangeFromTasks(
   };
 }
 
-export function padDateRange(
+function padDateRange(
   minDate: Dayjs,
   maxDate: Dayjs,
   selectedScale: GanttScaleKey
@@ -109,7 +113,7 @@ export function padDateRange(
   };
 }
 
-export function createBottomRowCells(
+function createBottomRowCells(
   paddedMinDate: Dayjs,
   paddedMaxDate: Dayjs,
   selectedScale: GanttScaleKey
@@ -144,6 +148,10 @@ export function createBottomRowCells(
   return cells;
 }
 
+/**
+ * 하단 셀을 기반으로 상단 헤더 그룹 생성
+ * 헤더 컴포넌트에서 사용
+ */
 export function createTopHeaderGroups(
   bottomCells: GanttBottomRowCell[],
   selectedScale: GanttScaleKey
@@ -162,10 +170,8 @@ export function createTopHeaderGroups(
     const label = formatHeaderLabel?.(start) ?? start.format();
 
     if (currentGroup && currentGroup.startDate.valueOf() === key) {
-      // Merge with existing group
       currentGroup.widthPx += cell.widthPx;
     } else {
-      // Start new group
       if (currentGroup) {
         groups.push(currentGroup);
       }
@@ -177,7 +183,6 @@ export function createTopHeaderGroups(
     }
   }
 
-  // Add the last group
   if (currentGroup) {
     groups.push(currentGroup);
   }
@@ -185,40 +190,33 @@ export function createTopHeaderGroups(
   return groups;
 }
 
-export function setupTimelineStructure(
+/**
+ * 타임라인 데이터 계산
+ * rawTasks와 scale을 기반으로 bottomCells와 transformedTasks 반환
+ */
+export function computeTimelineData(
   rawTasks: Task[],
-  selectedScale: GanttScaleKey,
-  updateBottomCells: (cells: GanttBottomRowCell[]) => void,
-  updateHeaderGroups: (groups: GanttTopHeaderGroup[]) => void,
-  updateTransformedTasks: (transformed: TaskTransformed[]) => void
-) {
-  // Create task data map
-  const taskData = Object.fromEntries(
-    rawTasks.map((task) => [
-      task.id,
-      { startDate: task.startDate, endDate: task.endDate },
-    ])
-  );
+  selectedScale: GanttScaleKey
+): TimelineData {
+  if (!rawTasks.length) {
+    return { bottomCells: [], transformedTasks: [] };
+  }
 
-  // Find date range and add padding
-  const { minDate, maxDate } = findDateRangeFromTasks(taskData);
+  // 날짜 범위 찾기 및 패딩 추가
+  const { minDate, maxDate } = findDateRangeFromTasks(rawTasks);
   const { paddedMinDate, paddedMaxDate } = padDateRange(
     minDate,
     maxDate,
     selectedScale
   );
 
-  // Create timeline components
+  // 타임라인 컴포넌트 생성
   const bottomCells = createBottomRowCells(
     paddedMinDate,
     paddedMaxDate,
     selectedScale
   );
-  const headerGroups = createTopHeaderGroups(bottomCells, selectedScale);
   const transformedTasks = transformTasks(rawTasks, bottomCells, selectedScale);
 
-  // Update all components
-  updateBottomCells(bottomCells);
-  updateHeaderGroups(headerGroups);
-  updateTransformedTasks(transformedTasks);
+  return { bottomCells, transformedTasks };
 }
