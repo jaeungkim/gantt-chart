@@ -1,5 +1,5 @@
 import { NODE_HEIGHT } from "constants/gantt";
-import { useGanttBarDrag } from "hooks/useGanttBarDrag";
+import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
 import { useRef, useState, useCallback } from "react";
 import { useGanttStore } from "stores/store";
 import { GanttScaleKey } from "types/gantt";
@@ -26,7 +26,7 @@ export default function GanttBar({
   onTasksChange,
 }: GanttBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
-  const { onPointerDown } = useGanttBarDrag(currentTask, onTasksChange);
+  const { onPointerDown, dragMode } = useGanttBarDrag(currentTask, onTasksChange);
   const [cursor, setCursor] = useState<"grab" | "ew-resize">("grab");
 
   // 드래그 오프셋 가져오기
@@ -56,16 +56,30 @@ export default function GanttBar({
     }
   }, []);
 
-  // 툴팁 텍스트 생성
+  // 툴팁 텍스트 생성 (모드에 따라 다르게 표시)
   const format = DATE_FORMATS[selectedScale];
-  const startText = liveOffset?.offsetStartDate.format(format);
-  const endText = liveOffset?.offsetEndDate.format(format);
+  const getTooltipText = (mode: DragMode | null) => {
+    if (!liveOffset) return "";
+    
+    const startText = liveOffset.offsetStartDate.format(format);
+    const endText = liveOffset.offsetEndDate.format(format);
+    
+    switch (mode) {
+      case "left":
+        return `Start: ${startText}`;
+      case "right":
+        return `End: ${endText}`;
+      case "bar":
+      default:
+        return `${startText} → ${endText}`;
+    }
+  };
 
   return (
     <div
       ref={barRef}
       id={`task-${currentTask.id}`}
-      className={`gantt-task-bar ${isDragging ? "dragging" : ""}`}
+      className={`gantt-task-bar${isDragging ? " dragging" : ""}`}
       onPointerDown={onPointerDown}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => setCursor("grab")}
@@ -77,14 +91,14 @@ export default function GanttBar({
       }}
       role="button"
       tabIndex={0}
-      aria-label={`Task: ${currentTask.name}`}
+      aria-label={`태스크: ${currentTask.name}`}
     >
       <span className="gantt-task-name">{currentTask.name}</span>
       
       {/* 드래그 중 툴팁 */}
       {isDragging && liveOffset && (
         <div className="gantt-bar-tooltip" role="status" aria-live="polite">
-          {startText} → {endText}
+          {getTooltipText(dragMode)}
         </div>
       )}
     </div>

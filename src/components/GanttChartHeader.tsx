@@ -1,8 +1,8 @@
-import { GANTT_SCALE_CONFIG } from 'constants/gantt';
-import React, { useEffect, useMemo, useState } from 'react';
-import { GanttBottomRowCell, GanttScaleKey } from 'types/gantt';
-import { processHeaderGroups } from 'utils/headerUtils';
-import { createTopHeaderGroups } from 'utils/timeline';
+import { GANTT_SCALE_CONFIG } from "constants/gantt";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
+import { processHeaderGroups } from "utils/headerUtils";
+import { createTopHeaderGroups } from "utils/timeline";
 
 interface GanttChartHeaderProps {
   bottomRowCells: GanttBottomRowCell[];
@@ -30,25 +30,31 @@ function GanttChartHeader({
     return processHeaderGroups(topGroups);
   }, [bottomRowCells, selectedScale]);
 
-  // 스크롤 시 sticky 헤더 인덱스 업데이트
+  // 스크롤 이벤트 핸들러
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const scrollLeft = el.scrollLeft;
+
+    // 가로 스크롤 시 sticky 헤더 인덱스 업데이트
+    for (let i = groupsWithPositions.length - 1; i >= 0; i--) {
+      if (scrollLeft >= groupsWithPositions[i].left) {
+        setStickyIndex(i);
+        break;
+      }
+    }
+  }, [groupsWithPositions, scrollRef]);
+
+  // 스크롤 리스너 등록
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const handleScroll = () => {
-      const scrollLeft = el.scrollLeft;
-      for (let i = groupsWithPositions.length - 1; i >= 0; i--) {
-        if (scrollLeft >= groupsWithPositions[i].left) {
-          setStickyIndex(i);
-          break;
-        }
-      }
-    };
-
-    el.addEventListener('scroll', handleScroll);
+    el.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, [groupsWithPositions, scrollRef]);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [handleScroll, scrollRef]);
 
   return (
     <header className="gantt-header" style={{ width: `${width}px` }}>
@@ -61,7 +67,7 @@ function GanttChartHeader({
               return (
                 <div
                   key={`${group.label}-${idx}`}
-                  className={`gantt-top-group ${isSticky ? 'sticky' : ''}`}
+                  className={`gantt-top-group${isSticky ? " sticky" : ""}`}
                   style={{
                     width: `${group.widthPx}px`,
                     ...(isSticky && { left: 0 }),
@@ -77,7 +83,7 @@ function GanttChartHeader({
         {/* 하단 시간 셀 */}
         <div className="gantt-bottom-row">
           {bottomRowCells.map((cell, idx) => {
-            const tickLabel = config.formatTickLabel?.(cell.startDate) || '';
+            const tickLabel = config.formatTickLabel?.(cell.startDate) || "";
 
             return (
               <div

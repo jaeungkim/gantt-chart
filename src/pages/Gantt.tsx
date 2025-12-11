@@ -2,7 +2,6 @@ import GanttBar from "components/GanttBar";
 import GanttChartHeader from "components/GanttChartHeader";
 import GanttDependencyArrows from "components/GanttDependencyArrows";
 import ScaleSelector from "components/ScaleSelector";
-import TodayMarker from "components/TodayMarker";
 import { useEffect, useRef } from "react";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
@@ -123,62 +122,86 @@ function Gantt({
       data-theme={dataTheme}
       style={containerStyle}
     >
-      <div className="gantt-inner">
-        <section className="gantt-section">
-          <ScaleSelector
-            selectedScale={selectedScale}
-            onScaleChange={handleScaleChange}
-          />
+      {/* 툴바 */}
+      <div className="gantt-toolbar">
+        <ScaleSelector
+          selectedScale={selectedScale}
+          onScaleChange={handleScaleChange}
+        />
+      </div>
 
-          <div ref={scrollRef} className="gantt-list">
+      {/* 메인 차트 영역 */}
+      <div className="gantt-main">
+        <div ref={scrollRef} className="gantt-scroll-container">
+          {/* 헤더 */}
+          <div className="gantt-header-wrapper" style={{ width: `${totalWidth}px` }}>
             <GanttChartHeader
               bottomRowCells={bottomRowCells}
               selectedScale={selectedScale}
               width={totalWidth}
               scrollRef={scrollRef}
             />
+          </div>
 
-            <div
-              className="gantt-content"
-              style={{
-                height: `${rowVirtualizer.getTotalSize()}px`,
-                width: `${totalWidth}px`,
-              }}
-            >
-              <TodayMarker
-                bottomRowCells={bottomRowCells}
-                height={rowVirtualizer.getTotalSize()}
-              />
-              <GanttDependencyArrows transformedTasks={transformedTasks} />
-
+          {/* 콘텐츠 영역 */}
+          <div
+            className="gantt-content"
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: `${totalWidth}px`,
+            }}
+          >
+            {/* 태스크 행 (배경) */}
+            <div className="gantt-rows">
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const task = transformedTasks[virtualRow.index];
-                const barLeft = task.barLeft ?? 0;
-                const barWidth = task.barWidth ?? 0;
-
                 return (
                   <div
-                    key={task.id}
+                    key={`row-${task.id}`}
                     className="gantt-task-row"
                     style={{
                       height: `${virtualRow.size - 1}px`,
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
-                  >
-                    {isBarVisible(barLeft, barWidth) && (
-                      <GanttBar
-                        currentTask={task}
-                        onTasksChange={onTasksChange}
-                      />
-                    )}
-                  </div>
+                  />
                 );
               })}
             </div>
-          </div>
-        </section>
-      </div>
 
+            {/* 의존성 화살표 */}
+            <GanttDependencyArrows transformedTasks={transformedTasks} />
+
+            {/* 태스크 바 */}
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const task = transformedTasks[virtualRow.index];
+              const barLeft = task.barLeft ?? 0;
+              const barWidth = task.barWidth ?? 0;
+
+              if (!isBarVisible(barLeft, barWidth)) return null;
+
+              return (
+                <div
+                  key={task.id}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    height: `${virtualRow.size - 1}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <GanttBar
+                    currentTask={task}
+                    onTasksChange={onTasksChange}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

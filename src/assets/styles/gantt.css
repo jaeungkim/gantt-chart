@@ -1,149 +1,183 @@
 /* ===== GANTT CHART STYLES ===== */
-/* Frappe Gantt Inspired - Clean & Clear */
+/* Minimal & Clean Design */
 
-/* Inter Font Import */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap");
+/* Geist Font Import */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap");
 
-/* ===== THEME VARIABLES ===== */
+/* ===== DESIGN TOKENS ===== */
 :root {
+  /* 타이포그래피 */
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+
   /* 배경 */
-  --background: #ffffff;
-  --foreground: #333333;
+  --background: #fafafa;
+  --foreground: #18181b;
 
   /* 뮤트 */
-  --muted: #f5f5f5;
-  --muted-foreground: #999999;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
 
   /* 보더 */
-  --border: #f0f0f0;
+  --border: #e4e4e7;
+  --border-subtle: rgba(0, 0, 0, 0.04);
 
   /* 태스크 바 */
-  --bar-bg: #f0f0f0;
-  --bar-text: #333333;
-
-  /* 투데이 마커 */
-  --today: #999999;
+  --bar-bg: #e4e4e7;
+  --bar-bg-hover: #d4d4d8;
+  --bar-text: #18181b;
+  --bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --bar-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --bar-shadow-drag: 0 8px 24px rgba(0, 0, 0, 0.15);
 
   /* 의존성 화살표 */
-  --arrow: #c0c0c0;
+  --arrow: #a1a1aa;
+
+  /* 액센트 */
+  --accent: #3b82f6;
+
+  /* 트랜지션 */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
 }
 
 /* 다크 테마 */
 .dark,
 [data-theme="dark"] {
-  --background: #1a1a1a;
-  --foreground: #e5e5e5;
+  --background: #09090b;
+  --foreground: #fafafa;
 
-  --muted: #252525;
-  --muted-foreground: #888888;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
 
-  --border: #2a2a2a;
+  --border: #27272a;
+  --border-subtle: rgba(255, 255, 255, 0.04);
 
-  --bar-bg: #333333;
-  --bar-text: #e5e5e5;
+  --bar-bg: #27272a;
+  --bar-bg-hover: #3f3f46;
+  --bar-text: #fafafa;
+  --bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --bar-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --bar-shadow-drag: 0 8px 24px rgba(0, 0, 0, 0.4);
 
-  --today: #e5e5e5;
-
-  --arrow: #555555;
+  --arrow: #71717a;
 }
 
 /* ===== BASE LAYOUT ===== */
 .gantt-container {
-  position: relative;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--background);
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 14px;
+  font-family: var(--font-sans);
+  font-size: 13px;
   line-height: 1.5;
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.gantt-inner {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: var(--background);
-}
-
-.gantt-section {
-  position: relative;
+/* ===== TOOLBAR ===== */
+.gantt-toolbar {
+  flex-shrink: 0;
   display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
 }
 
 /* ===== SCALE SELECTOR ===== */
 .gantt-scale-selector {
-  position: absolute;
-  top: 10px;
-  right: 16px;
-  z-index: 50;
+  display: inline-flex;
 }
 
-.gantt-scale-select {
-  height: 28px;
-  padding: 0 28px 0 12px;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
+.gantt-scale-control {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--muted);
+  border-radius: 8px;
   border: 1px solid var(--border);
+}
+
+.gantt-scale-button {
+  position: relative;
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  background: transparent;
+  border: none;
   border-radius: 6px;
-  background-color: var(--background);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  color: var(--foreground);
   cursor: pointer;
-  appearance: none;
+  transition: all var(--transition-fast);
+  text-transform: capitalize;
 }
 
-.gantt-scale-select:hover {
-  border-color: var(--muted-foreground);
+.gantt-scale-button:hover {
+  color: var(--foreground);
 }
 
-.gantt-scale-select:focus {
-  outline: none;
-  border-color: var(--foreground);
+.gantt-scale-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
-/* ===== LIST & CONTENT ===== */
-.gantt-list {
+.gantt-scale-button[data-active="true"] {
+  color: var(--foreground);
+  background: var(--background);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== MAIN CHART AREA ===== */
+.gantt-main {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.gantt-scroll-container {
   width: 100%;
   height: 100%;
   overflow: auto;
 }
 
-.gantt-list::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.gantt-scroll-container::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
-.gantt-list::-webkit-scrollbar-thumb {
+.gantt-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gantt-scroll-container::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 4px;
+  border-radius: 5px;
+  border: 2px solid var(--background);
 }
 
-.gantt-content {
-  position: relative;
+.gantt-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
 }
 
-.gantt-task-row {
-  position: absolute;
+.gantt-scroll-container::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ===== HEADER WRAPPER ===== */
+.gantt-header-wrapper {
+  position: sticky;
   top: 0;
-  left: 0;
-  display: flex;
-  width: 100%;
-  align-items: center;
-  border-bottom: 1px solid var(--border);
+  z-index: 30;
 }
 
 /* ===== HEADER ===== */
 .gantt-header {
-  position: sticky;
-  top: 0;
-  z-index: 30;
+  position: relative;
   background: var(--background);
   border-bottom: 1px solid var(--border);
 }
@@ -156,7 +190,8 @@
 .gantt-top-header {
   position: relative;
   display: flex;
-  height: 40px;
+  height: 44px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .gantt-top-groups {
@@ -167,16 +202,17 @@
   display: flex;
   align-items: center;
   padding: 0 16px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   background: var(--background);
   color: var(--foreground);
-  z-index: 40;
 }
 
 .gantt-top-group.sticky {
   position: sticky;
   left: 0;
+  z-index: 1;
 }
 
 .gantt-top-group-label {
@@ -187,83 +223,49 @@
 
 .gantt-bottom-row {
   display: flex;
-  height: 32px;
+  height: 28px;
+  background: var(--muted);
 }
 
-/* 날짜 셀 - 보더 없이 깔끔하게 */
 .gantt-bottom-cell {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--muted-foreground);
+  letter-spacing: 0.01em;
 }
 
-/* ===== TASK BAR ===== */
-.gantt-task-bar {
+/* ===== CONTENT AREA ===== */
+.gantt-content {
   position: relative;
-  display: flex;
-  align-items: center;
-  background: var(--bar-bg);
-  border-radius: 6px;
-  user-select: none;
-  cursor: grab;
-  transition: opacity 0.15s ease;
+  background: var(--background);
 }
 
-.gantt-task-bar:hover {
-  opacity: 0.85;
-}
-
-.gantt-task-bar:active,
-.gantt-task-bar.dragging {
-  cursor: grabbing;
-  opacity: 0.7;
-}
-
-/* Task Name */
-.gantt-task-name {
-  flex: 1;
-  padding: 0 10px;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--bar-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
-}
-
-/* ===== TODAY MARKER ===== */
-.gantt-today-marker {
+/* ===== TASK ROWS (배경 전용) ===== */
+.gantt-rows {
   position: absolute;
   top: 0;
-  width: 1px;
-  background: var(--today);
-  z-index: 15;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
   pointer-events: none;
 }
 
-/* 상단에 점 표시 */
-.gantt-today-marker::before {
-  content: "";
+.gantt-task-row {
   position: absolute;
-  top: -4px;
-  left: -3px;
-  width: 7px;
-  height: 7px;
-  background: var(--today);
-  border-radius: 50%;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  pointer-events: none;
 }
 
-/* Today 라벨 숨김 */
-.gantt-today-label {
-  display: none;
-}
-
-/* ===== DEPENDENCIES ===== */
+/* ===== DEPENDENCY ARROWS ===== */
 .gantt-dependency-arrows {
   position: absolute;
   top: 0;
@@ -275,7 +277,7 @@
 
 .gantt-dependency-arrow {
   stroke: var(--arrow);
-  stroke-width: 1;
+  stroke-width: 1.5;
   fill: none;
 }
 
@@ -284,52 +286,143 @@
   stroke: none;
 }
 
-/* ===== BAR TOOLTIP ===== */
-.gantt-bar-tooltip {
+/* ===== TASK BAR ===== */
+.gantt-task-bar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  background: var(--bar-bg);
+  border-radius: 6px;
+  user-select: none;
+  cursor: grab;
+  box-shadow: var(--bar-shadow);
+  /* transform 제외 - 드래그 시 inline style로 제어됨 */
+  transition: background var(--transition-fast),
+    box-shadow var(--transition-normal);
+}
+
+.gantt-task-bar::before,
+.gantt-task-bar::after {
+  content: "";
   position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: 50%;
+  width: 3px;
+  height: 12px;
+  background: var(--muted-foreground);
+  border-radius: 2px;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity var(--transition-fast);
+}
+
+.gantt-task-bar::before {
+  left: 4px;
+}
+
+.gantt-task-bar::after {
+  right: 4px;
+}
+
+.gantt-task-bar:hover {
+  background: var(--bar-bg-hover);
+  box-shadow: var(--bar-shadow-hover);
+}
+
+.gantt-task-bar:hover::before,
+.gantt-task-bar:hover::after {
+  opacity: 0.5;
+}
+
+.gantt-task-bar:active,
+.gantt-task-bar.dragging {
+  cursor: grabbing;
+  box-shadow: var(--bar-shadow-drag);
   z-index: 100;
-  padding: 6px 10px;
-  background: var(--foreground);
-  color: var(--background);
-  border-radius: 4px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 11px;
+}
+
+.gantt-task-bar.dragging::before,
+.gantt-task-bar.dragging::after {
+  opacity: 0.7;
+}
+
+/* Task Name */
+.gantt-task-name {
+  flex: 1;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 12px;
   font-weight: 500;
+  color: var(--bar-text);
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: none;
 }
 
-/* 툴팁 화살표 */
+/* ===== BAR TOOLTIP ===== */
+.gantt-bar-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  padding: 8px 12px;
+  background: var(--foreground);
+  color: var(--background);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  animation: tooltipFadeIn var(--transition-fast) ease-out;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 .gantt-bar-tooltip::after {
   content: "";
   position: absolute;
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  border: 4px solid transparent;
+  border: 5px solid transparent;
   border-top-color: var(--foreground);
 }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
-  .gantt-scale-select {
-    height: 26px;
-    font-size: 12px;
+  .gantt-toolbar {
+    padding: 8px 12px;
+  }
+
+  .gantt-scale-button {
+    padding: 5px 10px;
+    font-size: 11px;
   }
 
   .gantt-top-group {
     font-size: 12px;
+    padding: 0 12px;
   }
 
   .gantt-bottom-cell {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .gantt-task-name {
     font-size: 11px;
+    padding: 0 10px;
   }
 }

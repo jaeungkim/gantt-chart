@@ -18,8 +18,10 @@ function calculateArrowCoords(
   const sourceIndex = sourceTask.order - 1;
   const targetIndex = targetTask.order - 1;
 
-  const fromY = targetIndex * rowHeight + rowHeight / 2 - 4;
-  const toY = sourceIndex * rowHeight + rowHeight / 2 + 4;
+  // 바 중앙 높이에서 연결 (전통적인 Gantt 차트 스타일)
+  const barCenterY = rowHeight / 2;
+  const fromY = targetIndex * rowHeight + barCenterY;
+  const toY = sourceIndex * rowHeight + barCenterY;
 
   const leftX = targetTask.barLeft;
   const rightX = targetTask.barLeft + targetTask.barWidth;
@@ -27,6 +29,11 @@ function calculateArrowCoords(
   const currentLeftX = sourceTask.barLeft + sourceOffset.offsetX;
   const currentRightX = currentLeftX + sourceTask.barWidth + sourceOffset.offsetWidth;
 
+  // 의존성 타입에 따른 X 좌표 설정
+  // FS: 선행 태스크 우측 → 후행 태스크 좌측
+  // SS: 선행 태스크 좌측 → 후행 태스크 좌측
+  // FF: 선행 태스크 우측 → 후행 태스크 우측
+  // SF: 선행 태스크 좌측 → 후행 태스크 우측
   const coordinateMap = {
     FS: [rightX, currentLeftX] as const,
     SS: [leftX, currentLeftX] as const,
@@ -83,15 +90,15 @@ export default function GanttDependencyArrows({
       <defs>
         <marker
           id="arrowhead"
-          markerWidth="8"
-          markerHeight="8"
-          refX="7"
-          refY="4"
+          markerWidth="5"
+          markerHeight="5"
+          refX="4.5"
+          refY="2.5"
           orient="auto"
         >
           <polygon
             className="gantt-dependency-arrow-head"
-            points="0 0, 8 4, 0 8"
+            points="0 0, 5 2.5, 0 5"
           />
         </marker>
       </defs>
