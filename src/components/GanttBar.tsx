@@ -7,6 +7,10 @@ import {
   NODE_HEIGHT,
 } from "constants/gantt";
 import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
+import {
+  GanttDependencyChange,
+  useGanttLinkDrag,
+} from "hooks/useGanttLinkDrag";
 import { useGanttProgressDrag } from "hooks/useGanttProgressDrag";
 import { CSSProperties, useRef, useState, useCallback, useMemo } from "react";
 import { useGanttStore } from "stores/context";
@@ -19,12 +23,14 @@ import {
   TaskTransformed,
 } from "types/task";
 import dayjs from "utils/dayjs";
+import { LinkAnchor } from "utils/dependency";
 import { resolveFormatters } from "utils/i18n";
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
   options?: GanttBarOptions;
   interaction?: GanttInteractionConfig;
+  onDependencyCreate?: (change: GanttDependencyChange) => boolean | void;
 }
 
 /** No options at all is the plain chart - one shared object keeps the default identity stable */
@@ -40,6 +46,7 @@ export default function GanttBar({
   currentTask,
   options = NO_OPTIONS,
   interaction,
+  onDependencyCreate,
 }: GanttBarProps) {
   const {
     onTasksChange,
@@ -57,14 +64,46 @@ export default function GanttBar({
     { onTasksChange, onBeforeTaskChange },
     interaction
   );
-  const { canMove, canResize, canChangeProgress } = resolveTaskInteraction(
-    currentTask,
-    interaction
-  );
+  const { canMove, canResize, canChangeProgress, canCreateLink } =
+    resolveTaskInteraction(currentTask, interaction);
   // Only the pointer position is tracked here - the cursor itself is derived below,
   // so a permission that changes after mount cannot leave a stale affordance behind
   const [onResizeEdge, setOnResizeEdge] = useState(false);
   const [hovered, setHovered] = useState(false);
+
+  // ===== Dependency linking =====
+  const { startLink } = useGanttLinkDrag({
+    task: currentTask,
+    interaction,
+    onTasksChange,
+    onDependencyCreate,
+  });
+
+  // How this bar looks as the drop target of the link drag currently running
+  const linkTargetState = useGanttStore((store) => {
+    const draft = store.linkDraft;
+    if (!draft || draft.hoverTaskId !== currentTask.id) return null;
+    return draft.rejection ? "invalid" : "valid";
+  });
+  const linkTargetClass = linkTargetState
+    ? ` link-target ${linkTargetState}`
+    : "";
+
+  // Connector dots - the drag from one of them is what creates a dependency
+  const linkHandles = canCreateLink && (
+    <>
+      {(["start", "end"] as LinkAnchor[]).map((anchor) => (
+        <span
+          key={anchor}
+          className={`gantt-link-handle ${anchor}`}
+          onPointerDown={startLink(anchor)}
+          role="button"
+          tabIndex={-1}
+          aria-label={`Link from the ${anchor} of ${currentTask.name}`}
+        />
+      ))}
+    </>
+  );
 
   // Read the drag offset
   const liveOffset = useGanttStore((store) => store.dragOffsets[currentTask.id]);
@@ -302,7 +341,10 @@ export default function GanttBar({
       <div
         ref={barRef}
         id={`task-${currentTask.id}`}
-        className={`gantt-milestone${isDragging ? " dragging" : ""}${suffix}`}
+        data-task-id={currentTask.id}
+        className={`gantt-milestone${
+          isDragging ? " dragging" : ""
+        }${linkTargetClass}${suffix}`}
         onPointerDown={onPointerDown}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
@@ -315,6 +357,7 @@ export default function GanttBar({
       >
         <div className="gantt-milestone-diamond" />
         <span className="gantt-milestone-name">{currentTask.name}</span>
+        {linkHandles}
 
         {renderTooltipNode()}
       </div>
@@ -325,11 +368,12 @@ export default function GanttBar({
     <div
       ref={barRef}
       id={`task-${currentTask.id}`}
+      data-task-id={currentTask.id}
       className={`gantt-task-bar${isDragging ? " dragging" : ""}${
         labelOutside ? " compact" : ""
       }${currentTask.isSummary ? " summary" : ""}${
         canResize ? "" : " no-resize"
-      }${suffix}`}
+      }${linkTargetClass}${suffix}`}
       onPointerDown={onPointerDown}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -380,6 +424,8 @@ export default function GanttBar({
       >
         {currentTask.name}
       </span>
+
+      {linkHandles}
 
       {renderTooltipNode()}
     </div>

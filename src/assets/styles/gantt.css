@@ -680,15 +680,158 @@
   z-index: 0;
 }
 
+/* While a link is being drawn the preview has to be readable over the bars it crosses */
+.gantt-dependency-arrows.linking {
+  z-index: 150;
+}
+
 .gantt-dependency-arrow {
   stroke: var(--gantt-arrow);
   stroke-width: 1.5;
   fill: none;
 }
 
+.gantt-dependency-arrow.selected {
+  stroke: var(--gantt-accent);
+  stroke-width: 2.5;
+}
+
 .gantt-dependency-arrow-head {
   fill: var(--gantt-arrow);
   stroke: none;
+}
+
+/* Click target for the arrow - invisible, and wide enough to actually hit.
+   pointer-events is inherited, so this re-enables hit testing under the SVG's `none` */
+.gantt-dependency-hit {
+  stroke: transparent;
+  stroke-width: 12;
+  fill: none;
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+.gantt-dependency-hit:hover + .gantt-dependency-arrow {
+  stroke: var(--gantt-accent);
+}
+
+/* Delete affordance on the selected arrow */
+.gantt-dependency-delete {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.gantt-dependency-delete circle {
+  fill: var(--gantt-accent);
+}
+
+.gantt-dependency-delete path {
+  stroke: #fff;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+/* ===== DEPENDENCY LINKING ===== */
+/* Connector dot at either end of a bar - revealed on hover (hover propagates from the
+   dot up to the bar, so it stays visible while the pointer is on the dot itself) */
+.gantt-link-handle {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  background: var(--gantt-background);
+  border: 2px solid var(--gantt-accent);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  cursor: crosshair;
+  touch-action: none;
+  pointer-events: none;
+  transition: opacity var(--gantt-transition-fast);
+}
+
+.gantt-link-handle.start {
+  left: -14px;
+}
+
+.gantt-link-handle.end {
+  right: -14px;
+}
+
+/* The milestone's diamond is a 16px box at the start of the row, and the rotated
+   vertices stick out about 3px on each side */
+.gantt-milestone .gantt-link-handle.start {
+  left: -9px;
+}
+
+.gantt-milestone .gantt-link-handle.end {
+  left: 15px;
+  right: auto;
+}
+
+.gantt-task-bar:hover .gantt-link-handle,
+.gantt-milestone:hover .gantt-link-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Drop target highlight while a link is being drawn */
+.gantt-task-bar.link-target,
+.gantt-milestone.link-target .gantt-milestone-diamond {
+  outline: 2px solid var(--gantt-accent);
+  outline-offset: 2px;
+}
+
+.gantt-task-bar.link-target.invalid,
+.gantt-milestone.link-target.invalid .gantt-milestone-diamond {
+  outline-color: var(--gantt-today-marker);
+}
+
+/* Rubber band following the pointer */
+.gantt-link-preview-line {
+  stroke: var(--gantt-accent);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+  fill: none;
+}
+
+.gantt-link-preview-line.invalid {
+  stroke: var(--gantt-today-marker);
+}
+
+.gantt-link-preview-origin {
+  fill: var(--gantt-accent);
+}
+
+.gantt-link-preview-reason {
+  fill: var(--gantt-today-marker);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  /* Halo, so the reason stays readable over grid lines and arrows */
+  paint-order: stroke;
+  stroke: var(--gantt-background);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+/* ===== DRAW-TO-CREATE ===== */
+.gantt-content.drawable {
+  cursor: crosshair;
+}
+
+.gantt-draw-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 19px;
+  margin-top: 9px;
+  background: var(--gantt-accent);
+  opacity: 0.35;
+  border: 1px dashed var(--gantt-accent);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 5;
 }
 
 /* ===== TASK BAR ===== */
