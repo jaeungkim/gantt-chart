@@ -692,7 +692,8 @@
   opacity: 0.7;
 }
 
-/* Summary bar: a flat span over the children's range - no resize handles either */
+/* Summary bar: a flat span over the children's range
+   (its grips are hidden by .no-resize below - summaries resolve to canResize false) */
 .gantt-task-bar.summary {
   background: var(--gantt-milestone-bg);
   border-radius: 3px;
@@ -716,20 +717,20 @@
   border-radius: 3px 0 0 3px;
 }
 
-.gantt-task-bar.summary::before,
-.gantt-task-bar.summary::after,
-.gantt-task-bar.summary:hover::before,
-.gantt-task-bar.summary:hover::after {
-  opacity: 0;
-}
-
-/* Narrow bars: hide the resize handles (the whole bar is the move handle) */
+/* Narrow bars and non-resizable tasks: hide the resize grips (no affordance for a
+   gesture that is not available; on a narrow bar the whole bar is the move handle) */
 .gantt-task-bar.compact::before,
 .gantt-task-bar.compact::after,
 .gantt-task-bar.compact:hover::before,
 .gantt-task-bar.compact:hover::after,
 .gantt-task-bar.compact.dragging::before,
-.gantt-task-bar.compact.dragging::after {
+.gantt-task-bar.compact.dragging::after,
+.gantt-task-bar.no-resize::before,
+.gantt-task-bar.no-resize::after,
+.gantt-task-bar.no-resize:hover::before,
+.gantt-task-bar.no-resize:hover::after,
+.gantt-task-bar.no-resize.dragging::before,
+.gantt-task-bar.no-resize.dragging::after {
   opacity: 0;
 }
 

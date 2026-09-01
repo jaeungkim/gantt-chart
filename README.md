@@ -29,6 +29,8 @@ Currently, this project is built specifically for React due to my development ba
   - Snap to configured intervals
 - 🧲 Smart dependency arrows (FS, SS, FF, SF)
 - ◆ Milestones and per-task progress
+- 🔒 Read-only mode, per-capability and per-task
+- 🚧 Drag bounds and a fixed visible range
 - 🗓️ Weekend and holiday shading
 - ⚡ Virtualized rendering for performance
 - 🌙 Light/Dark/System theme support
@@ -115,6 +117,15 @@ export default function App() {
 | `collapsedIds` | `string[]` | - | Ids of collapsed parents (controlled) |
 | `defaultCollapsedIds` | `string[]` | - | Initial collapsed ids (uncontrolled seed) |
 | `onCollapsedChange` | `(ids: string[]) => void` | - | Fires whenever a row is expanded or collapsed |
+| `readOnly` | `boolean` | `false` | Blocks moving, resizing and progress dragging on every task |
+| `allowMove` | `boolean` | `true` | Allows/blocks moving bars. Beats `readOnly` |
+| `allowResize` | `boolean` | `true` | Allows/blocks resizing bars. Beats `readOnly` |
+| `allowProgressChange` | `boolean` | `true` | Allows/blocks dragging the progress handle. Beats `readOnly` |
+| `minDate` | `string` | - | Earliest date any bar may be dragged to (UTC ISO string) |
+| `maxDate` | `string` | - | Latest date any bar may be dragged to (UTC ISO string) |
+| `visibleStart` | `string` | - | Pins the timeline start (UTC ISO string) instead of fitting to the tasks |
+| `visibleEnd` | `string` | - | Pins the timeline end (UTC ISO string) instead of fitting to the tasks |
+
 
 ## Task List and Hierarchy
 
@@ -183,6 +194,69 @@ With `hierarchy` on, `parentId` becomes the source of truth:
 Collapse state is controlled with `collapsedIds` and uncontrolled with `defaultCollapsedIds`;
 `onCollapsedChange` fires either way, so a host can persist it wherever it likes.
 
+## Interaction Control
+
+### Read-only and per-task capabilities
+
+Every interaction prop has a matching optional field on `Task`, and the task's own
+field wins. Resolution runs most specific first:
+
+`task.allowX` > `task.readOnly` > `allowX` prop > `readOnly` prop > allowed
+
+A blocked gesture renders no affordance at all - no grab or resize cursor, no resize
+grips, no progress handle - rather than failing on interaction.
+
+Two structural rules are not flags and cannot be turned back on, because the gesture
+would have nowhere to write to: milestones are never resizable, and summary rows are
+never resizable and have no draggable progress (both are derived from their children).
+Summary rows can still be *moved*, carrying their whole subtree.
+
+```tsx
+// A fully frozen chart
+<ReactGanttChart tasks={tasks} readOnly />
+
+// Frozen except progress, which stays draggable everywhere
+<ReactGanttChart tasks={tasks} readOnly allowProgressChange />
+
+// Editable chart with a few exceptions and a drag window
+<ReactGanttChart
+  tasks={[
+    { ...baseline, readOnly: true },                    // this one is frozen
+    { ...review, allowResize: false },                  // movable, not resizable
+    { ...launch, minDate: '2026-03-01T00:00:00Z' },     // cannot slip earlier than March
+  ]}
+  minDate="2026-01-01T00:00:00Z"
+  maxDate="2026-12-31T00:00:00Z"
+/>
+```
+
+### Drag bounds
+
+Dragging against a bound snaps to it: the bar stops on the bound and the date passed
+to `onTasksChange` is the bound itself. A move keeps its bar length while snapping;
+a resize is still never allowed to invert the bar, so the non-inversion guard wins if a
+task's window has already been passed.
+
+With `hierarchy` on, a subtree drag has to move as one delta or the group tears apart,
+so **the subtree moves by the smallest amount any member's bounds allow** - a bound on a
+descendant constrains the whole drag, and no bar can be pushed out of its window by
+grabbing its parent. A bar already outside its own window simply refuses to move further
+rather than dragging the group backwards.
+
+## Fixed Visible Range
+
+`visibleStart` / `visibleEnd` pin the rendered timeline instead of auto-fitting to the
+task dates plus a buffer. Either end can be pinned on its own, and the other keeps
+auto-fitting.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  visibleStart="2026-01-01T00:00:00Z"
+  visibleEnd="2026-04-01T00:00:00Z"
+/>
+```
+
 ## Imperative API
 
 Pass a ref to scroll the chart programmatically:
@@ -217,6 +291,14 @@ interface Task {
   type?: 'task' | 'milestone';   // milestones render as a diamond at startDate
   progress?: number;             // 0-100, draws a fill inside the bar
   dependencies?: TaskDependency[];
+
+  // Per-task interaction overrides - each one wins over the chart-level prop
+  readOnly?: boolean;
+  allowMove?: boolean;
+  allowResize?: boolean;
+  allowProgressChange?: boolean;
+  minDate?: string;              // UTC ISO string
+  maxDate?: string;              // UTC ISO string
 }
 
 interface TaskDependency {

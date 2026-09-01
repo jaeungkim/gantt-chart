@@ -16,6 +16,7 @@ export type {
   DependencyType,
   TaskType,
   TaskTransformed,
+  GanttInteractionConfig,
 } from './types/task';
 export type {
   GanttColumn,
