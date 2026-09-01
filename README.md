@@ -27,6 +27,7 @@ Currently, this project is built specifically for React due to my development ba
   - Move entire task bars
   - Resize from left/right edges
   - Snap to configured intervals
+  - Reorder and re-parent rows, with indent/outdent on horizontal offset
 - ↩️ Undo/redo — one step per gesture, keyboard shortcuts and an imperative API
 - 👆 Touch support — long-press to lift a bar, swipe to scroll
 - 🧲 Smart dependency arrows (FS, SS, FF, SF)
@@ -129,7 +130,8 @@ export default function App() {
 | `visibleStart` | `string` | - | Pins the timeline start (UTC ISO string) instead of fitting to the tasks |
 | `visibleEnd` | `string` | - | Pins the timeline end (UTC ISO string) instead of fitting to the tasks |
 | `historyLimit` | `number` | `100` | How many undo steps to keep. `0` turns undo off ([undo/redo](#undoredo)) |
-
+| `allowRowReorder` | `boolean` | `false` | Let a task list row be dragged to reorder siblings and re-parent. Follows `readOnly` / `allowMove` |
+| `onReorder` | `(change: GanttReorderChange) => void \| boolean` | - | Fires on a row drop, before anything is committed. Return `false` to cancel |
 
 ## Task List and Hierarchy
 
@@ -275,6 +277,67 @@ Move, resize and progress all work with a finger, without giving up scrolling:
   to spare two 44px edges is move-only, the same rule the mouse already follows at 8px.
 - **A mouse is untouched.** Mouse presses still start a drag immediately with the
   original 8px edges.
+
+## Row Reordering
+
+`allowRowReorder` makes the task list rows draggable:
+
+```tsx
+import { ReactGanttChart, type GanttReorderChange } from '@jaeungkim/gantt-chart';
+
+<ReactGanttChart
+  tasks={tasks}
+  showTaskList
+  hierarchy
+  allowRowReorder
+  onReorder={(change: GanttReorderChange) => {
+    // Persist the move; return false here to reject it and leave the chart alone
+    void api.moveTask(change.task.id, change.parentId, change.index);
+  }}
+  onTasksChange={setTasks}
+/>;
+```
+
+- **Vertical drag reorders**, and an insertion line shows where the row would land.
+- **Horizontal offset indents and outdents**, the way an outliner does: one `16px` step to
+  the right nests the row under the row above, a step to the left lifts it out. It cannot go
+  deeper than one level under the row above, nor shallower than the row below.
+- **Dropping on the middle of a row re-parents into it** — that row is highlighted and the
+  dragged row is appended to its children, whether it is expanded or collapsed.
+- **A row can never become its own descendant.** Such a drop is drawn in the warning colour
+  during the drag and does nothing on release; no callback fires.
+- **A row follows the same guards a bar move does.** `readOnly`, or `allowMove: false` on
+  the chart or on the task, makes that row undraggable ([Interaction Control](#interaction-control)).
+- **`onReorder` runs before anything is committed.** Return `false` and the chart stays as it
+  was and `onTasksChange` never fires. Otherwise the chart updates and `onTasksChange` fires
+  exactly once, with the same array `change.tasks` carries.
+
+```ts
+interface GanttReorderChange {
+  task: Task;                      // the moved task, with its new parentId and sequence
+  parentId: string | null;         // the new parent (null = root)
+  previousParentId: string | null; // the parent the incoming data had
+  index: number;                   // zero-based position among the new parent's children
+  sequence: string;                // the moved task's new dotted sequence
+  tasks: Task[];                   // the whole updated array
+}
+```
+
+### `sequence` after a reorder
+
+Row order comes from `sequence` and nesting from `parentId`, so a move that only rewrote
+`parentId` would be undone by the next sort. **A reorder therefore renumbers `sequence` across
+the whole array from the resulting tree** — `1`, `1.1`, `1.2`, `2`, … — which makes `sequence`
+a derived value (position among siblings, prefixed by the parent's) that cannot disagree with
+`parentId` again. Two consequences worth knowing:
+
+- Rows other than the dragged one get new `sequence` values. Persist the array
+  `onTasksChange` hands you, not just the moved task.
+- If the incoming data already had `sequence` and `parentId` disagreeing, the first reorder
+  reconciles them, so unrelated rows may visibly snap into their true tree order.
+
+`parentId` is only ever written on the moved task. A row whose parent link is an orphan or a
+cycle keeps that link untouched and is numbered as the root the chart already renders it as.
 
 ## Imperative API
 
