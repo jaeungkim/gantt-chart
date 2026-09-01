@@ -1,5 +1,9 @@
 # @jaeungkim/gantt-chart
 
+[![npm version](https://img.shields.io/npm/v/@jaeungkim/gantt-chart)](https://www.npmjs.com/package/@jaeungkim/gantt-chart)
+[![CI](https://github.com/jaeungkim/gantt-chart/actions/workflows/ci.yml/badge.svg)](https://github.com/jaeungkim/gantt-chart/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/@jaeungkim/gantt-chart)](LICENSE)
+
 <!-- ![React Gantt Chart](https://raw.githubusercontent.com/jaeungkim/gantt-chart/main/public/readmeImg.png) -->
 
 Lightweight, high-performance Gantt chart component for React applications. Designed for fast rendering with virtualization and clean, minimal aesthetics.
@@ -43,6 +47,7 @@ npm install @jaeungkim/gantt-chart
 ```tsx
 import { ReactGanttChart } from '@jaeungkim/gantt-chart';
 import type { Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
 
 const tasks: Task[] = [
   {
@@ -152,8 +157,8 @@ The chart supports three theme modes:
 
 ## 🤝 Contributing
 
-Pull requests are welcome!  
-If you find bugs or have suggestions, feel free to open an issue or contribute directly.
+Pull requests are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and checks.
+Bugs and feature requests go in [Issues](https://github.com/jaeungkim/gantt-chart/issues); questions in [Discussions](https://github.com/jaeungkim/gantt-chart/discussions).
 
 ## 📄 License
 

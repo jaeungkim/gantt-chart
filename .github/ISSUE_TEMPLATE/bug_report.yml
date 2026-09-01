@@ -1,0 +1,34 @@
+name: Bug report
+description: Something in the Gantt chart renders or behaves wrong
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: '@jaeungkim/gantt-chart 0.3.1'
+    validations:
+      required: true
+  - type: dropdown
+    id: react
+    attributes:
+      label: React version
+      options:
+        - 19.x
+        - 18.x
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: A StackBlitz/CodeSandbox link, or the task data + props that trigger it.
+    validations:
+      required: true
