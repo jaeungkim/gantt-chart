@@ -16,6 +16,7 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "baseUrl": "src",
+    "paths": { "*": ["*"] },
     "types": ["vite-plugin-svgr/client"]
   },
   "include": ["src/**/*"],

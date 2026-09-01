@@ -3,16 +3,22 @@
   "version": "0.3.1",
   "private": false,
   "type": "module",
-  "main": "dist/index.cjs.js",
-  "module": "dist/index.es.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.es.js",
-      "require": "./dist/index.cjs.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
-    "./style.css": "./dist/gantt-chart.css"
+    "./style.css": "./dist/gantt-chart.css",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -30,19 +36,20 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jaeungkim/gantt-chart.git"
+    "url": "git+https://github.com/jaeungkim/gantt-chart.git"
   },
-  "homepage": "https://github.com/jaeungkim/gantt-chart#readme",
+  "homepage": "https://jaeungkim.com/gantt-chart",
   "bugs": {
     "url": "https://github.com/jaeungkim/gantt-chart/issues"
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
@@ -71,7 +78,8 @@
     "vite": "^6.2.3",
     "vite-plugin-dts": "^4.5.4",
     "vite-plugin-svgr": "^4.3.0",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.1.11"
   },
   "packageManager": "pnpm@10.30.3"
 }
