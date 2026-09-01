@@ -16,7 +16,12 @@ import {
   useState,
 } from "react";
 import { Dayjs } from "dayjs";
+import {
+  GanttTaskDraft,
+  useGanttDrawCreate,
+} from "hooks/useGanttDrawCreate";
 import { useGanttExportApi } from "hooks/useGanttExportApi";
+import { GanttDependencyChange } from "hooks/useGanttLinkDrag";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import {
   GanttHandle,
@@ -52,7 +57,12 @@ import {
   GanttTheme,
   GanttTooltipRenderer,
 } from "types/gantt";
-import { GanttInteractionConfig, Task, TaskTransformed } from "types/task";
+import {
+  canCreateTasks,
+  GanttInteractionConfig,
+  Task,
+  TaskTransformed,
+} from "types/task";
 import dayjs from "utils/dayjs";
 import {
   calculateDateOffsetPx,
@@ -204,6 +214,28 @@ export interface GanttProps {
   defaultCollapsedIds?: string[];
   /** Called whenever the collapsed state changes - in controlled and uncontrolled mode alike */
   onCollapsedChange?: (collapsedIds: string[]) => void;
+  /** Allows/blocks drawing dependencies between bars (default true) - beats `readOnly` */
+  allowLinkCreate?: boolean;
+  /** Allows/blocks selecting and deleting dependency arrows (default true) - beats `readOnly` */
+  allowLinkDelete?: boolean;
+  /** Allows/blocks drawing a new task on empty row space (default true) - beats `readOnly` */
+  allowTaskCreate?: boolean;
+  /**
+   * Called with the link the user drew, before it is applied
+   *
+   * Return false to reject it. Self-links, duplicates and cycles are rejected by the
+   * chart during the drag and never reach this callback.
+   */
+  onDependencyCreate?: (change: GanttDependencyChange) => boolean | void;
+  /** Called with the arrow the user asked to remove, before it is applied - return false to keep it */
+  onDependencyDelete?: (change: GanttDependencyChange) => boolean | void;
+  /**
+   * Called with the range drawn on empty row space, snapped to the current scale
+   *
+   * The chart adds nothing on its own: the host creates the task (or does not) and passes
+   * the new `tasks` array back in.
+   */
+  onTaskCreate?: (draft: GanttTaskDraft) => void;
   /** Fires when a bar or a task-list row is clicked (not after a drag) */
   onTaskClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
   /** Fires on a double click. The two clicks that make it up still fire `onTaskClick` */
@@ -341,6 +373,12 @@ function GanttChart({
   collapsedIds,
   defaultCollapsedIds,
   onCollapsedChange,
+  allowLinkCreate,
+  allowLinkDelete,
+  allowTaskCreate,
+  onDependencyCreate,
+  onDependencyDelete,
+  onTaskCreate,
   onTaskClick,
   onTaskDoubleClick,
   onTaskSelect,
@@ -396,6 +434,33 @@ function GanttChart({
 
   // Scroll container ref
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Interaction settings, passed down to every bar as one object
+  // (a task's own flags win over these - see resolveTaskInteraction)
+  const interaction = useMemo<GanttInteractionConfig>(
+    () => ({
+      readOnly,
+      allowMove,
+      allowResize,
+      allowProgressChange,
+      allowLinkCreate,
+      allowLinkDelete,
+      allowTaskCreate,
+      minDate,
+      maxDate,
+    }),
+    [
+      readOnly,
+      allowMove,
+      allowResize,
+      allowProgressChange,
+      allowLinkCreate,
+      allowLinkDelete,
+      allowTaskCreate,
+      minDate,
+      maxDate,
+    ]
+  );
 
   // ===== Task list pane =====
   // Without an explicit showTaskList, the pane appears only when columns are given
@@ -531,6 +596,18 @@ function GanttChart({
     return visible.map((task, index) => ({ ...task, order: index + 1 }));
   }, [hierarchy, collapsedSet, transformedTasks]);
 
+  // Drawing a task on empty row space - only wired up when the host can receive it
+  const rowIds = useMemo(
+    () => visibleTasks.map((task) => task.id),
+    [visibleTasks]
+  );
+  const canDrawTasks = onTaskCreate !== undefined && canCreateTasks(interaction);
+  const { onDrawPointerDown, ghost } = useGanttDrawCreate({
+    enabled: canDrawTasks,
+    rowIds,
+    onTaskCreate,
+  });
+
   // Virtualization hook
   const { rowVirtualizer, isBarVisible } = useGanttVirtualization({
     transformedTasks: visibleTasks,
@@ -568,19 +645,6 @@ function GanttChart({
     syncedTasksRef.current = snapshot;
     setRawTasks(tasks);
   }, [tasks, setRawTasks]);
-
-  // Interaction settings, passed down to every bar as one object
-  const interaction = useMemo<GanttInteractionConfig>(
-    () => ({
-      readOnly,
-      allowMove,
-      allowResize,
-      allowProgressChange,
-      minDate,
-      maxDate,
-    }),
-    [readOnly, allowMove, allowResize, allowProgressChange, minDate, maxDate]
-  );
 
   // Fixed timeline window - undefined on both ends means auto-fit to the tasks
   const visibleRange = useMemo(
@@ -962,11 +1026,12 @@ function GanttChart({
 
               {/* Content area */}
               <div
-                className="gantt-content"
+                className={`gantt-content${canDrawTasks ? " drawable" : ""}`}
                 style={{
                   height: `${rowVirtualizer.getTotalSize()}px`,
                   width: `${totalWidth}px`,
                 }}
+                onPointerDown={onDrawPointerDown}
                 // Empty timeline clears the selection; a click on a bar has a different target
                 onClick={(event) => {
                   if (event.target === event.currentTarget) selectTask(null);
@@ -1014,8 +1079,26 @@ function GanttChart({
                 {/* Date markers (today included) */}
                 <GanttMarkers markers={positionedMarkers} />
 
+                {/* Ghost bar of the task being drawn */}
+                {ghost && (
+                  <div
+                    className="gantt-draw-ghost"
+                    style={{
+                      left: `${ghost.leftPx}px`,
+                      width: `${ghost.widthPx}px`,
+                      transform: `translateY(${ghost.topPx}px)`,
+                    }}
+                    aria-hidden="true"
+                  />
+                )}
+
                 {/* Dependency arrows */}
-                <GanttDependencyArrows transformedTasks={visibleTasks} />
+                <GanttDependencyArrows
+                  transformedTasks={visibleTasks}
+                  interaction={interaction}
+                  onTasksChange={onTasksChange}
+                  onDependencyDelete={onDependencyDelete}
+                />
 
                 {/* Task bars */}
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -1045,6 +1128,7 @@ function GanttChart({
                         options={barOptions}
                         interaction={interaction}
                         autoScrollOnDrag={autoScrollOnDrag}
+                        onDependencyCreate={onDependencyCreate}
                       />
                     </div>
                   );

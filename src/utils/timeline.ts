@@ -419,6 +419,30 @@ export interface PositionedBand {
   widthPx: number;
 }
 
+/** Index of the tick a px offset falls in, clamped to the timeline */
+function tickIndexAt(
+  px: number,
+  timelineTicks: GanttBottomRowCell[]
+): number {
+  if (px <= 0) return 0;
+
+  let offset = 0;
+  for (let index = 0; index < timelineTicks.length; index++) {
+    offset += timelineTicks[index].widthPx;
+    if (px < offset) return index;
+  }
+
+  return timelineTicks.length - 1;
+}
+
+export interface DrawnRange {
+  startDate: Dayjs;
+  endDate: Dayjs;
+  /** Where the snapped range sits on the timeline - the ghost bar's box (px) */
+  leftPx: number;
+  widthPx: number;
+}
+
 /**
  * Places range bands on the timeline, dropping the ones that miss the rendered range
  * entirely (a band that only overlaps it is clipped to the part that is on screen)
@@ -455,6 +479,44 @@ export function computeBandRects(
   }
 
   return placed;
+}
+
+/**
+ * Turns a range drawn on the timeline into dates snapped to the current scale
+ *
+ * Both arguments are px from the timeline's left edge - the same coordinates the bars
+ * are positioned in. The range snaps outwards to the ticks the two ends landed on, so the
+ * proposed task lines up with the columns on screen, and a range that stays inside one
+ * tick still comes out one tick long. Null when the timeline has no cells.
+ */
+export function snapDrawnRange(
+  startPx: number,
+  endPx: number,
+  timelineTicks: GanttBottomRowCell[],
+  scaleKey: GanttScaleKey
+): DrawnRange | null {
+  if (!timelineTicks.length) return null;
+
+  const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];
+  const firstTick = tickIndexAt(Math.min(startPx, endPx), timelineTicks);
+  const lastTick = tickIndexAt(Math.max(startPx, endPx), timelineTicks);
+
+  let leftPx = 0;
+  for (let index = 0; index < firstTick; index++) {
+    leftPx += timelineTicks[index].widthPx;
+  }
+
+  let widthPx = 0;
+  for (let index = firstTick; index <= lastTick; index++) {
+    widthPx += timelineTicks[index].widthPx;
+  }
+
+  return {
+    startDate: timelineTicks[firstTick].startDate,
+    endDate: timelineTicks[lastTick].startDate.add(unitPerTick, tickUnit),
+    leftPx,
+    widthPx,
+  };
 }
 
 function findDateRangeFromTasks(

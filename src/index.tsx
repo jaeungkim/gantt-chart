@@ -25,6 +25,8 @@ export type {
   TaskTransformed,
   GanttInteractionConfig,
 } from './types/task';
+export type { GanttDependencyChange } from './hooks/useGanttLinkDrag';
+export type { GanttTaskDraft } from './hooks/useGanttDrawCreate';
 export type {
   GanttColumn,
   GanttDateRange,

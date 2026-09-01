@@ -27,7 +27,8 @@ Currently, this project is built specifically for React due to my development ba
   - Resize from left/right edges
   - Snap to configured intervals
   - Reorder and re-parent rows, with indent/outdent on horizontal offset
-- 🧲 Smart dependency arrows (FS, SS, FF, SF)
+- 🧲 Smart dependency arrows (FS, SS, FF, SF), drawn between bars by dragging and removed by selecting
+- ✏️ Draw a new task on empty row space, snapped to the current scale
 - ◆ Milestones and per-task progress
 - 🖱️ Click / double-click / select events with a visible selection highlight
 - ↩️ Cancellable before-events: veto a move, resize or progress change and the bar rolls back
@@ -132,7 +133,7 @@ export default function App() {
 | `renderTooltip` | `(props) => ReactNode` | - | Replaces the tooltip node entirely, for hover and drag alike |
 | `renderHeaderCell` | `(props) => ReactNode` | - | Replaces a timeline header cell entirely; both header rows go through it |
 | `showTooltip` | `boolean` | `true` | `false` suppresses the hover and drag tooltips |
-| `readOnly` | `boolean` | `false` | Blocks moving, resizing and progress dragging on every task |
+| `readOnly` | `boolean` | `false` | Blocks every editing gesture. A task's own `readOnly` and the `allow*` flags win over it |
 | `allowMove` | `boolean` | `true` | Allows/blocks moving bars. Beats `readOnly` |
 | `allowResize` | `boolean` | `true` | Allows/blocks resizing bars. Beats `readOnly` |
 | `allowProgressChange` | `boolean` | `true` | Allows/blocks dragging the progress handle. Beats `readOnly` |
@@ -148,6 +149,12 @@ export default function App() {
 | `infiniteScroll` | `boolean` | `false` | Extend the rendered range when scrolling or dragging past an end |
 | `onRangeChange` | `(range: GanttDateRange) => void` | - | Fires whenever the rendered timeline range changes |
 | `autoScrollOnDrag` | `boolean` | `true` | Scroll the timeline when a bar drag reaches a viewport edge |
+| `allowLinkCreate` | `boolean` | `true` | Show the connector dots and accept dependency drags ([editing dependencies](#editing-dependencies)) |
+| `allowLinkDelete` | `boolean` | `true` | Let arrows be selected and removed |
+| `allowTaskCreate` | `boolean` | `true` | Let a task be drawn on empty row space ([drawing a task](#drawing-a-task)) |
+| `onDependencyCreate` | `(change: GanttDependencyChange) => boolean \| void` | - | Fires before a drawn link is applied — return `false` to reject it |
+| `onDependencyDelete` | `(change: GanttDependencyChange) => boolean \| void` | - | Fires before an arrow is removed — return `false` to keep it |
+| `onTaskCreate` | `(draft: GanttTaskDraft) => void` | - | Fires with the range drawn on empty row space. Required for the gesture to do anything |
 
 ## Task List and Hierarchy
 
@@ -226,7 +233,12 @@ field wins. Resolution runs most specific first:
 `task.allowX` > `task.readOnly` > `allowX` prop > `readOnly` prop > allowed
 
 A blocked gesture renders no affordance at all - no grab or resize cursor, no resize
-grips, no progress handle - rather than failing on interaction. These decide what the user
+grips, no progress handle, no connector dots, and arrows that cannot be clicked - rather
+than failing on interaction.
+
+`allowLinkCreate` and `allowLinkDelete` resolve the same way and also exist on `Task`;
+`allowTaskCreate` is chart-wide only, because that gesture starts on a row rather than on
+a task. These decide what the user
 can *start*; [`onBeforeTaskChange`](#cancellable-changes-and-optimistic-updates) decides what
 survives once a gesture has finished.
 
@@ -501,6 +513,88 @@ Each of these replaces the default node completely.
 A hover tooltip (name, dates, duration, progress) is on by default. `showTooltip={false}`
 turns off both it and the drag tooltip.
 
+## Editing dependencies
+
+Hovering a bar reveals a connector dot at each end. Dragging from one dot to another bar
+draws the link; a dashed rubber band follows the pointer and the bar under it is outlined.
+
+**The direction of the gesture is the direction of the dependency**: the bar the drag starts
+on becomes the predecessor, the bar it is dropped on the successor (the one whose
+`dependencies` array gains the entry). Which end each side is connected at decides the type:
+
+| Drag starts at | Dropped on the target's | Type |
+|---|---|---|
+| the predecessor's **end** | **start** half | `FS` |
+| the predecessor's **start** | **start** half | `SS` |
+| the predecessor's **end** | **end** half | `FF` |
+| the predecessor's **start** | **end** half | `SF` |
+
+Self-links, links that already exist and links that would close a cycle (direct or through
+any chain) are rejected **during** the drag: the rubber band and the target turn red and name
+the reason, and releasing there commits nothing. `Escape` cancels the drag.
+
+Clicking an arrow selects it. `Delete` / `Backspace` removes it, as does the ✕ that appears on
+the selected arrow; `Escape` or a click elsewhere deselects. Keystrokes are ignored while the
+focus is in an input, textarea, select or contenteditable, so the host's own forms keep their
+keys.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  onDependencyCreate={({ predecessorId, successorId, type }) => {
+    if (type === 'SF') return false;      // reject: nothing is applied
+    void api.link(predecessorId, successorId, type);
+  }}
+  onDependencyDelete={({ predecessorId, successorId }) =>
+    window.confirm(`Unlink ${predecessorId} → ${successorId}?`)
+  }
+/>;
+```
+
+Both callbacks run **before** anything changes and cancel the edit by returning `false`.
+Accepted edits arrive as a whole new array through `onTasksChange`, exactly once per gesture.
+
+```ts
+interface GanttDependencyChange {
+  predecessorId: string;  // the bar the drag started on
+  successorId: string;    // the bar it landed on - its dependencies array changes
+  type: DependencyType;
+}
+```
+
+## Drawing a task
+
+With `onTaskCreate` given, dragging horizontally across the empty part of a row draws a ghost
+bar snapped to the current scale's ticks (days on the month scale, months on the year scale,
+and so on) and hands the range to the host on release:
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTaskCreate={({ startDate, endDate, rowTaskId }) => {
+    const name = window.prompt('Task name');
+    if (!name) return;                    // veto: nothing is added
+    setTasks((current) => [
+      ...current,
+      { id: crypto.randomUUID(), name, startDate, endDate, parentId: null, sequence: `${current.length + 1}` },
+    ]);
+  }}
+/>;
+```
+
+**The chart never adds the task itself** - it only proposes one, and the row appears when the
+host passes the new `tasks` array back in. A drag shorter than 4px counts as a click and
+proposes nothing, and a chart with no tasks has no rows to draw on.
+
+```ts
+interface GanttTaskDraft {
+  startDate: string;         // UTC ISO, snapped to the current scale
+  endDate: string;
+  rowTaskId: string | null;  // the task whose row was drawn on - useful for parentId/sequence
+}
+```
+
 ## Imperative API
 
 Pass a ref to scroll the chart programmatically, or to export it as a PNG:
@@ -638,6 +732,8 @@ interface Task {
   allowMove?: boolean;
   allowResize?: boolean;
   allowProgressChange?: boolean;
+  allowLinkCreate?: boolean;
+  allowLinkDelete?: boolean;
   minDate?: string;              // UTC ISO string
   maxDate?: string;              // UTC ISO string
 }
