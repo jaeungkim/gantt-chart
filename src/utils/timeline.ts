@@ -14,6 +14,43 @@ export interface TimelineData {
   transformedTasks: TaskTransformed[];
 }
 
+export interface NonWorkingRange {
+  left: number;
+  width: number;
+}
+
+/**
+ * 비근무일(주말/휴일) 셀을 px 범위로 병합해 반환
+ * 틱 단위가 하루 이하인 스케일에서만 적용
+ */
+export function computeNonWorkingRanges(
+  timelineTicks: GanttBottomRowCell[],
+  scaleKey: GanttScaleKey,
+  isNonWorkingDay: (date: Dayjs) => boolean
+): NonWorkingRange[] {
+  const { tickUnit } = GANTT_SCALE_CONFIG[scaleKey];
+  if (tickUnit !== "day" && tickUnit !== "hour") return [];
+
+  const ranges: NonWorkingRange[] = [];
+  let offset = 0;
+  let prevNonWorking = false;
+
+  for (const tick of timelineTicks) {
+    const nonWorking = isNonWorkingDay(tick.startDate);
+    if (nonWorking) {
+      if (prevNonWorking) {
+        ranges[ranges.length - 1].width += tick.widthPx;
+      } else {
+        ranges.push({ left: offset, width: tick.widthPx });
+      }
+    }
+    prevNonWorking = nonWorking;
+    offset += tick.widthPx;
+  }
+
+  return ranges;
+}
+
 export function calculateDateOffsets(
   startDate: Dayjs,
   endDate: Dayjs,

@@ -3,7 +3,12 @@ import dayjs from 'utils/dayjs';
 import type { Task } from 'types/task';
 import { getSmartGanttPath } from './arrowPath';
 import { processHeaderGroups } from './headerUtils';
-import { calculateDateOffsets, computeTimelineData, createTopHeaderGroups } from './timeline';
+import {
+  calculateDateOffsets,
+  computeNonWorkingRanges,
+  computeTimelineData,
+  createTopHeaderGroups,
+} from './timeline';
 import { transformTasks } from './transformData';
 
 // month scale: tickUnit day, unitPerTick 1, basePxPerDragStep 32 -> every tick is exactly 32px.
@@ -61,6 +66,40 @@ describe('calculateDateOffsets', () => {
       barMarginLeftAmount: 0,
       barWidthSize: 0,
     });
+  });
+});
+
+describe('computeNonWorkingRanges', () => {
+  // 2025-01-01 is a Wednesday; Jan 4 (Sat) and Jan 5 (Sun) are the weekend.
+  const week = ticks(
+    '2025-01-01',
+    '2025-01-02',
+    '2025-01-03',
+    '2025-01-04',
+    '2025-01-05',
+    '2025-01-06',
+    '2025-01-07',
+  );
+  const isWeekend = (d: ReturnType<typeof dayjs>) => d.day() === 0 || d.day() === 6;
+
+  it('merges adjacent weekend ticks into one range', () => {
+    expect(computeNonWorkingRanges(week, 'month', isWeekend)).toEqual([
+      { left: 96, width: 64 },
+    ]);
+  });
+
+  it('keeps non-adjacent ranges separate', () => {
+    const withHoliday = (d: ReturnType<typeof dayjs>) =>
+      isWeekend(d) || d.format('YYYY-MM-DD') === '2025-01-07';
+    expect(computeNonWorkingRanges(week, 'month', withHoliday)).toEqual([
+      { left: 96, width: 64 },
+      { left: 192, width: 32 },
+    ]);
+  });
+
+  it('returns nothing for scales coarser than a day', () => {
+    expect(computeNonWorkingRanges(week, 'year', isWeekend)).toEqual([]);
+    expect(computeNonWorkingRanges([], 'month', isWeekend)).toEqual([]);
   });
 });
 

@@ -36,6 +36,9 @@
   /* 액센트 */
   --accent: #3b82f6;
 
+  /* 비근무일 음영 */
+  --non-working-bg: rgba(0, 0, 0, 0.035);
+
   /* 트랜지션 */
   --transition-fast: 150ms ease;
   --transition-normal: 200ms ease;
@@ -61,6 +64,8 @@
   --bar-shadow-drag: 0 8px 24px rgba(0, 0, 0, 0.4);
 
   --arrow: #71717a;
+
+  --non-working-bg: rgba(255, 255, 255, 0.03);
 }
 
 /* ===== BASE LAYOUT ===== */
@@ -241,6 +246,24 @@
 .gantt-content {
   position: relative;
   background: var(--background);
+}
+
+/* ===== NON-WORKING DAY SHADING ===== */
+.gantt-non-working-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.gantt-non-working-range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--non-working-bg);
 }
 
 /* ===== TASK ROWS (배경 전용) ===== */
