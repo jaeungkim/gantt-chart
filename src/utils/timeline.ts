@@ -20,6 +20,34 @@ export interface NonWorkingRange {
 }
 
 /**
+ * 타임라인 원점이 이동한 만큼의 px - scrollLeft 보정값
+ *
+ * 타임라인 범위는 태스크의 min/max 날짜에서 나오므로, 가장 이른 태스크를
+ * 드래그하면 원점이 통째로 움직이고 모든 바가 화면에서 밀린다.
+ * 이 값을 scrollLeft에 더하면 보이던 날짜가 제자리에 남는다.
+ *
+ * 앞에 셀이 늘어났으면 양수, 줄어들었으면 음수를 반환한다.
+ */
+export function originShiftPx(
+  prevTicks: GanttBottomRowCell[],
+  nextTicks: GanttBottomRowCell[],
+  scaleKey: GanttScaleKey
+): number {
+  if (!prevTicks.length || !nextTicks.length) return 0;
+
+  const prevOrigin = prevTicks[0].startDate;
+  const nextOrigin = nextTicks[0].startDate;
+  const diff = prevOrigin.valueOf() - nextOrigin.valueOf();
+  if (diff === 0) return 0;
+
+  // 이전 원점이 더 늦다 = 앞쪽에 셀이 추가됨 (새 타임라인에서 이전 원점의 위치만큼 이동)
+  if (diff > 0) return calculateDateOffsetPx(prevOrigin, nextTicks, scaleKey) ?? 0;
+
+  // 이전 원점이 더 이르다 = 앞쪽 셀이 사라짐
+  return -(calculateDateOffsetPx(nextOrigin, prevTicks, scaleKey) ?? 0);
+}
+
+/**
  * 비근무일(주말/휴일) 셀을 px 범위로 병합해 반환
  * 틱 단위가 하루 이하인 스케일에서만 적용
  */

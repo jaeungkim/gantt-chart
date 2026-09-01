@@ -3,7 +3,7 @@ import GanttChartHeader from "components/GanttChartHeader";
 import GanttDependencyArrows from "components/GanttDependencyArrows";
 import GanttDragGuides from "components/GanttDragGuides";
 import ScaleSelector from "components/ScaleSelector";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Dayjs } from "dayjs";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
@@ -14,13 +14,14 @@ import {
   DEFAULT_SCALE_STORAGE_KEY,
   readPersistedScale,
 } from "stores/store";
-import { GanttScaleKey, GanttTheme } from "types/gantt";
+import { GanttBottomRowCell, GanttScaleKey, GanttTheme } from "types/gantt";
 import { Task } from "types/task";
 import dayjs from "utils/dayjs";
 import {
   calculateDateOffsetPx,
   computeNonWorkingRanges,
   computeTimelineData,
+  originShiftPx,
 } from "utils/timeline";
 
 /** Gantt 컴포넌트 기본값 */
@@ -160,12 +161,30 @@ function GanttChart({
     setRawTasks(tasks);
   }, [tasks, setRawTasks]);
 
+  // 직전 타임라인의 셀 - 원점 이동량을 계산해 스크롤을 보정하는 데 쓴다
+  const prevCellsRef = useRef<GanttBottomRowCell[]>([]);
+  const pendingScrollShiftRef = useRef(0);
+
   // 타임라인 구조 설정 (태스크가 비면 빈 타임라인으로 정리)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const { bottomCells, transformedTasks: transformed } = computeTimelineData(
       rawTasks,
       selectedScale
     );
+
+    // 타임라인 시작일이 바뀌면 모든 바가 통째로 밀린다.
+    // (가장 이른 태스크를 드래그하면 min(startDate)가 바뀌어 원점이 이동한다)
+    // 여기서는 보정량만 기록한다 - 콘텐츠가 넓어지기 전에 scrollLeft를 올리면
+    // 브라우저가 그 시점의 최대값으로 잘라버리기 때문에 실제 적용은 아래에서.
+    const prevCells = prevCellsRef.current;
+    if (prevCells.length && bottomCells.length) {
+      pendingScrollShiftRef.current += originShiftPx(
+        prevCells,
+        bottomCells,
+        selectedScale
+      );
+    }
+    prevCellsRef.current = bottomCells;
 
     setBottomRowCells(bottomCells);
     setTransformedTasks(transformed);
@@ -178,6 +197,16 @@ function GanttChart({
     setTransformedTasks,
     clearAllDragOffsets,
   ]);
+
+  // 새 타임라인 너비가 DOM에 반영된 뒤에 스크롤 보정을 적용한다
+  useLayoutEffect(() => {
+    const shift = pendingScrollShiftRef.current;
+    if (!shift) return;
+
+    pendingScrollShiftRef.current = 0;
+    const scrollEl = scrollRef.current;
+    if (scrollEl) scrollEl.scrollLeft += shift;
+  }, [bottomRowCells]);
 
   // 스케일 변경 핸들러
   const handleScaleChange = (scale: GanttScaleKey) => {
@@ -286,7 +315,8 @@ function GanttChart({
                     key={`row-${task.id}`}
                     className="gantt-task-row"
                     style={{
-                      height: `${virtualRow.size - 1}px`,
+                      // border-box라 1px 보더가 높이 안에 포함된다 - 행 간격과 정확히 일치
+                      height: `${virtualRow.size}px`,
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
                   />
