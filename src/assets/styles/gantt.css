@@ -39,6 +39,13 @@
   /* 비근무일 음영 */
   --non-working-bg: rgba(0, 0, 0, 0.035);
 
+  /* 오늘 마커 */
+  --today-marker: #f43f5e;
+
+  /* 마일스톤 */
+  --milestone-bg: #52525b;
+  --milestone-bg-hover: #3f3f46;
+
   /* 트랜지션 */
   --transition-fast: 150ms ease;
   --transition-normal: 200ms ease;
@@ -66,6 +73,11 @@
   --arrow: #71717a;
 
   --non-working-bg: rgba(255, 255, 255, 0.03);
+
+  --today-marker: #fb7185;
+
+  --milestone-bg: #d4d4d8;
+  --milestone-bg-hover: #e4e4e7;
 }
 
 /* ===== BASE LAYOUT ===== */
@@ -288,6 +300,19 @@
   pointer-events: none;
 }
 
+/* ===== TODAY MARKER ===== */
+.gantt-today-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--today-marker);
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 2;
+}
+
 /* ===== DEPENDENCY ARROWS ===== */
 .gantt-dependency-arrows {
   position: absolute;
@@ -380,6 +405,53 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+/* ===== MILESTONE ===== */
+.gantt-milestone {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+  cursor: grab;
+}
+
+.gantt-milestone-diamond {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  background: var(--milestone-bg);
+  border-radius: 3px;
+  transform: rotate(45deg);
+  box-shadow: var(--bar-shadow);
+  transition: background var(--transition-fast),
+    box-shadow var(--transition-normal);
+}
+
+.gantt-milestone:hover .gantt-milestone-diamond {
+  background: var(--milestone-bg-hover);
+  box-shadow: var(--bar-shadow-hover);
+}
+
+.gantt-milestone:active,
+.gantt-milestone.dragging {
+  cursor: grabbing;
+  z-index: 100;
+}
+
+.gantt-milestone.dragging .gantt-milestone-diamond {
+  box-shadow: var(--bar-shadow-drag);
+}
+
+.gantt-milestone-name {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--foreground);
+  white-space: nowrap;
   pointer-events: none;
 }
 

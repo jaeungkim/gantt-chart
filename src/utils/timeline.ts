@@ -115,6 +115,36 @@ export function calculateDateOffsets(
   };
 }
 
+/**
+ * 특정 날짜의 타임라인 px 오프셋 계산
+ * 타임라인 범위 밖이면 null 반환
+ */
+export function calculateDateOffsetPx(
+  date: Dayjs,
+  timelineTicks: GanttBottomRowCell[],
+  scaleKey: GanttScaleKey
+): number | null {
+  if (!timelineTicks.length) return null;
+
+  const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];
+  const time = date.valueOf();
+
+  if (time < timelineTicks[0].startDate.valueOf()) return null;
+
+  let offset = 0;
+  for (const tick of timelineTicks) {
+    const tickStart = tick.startDate.valueOf();
+    const tickEnd = tick.startDate.add(unitPerTick, tickUnit).valueOf();
+
+    if (time < tickEnd) {
+      return offset + ((time - tickStart) / (tickEnd - tickStart)) * tick.widthPx;
+    }
+    offset += tick.widthPx;
+  }
+
+  return null;
+}
+
 function findDateRangeFromTasks(
   tasks: Task[]
 ): { minDate: Dayjs; maxDate: Dayjs } {
