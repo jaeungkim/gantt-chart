@@ -156,6 +156,46 @@
   border-bottom: 1px solid var(--gantt-border);
 }
 
+/* Task list collapse toggle - far left of the toolbar (pushed there by margin-right auto) */
+.gantt-grid-toggle {
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--gantt-muted-foreground);
+  background: transparent;
+  border: 1px solid var(--gantt-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color var(--gantt-transition-fast),
+    background var(--gantt-transition-fast);
+}
+
+.gantt-grid-toggle:hover {
+  color: var(--gantt-foreground);
+  background: var(--gantt-muted);
+}
+
+.gantt-grid-toggle:focus-visible {
+  outline: 2px solid var(--gantt-accent);
+  outline-offset: -2px;
+}
+
+.gantt-grid-toggle svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+}
+
+.gantt-grid-toggle[aria-expanded="true"] svg rect {
+  fill: var(--gantt-muted);
+}
+
 /* ===== SCALE SELECTOR ===== */
 .gantt-scale-selector {
   display: inline-flex;
@@ -212,6 +252,169 @@
   width: 100%;
   height: 100%;
   overflow: auto;
+}
+
+/* Grid + timeline on one row - the scroll container scrolls them together */
+.gantt-body {
+  display: flex;
+  align-items: stretch;
+  width: max-content;
+  min-width: 100%;
+}
+
+.gantt-timeline {
+  position: relative;
+  flex: none;
+}
+
+/* ===== TASK GRID (list on the left) ===== */
+/* Pinned left instead of following the horizontal scroll; moves with the timeline vertically */
+.gantt-grid {
+  position: sticky;
+  left: 0;
+  z-index: 50;
+  flex: none;
+  background: var(--gantt-background);
+  border-right: 1px solid var(--gantt-border);
+  /* No overflow here - it would make this a scroll container and pin the header's sticky
+     to the pane instead of the outer scroll. Clipping happens on the rows instead */
+}
+
+.gantt-grid-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 6px;
+  overflow: hidden;
+  background: var(--gantt-background);
+  border-bottom: 1px solid var(--gantt-border);
+}
+
+.gantt-grid-header-cell {
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--gantt-muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gantt-grid-body {
+  position: relative;
+}
+
+/* Same height and border as a timeline row - the two panes line up 1:1 */
+.gantt-grid-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  overflow: hidden;
+  border-bottom: 1px solid var(--gantt-border-subtle);
+}
+
+.gantt-grid-row:hover {
+  background: var(--gantt-muted);
+}
+
+.gantt-grid-row.summary {
+  font-weight: 600;
+}
+
+.gantt-grid-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--gantt-foreground);
+}
+
+.gantt-grid-cell + .gantt-grid-cell {
+  color: var(--gantt-muted-foreground);
+}
+
+.gantt-grid-cell-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gantt-grid-indent {
+  flex: none;
+}
+
+.gantt-grid-expander {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  padding: 0;
+  color: var(--gantt-muted-foreground);
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.gantt-grid-expander:hover {
+  color: var(--gantt-foreground);
+  background: var(--gantt-border);
+}
+
+.gantt-grid-expander:focus-visible {
+  outline: 2px solid var(--gantt-accent);
+  outline-offset: -2px;
+}
+
+.gantt-grid-expander svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--gantt-transition-fast);
+}
+
+.gantt-grid-expander.open svg {
+  transform: rotate(90deg);
+}
+
+/* Keeps the text start aligned on rows without a toggle */
+.gantt-grid-expander-spacer {
+  flex: none;
+  width: 20px;
+}
+
+.gantt-grid-splitter {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.gantt-grid-splitter:hover,
+.gantt-grid-splitter:focus-visible {
+  background: var(--gantt-accent);
+  opacity: 0.5;
+  outline: none;
 }
 
 /* ===== DRAG GUIDES ===== */
@@ -487,6 +690,37 @@
 .gantt-task-bar.dragging::before,
 .gantt-task-bar.dragging::after {
   opacity: 0.7;
+}
+
+/* Summary bar: a flat span over the children's range - no resize handles either */
+.gantt-task-bar.summary {
+  background: var(--gantt-milestone-bg);
+  border-radius: 3px;
+}
+
+.gantt-task-bar.summary:hover {
+  background: var(--gantt-milestone-bg-hover);
+}
+
+.gantt-task-bar.summary .gantt-task-name {
+  color: var(--gantt-background);
+}
+
+.gantt-task-bar.summary .gantt-task-name.outside {
+  color: var(--gantt-foreground);
+}
+
+.gantt-task-bar.summary .gantt-progress-fill {
+  background: var(--gantt-foreground);
+  opacity: 0.35;
+  border-radius: 3px 0 0 3px;
+}
+
+.gantt-task-bar.summary::before,
+.gantt-task-bar.summary::after,
+.gantt-task-bar.summary:hover::before,
+.gantt-task-bar.summary:hover::after {
+  opacity: 0;
 }
 
 /* Narrow bars: hide the resize handles (the whole bar is the move handle) */

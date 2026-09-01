@@ -1,8 +1,9 @@
-import { GANTT_SCALE_CONFIG } from "constants/gantt";
 import { useGanttColumnVirtualization } from "hooks/useGanttVirtualization";
 import React, { useMemo } from "react";
+import { useGanttStore } from "stores/context";
 import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
 import { mergeHeaderGroups } from "utils/headerUtils";
+import { resolveFormatters } from "utils/i18n";
 import { createTopHeaderGroups } from "utils/timeline";
 
 interface GanttChartHeaderProps {
@@ -23,7 +24,11 @@ function GanttChartHeader({
   width,
   scrollRef,
 }: GanttChartHeaderProps) {
-  const config = GANTT_SCALE_CONFIG[selectedScale];
+  const localeOptions = useGanttStore((store) => store.localeOptions);
+  const formatters = useMemo(
+    () => resolveFormatters(selectedScale, localeOptions),
+    [selectedScale, localeOptions]
+  );
 
   // The bottom cells are column-virtualized - a long range at day scale runs to thousands of cells
   // (the top groups are a handful of merged labels, so they are rendered as-is)
@@ -37,8 +42,10 @@ function GanttChartHeader({
   // Build and merge the header groups (memoized)
   const topGroups = useMemo(
     () =>
-      mergeHeaderGroups(createTopHeaderGroups(bottomRowCells, selectedScale)),
-    [bottomRowCells, selectedScale]
+      mergeHeaderGroups(
+        createTopHeaderGroups(bottomRowCells, selectedScale, localeOptions)
+      ),
+    [bottomRowCells, selectedScale, localeOptions]
   );
 
   return (
@@ -67,7 +74,7 @@ function GanttChartHeader({
             const cell = bottomRowCells[virtualCell.index];
             if (!cell) return null;
 
-            const tickLabel = config.formatTickLabel?.(cell.startDate) || "";
+            const tickLabel = formatters.tick(cell.startDate);
 
             return (
               <div

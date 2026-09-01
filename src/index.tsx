@@ -16,5 +16,17 @@ export type {
   GanttExportOptions,
   GanttExportRange,
 } from './utils/pngExport';
-export type { Task, TaskDependency, DependencyType, TaskType } from './types/task';
-export type { GanttScaleKey, GanttTheme } from './types/gantt';
+export type {
+  Task,
+  TaskDependency,
+  DependencyType,
+  TaskType,
+  TaskTransformed,
+} from './types/task';
+export type {
+  GanttColumn,
+  GanttFormatOverrides,
+  GanttScaleFormat,
+  GanttScaleKey,
+  GanttTheme,
+} from './types/gantt';
