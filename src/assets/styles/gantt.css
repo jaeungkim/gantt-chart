@@ -39,6 +39,12 @@
   /* Today marker */
   --gantt-today-marker: #f43f5e;
 
+  /* Date markers and range bands */
+  --gantt-marker: #6366f1;
+  --gantt-marker-warning: #f59e0b;
+  --gantt-marker-label: #ffffff;
+  --gantt-band-bg: rgba(99, 102, 241, 0.1);
+
   /* Milestone */
   --gantt-milestone-bg: #52525b;
   --gantt-milestone-bg-hover: #3f3f46;
@@ -88,6 +94,11 @@
 
   --gantt-today-marker: #fb7185;
 
+  --gantt-marker: #818cf8;
+  --gantt-marker-warning: #fbbf24;
+  --gantt-marker-label: #18181b;
+  --gantt-band-bg: rgba(129, 140, 248, 0.16);
+
   --gantt-milestone-bg: #d4d4d8;
   --gantt-milestone-bg-hover: #e4e4e7;
 
@@ -127,6 +138,11 @@
     --gantt-arrow: #71717a;
 
     --gantt-today-marker: #fb7185;
+
+    --gantt-marker: #818cf8;
+    --gantt-marker-warning: #fbbf24;
+    --gantt-marker-label: #18181b;
+    --gantt-band-bg: rgba(129, 140, 248, 0.16);
 
     --gantt-milestone-bg: #d4d4d8;
     --gantt-milestone-bg-hover: #e4e4e7;
@@ -168,6 +184,12 @@
   color: var(--gantt-foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* The container is focusable only so the undo shortcut has somewhere to land -
+   clicking the chart should not draw a ring around the whole thing */
+.gantt-container:focus {
+  outline: none;
 }
 
 /* ===== TOOLBAR ===== */
@@ -351,6 +373,12 @@
 
 .gantt-grid-row.summary {
   font-weight: 600;
+}
+
+/* Selected row - marked in the same beat as its bar */
+.gantt-grid-row.selected {
+  background: var(--gantt-muted);
+  box-shadow: inset 2px 0 0 var(--gantt-accent);
 }
 
 /* ===== ROW DRAG (reorder / re-parent) ===== */
@@ -673,6 +701,65 @@
   pointer-events: none;
 }
 
+/* ===== RANGE BANDS ===== */
+.gantt-range-band-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.gantt-range-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--gantt-band-color, var(--gantt-band-bg));
+}
+
+.gantt-range-band-label {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--gantt-muted-foreground);
+  white-space: nowrap;
+}
+
+/* ===== DATE MARKERS ===== */
+/* The today line is one of these - its own rule below only swaps the color */
+.gantt-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--gantt-marker-color, var(--gantt-marker));
+  pointer-events: none;
+  z-index: 2;
+}
+
+.gantt-marker[data-warning="true"] {
+  --gantt-marker-color: var(--gantt-marker-warning);
+}
+
+.gantt-marker-label {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--gantt-marker-label);
+  background: var(--gantt-marker-color, var(--gantt-marker));
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
 /* ===== TODAY MARKER ===== */
 .gantt-today-marker {
   position: absolute;
@@ -699,10 +786,20 @@
   z-index: 0;
 }
 
+/* While a link is being drawn the preview has to be readable over the bars it crosses */
+.gantt-dependency-arrows.linking {
+  z-index: 150;
+}
+
 .gantt-dependency-arrow {
   stroke: var(--gantt-arrow);
   stroke-width: 1.5;
   fill: none;
+}
+
+.gantt-dependency-arrow.selected {
+  stroke: var(--gantt-accent);
+  stroke-width: 2.5;
 }
 
 .gantt-dependency-arrow-head {
@@ -710,14 +807,155 @@
   stroke: none;
 }
 
+/* Click target for the arrow - invisible, and wide enough to actually hit.
+   pointer-events is inherited, so this re-enables hit testing under the SVG's `none` */
+.gantt-dependency-hit {
+  stroke: transparent;
+  stroke-width: 12;
+  fill: none;
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+.gantt-dependency-hit:hover + .gantt-dependency-arrow {
+  stroke: var(--gantt-accent);
+}
+
+/* Delete affordance on the selected arrow */
+.gantt-dependency-delete {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.gantt-dependency-delete circle {
+  fill: var(--gantt-accent);
+}
+
+.gantt-dependency-delete path {
+  stroke: #fff;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+/* ===== DEPENDENCY LINKING ===== */
+/* Connector dot at either end of a bar - revealed on hover (hover propagates from the
+   dot up to the bar, so it stays visible while the pointer is on the dot itself) */
+.gantt-link-handle {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  background: var(--gantt-background);
+  border: 2px solid var(--gantt-accent);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  cursor: crosshair;
+  touch-action: none;
+  pointer-events: none;
+  transition: opacity var(--gantt-transition-fast);
+}
+
+.gantt-link-handle.start {
+  left: -14px;
+}
+
+.gantt-link-handle.end {
+  right: -14px;
+}
+
+/* The milestone's diamond is a 16px box at the start of the row, and the rotated
+   vertices stick out about 3px on each side */
+.gantt-milestone .gantt-link-handle.start {
+  left: -9px;
+}
+
+.gantt-milestone .gantt-link-handle.end {
+  left: 15px;
+  right: auto;
+}
+
+/* Selection reveals them too - a finger has no hover, so tapping the bar is how a
+   touch user reaches the connectors */
+.gantt-task-bar:hover .gantt-link-handle,
+.gantt-milestone:hover .gantt-link-handle,
+.gantt-task-bar.selected .gantt-link-handle,
+.gantt-milestone.selected .gantt-link-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Drop target highlight while a link is being drawn */
+.gantt-task-bar.link-target,
+.gantt-milestone.link-target .gantt-milestone-diamond {
+  outline: 2px solid var(--gantt-accent);
+  outline-offset: 2px;
+}
+
+.gantt-task-bar.link-target.invalid,
+.gantt-milestone.link-target.invalid .gantt-milestone-diamond {
+  outline-color: var(--gantt-today-marker);
+}
+
+/* Rubber band following the pointer */
+.gantt-link-preview-line {
+  stroke: var(--gantt-accent);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+  fill: none;
+}
+
+.gantt-link-preview-line.invalid {
+  stroke: var(--gantt-today-marker);
+}
+
+.gantt-link-preview-origin {
+  fill: var(--gantt-accent);
+}
+
+.gantt-link-preview-reason {
+  fill: var(--gantt-today-marker);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  /* Halo, so the reason stays readable over grid lines and arrows */
+  paint-order: stroke;
+  stroke: var(--gantt-background);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+/* ===== DRAW-TO-CREATE ===== */
+.gantt-content.drawable {
+  cursor: crosshair;
+}
+
+.gantt-draw-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 19px;
+  margin-top: 9px;
+  background: var(--gantt-accent);
+  opacity: 0.35;
+  border: 1px dashed var(--gantt-accent);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 5;
+}
+
 /* ===== TASK BAR ===== */
 .gantt-task-bar {
   position: relative;
-  touch-action: none;
+  /* Panning is left to the browser so a swipe across a bar still scrolls the
+     timeline. A touch drag is lifted by a long press, and suppresses the scroll
+     itself from that point on (utils/pointerGesture). A mouse is unaffected. */
+  touch-action: pan-x pan-y;
   z-index: 10;
   display: flex;
   align-items: center;
-  background: var(--gantt-bar-bg);
+  /* --gantt-bar-color is set inline from a task's color; without one the theme token decides */
+  background: var(--gantt-bar-color, var(--gantt-bar-bg));
   border-radius: 6px;
   user-select: none;
   cursor: grab;
@@ -750,7 +988,7 @@
 }
 
 .gantt-task-bar:hover {
-  background: var(--gantt-bar-bg-hover);
+  background: var(--gantt-bar-color-hover, var(--gantt-bar-bg-hover));
   box-shadow: var(--gantt-bar-shadow-hover);
 }
 
@@ -774,12 +1012,12 @@
 /* Summary bar: a flat span over the children's range
    (its grips are hidden by .no-resize below - summaries resolve to canResize false) */
 .gantt-task-bar.summary {
-  background: var(--gantt-milestone-bg);
+  background: var(--gantt-bar-color, var(--gantt-milestone-bg));
   border-radius: 3px;
 }
 
 .gantt-task-bar.summary:hover {
-  background: var(--gantt-milestone-bg-hover);
+  background: var(--gantt-bar-color-hover, var(--gantt-milestone-bg-hover));
 }
 
 .gantt-task-bar.summary .gantt-task-name {
@@ -791,7 +1029,7 @@
 }
 
 .gantt-task-bar.summary .gantt-progress-fill {
-  background: var(--gantt-foreground);
+  background: var(--gantt-progress-color, var(--gantt-foreground));
   opacity: 0.35;
   border-radius: 3px 0 0 3px;
 }
@@ -861,6 +1099,30 @@
   fill: var(--gantt-critical);
 }
 
+/* ===== SELECTION ===== */
+.gantt-task-bar.selected,
+.gantt-milestone.selected .gantt-milestone-diamond {
+  outline: 2px solid var(--gantt-accent);
+  outline-offset: 2px;
+}
+
+/* ===== VETOED CHANGE ===== */
+/* The bar holds the dropped position while a before-handler runs; when the answer is a
+   veto the offsets drop and this class turns that snap into a move back */
+.gantt-task-bar.reverting,
+.gantt-milestone.reverting {
+  transition: transform var(--gantt-transition-normal),
+    width var(--gantt-transition-normal),
+    background var(--gantt-transition-fast),
+    box-shadow var(--gantt-transition-normal);
+}
+
+.gantt-task-bar.reverting .gantt-progress-fill,
+.gantt-task-bar.reverting .gantt-progress-handle {
+  transition: width var(--gantt-transition-normal),
+    left var(--gantt-transition-normal);
+}
+
 /* Narrow bars and non-resizable tasks: hide the resize grips (no affordance for a
    gesture that is not available; on a narrow bar the whole bar is the move handle) */
 .gantt-task-bar.compact::before,
@@ -884,7 +1146,8 @@
   top: 0;
   left: 0;
   bottom: 0;
-  background: var(--gantt-progress-bg);
+  /* Derived from the bar color when there is one, so a colored bar never mixes in the theme gray */
+  background: var(--gantt-progress-color, var(--gantt-progress-bg));
   border-radius: 6px 0 0 6px;
   pointer-events: none;
 }
@@ -907,6 +1170,21 @@
 .gantt-task-bar:hover .gantt-progress-handle,
 .gantt-progress-handle.dragging {
   opacity: 1;
+}
+
+/* Touch screens: there is no hover to reveal the handle, and a 10px dot is far under
+   the 44px target guideline. The larger hit area is scoped to these devices - on a
+   mouse it would swallow clicks meant for the bar. */
+@media (hover: none) {
+  .gantt-progress-handle {
+    opacity: 1;
+  }
+
+  .gantt-progress-handle::before {
+    content: "";
+    position: absolute;
+    inset: -17px;
+  }
 }
 
 /* Task Name */
@@ -937,7 +1215,8 @@
 /* ===== MILESTONE ===== */
 .gantt-milestone {
   position: relative;
-  touch-action: none;
+  /* Same as the task bar - swipe scrolls, long press drags */
+  touch-action: pan-x pan-y;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -950,7 +1229,7 @@
   flex-shrink: 0;
   width: 16px;
   height: 16px;
-  background: var(--gantt-milestone-bg);
+  background: var(--gantt-bar-color, var(--gantt-milestone-bg));
   border-radius: 3px;
   transform: rotate(45deg);
   box-shadow: var(--gantt-bar-shadow);
@@ -959,7 +1238,7 @@
 }
 
 .gantt-milestone:hover .gantt-milestone-diamond {
-  background: var(--gantt-milestone-bg-hover);
+  background: var(--gantt-bar-color-hover, var(--gantt-milestone-bg-hover));
   box-shadow: var(--gantt-bar-shadow-hover);
 }
 
@@ -1014,6 +1293,22 @@
     opacity: 1;
     transform: translateX(-50%) translateY(0);
   }
+}
+
+/* Hover tooltip - the same shell, stacked lines instead of one live value */
+.gantt-bar-tooltip-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.gantt-tooltip-name {
+  font-weight: 600;
+}
+
+.gantt-tooltip-meta {
+  opacity: 0.75;
 }
 
 .gantt-bar-tooltip::after {

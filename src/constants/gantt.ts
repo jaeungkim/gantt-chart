@@ -41,8 +41,19 @@ export const MIN_BAR_WIDTH = 14;
 export const MIN_LABEL_INSIDE_WIDTH = 56;
 /** Size of the resize edge hit area (px) */
 export const EDGE_THRESHOLD = 8;
+/**
+ * Size of the resize edge hit area for touch and pen (px)
+ *
+ * The 44px accessibility guideline, applied to the axis the bar can grow along. A bar
+ * is half a row tall, so the target cannot also be 44px high without covering the row
+ * next to it - what keeps a mistimed tap harmless instead is the long press: a touch
+ * has to rest on the edge before anything is lifted.
+ */
+export const TOUCH_EDGE_THRESHOLD = 44;
 /** Below this bar width there is no edge resizing and the whole bar is the move handle (px) */
 export const MIN_RESIZABLE_WIDTH = EDGE_THRESHOLD * 3;
+/** Same rule for touch - below this a bar is move-only, so the edges cannot swallow it (px) */
+export const MIN_TOUCH_RESIZABLE_WIDTH = TOUCH_EDGE_THRESHOLD * 3;
 /** Side length of the milestone diamond (px, before the 45-degree rotation) */
 export const MILESTONE_SIZE = 16;
 /** Horizontal distance from the diamond's center to its vertex (px) */

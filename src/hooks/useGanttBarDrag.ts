@@ -2,11 +2,14 @@ import {
   EDGE_THRESHOLD,
   GANTT_SCALE_CONFIG,
   MIN_RESIZABLE_WIDTH,
+  MIN_TOUCH_RESIZABLE_WIDTH,
+  TOUCH_EDGE_THRESHOLD,
 } from "constants/gantt";
 import { Dayjs } from "dayjs";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useGanttStore, useGanttStoreApi } from "stores/context";
 import {
+  GanttBeforeChangeHandler,
   GanttDragBounds,
   GanttDragMode,
   GanttDragOffset,
@@ -22,20 +25,34 @@ import {
 import dayjs from "core/dates";
 import { scheduleTasks } from "core";
 import {
+  buildTaskChange,
+  mutationKey,
+  REVERT_DURATION_MS,
+} from "utils/mutation";
+import { armPointerGesture, suppressTouchScroll } from "utils/pointerGesture";
+import {
   clampDragDates,
   clampMoveDelta,
   pxBetweenDates,
   shiftByDragSteps,
 } from "utils/timeline";
 import { collectSubtreeIds } from "core/tree";
+import { edgeScrollVelocity } from "utils/viewport";
 
 export type DragMode = GanttDragMode;
+
+export interface GanttBarDragOptions {
+  onTasksChange?: (updatedTasks: Task[]) => void;
+  onBeforeTaskChange?: GanttBeforeChangeHandler;
+  /** Scroll the timeline when the drag reaches a viewport edge (default true) */
+  autoScroll?: boolean;
+}
 
 /** The dates the drag is proposing for the tasks it moves directly */
 type DraggedDates = Map<string, { start: Dayjs; end: Dayjs }>;
 
 /** The task array with the dragged tasks' proposed dates written in */
-function applyDraggedDates(rawTasks: Task[], dragged: DraggedDates): Task[] {
+export function applyDraggedDates(rawTasks: Task[], dragged: DraggedDates): Task[] {
   return rawTasks.map((t) => {
     const next = dragged.get(t.id);
     return next
@@ -53,7 +70,7 @@ function applyDraggedDates(rawTasks: Task[], dragged: DraggedDates): Task[] {
  * The dragged tasks are the seeds, so only what they reach is rescheduled and the bar
  * under the pointer stays exactly where the pointer put it.
  */
-function reschedule(
+export function reschedule(
   rawTasks: Task[],
   dragged: DraggedDates,
   scheduling: GanttScheduling
@@ -114,6 +131,10 @@ interface DragContext {
   initialBarWidth: number;
   dragSteps: number;
   basePxPerDragStep: number;
+  /** Last pointer position, so an auto-scroll frame can recompute without a new event */
+  lastClientX: number;
+  /** How far the timeline has auto-scrolled since the drag started (px) */
+  autoScrollPx: number;
   // Keep computing in the step unit from when the drag started, even if the scale changes mid-drag
   scaleKey: GanttScaleKey;
   taskId: string;
@@ -125,6 +146,8 @@ interface DragContext {
   previewIds: string[];
   /** Extra days the working-day calendar snapped the last frame by (0 when it is off) */
   snapDays: number;
+  /** Claimed on the first movement - null while the gesture has not moved the bar yet */
+  gateToken: number | null;
   /** The dragged bar's own bounds - null when it has none. Used by the resize modes. */
   bounds: GanttDragBounds | null;
   /**
@@ -155,18 +178,28 @@ function toDragBounds(
 
 /**
  * Hook providing the Gantt bar drag behavior
+ *
+ * `autoScroll` (default on) scrolls the timeline when the drag reaches a viewport edge,
+ * faster the closer the pointer gets, and stops on drop or cancel.
  */
 export function useGanttBarDrag(
   task: TaskTransformed,
-  onTasksChange?: (updatedTasks: Task[]) => void,
+  options: GanttBarDragOptions = {},
   interaction?: GanttInteractionConfig,
   scheduling?: GanttScheduling
 ) {
   const storeApi = useGanttStoreApi();
   const dragContextRef = useRef<DragContext | null>(null);
   const dragModeRef = useRef<DragMode | null>(null);
-  const onTasksChangeRef = useRef(onTasksChange);
-  onTasksChangeRef.current = onTasksChange;
+  // The pointerup that ends a drag is followed by a click - this tells the two apart
+  const movedRef = useRef(false);
+  /** Aborts a touch long press that has not lifted the bar yet */
+  const pendingGestureRef = useRef<(() => void) | null>(null);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
+  // A row scrolled out of view while a finger rests on it must not lift later
+  useEffect(() => () => pendingGestureRef.current?.(), []);
 
   const selectedScale = useGanttStore((s) => s.selectedScale);
   const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
@@ -185,11 +218,16 @@ export function useGanttBarDrag(
     e: React.PointerEvent<HTMLDivElement>
   ): DragMode | null => {
     const rect = e.currentTarget.getBoundingClientRect();
+    // A finger covers far more than a cursor, so its edge zones are wider - and a bar
+    // too short to spare them stays move-only, as it already does for the mouse
+    const touch = e.pointerType !== "mouse";
+    const edge = touch ? TOUCH_EDGE_THRESHOLD : EDGE_THRESHOLD;
+    const minWidth = touch ? MIN_TOUCH_RESIZABLE_WIDTH : MIN_RESIZABLE_WIDTH;
 
-    if (canResize && rect.width >= MIN_RESIZABLE_WIDTH) {
+    if (canResize && rect.width >= minWidth) {
       const relativeX = e.clientX - rect.left;
-      if (relativeX <= EDGE_THRESHOLD) return "left";
-      if (relativeX >= rect.width - EDGE_THRESHOLD) return "right";
+      if (relativeX <= edge) return "left";
+      if (relativeX >= rect.width - edge) return "right";
     }
 
     return canMove ? "bar" : null;
@@ -200,10 +238,43 @@ export function useGanttBarDrag(
     if (!e.isPrimary || e.button !== 0) return;
     // Ignore a second pointer while a drag is already running
     if (dragContextRef.current) return;
+    // A press that was given up to a scroll leaves its abort behind - the primary
+    // pointer can only be down once, so anything still pending belongs to the past
+    pendingGestureRef.current?.();
+    pendingGestureRef.current = null;
 
     const mode = detectDragMode(e);
     if (!mode) return;
+
+    // currentTarget is only valid while the React event is being dispatched
+    const element = e.currentTarget;
+    const { pointerId, pointerType } = e;
+
+    // A mouse press starts the drag now; a touch has to rest first, so a swipe across
+    // a bar still scrolls the timeline
+    pendingGestureRef.current = armPointerGesture(
+      { pointerType, pointerId, clientX: e.clientX, clientY: e.clientY },
+      (clientX) => {
+        pendingGestureRef.current = null;
+        startDrag(mode, pointerId, pointerType, clientX, element);
+      }
+    );
+  };
+
+  const startDrag = (
+    mode: DragMode,
+    pointerId: number,
+    pointerType: string,
+    initialClientX: number,
+    element: HTMLDivElement
+  ) => {
     dragModeRef.current = mode;
+    movedRef.current = false;
+
+    // The bar lives inside the scroll container, so no ref plumbing is needed to find it
+    const scrollEl = element.closest<HTMLElement>(
+      ".gantt-scroll-container"
+    );
 
     // Dragging a summary bar moves its whole subtree by the same delta
     const rawTasks = storeApi.getState().rawTasks;
@@ -253,19 +324,22 @@ export function useGanttBarDrag(
 
     dragContextRef.current = {
       mode,
-      pointerId: e.pointerId,
-      initialClientX: e.clientX,
+      pointerId,
+      initialClientX,
       initialStartDate: dayjs(task.startDate),
       initialEndDate: dayjs(task.endDate),
       initialBarWidth: task.barWidth,
       dragSteps: 0,
       basePxPerDragStep,
+      lastClientX: initialClientX,
+      autoScrollPx: 0,
       scaleKey: selectedScale,
       taskId: task.id,
       taskIds,
       initialDates,
       previewIds: [],
       snapDays: 0,
+      gateToken: null,
       bounds,
       boundedMembers,
       moveDeltaMs: null,
@@ -273,13 +347,29 @@ export function useGanttBarDrag(
     };
 
     storeApi.getState().setCurrentTask(task);
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // A mouse press focuses the bar on its own, a touch does not - without this the
+    // undo shortcut would work after a mouse drag and do nothing after a touch one
+    element.focus({ preventScroll: true });
+    try {
+      element.setPointerCapture(pointerId);
+    } catch {
+      // The pointer is already gone (a touch released as the long press fired) -
+      // pointerup/pointercancel below still tear the drag down
+    }
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
+    // Bars let touch scroll the timeline, so the scroll has to be held off by hand for
+    // as long as this drag owns the finger. No effect on a mouse drag.
+    const releaseTouchScroll =
+      pointerType === "mouse" ? null : suppressTouchScroll();
+
+    // Recomputes the drag from the last known pointer position - called both by pointer
+    // events and by the auto-scroll frames, where the pointer itself never moves
+    const applyMove = () => {
       const ctx = dragContextRef.current;
-      if (!ctx || moveEvent.pointerId !== ctx.pointerId) return;
+      if (!ctx) return;
 
-      const deltaX = moveEvent.clientX - ctx.initialClientX;
+      const deltaX =
+        ctx.lastClientX - ctx.initialClientX + ctx.autoScrollPx;
       const rawSteps = Math.round(deltaX / ctx.basePxPerDragStep);
 
       // Clamp the step count itself so at least one step of width is left
@@ -293,6 +383,15 @@ export function useGanttBarDrag(
 
       if (steps === ctx.dragSteps) return;
       ctx.dragSteps = steps;
+      movedRef.current = true;
+
+      // The lane is claimed the moment the bar actually moves, so a veto still awaiting an
+      // answer for an earlier gesture on this bar knows it has been superseded
+      if (ctx.gateToken === null) {
+        ctx.gateToken = storeApi
+          .getState()
+          .mutationGate.begin(mutationKey("move", ctx.taskId));
+      }
 
       const draggedPx = steps * ctx.basePxPerDragStep;
       const shift = (date: Dayjs) => shiftByDragSteps(date, steps, ctx.scaleKey);
@@ -455,13 +554,90 @@ export function useGanttBarDrag(
       storeApi.getState().setDragOffsets(offsets);
     };
 
+    // ===== Edge auto-scroll =====
+    let autoScrollFrame: number | null = null;
+    let velocity = 0;
+
+    const stopAutoScroll = () => {
+      if (autoScrollFrame !== null) cancelAnimationFrame(autoScrollFrame);
+      autoScrollFrame = null;
+      velocity = 0;
+    };
+
+    /**
+     * Puts back the scrolling this drag caused
+     *
+     * The timeline only followed the bar. When the gesture is discarded - cancelled, or
+     * vetoed after the fact - the bar goes back to where it started, and leaving the
+     * viewport parked where the data never moved to would strand the user looking at
+     * empty timeline. Relative, so a manual scroll during a pending veto still stands,
+     * and so does a range extension's own compensation.
+     */
+    const undoAutoScroll = (ctx: DragContext) => {
+      if (!scrollEl || !ctx.autoScrollPx) return;
+
+      scrollEl.scrollBy({ left: -ctx.autoScrollPx, behavior: "smooth" });
+      ctx.autoScrollPx = 0;
+    };
+
+    const runAutoScroll = () => {
+      autoScrollFrame = null;
+      const ctx = dragContextRef.current;
+      if (!ctx || !scrollEl || velocity === 0) return;
+
+      const before = scrollEl.scrollLeft;
+      scrollEl.scrollLeft = before + velocity;
+      const moved = scrollEl.scrollLeft - before;
+
+      // Nothing moved means the range ends here - keep the loop alive anyway, so the drag
+      // resumes by itself once the range extends
+      if (moved !== 0) {
+        ctx.autoScrollPx += moved;
+        applyMove();
+      }
+
+      autoScrollFrame = requestAnimationFrame(runAutoScroll);
+    };
+
+    const updateAutoScroll = (clientX: number) => {
+      if (optionsRef.current.autoScroll === false || !scrollEl) return;
+
+      // The pinned task list covers the left of the viewport, so the timeline's own left
+      // edge starts where the pane ends
+      const rect = scrollEl.getBoundingClientRect();
+      const gridEl = scrollEl.querySelector<HTMLElement>(".gantt-grid");
+      velocity = edgeScrollVelocity(
+        clientX,
+        rect.left + (gridEl?.offsetWidth ?? 0),
+        rect.right
+      );
+
+      if (velocity === 0) {
+        stopAutoScroll();
+      } else if (autoScrollFrame === null) {
+        autoScrollFrame = requestAnimationFrame(runAutoScroll);
+      }
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const ctx = dragContextRef.current;
+      if (!ctx || moveEvent.pointerId !== ctx.pointerId) return;
+
+      ctx.lastClientX = moveEvent.clientX;
+      updateAutoScroll(moveEvent.clientX);
+      applyMove();
+    };
+
     const detachListeners = () => {
+      stopAutoScroll();
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerup", handlePointerUp);
       document.removeEventListener("pointercancel", handlePointerCancel);
+      releaseTouchScroll?.();
     };
 
     const endDrag = (ctx: DragContext) => {
+      undoAutoScroll(ctx);
       dragContextRef.current = null;
       dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);
@@ -496,7 +672,7 @@ export function useGanttBarDrag(
       const currentRawTasks = storeApi.getState().rawTasks;
       // A clamped move commits the shared delta, so every task in the subtree lands
       // where its preview was; unclamped, it is the plain step shift as before
-      const commit = (date: string) =>
+      const shiftDate = (date: string) =>
         ctx.moveDeltaMs !== null
           ? dayjs(date).add(ctx.moveDeltaMs, "millisecond").toISOString()
           : shiftByDragSteps(dayjs(date), ctx.dragSteps, ctx.scaleKey)
@@ -517,20 +693,20 @@ export function useGanttBarDrag(
           case "bar":
             return {
               ...t,
-              startDate: commit(t.startDate),
-              endDate: commit(t.endDate),
+              startDate: shiftDate(t.startDate),
+              endDate: shiftDate(t.endDate),
             };
 
           case "left":
             return {
               ...t,
-              startDate: clampedStart ?? commit(t.startDate),
+              startDate: clampedStart ?? shiftDate(t.startDate),
             };
 
           case "right":
             return {
               ...t,
-              endDate: clampedEnd ?? commit(t.endDate),
+              endDate: clampedEnd ?? shiftDate(t.endDate),
             };
 
           default:
@@ -538,26 +714,99 @@ export function useGanttBarDrag(
         }
       });
 
-      // One commit: the drag and everything it pushed land in the same array
+      // The engine runs at drop as well as during the preview, so the payload the host
+      // is asked to approve describes the whole cascade, not just the bar that moved
       const draggedDates: DraggedDates = new Map(
         draggedTasks
           .filter((t) => movedIds.has(t.id))
-          .map((t) => [t.id, { start: dayjs(t.startDate), end: dayjs(t.endDate) }])
+          .map((t) => [
+            t.id,
+            { start: dayjs(t.startDate), end: dayjs(t.endDate) },
+          ])
       );
-      const updatedTasks =
-        scheduling && scheduling.policy !== "off"
-          ? reschedule(draggedTasks, draggedDates, scheduling).tasks
-          : draggedTasks;
+      const cascading = scheduling !== undefined && scheduling.policy !== "off";
+      const dropCascade = cascading
+        ? reschedule(draggedTasks, draggedDates, scheduling)
+        : null;
+      const updatedTasks = dropCascade ? dropCascade.tasks : draggedTasks;
 
-      storeApi.getState().setRawTasks(updatedTasks);
-      onTasksChangeRef.current?.(updatedTasks);
+      const change = buildTaskChange({
+        type: ctx.mode === "bar" ? "move" : "resize",
+        taskId: ctx.taskId,
+        changedIds: dropCascade
+          ? [...new Set([...ctx.taskIds, ...dropCascade.movedIds])]
+          : ctx.taskIds,
+        previous: currentRawTasks,
+        next: updatedTasks,
+        edge:
+          ctx.mode === "left" ? "start" : ctx.mode === "right" ? "end" : undefined,
+      });
+
+      // Written against the tasks as they are at commit time, not against the snapshot
+      // taken at drop - another bar may have committed while a veto was in flight
+      const commit = () => {
+        const live = storeApi.getState().rawTasks;
+        // With the engine on, the cascade is recomputed from the live predecessors
+        // rather than replayed: replaying the drop-time result would overwrite an edit
+        // that landed while the veto was in flight. The gesture's own dates are absolute,
+        // so they still land exactly where the user dropped them.
+        const merged = cascading
+          ? reschedule(live, draggedDates, scheduling).tasks
+          : (() => {
+              const edited = new Map(change.changedTasks.map((t) => [t.id, t]));
+              return live.map((t) => edited.get(t.id) ?? t);
+            })();
+
+        // The undo step is recorded here, not at drop: commitTasks diffs against the
+        // same rawTasks the merge above just read, so undo writes back the values that
+        // were really replaced even when another bar committed while a veto was pending.
+        // A rollback or a stale answer never reaches this function, so neither is a step.
+        storeApi.getState().commitTasks(merged);
+        optionsRef.current.onTasksChange?.(merged);
+      };
+
+      // Nothing was written, so dropping the drag offsets puts the bar back where it
+      // started - the reverting flag is only there to make that a transition. The
+      // cascade lived in those offsets too, so its ids revert with the dragged ones.
+      const revertIds = [...new Set([...ctx.taskIds, ...ctx.previewIds])];
+      const rollback = () => {
+        undoAutoScroll(ctx);
+        const state = storeApi.getState();
+        state.beginRevert(revertIds);
+        state.clearDragOffsets(revertIds);
+        setTimeout(
+          () => storeApi.getState().endRevert(revertIds),
+          REVERT_DURATION_MS
+        );
+      };
 
       // dragOffset is deliberately not cleared here - clearing it before the new
       // transformedTasks are computed makes the bar flick back to its old position for
       // one frame. Gantt's timeline recomputation effect clears it along with the new positions.
+      // While a before-handler is pending it is what holds the bar at the dropped position.
       dragContextRef.current = null;
       dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);
+
+      const onBeforeTaskChange = optionsRef.current.onBeforeTaskChange;
+      if (!onBeforeTaskChange || ctx.gateToken === null) {
+        commit();
+        return;
+      }
+
+      void storeApi
+        .getState()
+        .mutationGate.settle(
+          mutationKey("move", ctx.taskId),
+          ctx.gateToken,
+          onBeforeTaskChange,
+          change
+        )
+        .then((outcome) => {
+          if (outcome === "commit") commit();
+          else if (outcome === "rollback") rollback();
+          // 'stale' - a newer gesture owns this bar, so this answer is dropped
+        });
     };
 
     document.addEventListener("pointermove", handlePointerMove);
@@ -565,8 +814,21 @@ export function useGanttBarDrag(
     document.addEventListener("pointercancel", handlePointerCancel);
   };
 
-  return { 
-    onPointerDown, 
-    dragMode: dragModeRef.current 
+  /**
+   * Reports whether the click now arriving is the tail of a drag, and clears the flag
+   *
+   * The browser fires a click after the pointerup that ended a gesture; that click is the
+   * end of the drag, not a selection.
+   */
+  const consumeDragClick = (): boolean => {
+    if (!movedRef.current) return false;
+    movedRef.current = false;
+    return true;
+  };
+
+  return {
+    onPointerDown,
+    dragMode: dragModeRef.current,
+    consumeDragClick,
   };
 }

@@ -34,6 +34,15 @@ export interface Task {
   type?: TaskType;
   /** Progress 0-100 (%) - omitted means no progress display */
   progress?: number;
+  /**
+   * Bar color - any CSS color value
+   *
+   * The progress fill and the hover shade are derived from it, so one value colors the
+   * whole bar. Omitted, the `--gantt-*` theme tokens decide as before.
+   */
+  color?: string;
+  /** Extra class name put on this task's bar and its task-list row */
+  className?: string;
   dependencies?: TaskDependency[];
   /** Blocks every gesture on this task - overrides the chart's `readOnly` prop */
   readOnly?: boolean;
@@ -43,6 +52,10 @@ export interface Task {
   allowResize?: boolean;
   /** Allows/blocks dragging this task's progress handle - overrides both `readOnly` settings */
   allowProgressChange?: boolean;
+  /** Allows/blocks starting a dependency drag from this task - overrides both `readOnly` settings */
+  allowLinkCreate?: boolean;
+  /** Allows/blocks deleting a dependency this task owns - overrides both `readOnly` settings */
+  allowLinkDelete?: boolean;
   /** Earliest date this task may be dragged to (ISO string) - overrides the chart's `minDate` */
   minDate?: string;
   /** Latest date this task may be dragged to (ISO string) - overrides the chart's `maxDate` */

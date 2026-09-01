@@ -14,13 +14,17 @@ import type { Task, TaskDependency } from 'core/types';
  * Chart-wide interaction settings
  *
  * Every field is optional, and a task's own field of the same name wins over it.
- * With nothing set, all three gestures are allowed and there are no drag bounds.
+ * With nothing set, every gesture is allowed and there are no drag bounds - except
+ * drawing new tasks, which needs an `onTaskCreate` callback to go anywhere.
  */
 export interface GanttInteractionConfig {
   readOnly?: boolean;
   allowMove?: boolean;
   allowResize?: boolean;
   allowProgressChange?: boolean;
+  allowLinkCreate?: boolean;
+  allowLinkDelete?: boolean;
+  allowTaskCreate?: boolean;
   minDate?: string;
   maxDate?: string;
 }
@@ -29,6 +33,8 @@ export interface ResolvedTaskInteraction {
   canMove: boolean;
   canResize: boolean;
   canChangeProgress: boolean;
+  canCreateLink: boolean;
+  canDeleteLink: boolean;
   minDate?: string;
   maxDate?: string;
 }
@@ -59,6 +65,8 @@ export function resolveTaskInteraction(
     | 'allowMove'
     | 'allowResize'
     | 'allowProgressChange'
+    | 'allowLinkCreate'
+    | 'allowLinkDelete'
     | 'minDate'
     | 'maxDate'
   > & { isSummary?: boolean },
@@ -85,11 +93,53 @@ export function resolveTaskInteraction(
     canChangeProgress:
       !derived &&
       resolve(task.allowProgressChange, config.allowProgressChange),
+    canCreateLink: resolve(task.allowLinkCreate, config.allowLinkCreate),
+    canDeleteLink: resolve(task.allowLinkDelete, config.allowLinkDelete),
     minDate: task.minDate ?? config.minDate,
     maxDate: task.maxDate ?? config.maxDate,
   };
 }
 
+/**
+ * Whether drawing a new task on empty timeline space is allowed
+ * Chart-wide only - the gesture starts on a row, not on a task
+ */
+export function canCreateTasks(
+  config: GanttInteractionConfig = NO_INTERACTION_CONFIG
+): boolean {
+  return config.allowTaskCreate ?? !config.readOnly;
+}
+
+/**
+ * CSS custom properties a colored bar sets
+ *
+ * Every value is a fallback for a theme token, so an empty object means the CSS
+ * defaults keep deciding - a task without a color renders exactly as before.
+ */
+export interface TaskColorVars {
+  '--gantt-bar-color'?: string;
+  '--gantt-bar-color-hover'?: string;
+  '--gantt-progress-color'?: string;
+}
+
+/**
+ * Resolves a task's color into the variables the stylesheet reads
+ *
+ * Precedence: the task's own `color` wins; a missing or blank one resolves to nothing,
+ * which leaves `--gantt-bar-bg` / `--gantt-progress-bg` (and any host override of them)
+ * in charge. The progress fill and the hover shade are always derived from the bar color
+ * rather than read from a token, so a colored bar never mixes in the theme gray.
+ */
+export function resolveTaskColors(color: string | undefined): TaskColorVars {
+  const base = color?.trim();
+  if (!base) return {};
+
+  return {
+    '--gantt-bar-color': base,
+    '--gantt-bar-color-hover': `color-mix(in srgb, ${base} 86%, #000)`,
+    '--gantt-progress-color': `color-mix(in srgb, ${base} 62%, #000)`,
+  };
+}
 export interface TaskTransformed extends Task {
   barLeft: number;
   barWidth: number;
@@ -120,6 +170,8 @@ export interface TaskTransformed extends Task {
 }
 
 export interface RenderedDependency extends TaskDependency {
+  /** Id of the successor that owns this dependency (`targetId` is the predecessor) */
+  sourceId: string;
   fromX: number;
   fromY: number;
   toX: number;

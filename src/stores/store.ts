@@ -6,6 +6,19 @@ import {
   GanttScaleKey,
 } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
+import {
+  applyPatches,
+  DEFAULT_HISTORY_LIMIT,
+  diffTasks,
+  EMPTY_HISTORY,
+  HistoryStack,
+  limitHistory,
+  popRedo,
+  popUndo,
+  pushHistory,
+} from "utils/history";
+import { LinkAnchor, LinkRejection } from "utils/dependency";
+import { createMutationGate, MutationGate } from "utils/mutation";
 import { createStore } from "zustand";
 
 /** Default key the scale selection is persisted under for the session */
@@ -33,6 +46,34 @@ export function readPersistedScale(
   }
 }
 
+/**
+ * Live state of a dependency drag
+ *
+ * Coordinates are px in the timeline content's space (the same one bars are positioned
+ * in), so the preview line can be drawn straight into the arrow SVG.
+ */
+export interface GanttLinkDraft {
+  /** Task the drag started on - it becomes the predecessor */
+  fromTaskId: string;
+  fromAnchor: LinkAnchor;
+  fromX: number;
+  fromY: number;
+  /** Current pointer position */
+  toX: number;
+  toY: number;
+  /** Task under the pointer, null over empty space */
+  hoverTaskId: string | null;
+  hoverAnchor: LinkAnchor | null;
+  /** Why the hovered task cannot be linked - null when the drop would be accepted */
+  rejection: LinkRejection | null;
+}
+
+/** Identifies one dependency: the successor that owns it and the predecessor it points at */
+export interface GanttDependencyRef {
+  sourceId: string;
+  targetId: string;
+}
+
 export interface GanttState {
   rawTasks: Task[];
   bottomRowCells: GanttBottomRowCell[];
@@ -51,19 +92,55 @@ export interface GanttState {
   exportMode: boolean;
   /** Locale and label formats - undefined means the built-in English labels */
   localeOptions: GanttLocaleOptions | undefined;
+  /** Undo/redo steps, one entry per completed gesture */
+  history: HistoryStack;
+  /** How many undo steps are kept */
+  historyLimit: number;
+  /** Dependency drag in progress - null when none is running */
+  linkDraft: GanttLinkDraft | null;
+  /** Arrow the user clicked, so Delete knows what to remove */
+  selectedDependency: GanttDependencyRef | null;
+  /** The selected row, or null - drives the highlight on the bar and on its grid row */
+  selectedTaskId: string | null;
+  /** Ids whose bar is animating back after a vetoed change */
+  revertingIds: string[];
+  /** Guards before-change handlers that are still in flight (created once, never replaced) */
+  mutationGate: MutationGate;
 
   // Actions
   setSelectedScale: (scale: GanttScaleKey) => void;
   setExportMode: (exportMode: boolean) => void;
   setLocaleOptions: (options: GanttLocaleOptions | undefined) => void;
   setCurrentTask: (task: TaskTransformed | null) => void;
+  /**
+   * Replaces the task data without touching the history
+   *
+   * A user gesture must go through `commitTasks` instead, or it will not be undoable.
+   */
+  setSelectedTaskId: (taskId: string | null) => void;
+  beginRevert: (ids: string[]) => void;
+  endRevert: (ids: string[]) => void;
   setRawTasks: (rawTasks: Task[]) => void;
+  /**
+   * Commits the result of one gesture and records a single undo step for it,
+   * however many tasks it touched
+   */
+  commitTasks: (rawTasks: Task[]) => void;
+  /** Applies the `tasks` prop - a genuine change clears the history, an echo is ignored */
+  syncTasksFromProps: (rawTasks: Task[]) => void;
+  setHistoryLimit: (limit: number) => void;
+  /** Reverts the newest step and returns the resulting tasks, or null when there is none */
+  undo: () => Task[] | null;
+  /** Replays the newest undone step and returns the resulting tasks, or null when there is none */
+  redo: () => Task[] | null;
   setBottomRowCells: (cells: GanttBottomRowCell[]) => void;
   setTransformedTasks: (tasks: TaskTransformed[]) => void;
   /** Update several tasks' offsets at once - dragging a summary bar moves its whole subtree */
   setDragOffsets: (offsets: Record<string, GanttDragOffset>) => void;
   clearDragOffsets: (ids: string[]) => void;
   clearAllDragOffsets: () => void;
+  setLinkDraft: (draft: GanttLinkDraft | null) => void;
+  setSelectedDependency: (dependency: GanttDependencyRef | null) => void;
 
   // Computed selectors
   getCurrentDragOffset: (taskId: string) => GanttDragOffset | null;
@@ -90,12 +167,51 @@ export function createGanttStore(
     dragOffsets: {},
     exportMode: false,
     localeOptions: undefined,
+    history: EMPTY_HISTORY,
+    historyLimit: DEFAULT_HISTORY_LIMIT,
+    linkDraft: null,
+    selectedDependency: null,
+    selectedTaskId: null,
+    revertingIds: [],
+    mutationGate: createMutationGate(),
 
     setCurrentTask: (task) => set({ currentTask: task }),
 
     setExportMode: (exportMode) => set({ exportMode }),
 
+    setLinkDraft: (draft) => set({ linkDraft: draft }),
+
+    setSelectedDependency: (dependency) =>
+      set((state) =>
+        state.selectedDependency?.sourceId === dependency?.sourceId &&
+        state.selectedDependency?.targetId === dependency?.targetId
+          ? state
+          : { selectedDependency: dependency }
+      ),
+
     setLocaleOptions: (options) => set({ localeOptions: options }),
+
+    setSelectedTaskId: (taskId) => {
+      if (get().selectedTaskId === taskId) return;
+      set({ selectedTaskId: taskId });
+    },
+
+    beginRevert: (ids) =>
+      set((state) => {
+        const next = ids.filter((id) => !state.revertingIds.includes(id));
+        return next.length
+          ? { revertingIds: [...state.revertingIds, ...next] }
+          : state;
+      }),
+
+    endRevert: (ids) =>
+      set((state) => {
+        const remove = new Set(ids);
+        const next = state.revertingIds.filter((id) => !remove.has(id));
+        return next.length === state.revertingIds.length
+          ? state
+          : { revertingIds: next };
+      }),
 
     // Session persistence happens only here - with the persist middleware, every store
     // update would write to sessionStorage synchronously, drag frames included
@@ -110,6 +226,60 @@ export function createGanttStore(
     },
 
     setRawTasks: (raw) => set({ rawTasks: raw }),
+
+    // One call per gesture, so one undo step per gesture - a subtree drag that moved
+    // 20 rows commits once and undoes in one press
+    commitTasks: (raw) =>
+      set((state) => {
+        const entry = diffTasks(state.rawTasks, raw);
+        return {
+          rawTasks: raw,
+          // A change no field patch can invert (rows added or removed) would replay
+          // into corrupt data - drop the history rather than store it
+          history: entry
+            ? pushHistory(state.history, entry, state.historyLimit)
+            : EMPTY_HISTORY,
+        };
+      }),
+
+    // The host owns the data, so data it hands in that the chart does not already have
+    // supersedes everything the user did - the steps recorded against the old data no
+    // longer describe these rows. An echo of what the chart just committed is not that,
+    // and leaves the history alone.
+    syncTasksFromProps: (raw) =>
+      set((state) =>
+        JSON.stringify(state.rawTasks) === JSON.stringify(raw)
+          ? state
+          : { rawTasks: raw, history: EMPTY_HISTORY }
+      ),
+
+    setHistoryLimit: (limit) =>
+      set((state) =>
+        state.historyLimit === limit
+          ? state
+          : { historyLimit: limit, history: limitHistory(state.history, limit) }
+      ),
+
+    undo: () => {
+      const state = get();
+      const popped = popUndo(state.history);
+      if (!popped) return null;
+
+      const rawTasks = applyPatches(state.rawTasks, popped.entry, "before");
+      set({ rawTasks, history: popped.stack });
+      return rawTasks;
+    },
+
+    redo: () => {
+      const state = get();
+      const popped = popRedo(state.history);
+      if (!popped) return null;
+
+      const rawTasks = applyPatches(state.rawTasks, popped.entry, "after");
+      set({ rawTasks, history: popped.stack });
+      return rawTasks;
+    },
+
     setBottomRowCells: (cells) => set({ bottomRowCells: cells }),
     setTransformedTasks: (tasks) => set({ transformedTasks: tasks }),
 
