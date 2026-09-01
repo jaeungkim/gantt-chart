@@ -2,9 +2,11 @@ import {
   EDGE_THRESHOLD,
   GANTT_SCALE_CONFIG,
   MIN_RESIZABLE_WIDTH,
+  MIN_TOUCH_RESIZABLE_WIDTH,
+  TOUCH_EDGE_THRESHOLD,
 } from "constants/gantt";
 import { Dayjs } from "dayjs";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useGanttStore, useGanttStoreApi } from "stores/context";
 import {
   GanttDragBounds,
@@ -19,6 +21,7 @@ import {
   TaskTransformed,
 } from "types/task";
 import dayjs from "utils/dayjs";
+import { armPointerGesture, suppressTouchScroll } from "utils/pointerGesture";
 import {
   clampDragDates,
   clampMoveDelta,
@@ -84,8 +87,13 @@ export function useGanttBarDrag(
   const storeApi = useGanttStoreApi();
   const dragContextRef = useRef<DragContext | null>(null);
   const dragModeRef = useRef<DragMode | null>(null);
+  /** Aborts a touch long press that has not lifted the bar yet */
+  const pendingGestureRef = useRef<(() => void) | null>(null);
   const onTasksChangeRef = useRef(onTasksChange);
   onTasksChangeRef.current = onTasksChange;
+
+  // A row scrolled out of view while a finger rests on it must not lift later
+  useEffect(() => () => pendingGestureRef.current?.(), []);
 
   const selectedScale = useGanttStore((s) => s.selectedScale);
   const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
@@ -104,11 +112,16 @@ export function useGanttBarDrag(
     e: React.PointerEvent<HTMLDivElement>
   ): DragMode | null => {
     const rect = e.currentTarget.getBoundingClientRect();
+    // A finger covers far more than a cursor, so its edge zones are wider - and a bar
+    // too short to spare them stays move-only, as it already does for the mouse
+    const touch = e.pointerType !== "mouse";
+    const edge = touch ? TOUCH_EDGE_THRESHOLD : EDGE_THRESHOLD;
+    const minWidth = touch ? MIN_TOUCH_RESIZABLE_WIDTH : MIN_RESIZABLE_WIDTH;
 
-    if (canResize && rect.width >= MIN_RESIZABLE_WIDTH) {
+    if (canResize && rect.width >= minWidth) {
       const relativeX = e.clientX - rect.left;
-      if (relativeX <= EDGE_THRESHOLD) return "left";
-      if (relativeX >= rect.width - EDGE_THRESHOLD) return "right";
+      if (relativeX <= edge) return "left";
+      if (relativeX >= rect.width - edge) return "right";
     }
 
     return canMove ? "bar" : null;
@@ -119,9 +132,36 @@ export function useGanttBarDrag(
     if (!e.isPrimary || e.button !== 0) return;
     // Ignore a second pointer while a drag is already running
     if (dragContextRef.current) return;
+    // A press that was given up to a scroll leaves its abort behind - the primary
+    // pointer can only be down once, so anything still pending belongs to the past
+    pendingGestureRef.current?.();
+    pendingGestureRef.current = null;
 
     const mode = detectDragMode(e);
     if (!mode) return;
+
+    // currentTarget is only valid while the React event is being dispatched
+    const element = e.currentTarget;
+    const { pointerId, pointerType } = e;
+
+    // A mouse press starts the drag now; a touch has to rest first, so a swipe across
+    // a bar still scrolls the timeline
+    pendingGestureRef.current = armPointerGesture(
+      { pointerType, pointerId, clientX: e.clientX, clientY: e.clientY },
+      (clientX) => {
+        pendingGestureRef.current = null;
+        startDrag(mode, pointerId, pointerType, clientX, element);
+      }
+    );
+  };
+
+  const startDrag = (
+    mode: DragMode,
+    pointerId: number,
+    pointerType: string,
+    initialClientX: number,
+    element: HTMLDivElement
+  ) => {
     dragModeRef.current = mode;
 
     // Dragging a summary bar moves its whole subtree by the same delta
@@ -172,8 +212,8 @@ export function useGanttBarDrag(
 
     dragContextRef.current = {
       mode,
-      pointerId: e.pointerId,
-      initialClientX: e.clientX,
+      pointerId,
+      initialClientX,
       initialStartDate: dayjs(task.startDate),
       initialEndDate: dayjs(task.endDate),
       initialBarWidth: task.barWidth,
@@ -190,7 +230,20 @@ export function useGanttBarDrag(
     };
 
     storeApi.getState().setCurrentTask(task);
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // A mouse press focuses the bar on its own, a touch does not - without this the
+    // undo shortcut would work after a mouse drag and do nothing after a touch one
+    element.focus({ preventScroll: true });
+    try {
+      element.setPointerCapture(pointerId);
+    } catch {
+      // The pointer is already gone (a touch released as the long press fired) -
+      // pointerup/pointercancel below still tear the drag down
+    }
+
+    // Bars let touch scroll the timeline, so the scroll has to be held off by hand for
+    // as long as this drag owns the finger. No effect on a mouse drag.
+    const releaseTouchScroll =
+      pointerType === "mouse" ? null : suppressTouchScroll();
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const ctx = dragContextRef.current;
@@ -326,6 +379,7 @@ export function useGanttBarDrag(
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerup", handlePointerUp);
       document.removeEventListener("pointercancel", handlePointerCancel);
+      releaseTouchScroll?.();
     };
 
     const endDrag = (taskIds: string[]) => {
@@ -407,7 +461,8 @@ export function useGanttBarDrag(
         }
       });
 
-      storeApi.getState().setRawTasks(updatedTasks);
+      // One commit for the whole gesture - so a subtree drag is a single undo step
+      storeApi.getState().commitTasks(updatedTasks);
       onTasksChangeRef.current?.(updatedTasks);
 
       // dragOffset is deliberately not cleared here - clearing it before the new

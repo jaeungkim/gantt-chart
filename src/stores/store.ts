@@ -6,6 +6,17 @@ import {
   GanttScaleKey,
 } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
+import {
+  applyPatches,
+  DEFAULT_HISTORY_LIMIT,
+  diffTasks,
+  EMPTY_HISTORY,
+  HistoryStack,
+  limitHistory,
+  popRedo,
+  popUndo,
+  pushHistory,
+} from "utils/history";
 import { createStore } from "zustand";
 
 /** Default key the scale selection is persisted under for the session */
@@ -51,13 +62,34 @@ export interface GanttState {
   exportMode: boolean;
   /** Locale and label formats - undefined means the built-in English labels */
   localeOptions: GanttLocaleOptions | undefined;
+  /** Undo/redo steps, one entry per completed gesture */
+  history: HistoryStack;
+  /** How many undo steps are kept */
+  historyLimit: number;
 
   // Actions
   setSelectedScale: (scale: GanttScaleKey) => void;
   setExportMode: (exportMode: boolean) => void;
   setLocaleOptions: (options: GanttLocaleOptions | undefined) => void;
   setCurrentTask: (task: TaskTransformed | null) => void;
+  /**
+   * Replaces the task data without touching the history
+   *
+   * A user gesture must go through `commitTasks` instead, or it will not be undoable.
+   */
   setRawTasks: (rawTasks: Task[]) => void;
+  /**
+   * Commits the result of one gesture and records a single undo step for it,
+   * however many tasks it touched
+   */
+  commitTasks: (rawTasks: Task[]) => void;
+  /** Applies the `tasks` prop - a genuine change clears the history, an echo is ignored */
+  syncTasksFromProps: (rawTasks: Task[]) => void;
+  setHistoryLimit: (limit: number) => void;
+  /** Reverts the newest step and returns the resulting tasks, or null when there is none */
+  undo: () => Task[] | null;
+  /** Replays the newest undone step and returns the resulting tasks, or null when there is none */
+  redo: () => Task[] | null;
   setBottomRowCells: (cells: GanttBottomRowCell[]) => void;
   setTransformedTasks: (tasks: TaskTransformed[]) => void;
   /** Update several tasks' offsets at once - dragging a summary bar moves its whole subtree */
@@ -90,6 +122,8 @@ export function createGanttStore(
     dragOffsets: {},
     exportMode: false,
     localeOptions: undefined,
+    history: EMPTY_HISTORY,
+    historyLimit: DEFAULT_HISTORY_LIMIT,
 
     setCurrentTask: (task) => set({ currentTask: task }),
 
@@ -110,6 +144,60 @@ export function createGanttStore(
     },
 
     setRawTasks: (raw) => set({ rawTasks: raw }),
+
+    // One call per gesture, so one undo step per gesture - a subtree drag that moved
+    // 20 rows commits once and undoes in one press
+    commitTasks: (raw) =>
+      set((state) => {
+        const entry = diffTasks(state.rawTasks, raw);
+        return {
+          rawTasks: raw,
+          // A change no field patch can invert (rows added or removed) would replay
+          // into corrupt data - drop the history rather than store it
+          history: entry
+            ? pushHistory(state.history, entry, state.historyLimit)
+            : EMPTY_HISTORY,
+        };
+      }),
+
+    // The host owns the data, so data it hands in that the chart does not already have
+    // supersedes everything the user did - the steps recorded against the old data no
+    // longer describe these rows. An echo of what the chart just committed is not that,
+    // and leaves the history alone.
+    syncTasksFromProps: (raw) =>
+      set((state) =>
+        JSON.stringify(state.rawTasks) === JSON.stringify(raw)
+          ? state
+          : { rawTasks: raw, history: EMPTY_HISTORY }
+      ),
+
+    setHistoryLimit: (limit) =>
+      set((state) =>
+        state.historyLimit === limit
+          ? state
+          : { historyLimit: limit, history: limitHistory(state.history, limit) }
+      ),
+
+    undo: () => {
+      const state = get();
+      const popped = popUndo(state.history);
+      if (!popped) return null;
+
+      const rawTasks = applyPatches(state.rawTasks, popped.entry, "before");
+      set({ rawTasks, history: popped.stack });
+      return rawTasks;
+    },
+
+    redo: () => {
+      const state = get();
+      const popped = popRedo(state.history);
+      if (!popped) return null;
+
+      const rawTasks = applyPatches(state.rawTasks, popped.entry, "after");
+      set({ rawTasks, history: popped.stack });
+      return rawTasks;
+    },
+
     setBottomRowCells: (cells) => set({ bottomRowCells: cells }),
     setTransformedTasks: (tasks) => set({ transformedTasks: tasks }),
 

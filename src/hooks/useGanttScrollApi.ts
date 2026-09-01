@@ -1,6 +1,7 @@
 import { Dayjs } from "dayjs";
 import { RefObject, useCallback, useMemo } from "react";
 import { GanttExportApi } from "hooks/useGanttExportApi";
+import { GanttHistoryApi } from "hooks/useGanttHistoryApi";
 import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
 import { TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
@@ -27,7 +28,10 @@ export interface GanttScrollApi {
 }
 
 /** Imperative API exposed through the ref */
-export interface GanttHandle extends GanttScrollApi, GanttExportApi {}
+export interface GanttHandle
+  extends GanttScrollApi,
+    GanttExportApi,
+    GanttHistoryApi {}
 
 interface UseGanttScrollApiParams {
   scrollRef: RefObject<HTMLDivElement | null>;

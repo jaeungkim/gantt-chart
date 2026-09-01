@@ -16,6 +16,7 @@ import {
 } from "react";
 import { Dayjs } from "dayjs";
 import { useGanttExportApi } from "hooks/useGanttExportApi";
+import { useGanttHistoryApi } from "hooks/useGanttHistoryApi";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { GanttHandle, useGanttScrollApi } from "hooks/useGanttScrollApi";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
@@ -26,6 +27,7 @@ import {
   DEFAULT_SCALE_STORAGE_KEY,
   readPersistedScale,
 } from "stores/store";
+import { DEFAULT_HISTORY_LIMIT } from "utils/history";
 import {
   DEFAULT_COLUMN_WIDTH,
   DEFAULT_COLUMNS,
@@ -176,6 +178,12 @@ export interface GanttProps {
   defaultCollapsedIds?: string[];
   /** Called whenever the collapsed state changes - in controlled and uncontrolled mode alike */
   onCollapsedChange?: (collapsedIds: string[]) => void;
+  /**
+   * How many undo steps to keep (default 100)
+   *
+   * One completed gesture is one step, however many bars it moved. 0 turns undo off.
+   */
+  historyLimit?: number;
 }
 
 /**
@@ -230,6 +238,7 @@ function GanttChart({
   collapsedIds,
   defaultCollapsedIds,
   onCollapsedChange,
+  historyLimit = DEFAULT_HISTORY_LIMIT,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -238,7 +247,8 @@ function GanttChart({
     transformedTasks,
     bottomRowCells,
     selectedScale,
-    setRawTasks,
+    syncTasksFromProps,
+    setHistoryLimit,
     setTransformedTasks,
     setBottomRowCells,
     setSelectedScale,
@@ -350,8 +360,15 @@ function GanttChart({
     if (snapshot === syncedTasksRef.current) return;
 
     syncedTasksRef.current = snapshot;
-    setRawTasks(tasks);
-  }, [tasks, setRawTasks]);
+    // A second comparison happens inside, against what the chart currently holds: in
+    // controlled mode the host hands back what onTasksChange just gave it under a new
+    // identity, and that echo must not count as the host replacing the data
+    syncTasksFromProps(tasks);
+  }, [tasks, syncTasksFromProps]);
+
+  useEffect(() => {
+    setHistoryLimit(historyLimit);
+  }, [historyLimit, setHistoryLimit]);
 
   // Interaction settings, passed down to every bar as one object
   const interaction = useMemo<GanttInteractionConfig>(
@@ -468,7 +485,8 @@ function GanttChart({
   // Total width
   const totalWidth = getTotalWidth();
 
-  // Imperative API - scrolling plus PNG export
+  // Imperative API - scrolling, PNG export, undo/redo
+  const { historyApi, onKeyDown } = useGanttHistoryApi(onTasksChange);
   const scrollApi = useGanttScrollApi({
     scrollRef,
     bottomRowCells,
@@ -486,8 +504,21 @@ function GanttChart({
   });
   useImperativeHandle(
     forwardedRef,
-    () => ({ ...scrollApi, ...exportApi }),
-    [scrollApi, exportApi]
+    () => ({
+      ...scrollApi,
+      ...exportApi,
+      undo: historyApi.undo,
+      redo: historyApi.redo,
+      // Getters, not a spread - the handle object outlives any number of gestures,
+      // and a copied boolean would be the value from whenever it was last rebuilt
+      get canUndo() {
+        return historyApi.canUndo;
+      },
+      get canRedo() {
+        return historyApi.canRedo;
+      },
+    }),
+    [scrollApi, exportApi, historyApi]
   );
 
   // initialScrollTo is applied once, when the timeline first becomes ready
@@ -512,6 +543,11 @@ function GanttChart({
       className={containerClassName}
       data-theme={dataTheme}
       style={containerStyle}
+      // Focusable so clicking anywhere in the chart puts the undo shortcut in scope,
+      // and out of the tab order so it does not add a stop to the page.
+      // The handler only ever sees keys pressed inside this chart.
+      tabIndex={-1}
+      onKeyDown={onKeyDown}
     >
       {/* Toolbar */}
       <div className="gantt-toolbar">

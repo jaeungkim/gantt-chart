@@ -112,6 +112,134 @@ describe('setRawTasks', () => {
   });
 });
 
+describe('undo history', () => {
+  const task = (id: string, start: string, parentId: string | null = null) => ({
+    id,
+    name: id,
+    startDate: start,
+    endDate: start,
+    parentId,
+    sequence: id,
+  });
+
+  const subtree = [
+    task('root', '2026-01-01'),
+    task('child-1', '2026-01-01', 'root'),
+    task('child-2', '2026-01-05', 'root'),
+    task('other', '2026-03-01'),
+  ];
+
+  /** What a subtree move commits: every member rewritten in one array */
+  const movedSubtree = subtree.map((t) =>
+    t.id === 'other' ? t : { ...t, startDate: '2026-02-01', endDate: '2026-02-01' }
+  );
+
+  it('records nothing until a gesture happens', () => {
+    store.getState().setRawTasks(subtree);
+
+    expect(store.getState().history).toEqual({ past: [], future: [] });
+    expect(store.getState().undo()).toBeNull();
+    expect(store.getState().redo()).toBeNull();
+  });
+
+  it('groups one gesture into one step, however many tasks it moved', () => {
+    store.getState().setRawTasks(subtree);
+    store.getState().commitTasks(movedSubtree);
+
+    expect(store.getState().history.past).toHaveLength(1);
+
+    const undone = store.getState().undo();
+    expect(undone).toEqual(subtree);
+    expect(store.getState().rawTasks).toEqual(subtree);
+    expect(store.getState().history.past).toHaveLength(0);
+
+    expect(store.getState().redo()).toEqual(movedSubtree);
+    expect(store.getState().rawTasks).toEqual(movedSubtree);
+  });
+
+  it('does not record a gesture that changed nothing', () => {
+    store.getState().setRawTasks(subtree);
+    store.getState().commitTasks(subtree.map((t) => ({ ...t })));
+
+    expect(store.getState().history.past).toEqual([]);
+  });
+
+  it('keeps only the configured number of steps', () => {
+    store.getState().setHistoryLimit(2);
+    store.getState().setRawTasks(subtree);
+
+    for (const day of ['02', '03', '04', '05']) {
+      store
+        .getState()
+        .commitTasks(
+          store
+            .getState()
+            .rawTasks.map((t) =>
+              t.id === 'other' ? { ...t, startDate: `2026-03-${day}` } : t
+            )
+        );
+    }
+
+    expect(store.getState().history.past).toHaveLength(2);
+
+    store.getState().undo();
+    store.getState().undo();
+    expect(store.getState().undo()).toBeNull();
+    // Only the two steps that fit came back - the older ones are gone for good
+    expect(
+      store.getState().rawTasks.find((t) => t.id === 'other')?.startDate
+    ).toBe('2026-03-03');
+  });
+
+  it('drops the redo tail when a new gesture branches the timeline', () => {
+    store.getState().setRawTasks(subtree);
+    store.getState().commitTasks(movedSubtree);
+    store.getState().undo();
+
+    expect(store.getState().history.future).toHaveLength(1);
+
+    store
+      .getState()
+      .commitTasks(
+        subtree.map((t) =>
+          t.id === 'other' ? { ...t, startDate: '2026-04-01' } : t
+        )
+      );
+
+    expect(store.getState().history.future).toEqual([]);
+    expect(store.getState().redo()).toBeNull();
+  });
+
+  it('ignores a prop echo of what the chart already has', () => {
+    store.getState().setRawTasks(subtree);
+    store.getState().commitTasks(movedSubtree);
+
+    // The host storing what onTasksChange handed it and passing it back
+    store.getState().syncTasksFromProps(movedSubtree.map((t) => ({ ...t })));
+
+    expect(store.getState().history.past).toHaveLength(1);
+    expect(store.getState().undo()).toEqual(subtree);
+  });
+
+  it('clears the history when the host replaces the data', () => {
+    store.getState().setRawTasks(subtree);
+    store.getState().commitTasks(movedSubtree);
+
+    store.getState().syncTasksFromProps([task('fresh', '2026-06-01')]);
+
+    expect(store.getState().history).toEqual({ past: [], future: [] });
+    expect(store.getState().undo()).toBeNull();
+  });
+
+  it('drops the history rather than record a step it cannot invert', () => {
+    store.getState().setRawTasks(subtree);
+    store.getState().commitTasks(movedSubtree);
+    store.getState().commitTasks(movedSubtree.slice(1));
+
+    expect(store.getState().history).toEqual({ past: [], future: [] });
+  });
+});
+
 describe('per-instance isolation', () => {
   it('keeps two charts on one page from sharing state', () => {
     stubSessionStorage();

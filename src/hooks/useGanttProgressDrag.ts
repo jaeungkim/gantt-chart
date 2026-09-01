@@ -1,6 +1,7 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useGanttStoreApi } from "stores/context";
 import { normalizeProgress, Task, TaskTransformed } from "types/task";
+import { armPointerGesture, suppressTouchScroll } from "utils/pointerGesture";
 
 /**
  * Progress handle drag hook
@@ -14,6 +15,10 @@ export function useGanttProgressDrag(
   const storeApi = useGanttStoreApi();
   const [liveProgress, setLiveProgress] = useState<number | null>(null);
   const liveProgressRef = useRef<number | null>(null);
+  /** Aborts a touch long press that has not started the drag yet */
+  const pendingGestureRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => pendingGestureRef.current?.(), []);
 
   const percentFromPointer = (clientX: number): number | null => {
     const bar = barRef.current;
@@ -30,6 +35,30 @@ export function useGanttProgressDrag(
     // Blocked so it does not overlap with the bar move drag
     e.stopPropagation();
     e.preventDefault();
+    // A press that was given up to a scroll leaves its abort behind - clear it before
+    // arming the next one, or the handle would never respond again
+    pendingGestureRef.current?.();
+    pendingGestureRef.current = null;
+
+    // Same disambiguation as the bar: a touch has to rest on the handle first, so
+    // scrolling past it does not rewrite the task's progress
+    pendingGestureRef.current = armPointerGesture(
+      {
+        pointerType: e.pointerType,
+        pointerId: e.pointerId,
+        clientX: e.clientX,
+        clientY: e.clientY,
+      },
+      () => {
+        pendingGestureRef.current = null;
+        startDrag(e.pointerType);
+      }
+    );
+  };
+
+  const startDrag = (pointerType: string) => {
+    const releaseTouchScroll =
+      pointerType === "mouse" ? null : suppressTouchScroll();
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const percent = percentFromPointer(moveEvent.clientX);
@@ -43,6 +72,7 @@ export function useGanttProgressDrag(
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerup", handlePointerUp);
       document.removeEventListener("pointercancel", handlePointerUp);
+      releaseTouchScroll?.();
 
       const percent = liveProgressRef.current;
       liveProgressRef.current = null;
@@ -56,7 +86,7 @@ export function useGanttProgressDrag(
           t.id === task.id ? { ...t, progress: percent } : t
         );
 
-      storeApi.getState().setRawTasks(updatedTasks);
+      storeApi.getState().commitTasks(updatedTasks);
       onTasksChange?.(updatedTasks);
     };
 
