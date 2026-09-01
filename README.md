@@ -18,6 +18,8 @@ Currently, this project is built specifically for React due to my development ba
 
 ## ✨ Features
 
+- 📆 Six timeline scales: Hour, Day, Week, Month, Quarter, Year
+- 🌏 Any locale through `Intl` (no locale packages), with per-scale label overrides
 - 📋 Task list pane with configurable columns, a draggable splitter, and a collapse toggle
 - 🌳 Arbitrary-depth tree from `parentId`: expand/collapse, summary bars, subtree drag
 - 📆 Multiple timeline scales: Day, Week, Month, Year
@@ -97,13 +99,16 @@ export default function App() {
 | `height` | `number \| string` | `600` | Chart height (px or CSS value) |
 | `width` | `number \| string` | `"100%"` | Chart width (px or CSS value) |
 | `theme` | `"light" \| "dark" \| "system"` | - | Theme mode |
-| `defaultScale` | `"day" \| "week" \| "month" \| "year"` | `"month"` | Initial timeline scale |
+| `defaultScale` | `GanttScaleKey` | `"month"` | Initial timeline scale — `"hour"`, `"day"`, `"week"`, `"month"`, `"quarter"` or `"year"` |
 | `className` | `string` | - | Additional CSS class for the container |
 | `showNonWorkingDays` | `boolean` | `true` | Shade weekends and holidays at day/week scales |
 | `holidays` | `string[]` | - | Extra non-working dates, `YYYY-MM-DD` |
 | `isNonWorkingDay` | `(date: Dayjs) => boolean` | - | Replaces the default weekend/holiday check entirely |
 | `initialScrollTo` | `"today" \| string` | - | Scroll here once after the first render |
 | `storageKey` | `string` | `"gantt-scale"` | sessionStorage key for the scale. Give each chart its own key when rendering more than one on a page. |
+| `locale` | `string` | - | BCP 47 tag for every date label, e.g. `"ko-KR"` ([i18n](#i18n-and-date-formats)) |
+| `formats` | `GanttFormatOverrides` | - | Per-scale label overrides |
+| `firstDayOfWeek` | `number` | - | 0 = Sunday .. 6 = Saturday. Set it to group the week scale's header by week |
 | `showTaskList` | `boolean` | - | Show the task list pane. Omitted, the pane appears only when `columns` is given |
 | `columns` | `GanttColumn[]` | Name / Start / End | Task list columns. Every header label and cell body comes from here |
 | `hierarchy` | `boolean` | `false` | Turn on the `parentId` tree: indentation, expanders, summary bars, subtree drag |
@@ -249,14 +254,93 @@ long) would make a one-day drag land an hour off the day it was dropped on.
 
 ## Timeline Scales
 
-| Scale | Header Label | Tick Unit | Drag Step |
-|-------|-------------|-----------|-----------|
-| `day` | Day | Hour | 1 hour |
-| `week` | Week | Day | 6 hours |
-| `month` | Month | Day | 1 day |
-| `year` | Year | Month | 7 days |
+Six scales, finest first. The top header row groups the ticks; the bottom row is one label
+per tick. Drag steps are what a bar snaps to while it is moved or resized.
 
-Switch scales using the dropdown at the top-right of the chart.
+| Scale | Top row (example) | Tick (example) | Tick width | Drag step |
+|-------|-------------------|----------------|-----------:|-----------|
+| `hour` | Day — `Sep 1, 2025` | Hour — `15:00` | 120px | 15 minutes |
+| `day` | Day — `Sep 1, 2025` | Hour — `15` | 32px | 1 hour |
+| `week` | Month — `Sep 2025` | Day — `1` | 216px | 6 hours |
+| `month` | Month — `Sep 2025` | Day — `1` | 32px | 1 day |
+| `quarter` | Quarter — `Q3 2025` | Month — `Sep` | ~240px | 3 days |
+| `year` | Year — `2025` | Month — `Sep` | ~120px | 7 days |
+
+Hour and day both tick once an hour: the hour scale is four times as wide and drags in
+quarter-hours, the day scale is the compact overview. Quarter and year both tick once a
+month, and the quarter scale is twice as wide. Month cells are sized by the real length of
+the month, so tick widths there are approximate.
+
+Switch scales with the segmented control at the top-right of the chart. The choice is kept
+in `sessionStorage` (see `storageKey`).
+
+The bottom row is column-virtualized, so a long range at hour granularity stays cheap: 150
+days of tasks is 3,762 hour cells, of which about 25 are in the DOM at a time.
+
+## i18n and date formats
+
+Pass a `locale` and every label — tick, header and drag tooltip — is rendered with
+`Intl.DateTimeFormat`. Nothing to install: the browser already ships the locale data, so
+there are no dayjs locale packages and no bundle cost per language.
+
+```tsx
+<ReactGanttChart tasks={tasks} locale="ko-KR" firstDayOfWeek={1} />
+```
+
+| Scale | `locale` unset (default) | `"en-US"` | `"ko-KR"` |
+|-------|--------------------------|-----------|-----------|
+| `hour` | `Sep 1, 2025` / `15:00` | `Sep 1, 2025` / `15:00` | `2025년 9월 1일` / `15:00` |
+| `day` | `Sep 1, 2025` / `15` | `Sep 1, 2025` / `15` | `2025년 9월 1일` / `15시` |
+| `week`, `month` | `Sep 2025` / `1` | `Sep 2025` / `1` | `2025년 9월` / `1일` |
+| `quarter` | `Q3 2025` / `Sep` | `Q3 2025` / `Sep` | `2025년 Q3` / `9월` |
+| `year` | `2025` / `Sep` | `2025` / `Sep` | `2025년` / `9월` |
+
+**Leaving `locale` out changes nothing** — the labels are the built-in English ones, byte
+for byte, and no `Intl` formatter is created. A malformed tag falls back to them and warns
+once instead of breaking the chart.
+
+Labels are always rendered in UTC, matching the grid (see [Time zone](#time-zone)).
+
+### Per-scale overrides
+
+`formats` replaces individual labels and wins over `locale`. `Intl` exposes no quarter
+field, so the built-in quarter header is `Q3 2025` (`2025년 Q3` in Korean) — this is the
+place to make it idiomatic:
+
+```tsx
+import { ReactGanttChart } from '@jaeungkim/gantt-chart';
+
+<ReactGanttChart
+  tasks={tasks}
+  locale="ko-KR"
+  firstDayOfWeek={1}
+  formats={{
+    // 2025년 3분기
+    quarter: { header: (d) => `${d.year()}년 ${Math.floor(d.month() / 3) + 1}분기` },
+    // 9/1 instead of 1일
+    week: { tick: (d) => d.format('M/D') },
+  }}
+/>;
+```
+
+Each scale takes `tick` (bottom row), `header` (top row) and `tooltip` (drag tooltip and
+guides); anything left out keeps the locale's label. The `Dayjs` passed in is in UTC mode.
+
+### First day of the week
+
+`firstDayOfWeek` (0 = Sunday .. 6 = Saturday) groups the **week scale's** top header by
+week instead of by month, labelling each group with its first day:
+
+```tsx
+<ReactGanttChart tasks={tasks} firstDayOfWeek={1} />
+// week scale headers: Sep 1, 2025 | Sep 8, 2025 | Sep 15, 2025 ...
+```
+
+Left out, the week scale keeps grouping by month. It is the only setting that changes week
+boundaries; weekend shading is Saturday/Sunday regardless (override it with
+`isNonWorkingDay`).
+
+The scale selector's own button text (`hour`, `day`, ...) is not localized yet.
 
 ## Theming
 
