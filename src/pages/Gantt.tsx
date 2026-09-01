@@ -15,6 +15,7 @@ import {
   useState,
 } from "react";
 import { Dayjs } from "dayjs";
+import { useGanttExportApi } from "hooks/useGanttExportApi";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { GanttHandle, useGanttScrollApi } from "hooks/useGanttScrollApi";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
@@ -464,7 +465,10 @@ function GanttChart({
     selectedScale,
   ]);
 
-  // Imperative scroll API
+  // Total width
+  const totalWidth = getTotalWidth();
+
+  // Imperative API - scrolling plus PNG export
   const scrollApi = useGanttScrollApi({
     scrollRef,
     bottomRowCells,
@@ -473,7 +477,18 @@ function GanttChart({
     rowHeight: NODE_HEIGHT,
     viewportInsetPx: gridInset,
   });
-  useImperativeHandle(forwardedRef, () => scrollApi, [scrollApi]);
+  const exportApi = useGanttExportApi({
+    scrollRef,
+    bottomRowCells,
+    selectedScale,
+    taskCount: transformedTasks.length,
+    totalWidth,
+  });
+  useImperativeHandle(
+    forwardedRef,
+    () => ({ ...scrollApi, ...exportApi }),
+    [scrollApi, exportApi]
+  );
 
   // initialScrollTo is applied once, when the timeline first becomes ready
   const didInitialScrollRef = useRef(false);
@@ -485,9 +500,6 @@ function GanttChart({
     const target = initialScrollTo === "today" ? dayjs() : initialScrollTo;
     scrollApi.scrollToDate(target, { smooth: false });
   }, [initialScrollTo, bottomRowCells, scrollApi]);
-
-  // Total width
-  const totalWidth = getTotalWidth();
 
   // Computed styles
   const containerStyle = {
