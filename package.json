@@ -56,29 +56,36 @@
     "react-dom": "^18.0.0 || ^19.0.0"
   },
   "dependencies": {
-    "@tanstack/react-virtual": "^3.13.6",
-    "dayjs": "^1.11.13",
-    "zustand": "^5.0.3"
+    "@tanstack/react-virtual": "^3.14.10",
+    "dayjs": "^1.11.23",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@eslint/js": "^9.21.0",
-    "@types/node": "^22.13.7",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "@vitejs/plugin-react": "^4.3.4",
-    "eslint": "^9.21.0",
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.5",
     "globals": "^15.15.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "typescript": "~5.7.2",
-    "typescript-eslint": "^8.24.1",
-    "vite": "^6.2.3",
-    "vite-plugin-dts": "^5.0.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "~5.7.3",
+    "typescript-eslint": "^8.69.0",
+    "vite": "^6.4.3",
+    "vite-plugin-dts": "^5.1.0",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.11"
   },
-  "packageManager": "pnpm@10.30.3"
+  "packageManager": "pnpm@10.30.3",
+  "pnpm": {
+    "overrides": {
+      "@rushstack/node-core-library>ajv": ">=8.18.0",
+      "@microsoft/api-extractor>lodash": ">=4.18.0",
+      "@microsoft/api-extractor>minimatch": ">=10.2.3"
+    }
+  }
 }
