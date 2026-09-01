@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import dayjs from 'utils/dayjs';
+import dayjs from 'core/dates';
 import {
   resolveCanvasScale,
   resolveExportRangePx,

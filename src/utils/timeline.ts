@@ -2,19 +2,24 @@ import { GANTT_SCALE_CONFIG, TIMELINE_SHIFT_BUFFER } from "constants/gantt";
 import { Dayjs } from "dayjs";
 import {
   GanttBottomRowCell,
+  GanttDateRange,
   GanttDragBounds,
   GanttDragMode,
   GanttLabelUnit,
   GanttLocaleOptions,
+  GanttMarker,
+  GanttRangeBand,
+  GanttRangeExtension,
   GanttScaleKey,
   GanttTopHeaderGroup,
   GanttVisibleRange,
 } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
-import dayjs, { startOfQuarter, startOfWeek } from "utils/dayjs";
+import dayjs, { startOfQuarter, startOfWeek } from "core/dates";
 import { resolveFormatters, resolveLabelUnit } from "utils/i18n";
+import { NO_RANGE_EXTENSION } from "utils/viewport";
 import { transformTasks } from "./transformData";
-import { buildTaskTree, rollUpTasks } from "./tree";
+import { buildTaskTree, rollUpTasks } from "core/tree";
 
 export interface TimelineData {
   bottomCells: GanttBottomRowCell[];
@@ -317,6 +322,203 @@ export function calculateDateOffsetPx(
   return null;
 }
 
+/**
+ * Date sitting at a px offset along the timeline - the inverse of calculateDateOffsetPx
+ * Returns null when the offset falls outside the rendered range
+ *
+ * Used to remember what the cursor was pointing at before a zoom, so the same date can be
+ * put back under it afterwards.
+ */
+export function dateAtOffsetPx(
+  offsetPx: number,
+  timelineTicks: GanttBottomRowCell[],
+  scaleKey: GanttScaleKey
+): Dayjs | null {
+  if (!timelineTicks.length || offsetPx < 0) return null;
+
+  const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];
+
+  let offset = 0;
+  for (const tick of timelineTicks) {
+    if (offsetPx < offset + tick.widthPx) {
+      const startMs = tick.startDate.valueOf();
+      const tickMs = tick.startDate.add(unitPerTick, tickUnit).valueOf() - startMs;
+      const ratio = tick.widthPx > 0 ? (offsetPx - offset) / tick.widthPx : 0;
+      return dayjs(startMs + ratio * tickMs);
+    }
+    offset += tick.widthPx;
+  }
+
+  return null;
+}
+
+/** First and last moment the rendered ticks cover (null for an empty timeline) */
+export function timelineRange(
+  timelineTicks: GanttBottomRowCell[],
+  scaleKey: GanttScaleKey
+): GanttDateRange | null {
+  if (!timelineTicks.length) return null;
+
+  const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];
+  const last = timelineTicks[timelineTicks.length - 1];
+
+  return {
+    start: timelineTicks[0].startDate,
+    end: last.startDate.add(unitPerTick, tickUnit),
+  };
+}
+
+/** A marker placed on the timeline, with the overrun check already resolved */
+export interface PositionedMarker {
+  marker: GanttMarker;
+  leftPx: number;
+  /** A task covered by the marker ends past its date */
+  overrun: boolean;
+}
+
+/**
+ * Places markers on the timeline, dropping the ones outside the rendered range
+ *
+ * `warnOnOverrun` markers report whether a task ends past their date - every task, or
+ * only the ones named in `taskIds`.
+ */
+export function computeMarkerOffsets(
+  markers: GanttMarker[],
+  timelineTicks: GanttBottomRowCell[],
+  scaleKey: GanttScaleKey,
+  tasks: Pick<Task, "id" | "endDate">[] = []
+): PositionedMarker[] {
+  const placed: PositionedMarker[] = [];
+
+  for (const marker of markers) {
+    const date = dayjs(marker.date);
+    if (!date.isValid()) continue;
+
+    const leftPx = calculateDateOffsetPx(date, timelineTicks, scaleKey);
+    if (leftPx === null) continue;
+
+    const time = date.valueOf();
+    const overrun =
+      marker.warnOnOverrun === true &&
+      tasks.some(
+        (task) =>
+          (!marker.taskIds || marker.taskIds.includes(task.id)) &&
+          dayjs(task.endDate).valueOf() > time
+      );
+
+    placed.push({ marker, leftPx, overrun });
+  }
+
+  return placed;
+}
+
+/** A range band placed on the timeline */
+export interface PositionedBand {
+  band: GanttRangeBand;
+  leftPx: number;
+  widthPx: number;
+}
+
+/** Index of the tick a px offset falls in, clamped to the timeline */
+function tickIndexAt(
+  px: number,
+  timelineTicks: GanttBottomRowCell[]
+): number {
+  if (px <= 0) return 0;
+
+  let offset = 0;
+  for (let index = 0; index < timelineTicks.length; index++) {
+    offset += timelineTicks[index].widthPx;
+    if (px < offset) return index;
+  }
+
+  return timelineTicks.length - 1;
+}
+
+export interface DrawnRange {
+  startDate: Dayjs;
+  endDate: Dayjs;
+  /** Where the snapped range sits on the timeline - the ghost bar's box (px) */
+  leftPx: number;
+  widthPx: number;
+}
+
+/**
+ * Places range bands on the timeline, dropping the ones that miss the rendered range
+ * entirely (a band that only overlaps it is clipped to the part that is on screen)
+ */
+export function computeBandRects(
+  bands: GanttRangeBand[],
+  timelineTicks: GanttBottomRowCell[],
+  scaleKey: GanttScaleKey
+): PositionedBand[] {
+  const range = timelineRange(timelineTicks, scaleKey);
+  if (!range) return [];
+
+  const rangeStart = range.start.valueOf();
+  const rangeEnd = range.end.valueOf();
+  const placed: PositionedBand[] = [];
+
+  for (const band of bands) {
+    const start = dayjs(band.startDate);
+    const end = dayjs(band.endDate);
+    if (!start.isValid() || !end.isValid()) continue;
+
+    // Outside the range, or inverted - calculateDateOffsets would draw a 1px sliver at the origin
+    if (end.valueOf() <= rangeStart || start.valueOf() >= rangeEnd) continue;
+    if (end.valueOf() <= start.valueOf()) continue;
+
+    const { barMarginLeftAmount, barWidthSize } = calculateDateOffsets(
+      start,
+      end,
+      timelineTicks,
+      scaleKey
+    );
+
+    placed.push({ band, leftPx: barMarginLeftAmount, widthPx: barWidthSize });
+  }
+
+  return placed;
+}
+
+/**
+ * Turns a range drawn on the timeline into dates snapped to the current scale
+ *
+ * Both arguments are px from the timeline's left edge - the same coordinates the bars
+ * are positioned in. The range snaps outwards to the ticks the two ends landed on, so the
+ * proposed task lines up with the columns on screen, and a range that stays inside one
+ * tick still comes out one tick long. Null when the timeline has no cells.
+ */
+export function snapDrawnRange(
+  startPx: number,
+  endPx: number,
+  timelineTicks: GanttBottomRowCell[],
+  scaleKey: GanttScaleKey
+): DrawnRange | null {
+  if (!timelineTicks.length) return null;
+
+  const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];
+  const firstTick = tickIndexAt(Math.min(startPx, endPx), timelineTicks);
+  const lastTick = tickIndexAt(Math.max(startPx, endPx), timelineTicks);
+
+  let leftPx = 0;
+  for (let index = 0; index < firstTick; index++) {
+    leftPx += timelineTicks[index].widthPx;
+  }
+
+  let widthPx = 0;
+  for (let index = firstTick; index <= lastTick; index++) {
+    widthPx += timelineTicks[index].widthPx;
+  }
+
+  return {
+    startDate: timelineTicks[firstTick].startDate,
+    endDate: timelineTicks[lastTick].startDate.add(unitPerTick, tickUnit),
+    leftPx,
+    widthPx,
+  };
+}
+
 function findDateRangeFromTasks(
   tasks: Task[]
 ): { minDate: Dayjs; maxDate: Dayjs } {
@@ -324,11 +526,18 @@ function findDateRangeFromTasks(
   let maxTime = -Infinity;
 
   for (const task of tasks) {
-    const start = dayjs(task.startDate).valueOf();
-    const end = dayjs(task.endDate).valueOf();
+    // Baselines count too - one that sits outside the live bar would otherwise be clipped
+    const starts = [task.startDate, task.baselineStart];
+    const ends = [task.endDate, task.baselineEnd];
 
-    if (!Number.isNaN(start)) minTime = Math.min(minTime, start);
-    if (!Number.isNaN(end)) maxTime = Math.max(maxTime, end);
+    for (const value of starts) {
+      const time = value ? dayjs(value).valueOf() : NaN;
+      if (!Number.isNaN(time)) minTime = Math.min(minTime, time);
+    }
+    for (const value of ends) {
+      const time = value ? dayjs(value).valueOf() : NaN;
+      if (!Number.isNaN(time)) maxTime = Math.max(maxTime, time);
+    }
   }
 
   return {
@@ -340,15 +549,22 @@ function findDateRangeFromTasks(
 function padDateRange(
   minDate: Dayjs,
   maxDate: Dayjs,
-  selectedScale: GanttScaleKey
+  selectedScale: GanttScaleKey,
+  extension: GanttRangeExtension
 ): { paddedMinDate: Dayjs; paddedMaxDate: Dayjs } {
   const config = GANTT_SCALE_CONFIG[selectedScale];
   const { tickUnit, unitPerTick } = config;
   const bufferAmount = TIMELINE_SHIFT_BUFFER * unitPerTick;
 
   return {
-    paddedMinDate: minDate.subtract(bufferAmount, tickUnit),
-    paddedMaxDate: maxDate.add(bufferAmount, tickUnit),
+    paddedMinDate: minDate.subtract(
+      bufferAmount + extension.before * unitPerTick,
+      tickUnit
+    ),
+    paddedMaxDate: maxDate.add(
+      bufferAmount + extension.after * unitPerTick,
+      tickUnit
+    ),
   };
 }
 
@@ -389,7 +605,7 @@ function createBottomRowCells(
 
 /**
  * First moment of the group a cell belongs to
- * 'quarter' and 'week' are not dayjs units of their own - see utils/dayjs
+ * 'quarter' and 'week' are not dayjs units of their own - see core/dates
  */
 function groupStartDate(
   date: Dayjs,
@@ -459,12 +675,17 @@ export function createTopHeaderGroups(
  * With hierarchy on, a parentId tree is built and parents are recomputed as summary rows.
  * (Rolled up before the range is computed so dates derived from children also widen an
  *  auto-fitted timeline)
+ *
+ * `extension` widens the auto-fitted range beyond the usual buffer - that is how scrolling
+ * past an edge grows the timeline instead of hitting a wall. An end pinned by
+ * `visibleRange` is left exactly where the host put it.
  */
 export function computeTimelineData(
   rawTasks: Task[],
   selectedScale: GanttScaleKey,
   visibleRange?: GanttVisibleRange,
-  hierarchy = false
+  hierarchy = false,
+  extension: GanttRangeExtension = NO_RANGE_EXTENSION
 ): TimelineData {
   const fixedStart = visibleRange?.start;
   const fixedEnd = visibleRange?.end;
@@ -487,7 +708,8 @@ export function computeTimelineData(
     const { paddedMinDate, paddedMaxDate } = padDateRange(
       minDate,
       maxDate,
-      selectedScale
+      selectedScale,
+      extension
     );
     rangeStart = rangeStart ?? paddedMinDate;
     rangeEnd = rangeEnd ?? paddedMaxDate;

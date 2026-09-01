@@ -1,50 +1,30 @@
-export type TaskType = 'task' | 'milestone';
+// The data model lives in the headless core; this module adds the render-side types.
+export { isMilestoneTask, normalizeProgress } from 'core/types';
+export type {
+  DependencyType,
+  Task,
+  TaskDependency,
+  TaskType,
+} from 'core/types';
 
-export interface Task {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  parentId: string | null;
-  sequence: string;
-  /** Task kind - 'milestone' renders as a diamond at startDate (default 'task') */
-  type?: TaskType;
-  /** Progress 0-100 (%) - omitted means no progress display */
-  progress?: number;
-  /**
-   * Swimlane this task shares a row with
-   *
-   * Tasks with the same lane (inside the same group) are drawn side by side on one
-   * row; overlapping ones stack onto extra rows automatically. Omitted, the task
-   * gets a row of its own as before.
-   */
-  lane?: string;
-  dependencies?: TaskDependency[];
-  /** Blocks every gesture on this task - overrides the chart's `readOnly` prop */
-  readOnly?: boolean;
-  /** Allows/blocks moving this task - overrides both `readOnly` settings */
-  allowMove?: boolean;
-  /** Allows/blocks resizing this task - overrides both `readOnly` settings */
-  allowResize?: boolean;
-  /** Allows/blocks dragging this task's progress handle - overrides both `readOnly` settings */
-  allowProgressChange?: boolean;
-  /** Earliest date this task may be dragged to (ISO string) - overrides the chart's `minDate` */
-  minDate?: string;
-  /** Latest date this task may be dragged to (ISO string) - overrides the chart's `maxDate` */
-  maxDate?: string;
-}
+import { isMilestoneTask } from 'core/types';
+import type { Task, TaskDependency } from 'core/types';
 
 /**
  * Chart-wide interaction settings
  *
  * Every field is optional, and a task's own field of the same name wins over it.
- * With nothing set, all three gestures are allowed and there are no drag bounds.
+ * With nothing set, every gesture is allowed and there are no drag bounds - except
+ * drawing new tasks, which needs an `onTaskCreate` callback to go anywhere.
  */
 export interface GanttInteractionConfig {
   readOnly?: boolean;
   allowMove?: boolean;
   allowResize?: boolean;
   allowProgressChange?: boolean;
+  allowLinkCreate?: boolean;
+  allowLinkDelete?: boolean;
+  allowTaskCreate?: boolean;
   minDate?: string;
   maxDate?: string;
 }
@@ -53,6 +33,8 @@ export interface ResolvedTaskInteraction {
   canMove: boolean;
   canResize: boolean;
   canChangeProgress: boolean;
+  canCreateLink: boolean;
+  canDeleteLink: boolean;
   minDate?: string;
   maxDate?: string;
 }
@@ -83,6 +65,8 @@ export function resolveTaskInteraction(
     | 'allowMove'
     | 'allowResize'
     | 'allowProgressChange'
+    | 'allowLinkCreate'
+    | 'allowLinkDelete'
     | 'minDate'
     | 'maxDate'
   > & { isSummary?: boolean },
@@ -109,27 +93,53 @@ export function resolveTaskInteraction(
     canChangeProgress:
       !derived &&
       resolve(task.allowProgressChange, config.allowProgressChange),
+    canCreateLink: resolve(task.allowLinkCreate, config.allowLinkCreate),
+    canDeleteLink: resolve(task.allowLinkDelete, config.allowLinkDelete),
     minDate: task.minDate ?? config.minDate,
     maxDate: task.maxDate ?? config.maxDate,
   };
 }
 
-export function isMilestoneTask(task: Pick<Task, 'type'>): boolean {
-  return task.type === 'milestone';
+/**
+ * Whether drawing a new task on empty timeline space is allowed
+ * Chart-wide only - the gesture starts on a row, not on a task
+ */
+export function canCreateTasks(
+  config: GanttInteractionConfig = NO_INTERACTION_CONFIG
+): boolean {
+  return config.allowTaskCreate ?? !config.readOnly;
 }
 
-/** Normalizes progress into the 0-100 range; null when the value is missing or invalid */
-export function normalizeProgress(progress: number | undefined): number | null {
-  if (typeof progress !== 'number' || Number.isNaN(progress)) return null;
-  return Math.min(100, Math.max(0, progress));
+/**
+ * CSS custom properties a colored bar sets
+ *
+ * Every value is a fallback for a theme token, so an empty object means the CSS
+ * defaults keep deciding - a task without a color renders exactly as before.
+ */
+export interface TaskColorVars {
+  '--gantt-bar-color'?: string;
+  '--gantt-bar-color-hover'?: string;
+  '--gantt-progress-color'?: string;
 }
 
-export interface TaskDependency {
-  targetId: string;
-  type: DependencyType;
-}
+/**
+ * Resolves a task's color into the variables the stylesheet reads
+ *
+ * Precedence: the task's own `color` wins; a missing or blank one resolves to nothing,
+ * which leaves `--gantt-bar-bg` / `--gantt-progress-bg` (and any host override of them)
+ * in charge. The progress fill and the hover shade are always derived from the bar color
+ * rather than read from a token, so a colored bar never mixes in the theme gray.
+ */
+export function resolveTaskColors(color: string | undefined): TaskColorVars {
+  const base = color?.trim();
+  if (!base) return {};
 
-export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
+  return {
+    '--gantt-bar-color': base,
+    '--gantt-bar-color-hover': `color-mix(in srgb, ${base} 86%, #000)`,
+    '--gantt-progress-color': `color-mix(in srgb, ${base} 62%, #000)`,
+  };
+}
 export interface TaskTransformed extends Task {
   barLeft: number;
   barWidth: number;
@@ -144,11 +154,28 @@ export interface TaskTransformed extends Task {
    */
   isSummary?: boolean;
   dependencies?: TaskDependency[];
+  /** Baseline bar geometry - present only when the task carries baseline dates */
+  baselineLeft?: number;
+  baselineWidth?: number;
+  /** CPM outputs - present only while the `criticalPath` prop is on (read-only) */
+  earlyStart?: string;
+  earlyFinish?: string;
+  lateStart?: string;
+  lateFinish?: string;
+  totalSlack?: number;
+  freeSlack?: number;
+  critical?: boolean;
+  /** Duration in calendar days, or working days when the working-day calendar is on */
+  duration?: number;
 }
 
 export interface RenderedDependency extends TaskDependency {
+  /** Id of the successor that owns this dependency (`targetId` is the predecessor) */
+  sourceId: string;
   fromX: number;
   fromY: number;
   toX: number;
   toY: number;
+  /** True when this link sits on the critical path */
+  critical?: boolean;
 }

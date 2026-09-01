@@ -2,11 +2,18 @@ import { VirtualItem } from "@tanstack/react-virtual";
 import {
   DEFAULT_COLUMN_WIDTH,
   HEADER_HEIGHT,
+  NODE_HEIGHT,
   TREE_INDENT,
 } from "constants/gantt";
-import { ReactNode } from "react";
-import { GanttColumn } from "types/gantt";
-import { TaskTransformed } from "types/task";
+import { useGanttRowDrag } from "hooks/useGanttRowDrag";
+import { ReactNode, useRef } from "react";
+import { GanttColumn, GanttReorderChange } from "types/gantt";
+import {
+  GanttInteractionConfig,
+  resolveTaskInteraction,
+  Task,
+  TaskTransformed,
+} from "types/task";
 import { GanttFocus, rowAriaProps } from "utils/a11y";
 import { GanttRow } from "utils/grouping";
 
@@ -23,6 +30,16 @@ interface GanttTaskGridProps {
   onToggleCollapse: (rowId: string) => void;
   /** Which cell currently holds the chart's single tab stop */
   focus: GanttFocus;
+  /** Whether rows can be dragged to reorder and re-parent */
+  allowRowReorder: boolean;
+  /** The same guards the bars use - a row is draggable only where the task can move */
+  interaction: GanttInteractionConfig;
+  onReorder?: (change: GanttReorderChange) => void | boolean;
+  onTasksChange?: (updatedTasks: Task[]) => void;
+  /** The selected row, highlighted in step with its bar */
+  selectedTaskId?: string | null;
+  onRowClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
+  onRowDoubleClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
 }
 
 /** Without a render, task[key] is shown as-is */
@@ -62,9 +79,37 @@ export default function GanttTaskGrid({
   collapsedIds,
   onToggleCollapse,
   focus,
+  allowRowReorder,
+  interaction,
+  onReorder,
+  onTasksChange,
+  selectedTaskId,
+  onRowClick,
+  onRowDoubleClick,
 }: GanttTaskGridProps) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  // Row ids are task ids only while every row is one task: a group header is not a task
+  // and a lane row carries several, so reordering has nothing single to move
+  const reorderable = rows.every((row) => !row.group && row.tasks.length === 1);
+  const { onRowPointerDown, dragState } = useGanttRowDrag({
+    rows,
+    bodyRef,
+    enabled: allowRowReorder && reorderable,
+    onReorder,
+    onTasksChange,
+  });
+  const dropTarget = dragState?.target ?? null;
+
+  const gridClassName = ["gantt-grid", dragState ? "row-dragging" : ""]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className="gantt-grid" style={{ width: `${width}px` }} role="presentation">
+    <div
+      className={gridClassName}
+      style={{ width: `${width}px` }}
+      role="presentation"
+    >
       {/* Header - has to be exactly as tall as the timeline header or the rows shift */}
       <div
         className="gantt-grid-header"
@@ -89,7 +134,12 @@ export default function GanttTaskGrid({
       </div>
 
       {/* Rows - straight from the timeline's own virtualItems */}
-      <div className="gantt-grid-body" style={{ height: `${totalHeight}px` }} role="rowgroup">
+      <div
+        ref={bodyRef}
+        className="gantt-grid-body"
+        style={{ height: `${totalHeight}px` }}
+        role="rowgroup"
+      >
         {virtualItems.map((virtualRow) => {
           const row = rows[virtualRow.index];
           if (!row) return null;
@@ -149,11 +199,37 @@ export default function GanttTaskGrid({
 
           if (!task) return null;
 
+          const isDropParent =
+            dropTarget?.mode === "into" &&
+            dropTarget.rowIndex === virtualRow.index;
+          // A row drag is a move, so it answers to the same guards a bar move does
+          const draggable =
+            allowRowReorder &&
+            reorderable &&
+            resolveTaskInteraction(task, interaction).canMove;
+
           return (
             <div
               key={`grid-row-${row.id}`}
-              className={`gantt-grid-row${task.isSummary ? " summary" : ""}`}
+              data-row-id={row.id}
+              onPointerDown={draggable ? onRowPointerDown : undefined}
+              className={[
+                "gantt-grid-row",
+                task.isSummary ? "summary" : "",
+                draggable ? "draggable" : "",
+                dragState?.draggedId === row.id ? "dragging" : "",
+                isDropParent ? "drop-into" : "",
+                isDropParent && !dropTarget.valid ? "invalid" : "",
+                task.id === selectedTaskId ? "selected" : "",
+                task.className ?? "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               style={rowStyle}
+              onClick={onRowClick && ((e) => onRowClick(task, e))}
+              onDoubleClick={
+                onRowDoubleClick && ((e) => onRowDoubleClick(task, e))
+              }
               {...aria}
             >
               {columns.map((column, index) => (
@@ -179,7 +255,11 @@ export default function GanttTaskGrid({
                         className={`gantt-grid-expander${
                           collapsed ? "" : " open"
                         }`}
-                        onClick={() => onToggleCollapse(row.id)}
+                        onClick={(e) => {
+                          // Expanding a row is not selecting it
+                          e.stopPropagation();
+                          onToggleCollapse(row.id);
+                        }}
                         // The row carries aria-expanded, so the toggle is not a
                         // second tab stop and not a second thing to announce
                         tabIndex={-1}
@@ -206,6 +286,19 @@ export default function GanttTaskGrid({
             </div>
           );
         })}
+
+        {/* Insertion line - sits at the top edge of the target row, indented to the
+            level the row would land at */}
+        {dropTarget?.mode === "line" && (
+          <div
+            className={`gantt-grid-drop-line${dropTarget.valid ? "" : " invalid"}`}
+            style={{
+              top: `${dropTarget.rowIndex * NODE_HEIGHT}px`,
+              marginLeft: `${dropTarget.depth * TREE_INDENT}px`,
+            }}
+            aria-hidden="true"
+          />
+        )}
       </div>
     </div>
   );

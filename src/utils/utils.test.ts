@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import dayjs from 'utils/dayjs';
+import type { Dayjs } from 'dayjs';
+import dayjs from 'core/dates';
 import {
   DATE_FORMATS,
   GANTT_SCALE_CONFIG,
@@ -22,6 +23,7 @@ import {
   computeTimelineData,
   createTopHeaderGroups,
   originShiftPx,
+  snapDrawnRange,
 } from './timeline';
 import { transformTasks } from './transformData';
 
@@ -62,6 +64,50 @@ describe('transformTasks', () => {
     );
     expect(m.barLeft).toBe(32);
     expect(m.barWidth).toBe(1);
+  });
+
+  it('leaves the baseline geometry off tasks that carry no baseline', () => {
+    const [t] = transformTasks(
+      [task('a', '1')],
+      ticks('2025-01-01', '2025-01-02', '2025-01-03'),
+      'month',
+    );
+    expect(t.baselineLeft).toBeUndefined();
+    expect(t.baselineWidth).toBeUndefined();
+  });
+
+  it('measures the baseline bar independently of the live one', () => {
+    const [t] = transformTasks(
+      [
+        {
+          ...task('a', '1', '2025-01-02', '2025-01-03'),
+          baselineStart: '2025-01-01',
+          baselineEnd: '2025-01-03',
+        },
+      ],
+      ticks('2025-01-01', '2025-01-02', '2025-01-03'),
+      'month',
+    );
+    expect(t.barLeft).toBe(32);
+    expect(t.baselineLeft).toBe(0);
+    expect(t.baselineWidth).toBe(64);
+  });
+
+  it('gives a milestone baseline a single point', () => {
+    const [t] = transformTasks(
+      [
+        {
+          ...task('m', '1', '2025-01-03', '2025-01-03'),
+          type: 'milestone' as const,
+          baselineStart: '2025-01-02',
+          baselineEnd: '2025-01-03',
+        },
+      ],
+      ticks('2025-01-01', '2025-01-02', '2025-01-03'),
+      'month',
+    );
+    expect(t.baselineLeft).toBe(32);
+    expect(t.baselineWidth).toBe(1);
   });
 });
 
@@ -304,7 +350,15 @@ describe('buildDependencies', () => {
 
   it('anchors an FS arrow from the predecessor end to the successor start', () => {
     expect(buildDependencies(chain(), {})).toEqual([
-      { targetId: 'a', type: 'FS', fromX: 164, fromY: center, toX: 300, toY: NODE_HEIGHT + center },
+      {
+        targetId: 'a',
+        type: 'FS',
+        sourceId: 'b',
+        fromX: 164,
+        fromY: center,
+        toX: 300,
+        toY: NODE_HEIGHT + center,
+      },
     ]);
   });
 
@@ -443,6 +497,107 @@ describe('computeTimelineData', () => {
       ),
     ).toBe(28 * 8);
     expect(transformedTasks[0]).toMatchObject({ barLeft: 1296, barWidth: 224 }); // 28 days
+  });
+});
+
+describe('computeTimelineData with baselines', () => {
+  it('widens the timeline so a baseline outside the live bar is not clipped', () => {
+    const withBaseline = computeTimelineData(
+      [
+        {
+          ...task('a', '1', '2025-03-10', '2025-03-12'),
+          baselineStart: '2025-03-01',
+          baselineEnd: '2025-03-04',
+        },
+      ],
+      'month',
+    );
+    const first = withBaseline.bottomCells[0].startDate;
+    expect(first.valueOf()).toBeLessThanOrEqual(dayjs('2025-03-01').valueOf());
+    expect(withBaseline.transformedTasks[0].baselineLeft).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('snapDrawnRange', () => {
+  const iso = (range: { startDate: Dayjs; endDate: Dayjs } | null) =>
+    range && [range.startDate.format(), range.endDate.format()];
+
+  it('snaps outwards to the day ticks the drag covered (month scale, 32px a day)', () => {
+    const t = ticks('2025-01-01', '2025-01-02', '2025-01-03', '2025-01-04', '2025-01-05');
+    // 40px is inside the second tick, 100px inside the fourth
+    expect(iso(snapDrawnRange(40, 100, t, 'month'))).toEqual([
+      dayjs('2025-01-02').format(),
+      dayjs('2025-01-05').format(),
+    ]);
+  });
+
+  it('gives a one-tick task when the drag stays inside a single tick', () => {
+    const t = ticks('2025-01-01', '2025-01-02');
+    expect(iso(snapDrawnRange(4, 20, t, 'month'))).toEqual([
+      dayjs('2025-01-01').format(),
+      dayjs('2025-01-02').format(),
+    ]);
+  });
+
+  it('reads a right-to-left drag the same way', () => {
+    const t = ticks('2025-01-01', '2025-01-02', '2025-01-03');
+    expect(iso(snapDrawnRange(90, 10, t, 'month'))).toEqual(
+      iso(snapDrawnRange(10, 90, t, 'month')),
+    );
+  });
+
+  it('snaps to the hour on the day scale (32px an hour)', () => {
+    const t = ['2025-01-01T00:00', '2025-01-01T01:00', '2025-01-01T02:00'].map((d) => ({
+      startDate: dayjs(d),
+      widthPx: 32,
+    }));
+    expect(iso(snapDrawnRange(10, 40, t, 'day'))).toEqual([
+      dayjs('2025-01-01T00:00').format(),
+      dayjs('2025-01-01T02:00').format(),
+    ]);
+  });
+
+  it('snaps to the quarter-hour tick on the hour scale (120px an hour)', () => {
+    const t = ['2025-01-01T00:00', '2025-01-01T01:00'].map((d) => ({
+      startDate: dayjs(d),
+      widthPx: 120,
+    }));
+    expect(iso(snapDrawnRange(0, 5, t, 'hour'))).toEqual([
+      dayjs('2025-01-01T00:00').format(),
+      dayjs('2025-01-01T01:00').format(),
+    ]);
+  });
+
+  it('snaps to whole months on the year scale (4px a day)', () => {
+    const t = [
+      { startDate: dayjs('2025-01-01'), widthPx: 31 * 4 },
+      { startDate: dayjs('2025-02-01'), widthPx: 28 * 4 },
+      { startDate: dayjs('2025-03-01'), widthPx: 31 * 4 },
+    ];
+    expect(iso(snapDrawnRange(10, 130, t, 'year'))).toEqual([
+      dayjs('2025-01-01').format(),
+      dayjs('2025-03-01').format(),
+    ]);
+  });
+
+  it('clamps a drag that runs past either end of the timeline', () => {
+    const t = ticks('2025-01-01', '2025-01-02');
+    expect(iso(snapDrawnRange(-500, 9999, t, 'month'))).toEqual([
+      dayjs('2025-01-01').format(),
+      dayjs('2025-01-03').format(),
+    ]);
+  });
+
+  it('reports the snapped box so the ghost bar covers whole ticks', () => {
+    const t = ticks('2025-01-01', '2025-01-02', '2025-01-03', '2025-01-04');
+    expect(snapDrawnRange(40, 70, t, 'month')).toMatchObject({
+      leftPx: 32,
+      widthPx: 64,
+    });
+  });
+
+  it('returns null without a timeline', () => {
+    expect(snapDrawnRange(0, 100, [], 'month')).toBeNull();
   });
 });
 

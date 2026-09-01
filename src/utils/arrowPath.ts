@@ -1,9 +1,11 @@
 import { MILESTONE_HALF_DIAGONAL, NODE_HEIGHT } from "constants/gantt";
+import { linkKey } from "core";
 import {
   isMilestoneTask,
   RenderedDependency,
   TaskTransformed,
 } from "types/task";
+import { LinkAnchor } from "utils/dependency";
 
 /** Live offset of the task being dragged (0 when it is not being dragged) */
 export interface DragOffset {
@@ -315,6 +317,24 @@ function anchorX(task: TaskTransformed, offset: DragOffset) {
   };
 }
 
+/**
+ * Where one end of a task's bar sits, in timeline content coordinates
+ * The connector dots and the drag preview line have to land on the same points the
+ * committed arrow will use.
+ */
+export function anchorPoint(
+  task: TaskTransformed,
+  anchor: LinkAnchor,
+  offset: DragOffset = NO_OFFSET
+): { x: number; y: number } {
+  const { startX, endX } = anchorX(task, offset);
+
+  return {
+    x: anchor === "start" ? startX : endX,
+    y: (task.order - 1) * NODE_HEIGHT + NODE_HEIGHT / 2,
+  };
+}
+
 /** Warn once per type, in development mode */
 const warnedDepTypes = new Set<string>();
 
@@ -426,7 +446,8 @@ export function isArrowVisible(
  */
 export function buildDependencies(
   taskById: Map<string, TaskTransformed>,
-  liveOffsets: Record<string, DragOffset>
+  liveOffsets: Record<string, DragOffset>,
+  criticalLinkIds?: Set<string>
 ): RenderedDependency[] {
   const dependencies: RenderedDependency[] = [];
 
@@ -446,7 +467,19 @@ export function buildDependencies(
       );
       if (!coords) continue;
 
-      dependencies.push({ ...dep, ...coords });
+      dependencies.push({
+        ...dep,
+        sourceId: currentTask.id,
+        ...coords,
+        critical: criticalLinkIds?.has(
+          linkKey({
+            predecessorId: targetTask.id,
+            successorId: currentTask.id,
+            type: dep.type,
+            lag: dep.lag ?? 0,
+          })
+        ),
+      });
     }
   }
 

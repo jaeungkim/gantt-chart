@@ -1,7 +1,7 @@
 import { GanttGroupBy } from "types/gantt";
 import { isMilestoneTask, TaskTransformed } from "types/task";
-import dayjs from "utils/dayjs";
-import { TaskTree } from "./tree";
+import dayjs from "core/dates";
+import { TaskTree } from "core/tree";
 
 /** Prefix the collapsed-id set uses for a group header row */
 export const GROUP_ROW_PREFIX = "group:";

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { GanttScaleKey } from 'types/gantt';
-import dayjs, { quarterOfYear, startOfQuarter, startOfWeek } from 'utils/dayjs';
+import dayjs, { quarterOfYear, startOfQuarter, startOfWeek } from 'core/dates';
 import { resolveFormatters, resolveLabelUnit } from './i18n';
 import { createTopHeaderGroups } from './timeline';
 

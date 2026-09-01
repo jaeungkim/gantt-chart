@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TaskTransformed } from 'types/task';
 import { buildGanttRows, groupRowId, packLanes } from './grouping';
-import { buildTaskTree } from './tree';
+import { buildTaskTree } from 'core/tree';
 
 const task = (
   id: string,

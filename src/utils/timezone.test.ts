@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { GANTT_SCALE_CONFIG } from 'constants/gantt';
 import type { GanttScaleKey } from 'types/gantt';
 import type { Task } from 'types/task';
-import dayjs from 'utils/dayjs';
+import dayjs from 'core/dates';
 import { computeTimelineData, shiftByDragSteps } from './timeline';
 
 /**

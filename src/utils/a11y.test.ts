@@ -10,9 +10,9 @@ import {
   stepTaskProgress,
   taskAtFocus,
 } from './a11y';
-import dayjs from './dayjs';
+import dayjs from 'core/dates';
 import { buildGanttRows } from './grouping';
-import { buildTaskTree, getVisibleTasks } from './tree';
+import { buildTaskTree, getVisibleTasks } from 'core/tree';
 
 const task = (
   id: string,

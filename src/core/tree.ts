@@ -1,5 +1,5 @@
-import { isMilestoneTask, normalizeProgress, Task } from "types/task";
-import dayjs from "utils/dayjs";
+import { isMilestoneTask, normalizeProgress, Task } from "./types";
+import dayjs from "./dates";
 
 /** The minimum a task needs for the tree math - TaskTransformed fits as-is */
 type TaskNode = Pick<Task, "id" | "parentId">;
@@ -19,6 +19,8 @@ export interface TaskTree {
   parentOf: Map<string, string | null>;
   /** task id -> depth from the root */
   depthOf: Map<string, number>;
+  /** Root ids, in input order - the sibling list childIds has no key for */
+  rootIds: string[];
 }
 
 export function buildTaskTree(tasks: TaskNode[]): TaskTree {
@@ -26,6 +28,7 @@ export function buildTaskTree(tasks: TaskNode[]): TaskTree {
   const parentOf = new Map<string, string | null>();
   const childIds = new Map<string, string[]>();
   const depthOf = new Map<string, number>();
+  const rootIds: string[] = [];
 
   // Walking up the ancestor chain and meeting a node already passed means a cycle.
   // (Every node walked is recorded, so this ends within n steps no matter the data)
@@ -50,7 +53,10 @@ export function buildTaskTree(tasks: TaskNode[]): TaskTree {
 
   for (const task of tasks) {
     const parentId = parentOf.get(task.id);
-    if (!parentId) continue;
+    if (!parentId) {
+      rootIds.push(task.id);
+      continue;
+    }
 
     const siblings = childIds.get(parentId);
     if (siblings) siblings.push(task.id);
@@ -67,7 +73,7 @@ export function buildTaskTree(tasks: TaskNode[]): TaskTree {
     depthOf.set(task.id, depth);
   }
 
-  return { childIds, parentOf, depthOf };
+  return { childIds, parentOf, depthOf, rootIds };
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveTaskInteraction, type Task } from 'types/task';
-import dayjs from 'utils/dayjs';
+import dayjs from 'core/dates';
 import {
   clampDragDates,
   clampMoveDelta,

@@ -8,10 +8,10 @@ import {
   Task,
   TaskTransformed,
 } from "types/task";
-import dayjs from "utils/dayjs";
+import dayjs from "core/dates";
 import { GanttRow } from "./grouping";
 import { clampDragDates, clampMoveDelta, shiftByDragSteps } from "./timeline";
-import { collectSubtreeIds } from "./tree";
+import { collectSubtreeIds } from "core/tree";
 
 /** How much one `+`/`-` press moves the progress, in percentage points */
 export const PROGRESS_STEP = 5;
