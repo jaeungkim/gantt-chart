@@ -1,0 +1,33 @@
+# Publishes to npm when a GitHub Release is published (see RELEASING.md).
+# Auth is npm trusted publishing (OIDC): no NPM_TOKEN anywhere. The npm package is bound to
+# this repo + this filename, so renaming publish.yml breaks publishing.
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # npm trusted publishing (OIDC)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tag must match package.json version
+        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      - uses: pnpm/action-setup@v6
+      # Node 24 bundles npm 11.x; OIDC publish needs npm >= 11.5.1.
+      # No `registry-url`: OIDC needs no .npmrc, and setup-node@v7 would write an unresolved
+      # ${NODE_AUTH_TOKEN} placeholder that pnpm 10 rejects. No dependency cache next to an OIDC token.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # `npm publish`, not `pnpm publish`: pnpm 10 delegates to npm anyway and needs --no-git-checks
+      # on a detached HEAD. Provenance is attached automatically (OIDC + public repo + public package).
+      - run: npm publish
