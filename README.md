@@ -33,9 +33,9 @@ Currently, this project is built specifically for React due to my development ba
 ### Installation
 
 ```bash
-npm install @jaeungkim/gantt-chart
+pnpm add @jaeungkim/gantt-chart
 # or
-yarn add @jaeungkim/gantt-chart
+npm install @jaeungkim/gantt-chart
 ```
 
 ### Basic Usage
