@@ -51,6 +51,22 @@ export function computeNonWorkingRanges(
   return ranges;
 }
 
+/**
+ * 드래그 스텝 수만큼 날짜를 옮긴다
+ *
+ * 스케일의 드래그 단위(hour/day)를 그대로 더한다. 분으로 환산해서 더하면
+ * (day = 1440분) 로컬 달력의 DST 경계에서 하루가 23/25시간이라 한 시간씩
+ * 어긋나고, 자정 근처 태스크는 아예 다른 날짜 칸에 커밋된다.
+ */
+export function shiftByDragSteps(
+  date: Dayjs,
+  steps: number,
+  scaleKey: GanttScaleKey
+): Dayjs {
+  const { dragStepUnit, dragStepAmount } = GANTT_SCALE_CONFIG[scaleKey];
+  return date.add(steps * dragStepAmount, dragStepUnit);
+}
+
 export function calculateDateOffsets(
   startDate: Dayjs,
   endDate: Dayjs,

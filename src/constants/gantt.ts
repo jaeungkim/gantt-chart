@@ -15,9 +15,12 @@ export const MILESTONE_SIZE = 16;
 /** 다이아몬드 중심에서 꼭짓점까지의 가로 거리 (px) */
 export const MILESTONE_HALF_DIAGONAL = Math.round((MILESTONE_SIZE * Math.SQRT2) / 2);
 
-/** 스케일별 날짜 표시 포맷 (툴팁, 드래그 가이드 공용) - 연도 포함, 24시간제 */
+/**
+ * 스케일별 날짜 표시 포맷 (툴팁, 드래그 가이드 공용) - 연도 포함, 24시간제
+ * 차트는 UTC로 그리므로 시각이 보이는 day 스케일에만 존을 표기한다
+ */
 export const DATE_FORMATS: Record<GanttScaleKey, string> = {
-  day: 'MMM D, YYYY HH:mm',
+  day: 'MMM D, YYYY HH:mm [UTC]',
   week: 'MMM D, YYYY',
   month: 'MMM D, YYYY',
   year: 'MMM YYYY',
