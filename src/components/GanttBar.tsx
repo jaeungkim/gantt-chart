@@ -68,7 +68,9 @@ export default function GanttBar({
     useGanttProgressDrag(currentTask, barRef, onTasksChange);
   const showProgress = !isMilestone && progress !== null;
 
-  // Track whether the pointer is over a resize edge (milestones and narrow bars have none)
+  // Track whether the pointer is over a resize edge. Milestones, summaries and
+  // narrow bars have none, but that is decided by canResize when the cursor is
+  // derived - this only reports where the pointer is.
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const bar = barRef.current;
@@ -156,7 +158,9 @@ export default function GanttBar({
       id={`task-${currentTask.id}`}
       className={`gantt-task-bar${isDragging ? " dragging" : ""}${
         labelOutside ? " compact" : ""
-      }${canResize ? "" : " no-resize"}`}
+      }${currentTask.isSummary ? " summary" : ""}${
+        canResize ? "" : " no-resize"
+      }`}
       onPointerDown={onPointerDown}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => setOnResizeEdge(false)}
@@ -181,7 +185,8 @@ export default function GanttBar({
             className="gantt-progress-fill"
             style={{ width: `${progress}%` }}
           />
-          {/* The fill stays as a readout; only the draggable handle is gated */}
+          {/* The fill stays as a readout; only the draggable handle is gated.
+              canChangeProgress is already false for a summary's rolled-up progress. */}
           {canChangeProgress && (
             <div
               className={`gantt-progress-handle${

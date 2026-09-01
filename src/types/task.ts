@@ -59,7 +59,13 @@ const NO_INTERACTION_CONFIG: GanttInteractionConfig = {};
  *
  * A capability flag always beats a blanket `readOnly` at the same level, so
  * `readOnly` on the chart plus `allowProgressChange: true` on one task means
- * "frozen except that one progress bar". Milestones are never resizable.
+ * "frozen except that one progress bar".
+ *
+ * Two structural rules are not flags and cannot be flagged back on, because the
+ * gesture has nowhere to write to: milestones are never resizable (they are a
+ * single point), and summary rows are never resizable and have no draggable
+ * progress (both are rolled up from their children, so an edit would snap back).
+ * Moving a summary is fine - it carries its whole subtree.
  */
 export function resolveTaskInteraction(
   task: Pick<
@@ -71,7 +77,7 @@ export function resolveTaskInteraction(
     | 'allowProgressChange'
     | 'minDate'
     | 'maxDate'
-  >,
+  > & { isSummary?: boolean },
   config: GanttInteractionConfig = NO_INTERACTION_CONFIG
 ): ResolvedTaskInteraction {
   const resolve = (
@@ -84,14 +90,17 @@ export function resolveTaskInteraction(
     return !config.readOnly;
   };
 
+  const derived = task.isSummary === true;
+
   return {
     canMove: resolve(task.allowMove, config.allowMove),
     canResize:
-      !isMilestoneTask(task) && resolve(task.allowResize, config.allowResize),
-    canChangeProgress: resolve(
-      task.allowProgressChange,
-      config.allowProgressChange
-    ),
+      !isMilestoneTask(task) &&
+      !derived &&
+      resolve(task.allowResize, config.allowResize),
+    canChangeProgress:
+      !derived &&
+      resolve(task.allowProgressChange, config.allowProgressChange),
     minDate: task.minDate ?? config.minDate,
     maxDate: task.maxDate ?? config.maxDate,
   };
@@ -119,6 +128,13 @@ export interface TaskTransformed extends Task {
   depth: number;
   order: number;
   originalOrder: number;
+  /**
+   * A summary row with children (true only when hierarchy is on)
+   *
+   * Its start/end are recomputed from the children, so resizing and progress editing are
+   * disabled and dragging the bar moves the whole subtree.
+   */
+  isSummary?: boolean;
   dependencies?: TaskDependency[];
 }
 

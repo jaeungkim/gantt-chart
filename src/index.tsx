@@ -15,6 +15,7 @@ export type {
   TaskDependency,
   DependencyType,
   TaskType,
+  TaskTransformed,
   GanttInteractionConfig,
 } from './types/task';
-export type { GanttScaleKey, GanttTheme } from './types/gantt';
+export type { GanttColumn, GanttScaleKey, GanttTheme } from './types/gantt';

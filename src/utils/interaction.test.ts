@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { resolveTaskInteraction, type Task } from 'types/task';
 import dayjs from 'utils/dayjs';
-import { clampDragDates, computeTimelineData, pxBetweenDates } from './timeline';
+import {
+  clampDragDates,
+  clampMoveDelta,
+  computeTimelineData,
+  pxBetweenDates,
+} from './timeline';
 
 const task = (overrides: Partial<Task> = {}): Task => ({
   id: 'a',
@@ -77,6 +82,27 @@ describe('resolveTaskInteraction - flag precedence (#37)', () => {
     expect(
       resolveTaskInteraction(task({ type: 'milestone', allowResize: true }))
     ).toMatchObject({ canMove: true, canResize: false });
+  });
+
+  it('never resizes a summary row or drags its rolled-up progress', () => {
+    // Both ends and the percentage come from the children, so an edit would snap
+    // straight back. Moving is still allowed - it carries the whole subtree.
+    expect(
+      resolveTaskInteraction({
+        ...task({ allowResize: true, allowProgressChange: true }),
+        isSummary: true,
+      })
+    ).toMatchObject({
+      canMove: true,
+      canResize: false,
+      canChangeProgress: false,
+    });
+  });
+
+  it('still lets readOnly freeze a summary row entirely', () => {
+    expect(
+      resolveTaskInteraction({ ...task(), isSummary: true }, { readOnly: true })
+    ).toMatchObject({ canMove: false, canResize: false });
   });
 
   it('takes bounds from the task first and the chart second', () => {
@@ -328,5 +354,57 @@ describe('computeTimelineData - fixed visible range (#42)', () => {
     expect(
       computeTimelineData([], 'month', { start: dayjs('2025-01-01') }).bottomCells
     ).toEqual([]);
+  });
+});
+
+describe('clampMoveDelta - subtree drag bounds (#42 + hierarchy)', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const member = (start: string, end: string, min?: string, max?: string) => ({
+    start: dayjs(start),
+    end: dayjs(end),
+    bounds: {
+      min: min ? dayjs(min) : undefined,
+      max: max ? dayjs(max) : undefined,
+    },
+  });
+
+  it('passes the requested delta through when nothing is bounded', () => {
+    expect(clampMoveDelta([], 5 * DAY, 'month')).toBe(5 * DAY);
+  });
+
+  it('shrinks the delta to what the only bounded member allows', () => {
+    // 06-10 with a 06-08 floor can only give up 2 days of a 5-day pull left
+    const members = [member('2025-06-10', '2025-06-14', '2025-06-08')];
+    expect(clampMoveDelta(members, -5 * DAY, 'month')).toBe(-2 * DAY);
+  });
+
+  it('takes the tightest bound across the whole subtree', () => {
+    // The parent could slide 4 days right; a child may only slide 1
+    const members = [
+      member('2025-06-10', '2025-06-14', undefined, '2025-06-18'),
+      member('2025-06-12', '2025-06-16', undefined, '2025-06-17'),
+    ];
+    expect(clampMoveDelta(members, 6 * DAY, 'month')).toBe(1 * DAY);
+  });
+
+  it('lets a descendant bound block a parent drag entirely', () => {
+    const members = [
+      member('2025-06-10', '2025-06-14'),
+      member('2025-06-12', '2025-06-16', '2025-06-12'),
+    ];
+    expect(clampMoveDelta(members, -3 * DAY, 'month')).toBe(0);
+  });
+
+  it('leaves an unbounded direction alone', () => {
+    // Only a floor is set, so dragging right is unconstrained
+    const members = [member('2025-06-10', '2025-06-14', '2025-06-08')];
+    expect(clampMoveDelta(members, 9 * DAY, 'month')).toBe(9 * DAY);
+  });
+
+  it('never reverses the drag for a bar already outside its window', () => {
+    // Sitting past its own max: it refuses to move further right, but the group
+    // is not yanked backwards on a rightward drag
+    const members = [member('2025-06-20', '2025-06-24', undefined, '2025-06-15')];
+    expect(clampMoveDelta(members, 3 * DAY, 'month')).toBe(0);
   });
 });

@@ -11,6 +11,7 @@ import {
 import { Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 import { transformTasks } from "./transformData";
+import { buildTaskTree, rollUpTasks } from "./tree";
 
 export interface TimelineData {
   bottomCells: GanttBottomRowCell[];
@@ -178,6 +179,45 @@ export function clampDragDates(
   if (end.valueOf() < earliestEnd.valueOf()) end = earliestEnd;
 
   return { startDate, endDate: end };
+}
+
+/**
+ * Largest shared move that keeps every bar inside its own window
+ *
+ * Bars dragged as one group - a summary row and its subtree - have to move by a
+ * single delta or the group tears apart, so the group moves by the smallest
+ * magnitude any member allows. A descendant's own bounds therefore constrain the
+ * whole drag: no bar can be pushed out of its window by grabbing its parent.
+ *
+ * The result always lies between 0 and the requested delta, so a bar that is
+ * already outside its window simply refuses to move further, rather than yanking
+ * the group backwards against the drag.
+ */
+export function clampMoveDelta(
+  members: { start: Dayjs; end: Dayjs; bounds: GanttDragBounds }[],
+  requestedMs: number,
+  scaleKey: GanttScaleKey
+): number {
+  const lo = Math.min(0, requestedMs);
+  const hi = Math.max(0, requestedMs);
+
+  let delta = requestedMs;
+  for (const member of members) {
+    const { startDate } = clampDragDates(
+      "bar",
+      member.start.add(requestedMs, "millisecond"),
+      member.end.add(requestedMs, "millisecond"),
+      member.bounds,
+      scaleKey
+    );
+    const allowed = Math.min(
+      hi,
+      Math.max(lo, startDate.valueOf() - member.start.valueOf())
+    );
+    if (Math.abs(allowed) < Math.abs(delta)) delta = allowed;
+  }
+
+  return delta;
 }
 
 export function calculateDateOffsets(
@@ -393,11 +433,16 @@ export function createTopHeaderGroups(
  * `visibleRange` pins either end of the window. A pinned end is used verbatim
  * (no task fitting, no buffer padding) so the chart renders exactly what was
  * asked for; an open end still auto-fits to the tasks as before.
+ *
+ * With hierarchy on, a parentId tree is built and parents are recomputed as summary rows.
+ * (Rolled up before the range is computed so dates derived from children also widen an
+ *  auto-fitted timeline)
  */
 export function computeTimelineData(
   rawTasks: Task[],
   selectedScale: GanttScaleKey,
-  visibleRange?: GanttVisibleRange
+  visibleRange?: GanttVisibleRange,
+  hierarchy = false
 ): TimelineData {
   const fixedStart = visibleRange?.start;
   const fixedEnd = visibleRange?.end;
@@ -407,12 +452,16 @@ export function computeTimelineData(
     return { bottomCells: [], transformedTasks: [] };
   }
 
+  const tree = hierarchy ? buildTaskTree(rawTasks) : undefined;
+  const tasks = tree ? rollUpTasks(rawTasks, tree) : rawTasks;
+
   let rangeStart = fixedStart;
   let rangeEnd = fixedEnd;
 
   if (!rangeStart || !rangeEnd) {
-    // Find the date range and add padding
-    const { minDate, maxDate } = findDateRangeFromTasks(rawTasks);
+    // Find the date range and add padding - from the rolled-up dates, so a summary
+    // reaching past its own row still widens the timeline
+    const { minDate, maxDate } = findDateRangeFromTasks(tasks);
     const { paddedMinDate, paddedMaxDate } = padDateRange(
       minDate,
       maxDate,
@@ -428,7 +477,12 @@ export function computeTimelineData(
     rangeEnd,
     selectedScale
   );
-  const transformedTasks = transformTasks(rawTasks, bottomCells, selectedScale);
+  const transformedTasks = transformTasks(
+    tasks,
+    bottomCells,
+    selectedScale,
+    tree
+  );
 
   return { bottomCells, transformedTasks };
 }

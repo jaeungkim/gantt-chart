@@ -21,9 +21,11 @@ import {
 import dayjs from "utils/dayjs";
 import {
   clampDragDates,
+  clampMoveDelta,
   pxBetweenDates,
   shiftByDragSteps,
 } from "utils/timeline";
+import { collectSubtreeIds } from "utils/tree";
 
 export type DragMode = GanttDragMode;
 
@@ -39,9 +41,23 @@ interface DragContext {
   // Keep computing in the step unit from when the drag started, even if the scale changes mid-drag
   scaleKey: GanttScaleKey;
   taskId: string;
-  /** null when the task has no bounds - then the drag math is left exactly as it was */
+  /** Tasks that move together - the whole subtree for a summary row, otherwise just itself */
+  taskIds: string[];
+  /** Dates the moving tasks had when the drag started */
+  initialDates: Map<string, { start: Dayjs; end: Dayjs }>;
+  /** The dragged bar's own bounds - null when it has none. Used by the resize modes. */
   bounds: GanttDragBounds | null;
-  /** Latest bound-clamped dates, committed instead of a plain step shift */
+  /**
+   * Every moving task that has bounds, with the dates it started from
+   *
+   * Empty means nothing in the drag is bounded, and the math below is left exactly
+   * as it was. Otherwise a move is clamped against all of them at once, so a
+   * descendant's bounds constrain a subtree drag too.
+   */
+  boundedMembers: { start: Dayjs; end: Dayjs; bounds: GanttDragBounds }[];
+  /** Shared clamped move, in ms - every moving task shifts by it. null when unclamped. */
+  moveDeltaMs: number | null;
+  /** Latest bound-clamped dates for a resize, committed instead of a plain step shift */
   clamped: { startDate: Dayjs; endDate: Dayjs } | null;
 }
 
@@ -80,8 +96,9 @@ export function useGanttBarDrag(
   );
 
   // Detect the drag mode
-  // Milestones, narrow bars and tasks with resizing disabled cannot be resized - keeps the
-  // edge zones from covering the whole bar and blocking the move
+  // Milestones, summaries, narrow bars and tasks with resizing disabled cannot be
+  // resized - keeps the edge zones from covering the whole bar and blocking the move.
+  // (canResize already folds in the milestone and summary rules)
   // Returns null when the gesture is not allowed at all, so no drag starts
   const detectDragMode = (
     e: React.PointerEvent<HTMLDivElement>
@@ -107,6 +124,52 @@ export function useGanttBarDrag(
     if (!mode) return;
     dragModeRef.current = mode;
 
+    // Dragging a summary bar moves its whole subtree by the same delta
+    const rawTasks = storeApi.getState().rawTasks;
+    const taskIds = task.isSummary
+      ? collectSubtreeIds(rawTasks, task.id)
+      : [task.id];
+    const movingIds = new Set(taskIds);
+    const initialDates = new Map(
+      rawTasks
+        .filter((t) => movingIds.has(t.id))
+        .map((t) => [
+          t.id,
+          { start: dayjs(t.startDate), end: dayjs(t.endDate) },
+        ])
+    );
+    // The dragged bar itself uses the dates on screen (rolled up from children for a summary)
+    initialDates.set(task.id, {
+      start: dayjs(task.startDate),
+      end: dayjs(task.endDate),
+    });
+
+    // Bounds for everything that moves. Each task resolves its own, so a descendant
+    // carried along by a summary drag still cannot be pushed out of its own window.
+    const bounds = toDragBounds(minDate, maxDate);
+    const boundedMembers: DragContext["boundedMembers"] = [];
+    for (const t of rawTasks) {
+      if (!movingIds.has(t.id)) continue;
+
+      const initial = initialDates.get(t.id);
+      if (!initial) continue;
+
+      // The dragged bar's own bounds are already resolved above
+      const member = resolveTaskInteraction(t, interaction);
+      const own =
+        t.id === task.id
+          ? bounds
+          : toDragBounds(member.minDate, member.maxDate);
+
+      if (own) {
+        boundedMembers.push({
+          start: initial.start,
+          end: initial.end,
+          bounds: own,
+        });
+      }
+    }
+
     dragContextRef.current = {
       mode,
       pointerId: e.pointerId,
@@ -118,7 +181,11 @@ export function useGanttBarDrag(
       basePxPerDragStep,
       scaleKey: selectedScale,
       taskId: task.id,
-      bounds: toDragBounds(minDate, maxDate),
+      taskIds,
+      initialDates,
+      bounds,
+      boundedMembers,
+      moveDeltaMs: null,
       clamped: null,
     };
 
@@ -181,7 +248,24 @@ export function useGanttBarDrag(
       // Snap to the allowed window. Offsets are then measured from the clamped
       // dates rather than the raw step count, so the bar stops on the bound
       // instead of overshooting it.
-      if (ctx.bounds) {
+      if (ctx.mode === "bar") {
+        if (ctx.boundedMembers.length) {
+          // Everything in the drag moves by one shared delta, shrunk to whatever
+          // the tightest member bound allows - the subtree stays rigid and no bar
+          // in it leaves its own window
+          const requestedMs =
+            newStartDate.valueOf() - ctx.initialStartDate.valueOf();
+          const deltaMs = clampMoveDelta(
+            ctx.boundedMembers,
+            requestedMs,
+            ctx.scaleKey
+          );
+          ctx.moveDeltaMs = deltaMs;
+          newStartDate = ctx.initialStartDate.add(deltaMs, "millisecond");
+          newEndDate = ctx.initialEndDate.add(deltaMs, "millisecond");
+        }
+      } else if (ctx.bounds) {
+        // Resizes only ever touch the dragged bar, so its own bounds are enough
         const clamped = clampDragDates(
           ctx.mode,
           newStartDate,
@@ -192,7 +276,9 @@ export function useGanttBarDrag(
         ctx.clamped = clamped;
         newStartDate = clamped.startDate;
         newEndDate = clamped.endDate;
+      }
 
+      if (ctx.moveDeltaMs !== null || ctx.clamped) {
         const startPx = pxBetweenDates(
           ctx.initialStartDate,
           newStartDate,
@@ -207,14 +293,33 @@ export function useGanttBarDrag(
         offsetWidth = endPx - startPx;
       }
 
-      const offset: GanttDragOffset = {
-        offsetX,
-        offsetWidth,
-        offsetStartDate: newStartDate,
-        offsetEndDate: newEndDate,
-      };
+      // Descendants shift by the same amount, but each keeps its own dates
+      const memberShift =
+        ctx.moveDeltaMs !== null
+          ? (date: Dayjs) => date.add(ctx.moveDeltaMs as number, "millisecond")
+          : shift;
+      const memberPx = ctx.moveDeltaMs !== null ? offsetX : draggedPx;
 
-      storeApi.getState().setDragOffset(ctx.taskId, offset);
+      const offsets: Record<string, GanttDragOffset> = {};
+      for (const id of ctx.taskIds) {
+        const initial = ctx.initialDates.get(id);
+        offsets[id] =
+          id === ctx.taskId || !initial
+            ? {
+                offsetX,
+                offsetWidth,
+                offsetStartDate: newStartDate,
+                offsetEndDate: newEndDate,
+              }
+            : {
+                offsetX: memberPx,
+                offsetWidth: 0,
+                offsetStartDate: memberShift(initial.start),
+                offsetEndDate: memberShift(initial.end),
+              };
+      }
+
+      storeApi.getState().setDragOffsets(offsets);
     };
 
     const detachListeners = () => {
@@ -223,11 +328,11 @@ export function useGanttBarDrag(
       document.removeEventListener("pointercancel", handlePointerCancel);
     };
 
-    const endDrag = (taskId: string) => {
+    const endDrag = (taskIds: string[]) => {
       dragContextRef.current = null;
       dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);
-      storeApi.getState().clearDragOffset(taskId);
+      storeApi.getState().clearDragOffsets(taskIds);
     };
 
     // When the browser cancels the gesture (scroll takeover, multi-touch, etc.) revert instead of committing
@@ -236,7 +341,7 @@ export function useGanttBarDrag(
       if (ctx && cancelEvent.pointerId !== ctx.pointerId) return;
 
       detachListeners();
-      if (ctx) endDrag(ctx.taskId);
+      if (ctx) endDrag(ctx.taskIds);
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
@@ -251,28 +356,38 @@ export function useGanttBarDrag(
       }
 
       if (ctx.dragSteps === 0) {
-        endDrag(ctx.taskId);
+        endDrag(ctx.taskIds);
         return;
       }
 
       const currentRawTasks = storeApi.getState().rawTasks;
+      // A clamped move commits the shared delta, so every task in the subtree lands
+      // where its preview was; unclamped, it is the plain step shift as before
       const commit = (date: string) =>
-        shiftByDragSteps(dayjs(date), ctx.dragSteps, ctx.scaleKey).toISOString();
+        ctx.moveDeltaMs !== null
+          ? dayjs(date).add(ctx.moveDeltaMs, "millisecond").toISOString()
+          : shiftByDragSteps(
+              dayjs(date),
+              ctx.dragSteps,
+              ctx.scaleKey
+            ).toISOString();
 
-      // With bounds in play the committed dates are the clamped ones, so a bar
-      // dropped against a bound reports exactly the bound to onTasksChange
+      // A clamped resize commits the clamped dates, so a bar dropped against a
+      // bound reports exactly the bound to onTasksChange
       const clampedStart = ctx.clamped?.startDate.toISOString();
       const clampedEnd = ctx.clamped?.endDate.toISOString();
 
+      // However many tasks moved, there is one updated array - onTasksChange fires once
+      const movedIds = new Set(ctx.taskIds);
       const updatedTasks = currentRawTasks.map((t) => {
-        if (t.id !== ctx.taskId) return t;
+        if (!movedIds.has(t.id)) return t;
 
         switch (ctx.mode) {
           case "bar":
             return {
               ...t,
-              startDate: clampedStart ?? commit(t.startDate),
-              endDate: clampedEnd ?? commit(t.endDate),
+              startDate: commit(t.startDate),
+              endDate: commit(t.endDate),
             };
 
           case "left":
