@@ -18,6 +18,8 @@ Currently, this project is built specifically for React due to my development ba
 
 ## ✨ Features
 
+- 📋 Task list pane with configurable columns, a draggable splitter, and a collapse toggle
+- 🌳 Arbitrary-depth tree from `parentId`: expand/collapse, summary bars, subtree drag
 - 📆 Multiple timeline scales: Day, Week, Month, Year
 - 🔄 Drag-and-drop support:
   - Move entire task bars
@@ -102,6 +104,79 @@ export default function App() {
 | `isNonWorkingDay` | `(date: Dayjs) => boolean` | - | Replaces the default weekend/holiday check entirely |
 | `initialScrollTo` | `"today" \| string` | - | Scroll here once after the first render |
 | `storageKey` | `string` | `"gantt-scale"` | sessionStorage key for the scale. Give each chart its own key when rendering more than one on a page. |
+| `showTaskList` | `boolean` | - | Show the task list pane. Omitted, the pane appears only when `columns` is given |
+| `columns` | `GanttColumn[]` | Name / Start / End | Task list columns. Every header label and cell body comes from here |
+| `hierarchy` | `boolean` | `false` | Turn on the `parentId` tree: indentation, expanders, summary bars, subtree drag |
+| `collapsedIds` | `string[]` | - | Ids of collapsed parents (controlled) |
+| `defaultCollapsedIds` | `string[]` | - | Initial collapsed ids (uncontrolled seed) |
+| `onCollapsedChange` | `(ids: string[]) => void` | - | Fires whenever a row is expanded or collapsed |
+
+## Task List and Hierarchy
+
+```tsx
+import { ReactGanttChart, type GanttColumn } from '@jaeungkim/gantt-chart';
+
+const columns: GanttColumn[] = [
+  { key: 'name', header: 'Task', width: 240 },
+  { key: 'sequence', header: 'WBS', width: 70 },
+  {
+    key: 'progress',
+    header: <abbr title="Percent complete">%</abbr>,
+    width: 60,
+    render: (task) => `${task.progress ?? 0}%`,
+  },
+];
+
+<ReactGanttChart
+  tasks={tasks}
+  columns={columns}
+  hierarchy
+  defaultCollapsedIds={['phase-2']}
+  onCollapsedChange={(ids) => localStorage.setItem('collapsed', JSON.stringify(ids))}
+/>;
+```
+
+```ts
+interface GanttColumn {
+  key: string;                                 // React key, and the task field read when there is no render
+  header: ReactNode;                           // anything - a string, an icon, a whole element
+  width?: number;                              // px, default 120
+  render?: (task: TaskTransformed) => ReactNode;
+}
+```
+
+The pane lives inside the timeline's own scroll container as a sticky column, so the two
+sides share one row virtualizer and cannot drift apart. Drag the splitter on its right edge
+(or focus it and press ←/→) to resize; the toolbar button collapses the pane entirely. Both
+are local UI state - nothing is persisted for you.
+
+`columns` replaces the default Name / Start / End set wholesale, so no header label is baked
+into the library. The **first column is the tree column**: indentation and the expander
+toggle attach to it.
+
+### Tree semantics
+
+With `hierarchy` on, `parentId` becomes the source of truth:
+
+- **Depth** comes from the `parentId` chain rather than from `sequence`. Row *order* still
+  comes from `sequence`, so keep child sequences under their parent's (`2`, `2.1`, `2.1.1`).
+- **A row with children is a summary row.** Its `startDate`/`endDate` are always recomputed
+  from the children — `min(child start)`..`max(child end)`, deepest first, so a grandchild's
+  move travels all the way up. Whatever dates the data carries for a parent are ignored.
+  A milestone child counts at its `startDate` alone.
+- **Summary rows cannot be resized**, and their progress handle is hidden: both ends and the
+  rolled-up percentage are derived values that would snap straight back.
+- **Dragging a summary bar moves its whole subtree** by the same delta and commits it as a
+  single `onTasksChange` call containing every moved task.
+- **Progress rolls up** from the children weighted by duration when the parent has no
+  explicit `progress`; a child without one counts as 0%, and a parent whose children all
+  lack progress gets none. An explicit parent `progress` is left alone.
+- **Collapsing hides the whole subtree** from the grid and the timeline at once.
+- **Broken links are contained, never fatal:** an orphaned `parentId`, a self-reference, or a
+  `parentId` cycle simply becomes a root instead of hanging the render.
+
+Collapse state is controlled with `collapsedIds` and uncontrolled with `defaultCollapsedIds`;
+`onCollapsedChange` fires either way, so a host can persist it wherever it likes.
 
 ## Imperative API
 
@@ -204,9 +279,9 @@ The stylesheet loads no remote fonts; it uses the system font stack unless you o
 
 ## Roadmap
 
-- [ ] Left sidebar for task names
+- [x] Left sidebar for task names
 - [ ] Right sidebar for task details
-- [ ] Collapsible parent-child rows
+- [x] Collapsible parent-child rows
 - [ ] Inline editing for task names
 - [ ] Export to PNG/SVG
 - [ ] Custom bar colors

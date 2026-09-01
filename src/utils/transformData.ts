@@ -2,6 +2,7 @@ import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 import { calculateDateOffsets } from "./timeline";
+import { TaskTree } from "./tree";
 
 // Helper function to parse sequence numbers
 function parseSequence(sequence: string): number[] {
@@ -29,15 +30,23 @@ function calculateTaskDepth(sequence: string): number {
   return sequence.split(".").length - 1;
 }
 
+/**
+ * @param tree the parentId tree (only when hierarchy is on) - given, depth comes from the
+ *             parent chain instead of sequence, and rows with children are marked as summaries
+ */
 export function transformTasks(
   tasks: Task[],
   timelineTicks: GanttBottomRowCell[],
-  selectedScale: GanttScaleKey
+  selectedScale: GanttScaleKey,
+  tree?: TaskTree
 ): TaskTransformed[] {
   const sortedTasks = sortTasksBySequence(tasks);
 
   return sortedTasks.map((task, index) => {
-    const depth = calculateTaskDepth(task.sequence);
+    const depth = tree
+      ? tree.depthOf.get(task.id) ?? 0
+      : calculateTaskDepth(task.sequence);
+    const isSummary = (tree?.childIds.get(task.id)?.length ?? 0) > 0;
     const order = index + 1;
 
     // Calculate bar position and width
@@ -54,6 +63,7 @@ export function transformTasks(
       barLeft: barMarginLeftAmount,
       barWidth: barWidthSize,
       depth,
+      isSummary,
       order,
       originalOrder: order,
     };

@@ -2,7 +2,15 @@ import Gantt from "pages/Gantt";
 import { sourceTasks } from "../db";
 
 function App() {
-  return <Gantt tasks={sourceTasks} height="100svh" width="100%" />;
+  return (
+    <Gantt
+      tasks={sourceTasks}
+      height="100svh"
+      width="100%"
+      showTaskList
+      hierarchy
+    />
+  );
 }
 
 export default App;
