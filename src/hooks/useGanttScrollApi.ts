@@ -1,5 +1,6 @@
 import { Dayjs } from "dayjs";
 import { RefObject, useCallback, useMemo } from "react";
+import { GanttExportApi } from "hooks/useGanttExportApi";
 import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
 import { TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
@@ -21,8 +22,8 @@ export interface GanttZoomAnchor {
   viewportX: number;
 }
 
-/** Imperative API exposed through the ref */
-export interface GanttHandle {
+/** Imperative scroll and zoom API */
+export interface GanttScrollApi {
   /** Scroll horizontally to a given date */
   scrollToDate: (date: string | Date | Dayjs, options?: GanttScrollOptions) => void;
   /** Scroll horizontally to today */
@@ -38,6 +39,9 @@ export interface GanttHandle {
   /** The scroll container DOM node (null when unavailable) */
   getScrollElement: () => HTMLDivElement | null;
 }
+
+/** Imperative API exposed through the ref */
+export interface GanttHandle extends GanttScrollApi, GanttExportApi {}
 
 interface UseGanttScrollApiParams {
   scrollRef: RefObject<HTMLDivElement | null>;
@@ -70,7 +74,7 @@ export function useGanttScrollApi({
   rowHeight,
   viewportInsetPx = 0,
   zoomTo,
-}: UseGanttScrollApiParams): GanttHandle {
+}: UseGanttScrollApiParams): GanttScrollApi {
   const scrollToOffset = useCallback(
     (left: number, options?: GanttScrollOptions) => {
       const el = scrollRef.current;

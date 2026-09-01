@@ -167,6 +167,13 @@ interface ExtendRangeParams {
   totalPx: number;
   /** Average px one tick takes at the current scale */
   pxPerTick: number;
+  /**
+   * Ends that are still free to move (default: both)
+   *
+   * An end pinned by `visibleRange` cannot grow, and extending it would just be recomputed
+   * into the same timeline on every scroll event.
+   */
+  canExtend?: { before: boolean; after: boolean };
 }
 
 /**
@@ -182,13 +189,18 @@ export function extendRangeForScroll({
   viewportPx,
   totalPx,
   pxPerTick,
+  canExtend,
 }: ExtendRangeParams): GanttRangeExtension | null {
   if (pxPerTick <= 0 || viewportPx <= 0) return null;
 
   const chunk = Math.max(1, Math.ceil(viewportPx / pxPerTick));
   const threshold = viewportPx / 2;
 
-  if (scrollLeft <= threshold && current.before < MAX_RANGE_EXTENSION_TICKS) {
+  if (
+    canExtend?.before !== false &&
+    scrollLeft <= threshold &&
+    current.before < MAX_RANGE_EXTENSION_TICKS
+  ) {
     return {
       ...current,
       before: Math.min(MAX_RANGE_EXTENSION_TICKS, current.before + chunk),
@@ -196,6 +208,7 @@ export function extendRangeForScroll({
   }
 
   if (
+    canExtend?.after !== false &&
     totalPx - (scrollLeft + viewportPx) <= threshold &&
     current.after < MAX_RANGE_EXTENSION_TICKS
   ) {

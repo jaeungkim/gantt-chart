@@ -45,6 +45,7 @@ function App() {
       infiniteScroll
       markers={markers}
       rangeBands={rangeBands}
+      allowRowReorder
     />
   );
 }

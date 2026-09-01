@@ -16,6 +16,7 @@ import {
   useState,
 } from "react";
 import { Dayjs } from "dayjs";
+import { useGanttExportApi } from "hooks/useGanttExportApi";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import {
   GanttHandle,
@@ -43,10 +44,11 @@ import {
   GanttMarker,
   GanttRangeBand,
   GanttRangeExtension,
+  GanttReorderChange,
   GanttScaleKey,
   GanttTheme,
 } from "types/gantt";
-import { Task } from "types/task";
+import { GanttInteractionConfig, Task } from "types/task";
 import dayjs from "utils/dayjs";
 import {
   calculateDateOffsetPx,
@@ -129,6 +131,22 @@ export interface GanttProps {
    * do not touch the scroll position.
    */
   initialScrollTo?: "today" | string;
+  /** Blocks moving, resizing and progress dragging on every task */
+  readOnly?: boolean;
+  /** Allows/blocks moving bars (default true) - beats `readOnly` */
+  allowMove?: boolean;
+  /** Allows/blocks resizing bars (default true) - beats `readOnly` */
+  allowResize?: boolean;
+  /** Allows/blocks dragging the progress handle (default true) - beats `readOnly` */
+  allowProgressChange?: boolean;
+  /** Earliest date any bar may be dragged to (ISO string) - a task's own `minDate` wins */
+  minDate?: string;
+  /** Latest date any bar may be dragged to (ISO string) - a task's own `maxDate` wins */
+  maxDate?: string;
+  /** Pins the timeline to start here (ISO string) instead of fitting to the tasks */
+  visibleStart?: string;
+  /** Pins the timeline to end here (ISO string) instead of fitting to the tasks */
+  visibleEnd?: string;
   /**
    * BCP 47 locale tag for every date label, e.g. `"ko-KR"`
    *
@@ -210,6 +228,26 @@ export interface GanttProps {
   onRangeChange?: (range: GanttDateRange) => void;
   /** Whether a bar drag reaching a viewport edge scrolls the timeline (default true) */
   autoScrollOnDrag?: boolean;
+  /**
+   * Whether a task list row can be dragged to reorder and re-parent (default false)
+   *
+   * Vertical drag moves the row among its siblings; horizontal offset indents or outdents it
+   * the way an outliner does, and dropping onto the middle of a row makes that row the parent.
+   * A drop that would put a row inside its own subtree is marked invalid during the drag and
+   * does nothing on release.
+   *
+   * Follows the same guards as a bar move: a row is draggable only where
+   * `resolveTaskInteraction` says the task can move, so `readOnly` (or `allowMove: false`, on
+   * the chart or on the task) blocks it.
+   */
+  allowRowReorder?: boolean;
+  /**
+   * Called when a row drag is released on a legal target, before anything is committed
+   *
+   * Returning `false` cancels the drop - the chart stays as it was and `onTasksChange` does
+   * not fire. Otherwise the chart updates and `onTasksChange` fires once with the same array.
+   */
+  onReorder?: (change: GanttReorderChange) => void | boolean;
 }
 
 /**
@@ -247,6 +285,14 @@ function GanttChart({
   isNonWorkingDay,
   storageKey = DEFAULT_SCALE_STORAGE_KEY,
   initialScrollTo,
+  readOnly,
+  allowMove,
+  allowResize,
+  allowProgressChange,
+  minDate,
+  maxDate,
+  visibleStart,
+  visibleEnd,
   locale,
   formats,
   firstDayOfWeek,
@@ -262,6 +308,8 @@ function GanttChart({
   infiniteScroll = false,
   onRangeChange,
   autoScrollOnDrag = true,
+  allowRowReorder = false,
+  onReorder,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -416,6 +464,31 @@ function GanttChart({
     setRawTasks(tasks);
   }, [tasks, setRawTasks]);
 
+  // Interaction settings, passed down to every bar as one object
+  const interaction = useMemo<GanttInteractionConfig>(
+    () => ({
+      readOnly,
+      allowMove,
+      allowResize,
+      allowProgressChange,
+      minDate,
+      maxDate,
+    }),
+    [readOnly, allowMove, allowResize, allowProgressChange, minDate, maxDate]
+  );
+
+  // Fixed timeline window - undefined on both ends means auto-fit to the tasks
+  const visibleRange = useMemo(
+    () =>
+      visibleStart || visibleEnd
+        ? {
+            start: visibleStart ? dayjs(visibleStart) : undefined,
+            end: visibleEnd ? dayjs(visibleEnd) : undefined,
+          }
+        : undefined,
+    [visibleStart, visibleEnd]
+  );
+
   // Cells of the previous timeline - used to compute how far the origin moved and compensate the scroll
   const prevCellsRef = useRef<GanttBottomRowCell[]>([]);
   const pendingScrollShiftRef = useRef(0);
@@ -425,6 +498,7 @@ function GanttChart({
     const { bottomCells, transformedTasks: transformed } = computeTimelineData(
       rawTasks,
       selectedScale,
+      visibleRange,
       hierarchy,
       activeExtension
     );
@@ -451,6 +525,7 @@ function GanttChart({
   }, [
     rawTasks,
     selectedScale,
+    visibleRange,
     hierarchy,
     activeExtension,
     setBottomRowCells,
@@ -591,6 +666,9 @@ function GanttChart({
         viewportPx: scrollEl.clientWidth - gridInsetRef.current,
         totalPx,
         pxPerTick: totalPx / cells.length,
+        // A pinned end is where the host put it - growing it there would be undone on
+        // every recompute and the check would spin
+        canExtend: { before: !visibleStart, after: !visibleEnd },
       });
       if (!next) return;
 
@@ -601,7 +679,7 @@ function GanttChart({
     checkEdges();
     scrollEl.addEventListener("scroll", checkEdges, { passive: true });
     return () => scrollEl.removeEventListener("scroll", checkEdges);
-  }, [infiniteScroll, bottomRowCells]);
+  }, [infiniteScroll, bottomRowCells, visibleStart, visibleEnd]);
 
   // ===== Range reporting =====
   const reportedRangeRef = useRef("");
@@ -665,7 +743,7 @@ function GanttChart({
     selectedScale,
   ]);
 
-  // Imperative scroll API
+  // Imperative API - scrolling plus PNG export
   const scrollApi = useGanttScrollApi({
     scrollRef,
     bottomRowCells,
@@ -675,7 +753,18 @@ function GanttChart({
     viewportInsetPx: gridInset,
     zoomTo,
   });
-  useImperativeHandle(forwardedRef, () => scrollApi, [scrollApi]);
+  const exportApi = useGanttExportApi({
+    scrollRef,
+    bottomRowCells,
+    selectedScale,
+    taskCount: transformedTasks.length,
+    totalWidth,
+  });
+  useImperativeHandle(
+    forwardedRef,
+    () => ({ ...scrollApi, ...exportApi }),
+    [scrollApi, exportApi]
+  );
 
   // initialScrollTo is applied once, when the timeline first becomes ready
   const didInitialScrollRef = useRef(false);
@@ -741,6 +830,10 @@ function GanttChart({
                 hierarchy={hierarchy}
                 collapsedIds={collapsedSet}
                 onToggleCollapse={handleToggleCollapse}
+                allowRowReorder={allowRowReorder}
+                interaction={interaction}
+                onReorder={onReorder}
+                onTasksChange={onTasksChange}
               />
             )}
 
@@ -837,6 +930,7 @@ function GanttChart({
                       <GanttBar
                         currentTask={task}
                         onTasksChange={onTasksChange}
+                        interaction={interaction}
                         autoScrollOnDrag={autoScrollOnDrag}
                       />
                     </div>

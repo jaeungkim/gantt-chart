@@ -224,6 +224,23 @@ describe('extendRangeForScroll', () => {
     ).toBeNull();
   });
 
+  it('leaves a pinned end alone', () => {
+    expect(
+      extendRangeForScroll({
+        ...base,
+        scrollLeft: 0,
+        canExtend: { before: false, after: true },
+      }),
+    ).toBeNull();
+    expect(
+      extendRangeForScroll({
+        ...base,
+        scrollLeft: 3200,
+        canExtend: { before: true, after: false },
+      }),
+    ).toBeNull();
+  });
+
   it('stops at the cap', () => {
     const capped = { before: MAX_RANGE_EXTENSION_TICKS, after: 0 };
     expect(
@@ -290,7 +307,7 @@ describe('computeTimelineData range extension', () => {
 
   it('adds the requested ticks to each end and leaves the tasks where they are', () => {
     const plain = computeTimelineData(tasks, 'month');
-    const extended = computeTimelineData(tasks, 'month', false, {
+    const extended = computeTimelineData(tasks, 'month', undefined, false, {
       before: 10,
       after: 4,
     });
@@ -313,7 +330,7 @@ describe('computeTimelineData range extension', () => {
 
   it('defaults to no extension', () => {
     expect(computeTimelineData(tasks, 'month').bottomCells.length).toBe(
-      computeTimelineData(tasks, 'month', false, NO_RANGE_EXTENSION)
+      computeTimelineData(tasks, 'month', undefined, false, NO_RANGE_EXTENSION)
         .bottomCells.length,
     );
   });

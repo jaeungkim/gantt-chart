@@ -9,8 +9,13 @@ function parseSequence(sequence: string): number[] {
   return sequence.split(".").map(Number);
 }
 
-// Sort tasks by their sequence hierarchy
-function sortTasksBySequence(tasks: Task[]): Task[] {
+/**
+ * Sort tasks by their sequence hierarchy
+ *
+ * Row order comes from this and nothing else - '1.10' lands after '1.2' because the
+ * segments compare as numbers.
+ */
+export function sortTasksBySequence(tasks: Task[]): Task[] {
   return [...tasks].sort((a, b) => {
     const aParts = parseSequence(a.sequence);
     const bParts = parseSequence(b.sequence);

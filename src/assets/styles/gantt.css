@@ -344,6 +344,60 @@
   font-weight: 600;
 }
 
+/* ===== ROW DRAG (reorder / re-parent) ===== */
+.gantt-grid-row.draggable {
+  cursor: grab;
+}
+
+.gantt-grid.row-dragging,
+.gantt-grid.row-dragging .gantt-grid-row {
+  cursor: grabbing;
+}
+
+.gantt-grid-row.dragging {
+  opacity: 0.45;
+}
+
+/* Drop-into - this row becomes the new parent */
+.gantt-grid-row.drop-into {
+  background: color-mix(in srgb, var(--gantt-accent) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--gantt-accent);
+}
+
+/* An illegal drop is shown, not hidden - the release then does nothing */
+.gantt-grid-row.drop-into.invalid,
+.gantt-grid.row-dragging .gantt-grid-row.drop-into.invalid {
+  background: color-mix(in srgb, var(--gantt-today-marker) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--gantt-today-marker);
+  cursor: no-drop;
+}
+
+/* Insertion line between two rows - its left edge marks the indent level it would land at */
+.gantt-grid-drop-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--gantt-accent);
+  pointer-events: none;
+}
+
+.gantt-grid-drop-line::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.gantt-grid-drop-line.invalid {
+  background: var(--gantt-today-marker);
+}
+
 .gantt-grid-cell {
   display: flex;
   align-items: center;
@@ -767,7 +821,8 @@
   opacity: 0.7;
 }
 
-/* Summary bar: a flat span over the children's range - no resize handles either */
+/* Summary bar: a flat span over the children's range
+   (its grips are hidden by .no-resize below - summaries resolve to canResize false) */
 .gantt-task-bar.summary {
   background: var(--gantt-milestone-bg);
   border-radius: 3px;
@@ -791,20 +846,20 @@
   border-radius: 3px 0 0 3px;
 }
 
-.gantt-task-bar.summary::before,
-.gantt-task-bar.summary::after,
-.gantt-task-bar.summary:hover::before,
-.gantt-task-bar.summary:hover::after {
-  opacity: 0;
-}
-
-/* Narrow bars: hide the resize handles (the whole bar is the move handle) */
+/* Narrow bars and non-resizable tasks: hide the resize grips (no affordance for a
+   gesture that is not available; on a narrow bar the whole bar is the move handle) */
 .gantt-task-bar.compact::before,
 .gantt-task-bar.compact::after,
 .gantt-task-bar.compact:hover::before,
 .gantt-task-bar.compact:hover::after,
 .gantt-task-bar.compact.dragging::before,
-.gantt-task-bar.compact.dragging::after {
+.gantt-task-bar.compact.dragging::after,
+.gantt-task-bar.no-resize::before,
+.gantt-task-bar.no-resize::after,
+.gantt-task-bar.no-resize:hover::before,
+.gantt-task-bar.no-resize:hover::after,
+.gantt-task-bar.no-resize.dragging::before,
+.gantt-task-bar.no-resize.dragging::after {
   opacity: 0;
 }
 
