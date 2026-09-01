@@ -24,7 +24,12 @@ import {
   readPersistedScale,
 } from "stores/store";
 import { NODE_HEIGHT } from "constants/gantt";
-import { GanttBottomRowCell, GanttScaleKey, GanttTheme } from "types/gantt";
+import {
+  GanttBottomRowCell,
+  GanttFormatOverrides,
+  GanttScaleKey,
+  GanttTheme,
+} from "types/gantt";
 import { Task } from "types/task";
 import dayjs from "utils/dayjs";
 import {
@@ -91,6 +96,29 @@ export interface GanttProps {
    * do not touch the scroll position.
    */
   initialScrollTo?: "today" | string;
+  /**
+   * BCP 47 locale tag for every date label, e.g. `"ko-KR"`
+   *
+   * Month and day names, header labels and drag tooltips are rendered with
+   * `Intl.DateTimeFormat` (no locale packages to install). Left out, the chart keeps
+   * its built-in English labels. An unusable tag falls back to those and warns once.
+   */
+  locale?: string;
+  /**
+   * Per-scale label overrides - `{ quarter: { header: (d) => ... } }`
+   *
+   * Each scale takes `tick` (bottom row), `header` (top row) and `tooltip` (drag
+   * tooltip and guides); whatever is left out keeps the locale's label. Overrides win
+   * over `locale`. The `Dayjs` handed in is in UTC mode.
+   */
+  formats?: GanttFormatOverrides;
+  /**
+   * First day of the week, 0 = Sunday .. 6 = Saturday
+   *
+   * Set it to group the week scale's top header by week starting on that day, instead
+   * of by month. Left out, week grouping is off and the header is unchanged.
+   */
+  firstDayOfWeek?: number;
 }
 
 /**
@@ -128,6 +156,9 @@ function GanttChart({
   isNonWorkingDay,
   storageKey = DEFAULT_SCALE_STORAGE_KEY,
   initialScrollTo,
+  locale,
+  formats,
+  firstDayOfWeek,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -140,9 +171,27 @@ function GanttChart({
     setTransformedTasks,
     setBottomRowCells,
     setSelectedScale,
+    setLocaleOptions,
     clearAllDragOffsets,
     getTotalWidth,
   } = useGanttSelectors();
+
+  // Label configuration - undefined while nothing is set, so the built-in labels are
+  // used without building a single Intl formatter
+  const localeOptions = useMemo(
+    () =>
+      locale === undefined &&
+      formats === undefined &&
+      firstDayOfWeek === undefined
+        ? undefined
+        : { locale, formats, firstDayOfWeek },
+    [locale, formats, firstDayOfWeek]
+  );
+
+  // Layout effect, not a plain effect - the labels are in place before the first paint
+  useLayoutEffect(() => {
+    setLocaleOptions(localeOptions);
+  }, [localeOptions, setLocaleOptions]);
 
   // Scroll container ref
   const scrollRef = useRef<HTMLDivElement>(null);

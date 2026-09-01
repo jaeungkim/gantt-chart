@@ -11,4 +11,9 @@ export type {
   GanttScrollOptions,
 } from './hooks/useGanttScrollApi';
 export type { Task, TaskDependency, DependencyType, TaskType } from './types/task';
-export type { GanttScaleKey, GanttTheme } from './types/gantt';
+export type {
+  GanttFormatOverrides,
+  GanttScaleFormat,
+  GanttScaleKey,
+  GanttTheme,
+} from './types/gantt';

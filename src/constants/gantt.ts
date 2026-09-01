@@ -1,4 +1,5 @@
 import { GanttScaleConfig, GanttScaleKey } from 'types/gantt';
+import { quarterOfYear } from 'utils/dayjs';
 
 export const NODE_HEIGHT = 38;
 export const TIMELINE_SHIFT_BUFFER = 5;
@@ -20,13 +21,30 @@ export const MILESTONE_HALF_DIAGONAL = Math.round((MILESTONE_SIZE * Math.SQRT2) 
  * The chart is drawn in UTC, so the zone is spelled out only on the day scale, where the time is visible
  */
 export const DATE_FORMATS: Record<GanttScaleKey, string> = {
+  hour: 'MMM D, YYYY HH:mm [UTC]',
   day: 'MMM D, YYYY HH:mm [UTC]',
   week: 'MMM D, YYYY',
   month: 'MMM D, YYYY',
+  quarter: 'MMM YYYY',
   year: 'MMM YYYY',
 };
 
+/** Declaration order is the order the scale selector lists the scales in - finest first */
 export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
+  hour: {
+    // One tick an hour like the day scale, but four times as wide and dragged in
+    // quarter-hour steps - the zoom level below 'day'
+    labelUnit: 'day',
+    tickUnit: 'hour',
+    unitPerTick: 1,
+    dragStepUnit: 'minute',
+    dragStepAmount: 15,
+    basePxPerDragStep: 30,
+    // The date lives in the top row, so the tick only has to say which hour - with 120px
+    // to fill, the minutes are spelled out to make the quarter-hour drag steps readable
+    formatTickLabel: (d) => d.format('HH:mm'),
+    formatHeaderLabel: (d) => d.format('MMM D, YYYY'),
+  },
   day: {
     labelUnit: 'day',
     tickUnit: 'hour',
@@ -57,6 +75,17 @@ export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
     basePxPerDragStep: 32,
     formatTickLabel: (d) => d.format('D'),
     formatHeaderLabel: (d) => d.format('MMM YYYY'),
+  },
+  quarter: {
+    // Same month ticks as the year scale, twice as wide and grouped by quarter on top
+    labelUnit: 'quarter',
+    tickUnit: 'month',
+    unitPerTick: 1,
+    dragStepUnit: 'day',
+    dragStepAmount: 3,
+    basePxPerDragStep: 24,
+    formatTickLabel: (d) => d.format('MMM'),
+    formatHeaderLabel: (d) => `Q${quarterOfYear(d)} ${d.format('YYYY')}`,
   },
   year: {
     // Ticks are months, so the top row is the year and the bottom the month - a day (D) on the bottom would always print '1'

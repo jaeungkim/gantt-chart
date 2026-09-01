@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 
 // Only the plugins actually used are registered.
@@ -20,3 +20,30 @@ dayjs.extend(utc);
 const ganttDayjs = dayjs.utc;
 
 export default ganttDayjs;
+
+/**
+ * Calendar quarter of the date, 1-4
+ *
+ * Written out instead of pulling in dayjs' quarterOfYear plugin - the quarter scale
+ * needs exactly these two lines of it, and the plugin would grow the bundle for every
+ * consumer, quarter scale in use or not.
+ */
+export function quarterOfYear(date: Dayjs): number {
+  return Math.floor(date.month() / 3) + 1;
+}
+
+/** First moment of the calendar quarter the date falls in */
+export function startOfQuarter(date: Dayjs): Dayjs {
+  return date.startOf('month').month(Math.floor(date.month() / 3) * 3);
+}
+
+/**
+ * First moment of the week the date falls in
+ *
+ * `firstDayOfWeek` is 0 = Sunday .. 6 = Saturday. dayjs' own `startOf('week')` is fixed
+ * to the locale dayjs was loaded with (Sunday), so the week boundary is computed here.
+ */
+export function startOfWeek(date: Dayjs, firstDayOfWeek = 0): Dayjs {
+  const daysIntoWeek = (date.day() - firstDayOfWeek + 7) % 7;
+  return date.startOf('day').subtract(daysIntoWeek, 'day');
+}

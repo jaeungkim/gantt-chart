@@ -1,5 +1,4 @@
 import {
-  DATE_FORMATS,
   EDGE_THRESHOLD,
   MILESTONE_HALF_DIAGONAL,
   MIN_BAR_WIDTH,
@@ -9,9 +8,10 @@ import {
 } from "constants/gantt";
 import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
 import { useGanttProgressDrag } from "hooks/useGanttProgressDrag";
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useMemo } from "react";
 import { useGanttStore } from "stores/context";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
+import { resolveFormatters } from "utils/i18n";
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
@@ -30,7 +30,9 @@ export default function GanttBar({
   const liveOffset = useGanttStore((store) => store.dragOffsets[currentTask.id]);
   const isDragging = useGanttStore((store) => store.currentTask?.id === currentTask.id);
   const selectedScale = useGanttStore((store) => store.selectedScale);
-  
+  const localeOptions = useGanttStore((store) => store.localeOptions);
+
+
   const offsetX = liveOffset?.offsetX ?? 0;
   const offsetWidth = liveOffset?.offsetWidth ?? 0;
 
@@ -79,12 +81,15 @@ export default function GanttBar({
   );
 
   // Build the tooltip text (shown differently per mode)
-  const format = DATE_FORMATS[selectedScale];
+  const { tooltip } = useMemo(
+    () => resolveFormatters(selectedScale, localeOptions),
+    [selectedScale, localeOptions]
+  );
   const getTooltipText = (mode: DragMode | null) => {
     if (!liveOffset) return "";
 
-    const startText = liveOffset.offsetStartDate.format(format);
-    const endText = liveOffset.offsetEndDate.format(format);
+    const startText = tooltip(liveOffset.offsetStartDate);
+    const endText = tooltip(liveOffset.offsetEndDate);
 
     if (isMilestone) return startText;
 

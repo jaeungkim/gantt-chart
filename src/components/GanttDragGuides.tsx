@@ -1,6 +1,7 @@
-import { DATE_FORMATS } from "constants/gantt";
+import { useMemo } from "react";
 import { useGanttStore } from "stores/context";
 import { isMilestoneTask } from "types/task";
+import { resolveFormatters } from "utils/i18n";
 
 interface GanttDragGuidesProps {
   width: number;
@@ -14,19 +15,23 @@ export default function GanttDragGuides({ width }: GanttDragGuidesProps) {
   const currentTask = useGanttStore((store) => store.currentTask);
   const dragOffsets = useGanttStore((store) => store.dragOffsets);
   const selectedScale = useGanttStore((store) => store.selectedScale);
+  const localeOptions = useGanttStore((store) => store.localeOptions);
+  const { tooltip } = useMemo(
+    () => resolveFormatters(selectedScale, localeOptions),
+    [selectedScale, localeOptions]
+  );
 
   const offset = currentTask ? dragOffsets[currentTask.id] : undefined;
   if (!currentTask || !offset) return null;
 
-  const format = DATE_FORMATS[selectedScale];
   const startX = currentTask.barLeft + offset.offsetX;
   const endX = startX + currentTask.barWidth + offset.offsetWidth;
 
   const guides = isMilestoneTask(currentTask)
-    ? [{ x: startX, label: offset.offsetStartDate.format(format) }]
+    ? [{ x: startX, label: tooltip(offset.offsetStartDate) }]
     : [
-        { x: startX, label: offset.offsetStartDate.format(format) },
-        { x: endX, label: offset.offsetEndDate.format(format) },
+        { x: startX, label: tooltip(offset.offsetStartDate) },
+        { x: endX, label: tooltip(offset.offsetEndDate) },
       ];
 
   return (
