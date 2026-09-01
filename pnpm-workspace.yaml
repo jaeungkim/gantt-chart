@@ -1,0 +1,3 @@
+# esbuild ships prebuilt binaries via optionalDependencies; its postinstall script is not needed.
+allowBuilds:
+  esbuild: false
