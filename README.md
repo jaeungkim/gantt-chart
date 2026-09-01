@@ -22,7 +22,6 @@ Currently, this project is built specifically for React due to my development ba
 - 🌏 Any locale through `Intl` (no locale packages), with per-scale label overrides
 - 📋 Task list pane with configurable columns, a draggable splitter, and a collapse toggle
 - 🌳 Arbitrary-depth tree from `parentId`: expand/collapse, summary bars, subtree drag
-- 📆 Multiple timeline scales: Day, Week, Month, Year
 - 🔄 Drag-and-drop support:
   - Move entire task bars
   - Resize from left/right edges
@@ -773,6 +772,7 @@ The stylesheet loads no remote fonts; it uses the system font stack unless you o
 - [ ] Inline editing for task names
 - [x] Export to PNG ([`exportToPng`](#png-export)) — SVG still open
 - [x] Custom bar colors
+- [x] Keyboard-accessible scale selector
 
 ## 🤝 Contributing
 
