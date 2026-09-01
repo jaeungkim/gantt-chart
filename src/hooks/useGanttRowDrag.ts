@@ -200,7 +200,8 @@ export function useGanttRowDrag({
         }) === false;
       if (cancelled) return;
 
-      storeApi.getState().setRawTasks(updatedTasks);
+      // One commit for the whole reorder, so the renumbered rows undo together
+      storeApi.getState().commitTasks(updatedTasks);
       onTasksChange?.(updatedTasks);
     };
 

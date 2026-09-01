@@ -27,6 +27,8 @@ Currently, this project is built specifically for React due to my development ba
   - Resize from left/right edges
   - Snap to configured intervals
   - Reorder and re-parent rows, with indent/outdent on horizontal offset
+- ↩️ Undo/redo — one step per gesture, keyboard shortcuts and an imperative API
+- 👆 Touch support — long-press to lift a bar, swipe to scroll
 - 🧲 Smart dependency arrows (FS, SS, FF, SF), drawn between bars by dragging and removed by selecting
 - ✏️ Draw a new task on empty row space, snapped to the current scale
 - ◆ Milestones and per-task progress
@@ -141,6 +143,7 @@ export default function App() {
 | `maxDate` | `string` | - | Latest date any bar may be dragged to (UTC ISO string) |
 | `visibleStart` | `string` | - | Pins the timeline start (UTC ISO string) instead of fitting to the tasks |
 | `visibleEnd` | `string` | - | Pins the timeline end (UTC ISO string) instead of fitting to the tasks |
+| `historyLimit` | `number` | `100` | How many undo steps to keep. `0` turns undo off ([undo/redo](#undoredo)) |
 | `allowRowReorder` | `boolean` | `false` | Let a task list row be dragged to reorder siblings and re-parent. Follows `readOnly` / `allowMove` |
 | `onReorder` | `(change: GanttReorderChange) => void \| boolean` | - | Fires on a row drop, before anything is committed. Return `false` to cancel |
 | `markers` | `GanttMarker[]` | - | Labelled vertical lines at given dates ([markers](#markers-and-range-bands)) |
@@ -292,6 +295,25 @@ auto-fitting.
   visibleEnd="2026-04-01T00:00:00Z"
 />
 ```
+
+## Touch
+
+Move, resize and progress all work with a finger, without giving up scrolling:
+
+- **A swipe scrolls, a long press drags.** Touching a bar and moving straight away pans
+  the timeline the way touching anywhere else does. Resting on it for ~400ms lifts the
+  bar instead, and from then on the gesture is a drag — the bar picks up its usual
+  drag styling as the cue. Drifting more than ~10px during that wait hands the gesture
+  back to the scroll.
+- **Bigger targets.** The resize edges are 44px wide for touch instead of 8px, and the
+  progress handle gets a 44px hit area and is visible without hover. A bar too narrow
+  to spare two 44px edges is move-only, the same rule the mouse already follows at 8px.
+- **Drawing a task follows the same rule.** A swipe across empty row space scrolls;
+  resting there for ~400ms starts the draw instead.
+- **Connector dots show on selection.** They are revealed by hover, which a finger does
+  not have — tapping a bar selects it and reveals them too.
+- **A mouse is untouched.** Mouse presses still start a drag immediately with the
+  original 8px edges.
 
 ## Row Reordering
 
@@ -453,6 +475,23 @@ one handler call, one veto decision, one `onTasksChange` for the lot.
 task-list row has its own veto, [`onReorder`](#row-reordering), which is synchronous — the
 row is only committed once it returns.
 
+### How this composes with undo
+
+[Undo](#undoredo) records what reached the data, so a change that was never written is
+never a step:
+
+- **A vetoed change records nothing.** The bar rolls back and `canUndo` is unchanged.
+- **A superseded change records nothing.** A late answer whose lane a newer gesture has
+  claimed is dropped, so it never becomes a step either.
+- **An approved change records exactly one step, when it commits** — not when the pointer
+  went up. The step is diffed against the tasks as they are at that moment, the same
+  array the commit merges into, so undoing a slow change writes back what it actually
+  replaced and leaves a bar that committed in the meantime alone.
+- **Undo and redo do not re-enter `onBeforeTaskChange`.** They restore a state the host
+  already accepted (it received an `onTasksChange` for it), and a veto there would pop a
+  step without restoring the data and leave the stack describing something that never
+  happened. Undo is history playback, not a new proposal.
+
 ## Custom Rendering
 
 ### Per-task color and class
@@ -597,7 +636,7 @@ interface GanttTaskDraft {
 
 ## Imperative API
 
-Pass a ref to scroll the chart programmatically, or to export it as a PNG:
+Pass a ref to scroll the chart programmatically, export it as a PNG, or drive undo/redo:
 
 ```tsx
 import { useRef } from 'react';
@@ -610,6 +649,10 @@ const ref = useRef<GanttHandle>(null);
 ref.current?.scrollToToday();
 ref.current?.scrollToDate('2026-09-01');
 ref.current?.scrollToTask('task-42', { smooth: false, align: 'start' });
+ref.current?.undo();
+ref.current?.redo();
+ref.current?.canUndo; // boolean
+ref.current?.canRedo; // boolean
 ref.current?.zoomToFit();
 ref.current?.getScrollElement();
 ```
@@ -621,10 +664,64 @@ ref.current?.getScrollElement();
 | `scrollToTask(taskId, options?)` | Scroll to a task, vertically too when its row is off-screen |
 | `zoomToFit()` | Switch to the finest scale at which the whole project fits the viewport width, and scroll it into view |
 | `getScrollElement()` | The scroll container DOM node, or `null` |
+| `undo()` / `redo()` | Step back/forward through the gesture history ([undo/redo](#undoredo)) |
+| `canUndo` / `canRedo` | Whether a step is available in that direction |
 
 `options` is `{ smooth?: boolean; align?: 'start' \| 'center' }`.
 
 Dates outside the rendered timeline and unknown task ids are ignored rather than throwing, so calls during data loading are safe. `scrollToTask` only moves vertically when the row is off-screen. `zoomToFit` does nothing while there are no tasks.
+
+### Undo/redo
+
+Every completed gesture — a move, a resize, a progress drag, a row reorder — is one
+undo step, however many rows it changed. Dragging a summary row moves its whole subtree
+and one undo puts every task in it back; a reorder renumbers `sequence` across the array
+and one undo puts all of it back. Undo and redo write through the chart the same way a
+drag does, so `onTasksChange` fires with the restored data.
+
+A step is recorded when the change is *written*, so a gesture your
+[`onBeforeTaskChange`](#how-this-composes-with-undo) vetoed or superseded never enters
+the stack, and one it approved asynchronously enters it once, at the moment it commits.
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Z` / `Cmd+Z` | Undo |
+| `Ctrl+Y` / `Ctrl+Shift+Z` / `Cmd+Shift+Z` | Redo |
+
+The shortcuts are scoped to the chart: they fire only for key presses inside it, and
+never when the key went to an `<input>`, `<textarea>`, `<select>` or contenteditable —
+so a text field in a custom column keeps its own undo. Clicking anywhere in the chart
+puts the shortcuts in scope; the container is focusable but not in the tab order.
+
+`canUndo` / `canRedo` are read fresh on every access, and every change to them is
+accompanied by an `onTasksChange`, so a toolbar built on them stays in sync by
+re-rendering on that callback:
+
+```tsx
+<button onClick={() => ref.current?.undo()} disabled={!ref.current?.canUndo}>
+  Undo
+</button>
+```
+
+`historyLimit` sets the depth (default 100; `0` disables recording). Lowering it drops
+the steps that no longer fit.
+
+**How the `tasks` prop interacts with the history.** The chart already ignores prop
+updates whose content matches what it holds, so the array a controlled parent hands
+back after `onTasksChange` is recognized as an echo and changes nothing — including the
+history. A prop update with *different* content is the host replacing the data, and
+**that clears both stacks**: the recorded steps describe rows and dates that are no
+longer on screen, and replaying them would write stale values back. So undo covers what
+the user did to the data the host gave it, never across a host-driven reload.
+
+Two consequences worth knowing:
+
+- A controlled parent that normalizes or re-serializes dates before passing them back
+  will not produce a byte-identical echo, and every gesture will clear the history it
+  just recorded. Pass back what `onTasksChange` handed you.
+- A gesture that adds or removes rows cannot be expressed as a field patch. None do
+  today; if one is added, it clears the history rather than record a step that would
+  corrupt the data on replay.
 
 ### PNG export
 
@@ -975,6 +1072,8 @@ The stylesheet loads no remote fonts; it uses the system font stack unless you o
 - [x] Collapsible parent-child rows
 - [ ] Inline editing for task names
 - [x] Export to PNG ([`exportToPng`](#png-export)) — SVG still open
+- [x] Undo/redo ([`undo` / `redo`](#undoredo))
+- [x] Touch gestures ([touch](#touch))
 - [x] Custom bar colors
 - [x] Keyboard-accessible scale selector
 

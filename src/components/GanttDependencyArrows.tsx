@@ -94,7 +94,7 @@ export default function GanttDependencyArrows({
     selected?.sourceId === dep.sourceId && selected?.targetId === dep.targetId;
 
   const deleteSelected = useCallback(() => {
-    const { rawTasks, selectedDependency, setRawTasks, setSelectedDependency } =
+    const { rawTasks, selectedDependency, commitTasks, setSelectedDependency } =
       storeApi.getState();
     if (!selectedDependency) return;
 
@@ -117,7 +117,8 @@ export default function GanttDependencyArrows({
 
     setSelectedDependency(null);
     const updatedTasks = removeDependency(rawTasks, targetId, sourceId);
-    setRawTasks(updatedTasks);
+    // commitTasks, not setRawTasks: removing an arrow is a gesture, so it is one undo step
+    commitTasks(updatedTasks);
     onTasksChange?.(updatedTasks);
   }, [storeApi, interaction, onDependencyDelete, onTasksChange]);
 

@@ -1,6 +1,7 @@
 import { NODE_HEIGHT } from "constants/gantt";
 import { useRef, useState } from "react";
 import { useGanttStoreApi } from "stores/context";
+import { armPointerGesture, suppressTouchScroll } from "utils/pointerGesture";
 import { snapDrawnRange } from "utils/timeline";
 
 /** Below this many px the gesture is a click, not a drawn range */
@@ -44,6 +45,8 @@ export function useGanttDrawCreate({
   const [ghost, setGhost] = useState<DrawGhost | null>(null);
   // Only touched inside the pointer handlers, never while rendering
   const activePointerRef = useRef<number | null>(null);
+  // Abort for a touch press still waiting to become a draw
+  const pendingGestureRef = useRef<(() => void) | null>(null);
 
   const onDrawPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!enabled || !e.isPrimary || e.button !== 0) return;
@@ -51,12 +54,40 @@ export function useGanttDrawCreate({
     // Empty space only - bars, arrows and handles are their own targets and run their own gestures
     if (e.target !== e.currentTarget) return;
 
+    // A press given up to a scroll leaves its abort behind - the primary pointer can
+    // only be down once, so anything still pending belongs to the past
+    pendingGestureRef.current?.();
+    pendingGestureRef.current = null;
+
     const content = e.currentTarget;
-    const startRect = content.getBoundingClientRect();
-    const originX = e.clientX - startRect.left;
-    const rowIndex = Math.floor((e.clientY - startRect.top) / NODE_HEIGHT);
     const pointerId = e.pointerId;
+
+    // Same rule as a bar drag: a mouse draws at once, a finger has to rest first so a
+    // swipe across empty row space still scrolls the timeline
+    pendingGestureRef.current = armPointerGesture(
+      { pointerType: e.pointerType, pointerId, clientX: e.clientX, clientY: e.clientY },
+      (clientX, clientY) => {
+        pendingGestureRef.current = null;
+        startDraw(content, pointerId, e.pointerType, clientX, clientY);
+      }
+    );
+  };
+
+  const startDraw = (
+    content: HTMLDivElement,
+    pointerId: number,
+    pointerType: string,
+    startClientX: number,
+    startClientY: number
+  ) => {
+    const startRect = content.getBoundingClientRect();
+    const originX = startClientX - startRect.left;
+    const rowIndex = Math.floor((startClientY - startRect.top) / NODE_HEIGHT);
     activePointerRef.current = pointerId;
+    // touch-action is fixed when the gesture starts, so the browser has to be told
+    // separately to stop panning once the long press has lifted into a draw
+    const releaseTouchScroll =
+      pointerType === "mouse" ? null : suppressTouchScroll();
 
     const rangeAt = (clientX: number) => {
       const { bottomRowCells, selectedScale } = storeApi.getState();
@@ -98,6 +129,7 @@ export function useGanttDrawCreate({
 
     const endDraw = () => {
       detachListeners();
+      releaseTouchScroll?.();
       activePointerRef.current = null;
       setGhost(null);
     };

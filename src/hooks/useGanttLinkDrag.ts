@@ -180,7 +180,8 @@ export function useGanttLinkDrag({
           change.successorId,
           change.type
         );
-        storeApi.getState().setRawTasks(updatedTasks);
+        // commitTasks, not setRawTasks: a drawn link is a gesture, so it is one undo step
+        storeApi.getState().commitTasks(updatedTasks);
         onTasksChange?.(updatedTasks);
       };
 

@@ -20,7 +20,8 @@ export function useGanttSelectors() {
       selectedTaskId: state.selectedTaskId,
 
       // Actions
-      setRawTasks: state.setRawTasks,
+      syncTasksFromProps: state.syncTasksFromProps,
+      setHistoryLimit: state.setHistoryLimit,
       setTransformedTasks: state.setTransformedTasks,
       setBottomRowCells: state.setBottomRowCells,
       setSelectedScale: state.setSelectedScale,

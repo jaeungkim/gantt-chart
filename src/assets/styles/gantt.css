@@ -161,6 +161,12 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* The container is focusable only so the undo shortcut has somewhere to land -
+   clicking the chart should not draw a ring around the whole thing */
+.gantt-container:focus {
+  outline: none;
+}
+
 /* ===== TOOLBAR ===== */
 .gantt-toolbar {
   flex-shrink: 0;
@@ -844,8 +850,12 @@
   right: auto;
 }
 
+/* Selection reveals them too - a finger has no hover, so tapping the bar is how a
+   touch user reaches the connectors */
 .gantt-task-bar:hover .gantt-link-handle,
-.gantt-milestone:hover .gantt-link-handle {
+.gantt-milestone:hover .gantt-link-handle,
+.gantt-task-bar.selected .gantt-link-handle,
+.gantt-milestone.selected .gantt-link-handle {
   opacity: 1;
   pointer-events: auto;
 }
@@ -912,7 +922,10 @@
 /* ===== TASK BAR ===== */
 .gantt-task-bar {
   position: relative;
-  touch-action: none;
+  /* Panning is left to the browser so a swipe across a bar still scrolls the
+     timeline. A touch drag is lifted by a long press, and suppresses the scroll
+     itself from that point on (utils/pointerGesture). A mouse is unaffected. */
+  touch-action: pan-x pan-y;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -1069,6 +1082,21 @@
   opacity: 1;
 }
 
+/* Touch screens: there is no hover to reveal the handle, and a 10px dot is far under
+   the 44px target guideline. The larger hit area is scoped to these devices - on a
+   mouse it would swallow clicks meant for the bar. */
+@media (hover: none) {
+  .gantt-progress-handle {
+    opacity: 1;
+  }
+
+  .gantt-progress-handle::before {
+    content: "";
+    position: absolute;
+    inset: -17px;
+  }
+}
+
 /* Task Name */
 .gantt-task-name {
   position: relative;
@@ -1097,7 +1125,8 @@
 /* ===== MILESTONE ===== */
 .gantt-milestone {
   position: relative;
-  touch-action: none;
+  /* Same as the task bar - swipe scrolls, long press drags */
+  touch-action: pan-x pan-y;
   z-index: 10;
   display: flex;
   align-items: center;

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useGanttStoreApi } from "stores/context";
 import { GanttBeforeChangeHandler } from "types/gantt";
 import { normalizeProgress, Task, TaskTransformed } from "types/task";
@@ -7,6 +7,7 @@ import {
   mutationKey,
   REVERT_DURATION_MS,
 } from "utils/mutation";
+import { armPointerGesture, suppressTouchScroll } from "utils/pointerGesture";
 
 export interface GanttProgressDragOptions {
   onTasksChange?: (updatedTasks: Task[]) => void;
@@ -32,6 +33,10 @@ export function useGanttProgressDrag(
   const storeApi = useGanttStoreApi();
   const [live, setLive] = useState<LiveProgress | null>(null);
   const liveProgressRef = useRef<number | null>(null);
+  /** Aborts a touch long press that has not started the drag yet */
+  const pendingGestureRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => pendingGestureRef.current?.(), []);
 
   const percentFromPointer = (clientX: number): number | null => {
     const bar = barRef.current;
@@ -52,6 +57,32 @@ export function useGanttProgressDrag(
     // Blocked so it does not overlap with the bar move drag
     e.stopPropagation();
     e.preventDefault();
+    // A press that was given up to a scroll leaves its abort behind - clear it before
+    // arming the next one, or the handle would never respond again
+    pendingGestureRef.current?.();
+    pendingGestureRef.current = null;
+
+    const { pointerType } = e;
+
+    // Same disambiguation as the bar: a touch has to rest on the handle first, so
+    // scrolling past it does not rewrite the task's progress
+    pendingGestureRef.current = armPointerGesture(
+      {
+        pointerType,
+        pointerId: e.pointerId,
+        clientX: e.clientX,
+        clientY: e.clientY,
+      },
+      () => {
+        pendingGestureRef.current = null;
+        startDrag(pointerType);
+      }
+    );
+  };
+
+  const startDrag = (pointerType: string) => {
+    const releaseTouchScroll =
+      pointerType === "mouse" ? null : suppressTouchScroll();
 
     // A fresh gesture supersedes a veto still pending on this bar's progress
     let gateToken: number | null = null;
@@ -74,6 +105,7 @@ export function useGanttProgressDrag(
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerup", handlePointerUp);
       document.removeEventListener("pointercancel", handlePointerUp);
+      releaseTouchScroll?.();
 
       const percent = liveProgressRef.current;
       liveProgressRef.current = null;
@@ -101,7 +133,9 @@ export function useGanttProgressDrag(
           .getState()
           .rawTasks.map((t) => (t.id === edited?.id ? edited : t));
 
-        storeApi.getState().setRawTasks(merged);
+        // Recorded at commit time against the tasks the merge just read - a veto or a
+        // superseded answer never gets here, so neither becomes an undo step
+        storeApi.getState().commitTasks(merged);
         setLive(null);
         onTasksChange?.(merged);
       };

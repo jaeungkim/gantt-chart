@@ -13,6 +13,7 @@ export type {
   GanttZoomAnchor,
 } from './hooks/useGanttScrollApi';
 export type { GanttExportApi } from './hooks/useGanttExportApi';
+export type { GanttHistoryApi } from './hooks/useGanttHistoryApi';
 export type {
   GanttExportOptions,
   GanttExportRange,
