@@ -136,15 +136,22 @@ Switch scales using the dropdown at the top-right of the chart.
 
 ## Theming
 
-The chart supports three theme modes:
+Set the `theme` prop to `light`, `dark`, or `system` (the default follows the OS setting).
 
-- **`light`** - Light background with dark text
-- **`dark`** - Dark background with light text  
-- **`system`** - Follows system preference (uses `prefers-color-scheme`)
+All colors are CSS custom properties scoped to `.gantt-container` and prefixed with `--gantt-`,
+so they never collide with your app's own tokens. Override any of them from your own stylesheet:
 
-```tsx
-<ReactGanttChart theme="dark" ... />
+```css
+.gantt-container {
+  --gantt-bar-bg: #dbeafe;
+  --gantt-bar-text: #1e3a8a;
+  --gantt-accent: #2563eb;
+  --gantt-font-sans: "Inter", sans-serif;
+}
 ```
+
+The stylesheet loads no remote fonts; it uses the system font stack unless you override
+`--gantt-font-sans`.
 
 ## Roadmap
 
