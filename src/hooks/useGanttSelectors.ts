@@ -24,6 +24,7 @@ export function useGanttSelectors() {
       setTransformedTasks: state.setTransformedTasks,
       setBottomRowCells: state.setBottomRowCells,
       setSelectedScale: state.setSelectedScale,
+      setLocaleOptions: state.setLocaleOptions,
       clearAllDragOffsets: state.clearAllDragOffsets,
 
       // Computed values

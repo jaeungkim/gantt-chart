@@ -1,5 +1,4 @@
 import {
-  DATE_FORMATS,
   EDGE_THRESHOLD,
   MILESTONE_HALF_DIAGONAL,
   MIN_BAR_WIDTH,
@@ -9,15 +8,23 @@ import {
 } from "constants/gantt";
 import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
 import { useGanttProgressDrag } from "hooks/useGanttProgressDrag";
-import { CSSProperties, useRef, useState, useCallback } from "react";
+import { CSSProperties, useRef, useState, useCallback, useMemo } from "react";
 import { useGanttStore } from "stores/context";
 import { GanttBarOptions, GanttTooltipReason } from "types/gantt";
-import { isMilestoneTask, resolveTaskColors, TaskTransformed } from "types/task";
+import {
+  GanttInteractionConfig,
+  isMilestoneTask,
+  resolveTaskColors,
+  resolveTaskInteraction,
+  TaskTransformed,
+} from "types/task";
 import dayjs from "utils/dayjs";
+import { resolveFormatters } from "utils/i18n";
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
   options?: GanttBarOptions;
+  interaction?: GanttInteractionConfig;
 }
 
 /** No options at all is the plain chart - one shared object keeps the default identity stable */
@@ -32,6 +39,7 @@ function formatDuration(durationMs: number): string {
 export default function GanttBar({
   currentTask,
   options = NO_OPTIONS,
+  interaction,
 }: GanttBarProps) {
   const {
     onTasksChange,
@@ -46,15 +54,23 @@ export default function GanttBar({
   const barRef = useRef<HTMLDivElement>(null);
   const { onPointerDown, dragMode, consumeDragClick } = useGanttBarDrag(
     currentTask,
-    { onTasksChange, onBeforeTaskChange }
+    { onTasksChange, onBeforeTaskChange },
+    interaction
   );
-  const [cursor, setCursor] = useState<"grab" | "ew-resize">("grab");
+  const { canMove, canResize, canChangeProgress } = resolveTaskInteraction(
+    currentTask,
+    interaction
+  );
+  // Only the pointer position is tracked here - the cursor itself is derived below,
+  // so a permission that changes after mount cannot leave a stale affordance behind
+  const [onResizeEdge, setOnResizeEdge] = useState(false);
   const [hovered, setHovered] = useState(false);
 
   // Read the drag offset
   const liveOffset = useGanttStore((store) => store.dragOffsets[currentTask.id]);
   const isDragging = useGanttStore((store) => store.currentTask?.id === currentTask.id);
   const selectedScale = useGanttStore((store) => store.selectedScale);
+  const localeOptions = useGanttStore((store) => store.localeOptions);
   const isSelected = useGanttStore(
     (store) => store.selectedTaskId === currentTask.id
   );
@@ -84,35 +100,28 @@ export default function GanttBar({
       onBeforeTaskChange,
     });
   const showProgress = !isMilestone && progress !== null;
-  // A summary row's progress is rolled up from its children, so it is not draggable
-  const showProgressHandle = showProgress && !currentTask.isSummary;
 
-  // Change the cursor based on the mouse position (milestones and summaries cannot be resized)
+  // Track whether the pointer is over a resize edge. Milestones, summaries and
+  // narrow bars have none, but that is decided by canResize when the cursor is
+  // derived - this only reports where the pointer is.
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isMilestone || currentTask.isSummary) return;
-
       const bar = barRef.current;
       if (!bar) return;
 
       const rect = bar.getBoundingClientRect();
       if (rect.width < MIN_RESIZABLE_WIDTH) {
-        setCursor("grab");
+        setOnResizeEdge(false);
         return;
       }
 
       const relativeX = e.clientX - rect.left;
 
-      if (
-        relativeX <= EDGE_THRESHOLD ||
-        relativeX >= rect.width - EDGE_THRESHOLD
-      ) {
-        setCursor("ew-resize");
-      } else {
-        setCursor("grab");
-      }
+      setOnResizeEdge(
+        relativeX <= EDGE_THRESHOLD || relativeX >= rect.width - EDGE_THRESHOLD
+      );
     },
-    [isMilestone, currentTask.isSummary]
+    []
   );
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -125,13 +134,26 @@ export default function GanttBar({
     onTaskDoubleClick?.(currentTask, e);
   };
 
+  // A gesture that is not allowed shows no affordance at all
+  const restCursor = canMove ? "grab" : "default";
+  const barCursor = isDragging
+    ? canMove || canResize
+      ? "grabbing"
+      : restCursor
+    : onResizeEdge && canResize
+      ? "ew-resize"
+      : restCursor;
+
   // Build the tooltip text (shown differently per mode)
-  const format = DATE_FORMATS[selectedScale];
+  const { tooltip } = useMemo(
+    () => resolveFormatters(selectedScale, localeOptions),
+    [selectedScale, localeOptions]
+  );
   const getTooltipText = (mode: DragMode | null) => {
     if (!liveOffset) return "";
 
-    const startText = liveOffset.offsetStartDate.format(format);
-    const endText = liveOffset.offsetEndDate.format(format);
+    const startText = tooltip(liveOffset.offsetStartDate);
+    const endText = tooltip(liveOffset.offsetEndDate);
 
     if (isMilestone) return startText;
 
@@ -207,8 +229,8 @@ export default function GanttBar({
         <span className="gantt-tooltip-name">{currentTask.name}</span>
         <span className="gantt-tooltip-meta">
           {isMilestone
-            ? startDate.format(format)
-            : `${startDate.format(format)} → ${endDate.format(format)}`}
+            ? tooltip(startDate)
+            : `${tooltip(startDate)} → ${tooltip(endDate)}`}
         </span>
         {!isMilestone && (
           <span className="gantt-tooltip-meta">
@@ -226,14 +248,14 @@ export default function GanttBar({
     ? {
         transform: `translateX(${finalLeft - MILESTONE_HALF_DIAGONAL}px)`,
         height: NODE_HEIGHT / 2,
-        cursor: isDragging ? "grabbing" : "grab",
+        cursor: barCursor,
         ...colorVars,
       }
     : {
         transform: `translateX(${finalLeft}px)`,
         width: finalWidth,
         height: NODE_HEIGHT / 2,
-        cursor: isDragging ? "grabbing" : cursor,
+        cursor: barCursor,
         ...colorVars,
       };
 
@@ -305,14 +327,16 @@ export default function GanttBar({
       id={`task-${currentTask.id}`}
       className={`gantt-task-bar${isDragging ? " dragging" : ""}${
         labelOutside ? " compact" : ""
-      }${currentTask.isSummary ? " summary" : ""}${suffix}`}
+      }${currentTask.isSummary ? " summary" : ""}${
+        canResize ? "" : " no-resize"
+      }${suffix}`}
       onPointerDown={onPointerDown}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => {
-        setCursor("grab");
+        setOnResizeEdge(false);
         setHovered(false);
       }}
       style={barStyle}
@@ -331,7 +355,9 @@ export default function GanttBar({
             className="gantt-progress-fill"
             style={{ width: `${progress}%` }}
           />
-          {showProgressHandle && (
+          {/* The fill stays as a readout; only the draggable handle is gated.
+              canChangeProgress is already false for a summary's rolled-up progress. */}
+          {canChangeProgress && (
             <div
               className={`gantt-progress-handle${
                 isDraggingProgress ? " dragging" : ""

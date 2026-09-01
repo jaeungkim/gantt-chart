@@ -2,6 +2,7 @@ import { GANTT_SCALE_CONFIG } from "constants/gantt";
 import {
   GanttBottomRowCell,
   GanttDragOffset,
+  GanttLocaleOptions,
   GanttScaleKey,
 } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
@@ -40,6 +41,17 @@ export interface GanttState {
   currentTask: TaskTransformed | null;
   dragOffsets: Record<string, GanttDragOffset>;
   transformedTasks: TaskTransformed[];
+  /**
+   * While true, virtualization is bypassed and every row, bar, arrow and header
+   * cell is rendered at once.
+   *
+   * Only `exportToPng` turns this on, for the frames it takes to capture the
+   * chart - a capture of the virtualized DOM would be a picture of the visible
+   * slice with blank space around it.
+   */
+  exportMode: boolean;
+  /** Locale and label formats - undefined means the built-in English labels */
+  localeOptions: GanttLocaleOptions | undefined;
   /** The selected row, or null - drives the highlight on the bar and on its grid row */
   selectedTaskId: string | null;
   /** Ids whose bar is animating back after a vetoed change */
@@ -49,6 +61,8 @@ export interface GanttState {
 
   // Actions
   setSelectedScale: (scale: GanttScaleKey) => void;
+  setExportMode: (exportMode: boolean) => void;
+  setLocaleOptions: (options: GanttLocaleOptions | undefined) => void;
   setCurrentTask: (task: TaskTransformed | null) => void;
   setSelectedTaskId: (taskId: string | null) => void;
   beginRevert: (ids: string[]) => void;
@@ -84,11 +98,17 @@ export function createGanttStore(
     selectedScale: "month",
     currentTask: null,
     dragOffsets: {},
+    exportMode: false,
+    localeOptions: undefined,
     selectedTaskId: null,
     revertingIds: [],
     mutationGate: createMutationGate(),
 
     setCurrentTask: (task) => set({ currentTask: task }),
+
+    setExportMode: (exportMode) => set({ exportMode }),
+
+    setLocaleOptions: (options) => set({ localeOptions: options }),
 
     setSelectedTaskId: (taskId) => {
       if (get().selectedTaskId === taskId) return;
