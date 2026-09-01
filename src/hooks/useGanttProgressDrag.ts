@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { useGanttStore } from "stores/store";
+import { useGanttStoreApi } from "stores/context";
 import { normalizeProgress, Task, TaskTransformed } from "types/task";
 
 /**
@@ -11,6 +11,7 @@ export function useGanttProgressDrag(
   barRef: React.RefObject<HTMLDivElement | null>,
   onTasksChange?: (updatedTasks: Task[]) => void
 ) {
+  const storeApi = useGanttStoreApi();
   const [liveProgress, setLiveProgress] = useState<number | null>(null);
   const liveProgressRef = useRef<number | null>(null);
 
@@ -49,13 +50,13 @@ export function useGanttProgressDrag(
 
       if (percent === null) return;
 
-      const updatedTasks = useGanttStore
+      const updatedTasks = storeApi
         .getState()
         .rawTasks.map((t) =>
           t.id === task.id ? { ...t, progress: percent } : t
         );
 
-      useGanttStore.getState().setRawTasks(updatedTasks);
+      storeApi.getState().setRawTasks(updatedTasks);
       onTasksChange?.(updatedTasks);
     };
 

@@ -10,7 +10,7 @@ import {
 import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
 import { useGanttProgressDrag } from "hooks/useGanttProgressDrag";
 import { useRef, useState, useCallback } from "react";
-import { useGanttStore } from "stores/store";
+import { useGanttStore } from "stores/context";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 
 interface GanttBarProps {

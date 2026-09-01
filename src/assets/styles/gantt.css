@@ -121,6 +121,16 @@
   }
 }
 
+/* 컨테이너 안에서만 border-box를 강제한다.
+   호스트 앱의 리셋 유무와 무관하게 레이아웃 계산이 같아야 하고,
+   전역 리셋을 내보내면 호스트 스타일을 침범한다. */
+.gantt-container,
+.gantt-container *,
+.gantt-container *::before,
+.gantt-container *::after {
+  box-sizing: border-box;
+}
+
 /* ===== BASE LAYOUT ===== */
 .gantt-container {
   display: flex;
@@ -299,8 +309,6 @@
 
 .gantt-top-group {
   --top-group-inset: 16px;
-  /* padding이 너비에 포함되어야 타임라인 셀과 경계가 맞음 */
-  box-sizing: border-box;
   display: flex;
   align-items: center;
   padding: 0 var(--top-group-inset);

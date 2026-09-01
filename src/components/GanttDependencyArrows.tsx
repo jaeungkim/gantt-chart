@@ -1,6 +1,6 @@
 import { NODE_HEIGHT } from "constants/gantt";
 import { useId } from "react";
-import { useGanttStore } from "stores/store";
+import { useGanttStore } from "stores/context";
 import { TaskTransformed } from "types/task";
 import { buildDependencies, getSmartGanttPath } from "utils/arrowPath";
 

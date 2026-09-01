@@ -15,6 +15,7 @@ import {
   computeNonWorkingRanges,
   computeTimelineData,
   createTopHeaderGroups,
+  originShiftPx,
 } from './timeline';
 import { transformTasks } from './transformData';
 
@@ -302,5 +303,25 @@ describe('computeTimelineData', () => {
     expect(bottomCells).toHaveLength(12); // 2025-01-05 .. 2025-01-16
     expect(transformedTasks[0]).toMatchObject({ barLeft: 160, barWidth: 64 }); // 5*32, 2*32
     expect(computeTimelineData([], 'month')).toEqual({ bottomCells: [], transformedTasks: [] });
+  });
+});
+
+describe('originShiftPx', () => {
+  const prev = ticks('2025-01-05', '2025-01-06', '2025-01-07');
+
+  it('returns how far the origin moved when cells are prepended', () => {
+    const next = ticks('2025-01-03', '2025-01-04', '2025-01-05', '2025-01-06', '2025-01-07');
+    expect(originShiftPx(prev, next, 'month')).toBe(64); // two 32px cells added in front
+  });
+
+  it('returns a negative shift when leading cells disappear', () => {
+    const next = ticks('2025-01-07', '2025-01-08');
+    expect(originShiftPx(prev, next, 'month')).toBe(-64);
+  });
+
+  it('is zero when the origin is unchanged or a timeline is empty', () => {
+    expect(originShiftPx(prev, ticks('2025-01-05', '2025-01-06'), 'month')).toBe(0);
+    expect(originShiftPx([], prev, 'month')).toBe(0);
+    expect(originShiftPx(prev, [], 'month')).toBe(0);
   });
 });
