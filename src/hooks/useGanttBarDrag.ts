@@ -1,4 +1,8 @@
-import { GANTT_SCALE_CONFIG } from "constants/gantt";
+import {
+  EDGE_THRESHOLD,
+  GANTT_SCALE_CONFIG,
+  MIN_RESIZABLE_WIDTH,
+} from "constants/gantt";
 import { useRef } from "react";
 import { useGanttStore } from "stores/store";
 import { GanttDragOffset } from "types/gantt";
@@ -29,9 +33,6 @@ const TIME_UNIT_MULTIPLIERS = {
   month: 60 * 24 * 30,
 } as const;
 
-// 엣지 감지 영역 (px)
-const EDGE_THRESHOLD = 10;
-
 /**
  * Gantt 바 드래그 기능을 제공하는 훅
  */
@@ -48,11 +49,14 @@ export function useGanttBarDrag(
   const scaleConfig = GANTT_SCALE_CONFIG[selectedScale];
   const { basePxPerDragStep, dragStepAmount, dragStepUnit } = scaleConfig;
 
-  // 드래그 모드 감지 (마일스톤은 리사이즈 불가 - 항상 이동)
+  // 드래그 모드 감지
+  // 마일스톤과 좁은 바는 리사이즈 불가 - 엣지 영역이 바 전체를 덮어 이동이 막히는 것을 방지
   const detectDragMode = (e: React.PointerEvent<HTMLDivElement>): DragMode => {
     if (isMilestoneTask(task)) return "bar";
 
     const rect = e.currentTarget.getBoundingClientRect();
+    if (rect.width < MIN_RESIZABLE_WIDTH) return "bar";
+
     const relativeX = e.clientX - rect.left;
 
     if (relativeX <= EDGE_THRESHOLD) return "left";

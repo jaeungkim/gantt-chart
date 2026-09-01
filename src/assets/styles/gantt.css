@@ -371,6 +371,16 @@
   opacity: 0.7;
 }
 
+/* 좁은 바: 리사이즈 핸들 숨김 (전체가 이동 핸들) */
+.gantt-task-bar.compact::before,
+.gantt-task-bar.compact::after,
+.gantt-task-bar.compact:hover::before,
+.gantt-task-bar.compact:hover::after,
+.gantt-task-bar.compact.dragging::before,
+.gantt-task-bar.compact.dragging::after {
+  opacity: 0;
+}
+
 /* Task Name */
 .gantt-task-name {
   flex: 1;
@@ -383,6 +393,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
+}
+
+/* 바가 좁을 때 라벨을 바 오른쪽 바깥에 표시 */
+.gantt-task-name.outside {
+  position: absolute;
+  left: 100%;
+  flex: none;
+  padding: 0 0 0 8px;
+  color: var(--foreground);
+  overflow: visible;
 }
 
 /* ===== MILESTONE ===== */

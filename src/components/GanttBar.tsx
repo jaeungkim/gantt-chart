@@ -1,12 +1,16 @@
-import { MILESTONE_HALF_DIAGONAL, NODE_HEIGHT } from "constants/gantt";
+import {
+  EDGE_THRESHOLD,
+  MILESTONE_HALF_DIAGONAL,
+  MIN_BAR_WIDTH,
+  MIN_LABEL_INSIDE_WIDTH,
+  MIN_RESIZABLE_WIDTH,
+  NODE_HEIGHT,
+} from "constants/gantt";
 import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
 import { useRef, useState, useCallback } from "react";
 import { useGanttStore } from "stores/store";
 import { GanttScaleKey } from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
-
-// 엣지 감지 영역 (px)
-const EDGE_THRESHOLD = 8;
 
 // 스케일별 날짜 포맷
 const DATE_FORMATS: Record<GanttScaleKey, string> = {
@@ -38,8 +42,13 @@ export default function GanttBar({
   const offsetWidth = liveOffset?.offsetWidth ?? 0;
 
   // 최종 위치 및 크기 계산
+  // 짧은 태스크도 잡을 수 있도록 최소 너비 보장, 좁으면 라벨을 바 밖으로
   const finalLeft = currentTask.barLeft + offsetX;
-  const finalWidth = currentTask.barWidth + offsetWidth;
+  const finalWidth = Math.max(
+    currentTask.barWidth + offsetWidth,
+    MIN_BAR_WIDTH
+  );
+  const labelOutside = finalWidth < MIN_LABEL_INSIDE_WIDTH;
 
   const isMilestone = isMilestoneTask(currentTask);
 
@@ -52,6 +61,11 @@ export default function GanttBar({
       if (!bar) return;
 
       const rect = bar.getBoundingClientRect();
+      if (rect.width < MIN_RESIZABLE_WIDTH) {
+        setCursor("grab");
+        return;
+      }
+
       const relativeX = e.clientX - rect.left;
 
       if (
@@ -121,7 +135,9 @@ export default function GanttBar({
     <div
       ref={barRef}
       id={`task-${currentTask.id}`}
-      className={`gantt-task-bar${isDragging ? " dragging" : ""}`}
+      className={`gantt-task-bar${isDragging ? " dragging" : ""}${
+        labelOutside ? " compact" : ""
+      }`}
       onPointerDown={onPointerDown}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => setCursor("grab")}
@@ -135,8 +151,12 @@ export default function GanttBar({
       tabIndex={0}
       aria-label={`태스크: ${currentTask.name}`}
     >
-      <span className="gantt-task-name">{currentTask.name}</span>
-      
+      <span
+        className={`gantt-task-name${labelOutside ? " outside" : ""}`}
+      >
+        {currentTask.name}
+      </span>
+
       {/* 드래그 중 툴팁 */}
       {isDragging && liveOffset && (
         <div className="gantt-bar-tooltip" role="status" aria-live="polite">
