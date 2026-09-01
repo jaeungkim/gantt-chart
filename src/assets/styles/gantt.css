@@ -328,6 +328,12 @@
   font-weight: 600;
 }
 
+/* Selected row - marked in the same beat as its bar */
+.gantt-grid-row.selected {
+  background: var(--gantt-muted);
+  box-shadow: inset 2px 0 0 var(--gantt-accent);
+}
+
 /* ===== ROW DRAG (reorder / re-parent) ===== */
 .gantt-grid-row.draggable {
   cursor: grab;
@@ -692,7 +698,8 @@
   z-index: 10;
   display: flex;
   align-items: center;
-  background: var(--gantt-bar-bg);
+  /* --gantt-bar-color is set inline from a task's color; without one the theme token decides */
+  background: var(--gantt-bar-color, var(--gantt-bar-bg));
   border-radius: 6px;
   user-select: none;
   cursor: grab;
@@ -725,7 +732,7 @@
 }
 
 .gantt-task-bar:hover {
-  background: var(--gantt-bar-bg-hover);
+  background: var(--gantt-bar-color-hover, var(--gantt-bar-bg-hover));
   box-shadow: var(--gantt-bar-shadow-hover);
 }
 
@@ -749,12 +756,12 @@
 /* Summary bar: a flat span over the children's range
    (its grips are hidden by .no-resize below - summaries resolve to canResize false) */
 .gantt-task-bar.summary {
-  background: var(--gantt-milestone-bg);
+  background: var(--gantt-bar-color, var(--gantt-milestone-bg));
   border-radius: 3px;
 }
 
 .gantt-task-bar.summary:hover {
-  background: var(--gantt-milestone-bg-hover);
+  background: var(--gantt-bar-color-hover, var(--gantt-milestone-bg-hover));
 }
 
 .gantt-task-bar.summary .gantt-task-name {
@@ -766,9 +773,33 @@
 }
 
 .gantt-task-bar.summary .gantt-progress-fill {
-  background: var(--gantt-foreground);
+  background: var(--gantt-progress-color, var(--gantt-foreground));
   opacity: 0.35;
   border-radius: 3px 0 0 3px;
+}
+
+/* ===== SELECTION ===== */
+.gantt-task-bar.selected,
+.gantt-milestone.selected .gantt-milestone-diamond {
+  outline: 2px solid var(--gantt-accent);
+  outline-offset: 2px;
+}
+
+/* ===== VETOED CHANGE ===== */
+/* The bar holds the dropped position while a before-handler runs; when the answer is a
+   veto the offsets drop and this class turns that snap into a move back */
+.gantt-task-bar.reverting,
+.gantt-milestone.reverting {
+  transition: transform var(--gantt-transition-normal),
+    width var(--gantt-transition-normal),
+    background var(--gantt-transition-fast),
+    box-shadow var(--gantt-transition-normal);
+}
+
+.gantt-task-bar.reverting .gantt-progress-fill,
+.gantt-task-bar.reverting .gantt-progress-handle {
+  transition: width var(--gantt-transition-normal),
+    left var(--gantt-transition-normal);
 }
 
 /* Narrow bars and non-resizable tasks: hide the resize grips (no affordance for a
@@ -794,7 +825,8 @@
   top: 0;
   left: 0;
   bottom: 0;
-  background: var(--gantt-progress-bg);
+  /* Derived from the bar color when there is one, so a colored bar never mixes in the theme gray */
+  background: var(--gantt-progress-color, var(--gantt-progress-bg));
   border-radius: 6px 0 0 6px;
   pointer-events: none;
 }
@@ -860,7 +892,7 @@
   flex-shrink: 0;
   width: 16px;
   height: 16px;
-  background: var(--gantt-milestone-bg);
+  background: var(--gantt-bar-color, var(--gantt-milestone-bg));
   border-radius: 3px;
   transform: rotate(45deg);
   box-shadow: var(--gantt-bar-shadow);
@@ -869,7 +901,7 @@
 }
 
 .gantt-milestone:hover .gantt-milestone-diamond {
-  background: var(--gantt-milestone-bg-hover);
+  background: var(--gantt-bar-color-hover, var(--gantt-milestone-bg-hover));
   box-shadow: var(--gantt-bar-shadow-hover);
 }
 
@@ -924,6 +956,22 @@
     opacity: 1;
     transform: translateX(-50%) translateY(0);
   }
+}
+
+/* Hover tooltip - the same shell, stacked lines instead of one live value */
+.gantt-bar-tooltip-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.gantt-tooltip-name {
+  font-weight: 600;
+}
+
+.gantt-tooltip-meta {
+  opacity: 0.75;
 }
 
 .gantt-bar-tooltip::after {
