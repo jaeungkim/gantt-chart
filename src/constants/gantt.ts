@@ -15,11 +15,11 @@ export const MILESTONE_SIZE = 16;
 /** 다이아몬드 중심에서 꼭짓점까지의 가로 거리 (px) */
 export const MILESTONE_HALF_DIAGONAL = Math.round((MILESTONE_SIZE * Math.SQRT2) / 2);
 
-/** 스케일별 날짜 표시 포맷 (툴팁, 드래그 가이드 공용) */
+/** 스케일별 날짜 표시 포맷 (툴팁, 드래그 가이드 공용) - 연도 포함, 24시간제 */
 export const DATE_FORMATS: Record<GanttScaleKey, string> = {
-  day: 'MMM D, h A',
-  week: 'MMM D',
-  month: 'MMM D',
+  day: 'MMM D, YYYY HH:mm',
+  week: 'MMM D, YYYY',
+  month: 'MMM D, YYYY',
   year: 'MMM YYYY',
 };
 
@@ -31,8 +31,9 @@ export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
     dragStepUnit: 'hour',
     dragStepAmount: 1,
     basePxPerDragStep: 32,
-    formatTickLabel: (d) => d.format('hh'),
-    formatHeaderLabel: (d) => d.format('MMM D'),
+    // 12시간제는 오전/오후 구분이 없어 하루에 같은 라벨이 두 번 나옴 - 24시간제 사용
+    formatTickLabel: (d) => d.format('HH'),
+    formatHeaderLabel: (d) => d.format('MMM D, YYYY'),
   },
   week: {
     labelUnit: 'month', 
@@ -42,7 +43,7 @@ export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
     dragStepAmount: 6,
     basePxPerDragStep: 54,
     formatTickLabel: (d) => d.format('D'),
-    formatHeaderLabel: (d) => d.format('MMM'),
+    formatHeaderLabel: (d) => d.format('MMM YYYY'),
   },
   month: {
     labelUnit: 'month',
@@ -55,13 +56,14 @@ export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
     formatHeaderLabel: (d) => d.format('MMM YYYY'),
   },
   year: {
-    labelUnit: 'month',
+    // 틱이 월 단위라 상단은 연도, 하단은 월 - 하단에 일(D)을 쓰면 항상 '1'만 나옴
+    labelUnit: 'year',
     tickUnit: 'month',
     unitPerTick: 1,
     dragStepUnit: 'day',
     dragStepAmount: 7,
     basePxPerDragStep: 28,
-    formatTickLabel: (d) => d.format('D'),
-    formatHeaderLabel: (d) => d.format('MMM YYYY'),
+    formatTickLabel: (d) => d.format('MMM'),
+    formatHeaderLabel: (d) => d.format('YYYY'),
   },
 };

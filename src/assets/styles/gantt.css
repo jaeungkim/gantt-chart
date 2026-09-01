@@ -298,9 +298,12 @@
 }
 
 .gantt-top-group {
+  --top-group-inset: 16px;
+  /* padding이 너비에 포함되어야 타임라인 셀과 경계가 맞음 */
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 var(--top-group-inset);
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -308,13 +311,10 @@
   color: var(--gantt-foreground);
 }
 
-.gantt-top-group.sticky {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-}
-
+/* 그룹 자체가 아닌 라벨만 고정 - 다음 그룹이 들어오면 밀려나며 가리지 않음 */
 .gantt-top-group-label {
+  position: sticky;
+  left: var(--top-group-inset);
   margin: 0;
   padding: 0;
   white-space: nowrap;
@@ -647,8 +647,8 @@
   }
 
   .gantt-top-group {
+    --top-group-inset: 12px;
     font-size: 12px;
-    padding: 0 12px;
   }
 
   .gantt-bottom-cell {
