@@ -8,6 +8,7 @@ import {
 import { Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 import { transformTasks } from "./transformData";
+import { buildTaskTree, rollUpTasks } from "./tree";
 
 export interface TimelineData {
   bottomCells: GanttBottomRowCell[];
@@ -306,17 +307,25 @@ export function createTopHeaderGroups(
 /**
  * Computes the timeline data
  * Returns bottomCells and transformedTasks for the given rawTasks and scale
+ *
+ * With hierarchy on, a parentId tree is built and parents are recomputed as summary rows.
+ * (Rolled up before the padding is computed so the dates derived from children also widen
+ *  the timeline range)
  */
 export function computeTimelineData(
   rawTasks: Task[],
-  selectedScale: GanttScaleKey
+  selectedScale: GanttScaleKey,
+  hierarchy = false
 ): TimelineData {
   if (!rawTasks.length) {
     return { bottomCells: [], transformedTasks: [] };
   }
 
+  const tree = hierarchy ? buildTaskTree(rawTasks) : undefined;
+  const tasks = tree ? rollUpTasks(rawTasks, tree) : rawTasks;
+
   // Find the date range and add padding
-  const { minDate, maxDate } = findDateRangeFromTasks(rawTasks);
+  const { minDate, maxDate } = findDateRangeFromTasks(tasks);
   const { paddedMinDate, paddedMaxDate } = padDateRange(
     minDate,
     maxDate,
@@ -329,7 +338,12 @@ export function computeTimelineData(
     paddedMaxDate,
     selectedScale
   );
-  const transformedTasks = transformTasks(rawTasks, bottomCells, selectedScale);
+  const transformedTasks = transformTasks(
+    tasks,
+    bottomCells,
+    selectedScale,
+    tree
+  );
 
   return { bottomCells, transformedTasks };
 }

@@ -2,9 +2,11 @@ import GanttBar from "components/GanttBar";
 import GanttChartHeader from "components/GanttChartHeader";
 import GanttDependencyArrows from "components/GanttDependencyArrows";
 import GanttDragGuides from "components/GanttDragGuides";
+import GanttTaskGrid from "components/GanttTaskGrid";
 import ScaleSelector from "components/ScaleSelector";
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -23,8 +25,17 @@ import {
   DEFAULT_SCALE_STORAGE_KEY,
   readPersistedScale,
 } from "stores/store";
-import { NODE_HEIGHT } from "constants/gantt";
-import { GanttBottomRowCell, GanttScaleKey, GanttTheme } from "types/gantt";
+import {
+  DEFAULT_COLUMN_WIDTH,
+  DEFAULT_COLUMNS,
+  NODE_HEIGHT,
+} from "constants/gantt";
+import {
+  GanttBottomRowCell,
+  GanttColumn,
+  GanttScaleKey,
+  GanttTheme,
+} from "types/gantt";
 import { Task } from "types/task";
 import dayjs from "utils/dayjs";
 import {
@@ -33,6 +44,7 @@ import {
   computeTimelineData,
   originShiftPx,
 } from "utils/timeline";
+import { getVisibleTasks } from "utils/tree";
 
 /** Gantt component defaults */
 const DEFAULT_HEIGHT = 600;
@@ -40,6 +52,8 @@ const DEFAULT_WIDTH = "100%";
 const DEFAULT_SCALE: GanttScaleKey = "month";
 /** Default tasks - kept at module scope so a new array is not created on every render */
 const EMPTY_TASKS: Task[] = [];
+/** Default collapsed list - pinned at module scope for the same reason as tasks */
+const EMPTY_IDS: string[] = [];
 
 export interface GanttProps {
   /**
@@ -91,6 +105,36 @@ export interface GanttProps {
    * do not touch the scroll position.
    */
   initialScrollTo?: "today" | string;
+  /**
+   * Whether to show the task list pane on the left
+   *
+   * Omitted, the pane appears only when `columns` is given - with neither, the chart
+   * renders exactly the timeline it does today.
+   */
+  showTaskList?: boolean;
+  /**
+   * Column definitions for the task list (default: Name / Start / End)
+   *
+   * Every header label and cell body comes from here. The first column is the tree
+   * column, so indentation and the expander toggle attach to it.
+   */
+  columns?: GanttColumn[];
+  /**
+   * Whether to use the parentId hierarchy (default false)
+   *
+   * With it on, depth comes from the parentId chain rather than from sequence, and a row
+   * with children becomes a summary row: its start/end are recomputed from the children
+   * (min..max), dragging its bar moves the whole subtree, and a missing progress is rolled
+   * up from the children weighted by duration. Row order itself still comes from
+   * `sequence`, hierarchy or not.
+   */
+  hierarchy?: boolean;
+  /** Ids of collapsed parents (controlled - given, this value is what the chart shows) */
+  collapsedIds?: string[];
+  /** Initial collapsed list (uncontrolled seed; later changes are ignored) */
+  defaultCollapsedIds?: string[];
+  /** Called whenever the collapsed state changes - in controlled and uncontrolled mode alike */
+  onCollapsedChange?: (collapsedIds: string[]) => void;
 }
 
 /**
@@ -128,6 +172,12 @@ function GanttChart({
   isNonWorkingDay,
   storageKey = DEFAULT_SCALE_STORAGE_KEY,
   initialScrollTo,
+  showTaskList,
+  columns,
+  hierarchy = false,
+  collapsedIds,
+  defaultCollapsedIds,
+  onCollapsedChange,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -147,9 +197,57 @@ function GanttChart({
   // Scroll container ref
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // ===== Task list pane =====
+  // Without an explicit showTaskList, the pane appears only when columns are given
+  const gridColumns = columns ?? DEFAULT_COLUMNS;
+  const gridEnabled = showTaskList ?? columns !== undefined;
+  const [gridCollapsed, setGridCollapsed] = useState(false);
+  const [gridWidth, setGridWidth] = useState(() =>
+    gridColumns.reduce(
+      (sum, column) => sum + (column.width ?? DEFAULT_COLUMN_WIDTH),
+      0
+    )
+  );
+  const gridVisible = gridEnabled && !gridCollapsed;
+  // How much of the timeline the sticky pane covers - scroll math treats the viewport as
+  // that much narrower
+  const gridInset = gridVisible ? gridWidth : 0;
+
+  // ===== Collapsed state (controlled and uncontrolled) =====
+  const [uncontrolledCollapsed, setUncontrolledCollapsed] = useState<string[]>(
+    () => defaultCollapsedIds ?? EMPTY_IDS
+  );
+  const collapsed = collapsedIds ?? uncontrolledCollapsed;
+  const collapsedSet = useMemo(() => new Set(collapsed), [collapsed]);
+
+  const handleToggleCollapse = useCallback(
+    (taskId: string) => {
+      const next = collapsed.includes(taskId)
+        ? collapsed.filter((id) => id !== taskId)
+        : [...collapsed, taskId];
+
+      // In controlled mode the screen stays put until the prop changes - the host decides
+      if (collapsedIds === undefined) setUncontrolledCollapsed(next);
+      onCollapsedChange?.(next);
+    },
+    [collapsed, collapsedIds, onCollapsedChange]
+  );
+
+  // Rows left after hiding collapsed subtrees - the grid and the timeline read the same
+  // array, so their rows cannot drift apart
+  const visibleTasks = useMemo(() => {
+    if (!hierarchy || !collapsedSet.size) return transformedTasks;
+
+    const visible = getVisibleTasks(transformedTasks, collapsedSet);
+    if (visible.length === transformedTasks.length) return transformedTasks;
+
+    // Arrows use order as the row index - renumber it without the hidden rows
+    return visible.map((task, index) => ({ ...task, order: index + 1 }));
+  }, [hierarchy, collapsedSet, transformedTasks]);
+
   // Virtualization hook
   const { rowVirtualizer, isBarVisible } = useGanttVirtualization({
-    transformedTasks,
+    transformedTasks: visibleTasks,
     bottomRowCells,
     scrollRef,
   });
@@ -193,7 +291,8 @@ function GanttChart({
   useLayoutEffect(() => {
     const { bottomCells, transformedTasks: transformed } = computeTimelineData(
       rawTasks,
-      selectedScale
+      selectedScale,
+      hierarchy
     );
 
     // When the timeline start date changes, every bar shifts as a whole.
@@ -218,6 +317,7 @@ function GanttChart({
   }, [
     rawTasks,
     selectedScale,
+    hierarchy,
     setBottomRowCells,
     setTransformedTasks,
     clearAllDragOffsets,
@@ -272,9 +372,10 @@ function GanttChart({
   const scrollApi = useGanttScrollApi({
     scrollRef,
     bottomRowCells,
-    transformedTasks,
+    transformedTasks: visibleTasks,
     selectedScale,
     rowHeight: NODE_HEIGHT,
+    viewportInsetPx: gridInset,
   });
   useImperativeHandle(forwardedRef, () => scrollApi, [scrollApi]);
 
@@ -306,6 +407,22 @@ function GanttChart({
     >
       {/* Toolbar */}
       <div className="gantt-toolbar">
+        {gridEnabled && (
+          <button
+            type="button"
+            className="gantt-grid-toggle"
+            onClick={() => setGridCollapsed((prev) => !prev)}
+            aria-expanded={!gridCollapsed}
+            aria-label={
+              gridCollapsed ? "Expand task list" : "Collapse task list"
+            }
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
+              <path d="M6 2.5 L6 13.5" />
+            </svg>
+          </button>
+        )}
         <ScaleSelector
           selectedScale={selectedScale}
           onScaleChange={handleScaleChange}
@@ -315,101 +432,125 @@ function GanttChart({
       {/* Main chart area */}
       <div className="gantt-main">
         <div ref={scrollRef} className="gantt-scroll-container">
-          {/* Drag guides (run through everything, header included) */}
-          <GanttDragGuides width={totalWidth} />
-
-          {/* Header */}
-          <div className="gantt-header-wrapper" style={{ width: `${totalWidth}px` }}>
-            <GanttChartHeader
-              bottomRowCells={bottomRowCells}
-              selectedScale={selectedScale}
-              width={totalWidth}
-              scrollRef={scrollRef}
-            />
-          </div>
-
-          {/* Content area */}
-          <div
-            className="gantt-content"
-            style={{
-              height: `${rowVirtualizer.getTotalSize()}px`,
-              width: `${totalWidth}px`,
-            }}
-          >
-            {/* Non-working-day shading */}
-            {nonWorkingRanges.length > 0 && (
-              <div className="gantt-non-working-layer" aria-hidden="true">
-                {nonWorkingRanges.map((range) => (
-                  <div
-                    key={range.left}
-                    className="gantt-non-working-range"
-                    style={{
-                      left: `${range.left}px`,
-                      width: `${range.width}px`,
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Task rows (background) */}
-            <div className="gantt-rows">
-              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const task = transformedTasks[virtualRow.index];
-                return (
-                  <div
-                    key={`row-${task.id}`}
-                    className="gantt-task-row"
-                    style={{
-                      // border-box, so the 1px border is inside the height - matches the row spacing exactly
-                      height: `${virtualRow.size}px`,
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                  />
-                );
-              })}
-            </div>
-
-            {/* Today marker */}
-            {todayOffsetPx !== null && (
-              <div
-                className="gantt-today-marker"
-                style={{ left: `${todayOffsetPx}px` }}
-                aria-hidden="true"
+          {/* The grid and the timeline sit side by side in one scroll container, so
+              vertical scrolling and row virtualization are shared by construction */}
+          <div className="gantt-body">
+            {gridVisible && (
+              <GanttTaskGrid
+                tasks={visibleTasks}
+                columns={gridColumns}
+                virtualItems={rowVirtualizer.getVirtualItems()}
+                totalHeight={rowVirtualizer.getTotalSize()}
+                width={gridWidth}
+                onWidthChange={setGridWidth}
+                hierarchy={hierarchy}
+                collapsedIds={collapsedSet}
+                onToggleCollapse={handleToggleCollapse}
               />
             )}
 
-            {/* Dependency arrows */}
-            <GanttDependencyArrows transformedTasks={transformedTasks} />
+            <div className="gantt-timeline" style={{ width: `${totalWidth}px` }}>
+              {/* Drag guides (run through everything, header included) */}
+              <GanttDragGuides width={totalWidth} />
 
-            {/* Task bars */}
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const task = transformedTasks[virtualRow.index];
-              const barLeft = task.barLeft ?? 0;
-              const barWidth = task.barWidth ?? 0;
+              {/* Header */}
+              <div className="gantt-header-wrapper" style={{ width: `${totalWidth}px` }}>
+                <GanttChartHeader
+                  bottomRowCells={bottomRowCells}
+                  selectedScale={selectedScale}
+                  width={totalWidth}
+                  scrollRef={scrollRef}
+                />
+              </div>
 
-              if (!isBarVisible(barLeft, barWidth)) return null;
+              {/* Content area */}
+              <div
+                className="gantt-content"
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: `${totalWidth}px`,
+                }}
+              >
+                {/* Non-working-day shading */}
+                {nonWorkingRanges.length > 0 && (
+                  <div className="gantt-non-working-layer" aria-hidden="true">
+                    {nonWorkingRanges.map((range) => (
+                      <div
+                        key={range.left}
+                        className="gantt-non-working-range"
+                        style={{
+                          left: `${range.left}px`,
+                          width: `${range.width}px`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
 
-              return (
-                <div
-                  key={task.id}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    height: `${virtualRow.size - 1}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  <GanttBar
-                    currentTask={task}
-                    onTasksChange={onTasksChange}
-                  />
+                {/* Task rows (background) */}
+                <div className="gantt-rows">
+                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const task = visibleTasks[virtualRow.index];
+                    if (!task) return null;
+
+                    return (
+                      <div
+                        key={`row-${task.id}`}
+                        className="gantt-task-row"
+                        style={{
+                          // border-box, so the 1px border is inside the height - matches the row spacing exactly
+                          height: `${virtualRow.size}px`,
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      />
+                    );
+                  })}
                 </div>
-              );
-            })}
+
+                {/* Today marker */}
+                {todayOffsetPx !== null && (
+                  <div
+                    className="gantt-today-marker"
+                    style={{ left: `${todayOffsetPx}px` }}
+                    aria-hidden="true"
+                  />
+                )}
+
+                {/* Dependency arrows */}
+                <GanttDependencyArrows transformedTasks={visibleTasks} />
+
+                {/* Task bars */}
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const task = visibleTasks[virtualRow.index];
+                  if (!task) return null;
+
+                  const barLeft = task.barLeft ?? 0;
+                  const barWidth = task.barWidth ?? 0;
+
+                  if (!isBarVisible(barLeft, barWidth)) return null;
+
+                  return (
+                    <div
+                      key={task.id}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        height: `${virtualRow.size - 1}px`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <GanttBar
+                        currentTask={task}
+                        onTasksChange={onTasksChange}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </div>
