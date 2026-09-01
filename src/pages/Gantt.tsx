@@ -4,13 +4,18 @@ import GanttDependencyArrows from "components/GanttDependencyArrows";
 import GanttDragGuides from "components/GanttDragGuides";
 import ScaleSelector from "components/ScaleSelector";
 import { useEffect, useMemo, useRef } from "react";
+import { Dayjs } from "dayjs";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
 import { useResolvedTheme } from "hooks/useResolvedTheme";
 import { GanttScaleKey, GanttTheme } from "types/gantt";
 import { Task } from "types/task";
 import dayjs from "utils/dayjs";
-import { calculateDateOffsetPx, computeTimelineData } from "utils/timeline";
+import {
+  calculateDateOffsetPx,
+  computeNonWorkingRanges,
+  computeTimelineData,
+} from "utils/timeline";
 
 /** Gantt 컴포넌트 기본값 */
 const DEFAULT_HEIGHT = 600;
@@ -32,6 +37,12 @@ export interface GanttProps {
   defaultScale?: GanttScaleKey;
   /** 추가 CSS 클래스명 */
   className?: string;
+  /** 주말/휴일 음영 표시 여부 (기본 true) */
+  showNonWorkingDays?: boolean;
+  /** 휴일 목록 (ISO 날짜 문자열, 예: '2026-01-01') */
+  holidays?: string[];
+  /** 비근무일 판별 커스텀 함수 - 지정 시 기본 주말/휴일 판별을 대체 */
+  isNonWorkingDay?: (date: Dayjs) => boolean;
 }
 
 /**
@@ -46,6 +57,9 @@ function Gantt({
   theme,
   defaultScale = DEFAULT_SCALE,
   className,
+  showNonWorkingDays = true,
+  holidays,
+  isNonWorkingDay,
 }: GanttProps) {
   // 스토어 상태 및 액션
   const {
@@ -123,6 +137,30 @@ function Gantt({
     () => calculateDateOffsetPx(dayjs(), bottomRowCells, selectedScale),
     [bottomRowCells, selectedScale]
   );
+  // 비근무일 음영 범위 계산
+  const nonWorkingRanges = useMemo(() => {
+    if (!showNonWorkingDays) return [];
+
+    const holidaySet = new Set(holidays);
+    const isOffDay =
+      isNonWorkingDay ??
+      ((date: Dayjs) => {
+        const dayOfWeek = date.day();
+        return (
+          dayOfWeek === 0 ||
+          dayOfWeek === 6 ||
+          holidaySet.has(date.format("YYYY-MM-DD"))
+        );
+      });
+
+    return computeNonWorkingRanges(bottomRowCells, selectedScale, isOffDay);
+  }, [
+    showNonWorkingDays,
+    holidays,
+    isNonWorkingDay,
+    bottomRowCells,
+    selectedScale,
+  ]);
 
   // 전체 너비 계산
   const totalWidth = getTotalWidth();
@@ -171,6 +209,22 @@ function Gantt({
               width: `${totalWidth}px`,
             }}
           >
+            {/* 비근무일 음영 */}
+            {nonWorkingRanges.length > 0 && (
+              <div className="gantt-non-working-layer" aria-hidden="true">
+                {nonWorkingRanges.map((range) => (
+                  <div
+                    key={range.left}
+                    className="gantt-non-working-range"
+                    style={{
+                      left: `${range.left}px`,
+                      width: `${range.width}px`,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
             {/* 태스크 행 (배경) */}
             <div className="gantt-rows">
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
