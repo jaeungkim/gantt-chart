@@ -39,6 +39,16 @@ describe('transformTasks', () => {
     expect(out.map((t) => t.depth)).toEqual([1, 1, 0]);
     expect(out.map((t) => t.order)).toEqual([1, 2, 3]);
   });
+
+  it('positions milestones at startDate as a point, ignoring endDate', () => {
+    const [m] = transformTasks(
+      [{ ...task('m', '1', '2025-01-02', '2025-01-03'), type: 'milestone' as const }],
+      ticks('2025-01-01', '2025-01-02', '2025-01-03'),
+      'month',
+    );
+    expect(m.barLeft).toBe(32);
+    expect(m.barWidth).toBe(1);
+  });
 });
 
 describe('calculateDateOffsets', () => {

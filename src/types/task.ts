@@ -1,3 +1,5 @@
+export type TaskType = 'task' | 'milestone';
+
 export interface Task {
   id: string;
   name: string;
@@ -5,7 +7,13 @@ export interface Task {
   endDate: string;
   parentId: string | null;
   sequence: string;
+  /** 태스크 종류 - 'milestone'은 startDate 기준 다이아몬드로 렌더링 (기본 'task') */
+  type?: TaskType;
   dependencies?: TaskDependency[];
+}
+
+export function isMilestoneTask(task: Pick<Task, 'type'>): boolean {
+  return task.type === 'milestone';
 }
 
 export interface TaskDependency {

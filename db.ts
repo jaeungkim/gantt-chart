@@ -57,6 +57,16 @@ export const sourceTasks: Task[] = [
     dependencies: [{ targetId: '3', type: 'FS' }],
   },
   {
+    id: '51',
+    name: 'Design Sign-off',
+    startDate: formatISO(setTime(addDays(baseDate, 8), 9)),
+    endDate: formatISO(setTime(addDays(baseDate, 8), 9)),
+    parentId: null,
+    sequence: '3.5',
+    type: 'milestone',
+    dependencies: [{ targetId: '4', type: 'FS' }],
+  },
+  {
     id: '5',
     name: 'Frontend Architecture Planning',
     startDate: formatISO(setTime(addDays(baseDate, 8), 9)),
