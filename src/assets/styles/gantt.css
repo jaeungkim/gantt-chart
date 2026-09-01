@@ -304,7 +304,8 @@
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1;
+  /* 배경 레이어 - 화살표/바와 같은 레이어에서 DOM 순서상 가장 먼저 그려진다 */
+  z-index: 0;
   pointer-events: none;
 }
 
@@ -339,7 +340,9 @@
   left: 0;
   width: 100%;
   pointer-events: none;
-  z-index: 5;
+  /* 바 wrapper는 transform 때문에 자체 stacking context라 바의 z-index가 밖으로 안 나온다.
+     화살표를 같은 auto/0 레이어에 두면 DOM 순서상 뒤에 오는 바가 위에 그려진다. */
+  z-index: 0;
 }
 
 .gantt-dependency-arrow {
