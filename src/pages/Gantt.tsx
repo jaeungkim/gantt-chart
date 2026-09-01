@@ -3,9 +3,18 @@ import GanttChartHeader from "components/GanttChartHeader";
 import GanttDependencyArrows from "components/GanttDependencyArrows";
 import GanttDragGuides from "components/GanttDragGuides";
 import ScaleSelector from "components/ScaleSelector";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Dayjs } from "dayjs";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
+import { GanttHandle, useGanttScrollApi } from "hooks/useGanttScrollApi";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
 import { useResolvedTheme } from "hooks/useResolvedTheme";
 import { GanttStoreContext } from "stores/context";
@@ -14,6 +23,7 @@ import {
   DEFAULT_SCALE_STORAGE_KEY,
   readPersistedScale,
 } from "stores/store";
+import { NODE_HEIGHT } from "constants/gantt";
 import { GanttBottomRowCell, GanttScaleKey, GanttTheme } from "types/gantt";
 import { Task } from "types/task";
 import dayjs from "utils/dayjs";
@@ -71,6 +81,13 @@ export interface GanttProps {
    * 따로 기억한다. 같은 키를 공유하면 마지막에 바꾼 값이 양쪽에 적용된다.
    */
   storageKey?: string;
+  /**
+   * 첫 렌더 후 한 번 스크롤할 위치
+   *
+   * `"today"`는 오늘로, 날짜 문자열은 그 날짜로 이동한다. 이후의 데이터
+   * 갱신은 스크롤 위치를 건드리지 않는다.
+   */
+  initialScrollTo?: "today" | string;
 }
 
 /**
@@ -79,16 +96,16 @@ export interface GanttProps {
  * 인스턴스마다 독립된 스토어를 만들어 컨텍스트로 내려준다.
  * (모듈 싱글턴이면 한 페이지의 두 차트가 상태를 공유해 서로를 덮어쓴다)
  */
-function Gantt(props: GanttProps) {
+const Gantt = forwardRef<GanttHandle, GanttProps>(function Gantt(props, ref) {
   const storageKey = props.storageKey ?? DEFAULT_SCALE_STORAGE_KEY;
   const [store] = useState(() => createGanttStore(storageKey));
 
   return (
     <GanttStoreContext.Provider value={store}>
-      <GanttChart {...props} />
+      <GanttChart {...props} forwardedRef={ref} />
     </GanttStoreContext.Provider>
   );
-}
+});
 
 /**
  * 실제 차트 렌더링
@@ -106,7 +123,9 @@ function GanttChart({
   holidays,
   isNonWorkingDay,
   storageKey = DEFAULT_SCALE_STORAGE_KEY,
-}: GanttProps) {
+  initialScrollTo,
+  forwardedRef,
+}: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // 스토어 상태 및 액션
   const {
     rawTasks,
@@ -242,6 +261,27 @@ function GanttChart({
     bottomRowCells,
     selectedScale,
   ]);
+
+  // 명령형 스크롤 API
+  const scrollApi = useGanttScrollApi({
+    scrollRef,
+    bottomRowCells,
+    transformedTasks,
+    selectedScale,
+    rowHeight: NODE_HEIGHT,
+  });
+  useImperativeHandle(forwardedRef, () => scrollApi, [scrollApi]);
+
+  // initialScrollTo는 타임라인이 처음 준비됐을 때 한 번만 적용한다
+  const didInitialScrollRef = useRef(false);
+  useEffect(() => {
+    if (didInitialScrollRef.current || !initialScrollTo) return;
+    if (!bottomRowCells.length) return;
+
+    didInitialScrollRef.current = true;
+    const target = initialScrollTo === "today" ? dayjs() : initialScrollTo;
+    scrollApi.scrollToDate(target, { smooth: false });
+  }, [initialScrollTo, bottomRowCells, scrollApi]);
 
   // 전체 너비 계산
   const totalWidth = getTotalWidth();

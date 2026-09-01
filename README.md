@@ -100,7 +100,27 @@ export default function App() {
 | `showNonWorkingDays` | `boolean` | `true` | Shade weekends and holidays at day/week scales |
 | `holidays` | `string[]` | - | Extra non-working dates, `YYYY-MM-DD` |
 | `isNonWorkingDay` | `(date: Dayjs) => boolean` | - | Replaces the default weekend/holiday check entirely |
+| `initialScrollTo` | `"today" \| string` | - | Scroll here once after the first render |
 | `storageKey` | `string` | `"gantt-scale"` | sessionStorage key for the scale. Give each chart its own key when rendering more than one on a page. |
+
+## Imperative API
+
+Pass a ref to scroll the chart programmatically:
+
+```tsx
+import { useRef } from 'react';
+import { ReactGanttChart, type GanttHandle } from '@jaeungkim/gantt-chart';
+
+const ref = useRef<GanttHandle>(null);
+
+<ReactGanttChart ref={ref} tasks={tasks} initialScrollTo="today" />;
+
+ref.current?.scrollToToday();
+ref.current?.scrollToDate('2026-09-01');
+ref.current?.scrollToTask('task-42', { smooth: false, align: 'start' });
+```
+
+Dates outside the rendered timeline and unknown task ids are ignored rather than throwing, so calls during data loading are safe. `scrollToTask` only moves vertically when the row is off-screen.
 
 ## Task Format
 
