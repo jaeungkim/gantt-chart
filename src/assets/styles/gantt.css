@@ -43,6 +43,10 @@
   --milestone-bg: #52525b;
   --milestone-bg-hover: #3f3f46;
 
+  /* 진행률 */
+  --progress-bg: #a1a1aa;
+  --progress-handle: #52525b;
+
   /* 트랜지션 */
   --transition-fast: 150ms ease;
   --transition-normal: 200ms ease;
@@ -73,6 +77,9 @@
 
   --milestone-bg: #d4d4d8;
   --milestone-bg-hover: #e4e4e7;
+
+  --progress-bg: #52525b;
+  --progress-handle: #a1a1aa;
 }
 
 /* ===== BASE LAYOUT ===== */
@@ -416,8 +423,40 @@
   opacity: 0;
 }
 
+/* ===== PROGRESS ===== */
+.gantt-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: var(--progress-bg);
+  border-radius: 6px 0 0 6px;
+  pointer-events: none;
+}
+
+.gantt-progress-handle {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  background: var(--background);
+  border: 2px solid var(--progress-handle);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  cursor: ew-resize;
+  transition: opacity var(--transition-fast);
+}
+
+.gantt-task-bar:hover .gantt-progress-handle,
+.gantt-progress-handle.dragging {
+  opacity: 1;
+}
+
 /* Task Name */
 .gantt-task-name {
+  position: relative;
   flex: 1;
   padding: 0 14px;
   font-family: inherit;
