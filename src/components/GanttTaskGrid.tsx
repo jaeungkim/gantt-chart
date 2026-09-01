@@ -10,7 +10,12 @@ import {
 import { useGanttRowDrag } from "hooks/useGanttRowDrag";
 import { ReactNode, useRef } from "react";
 import { GanttColumn, GanttReorderChange } from "types/gantt";
-import { Task, TaskTransformed } from "types/task";
+import {
+  GanttInteractionConfig,
+  resolveTaskInteraction,
+  Task,
+  TaskTransformed,
+} from "types/task";
 
 interface GanttTaskGridProps {
   /** The rows on screen (collapsed subtrees are already filtered out) */
@@ -26,6 +31,8 @@ interface GanttTaskGridProps {
   onToggleCollapse: (taskId: string) => void;
   /** Whether rows can be dragged to reorder and re-parent */
   allowRowReorder: boolean;
+  /** The same guards the bars use - a row is draggable only where the task can move */
+  interaction: GanttInteractionConfig;
   onReorder?: (change: GanttReorderChange) => void | boolean;
   onTasksChange?: (updatedTasks: Task[]) => void;
 }
@@ -64,6 +71,7 @@ export default function GanttTaskGrid({
   collapsedIds,
   onToggleCollapse,
   allowRowReorder,
+  interaction,
   onReorder,
   onTasksChange,
 }: GanttTaskGridProps) {
@@ -112,11 +120,7 @@ export default function GanttTaskGrid({
     onWidthChange(clampWidth(width + (e.key === "ArrowLeft" ? -16 : 16)));
   };
 
-  const gridClassName = [
-    "gantt-grid",
-    allowRowReorder ? "reorderable" : "",
-    dragState ? "row-dragging" : "",
-  ]
+  const gridClassName = ["gantt-grid", dragState ? "row-dragging" : ""]
     .filter(Boolean)
     .join(" ");
 
@@ -149,15 +153,19 @@ export default function GanttTaskGrid({
           const collapsed = collapsedIds.has(task.id);
           const isDropParent =
             dropTarget?.mode === "into" && dropTarget.rowIndex === virtualRow.index;
+          // A row drag is a move, so it answers to the same guards a bar move does
+          const draggable =
+            allowRowReorder && resolveTaskInteraction(task, interaction).canMove;
 
           return (
             <div
               key={`grid-row-${task.id}`}
               data-row-id={task.id}
-              onPointerDown={onRowPointerDown}
+              onPointerDown={draggable ? onRowPointerDown : undefined}
               className={[
                 "gantt-grid-row",
                 task.isSummary ? "summary" : "",
+                draggable ? "draggable" : "",
                 dragState?.draggedId === task.id ? "dragging" : "",
                 isDropParent ? "drop-into" : "",
                 isDropParent && !dropTarget.valid ? "invalid" : "",

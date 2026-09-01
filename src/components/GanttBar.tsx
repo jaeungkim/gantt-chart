@@ -1,5 +1,4 @@
 import {
-  DATE_FORMATS,
   EDGE_THRESHOLD,
   MILESTONE_HALF_DIAGONAL,
   MIN_BAR_WIDTH,
@@ -9,28 +8,49 @@ import {
 } from "constants/gantt";
 import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
 import { useGanttProgressDrag } from "hooks/useGanttProgressDrag";
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useMemo } from "react";
 import { useGanttStore } from "stores/context";
-import { isMilestoneTask, Task, TaskTransformed } from "types/task";
+import {
+  GanttInteractionConfig,
+  isMilestoneTask,
+  resolveTaskInteraction,
+  Task,
+  TaskTransformed,
+} from "types/task";
+import { resolveFormatters } from "utils/i18n";
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
   onTasksChange?: (updatedTasks: Task[]) => void;
+  interaction?: GanttInteractionConfig;
 }
 
 export default function GanttBar({
   currentTask,
   onTasksChange,
+  interaction,
 }: GanttBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
-  const { onPointerDown, dragMode } = useGanttBarDrag(currentTask, onTasksChange);
-  const [cursor, setCursor] = useState<"grab" | "ew-resize">("grab");
+  const { onPointerDown, dragMode } = useGanttBarDrag(
+    currentTask,
+    onTasksChange,
+    interaction
+  );
+  const { canMove, canResize, canChangeProgress } = resolveTaskInteraction(
+    currentTask,
+    interaction
+  );
+  // Only the pointer position is tracked here - the cursor itself is derived below,
+  // so a permission that changes after mount cannot leave a stale affordance behind
+  const [onResizeEdge, setOnResizeEdge] = useState(false);
 
   // Read the drag offset
   const liveOffset = useGanttStore((store) => store.dragOffsets[currentTask.id]);
   const isDragging = useGanttStore((store) => store.currentTask?.id === currentTask.id);
   const selectedScale = useGanttStore((store) => store.selectedScale);
-  
+  const localeOptions = useGanttStore((store) => store.localeOptions);
+
+
   const offsetX = liveOffset?.offsetX ?? 0;
   const offsetWidth = liveOffset?.offsetWidth ?? 0;
 
@@ -49,44 +69,50 @@ export default function GanttBar({
   const { onProgressPointerDown, progress, isDraggingProgress } =
     useGanttProgressDrag(currentTask, barRef, onTasksChange);
   const showProgress = !isMilestone && progress !== null;
-  // A summary row's progress is rolled up from its children, so it is not draggable
-  const showProgressHandle = showProgress && !currentTask.isSummary;
 
-  // Change the cursor based on the mouse position (milestones and summaries cannot be resized)
+  // Track whether the pointer is over a resize edge. Milestones, summaries and
+  // narrow bars have none, but that is decided by canResize when the cursor is
+  // derived - this only reports where the pointer is.
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isMilestone || currentTask.isSummary) return;
-
       const bar = barRef.current;
       if (!bar) return;
 
       const rect = bar.getBoundingClientRect();
       if (rect.width < MIN_RESIZABLE_WIDTH) {
-        setCursor("grab");
+        setOnResizeEdge(false);
         return;
       }
 
       const relativeX = e.clientX - rect.left;
 
-      if (
-        relativeX <= EDGE_THRESHOLD ||
-        relativeX >= rect.width - EDGE_THRESHOLD
-      ) {
-        setCursor("ew-resize");
-      } else {
-        setCursor("grab");
-      }
+      setOnResizeEdge(
+        relativeX <= EDGE_THRESHOLD || relativeX >= rect.width - EDGE_THRESHOLD
+      );
     },
-    [isMilestone, currentTask.isSummary]
+    []
   );
 
+  // A gesture that is not allowed shows no affordance at all
+  const restCursor = canMove ? "grab" : "default";
+  const barCursor = isDragging
+    ? canMove || canResize
+      ? "grabbing"
+      : restCursor
+    : onResizeEdge && canResize
+      ? "ew-resize"
+      : restCursor;
+
   // Build the tooltip text (shown differently per mode)
-  const format = DATE_FORMATS[selectedScale];
+  const { tooltip } = useMemo(
+    () => resolveFormatters(selectedScale, localeOptions),
+    [selectedScale, localeOptions]
+  );
   const getTooltipText = (mode: DragMode | null) => {
     if (!liveOffset) return "";
 
-    const startText = liveOffset.offsetStartDate.format(format);
-    const endText = liveOffset.offsetEndDate.format(format);
+    const startText = tooltip(liveOffset.offsetStartDate);
+    const endText = tooltip(liveOffset.offsetEndDate);
 
     if (isMilestone) return startText;
 
@@ -112,7 +138,7 @@ export default function GanttBar({
         style={{
           transform: `translateX(${finalLeft - MILESTONE_HALF_DIAGONAL}px)`,
           height: NODE_HEIGHT / 2,
-          cursor: isDragging ? "grabbing" : "grab",
+          cursor: barCursor,
         }}
         role="button"
         tabIndex={0}
@@ -137,15 +163,17 @@ export default function GanttBar({
       id={`task-${currentTask.id}`}
       className={`gantt-task-bar${isDragging ? " dragging" : ""}${
         labelOutside ? " compact" : ""
-      }${currentTask.isSummary ? " summary" : ""}`}
+      }${currentTask.isSummary ? " summary" : ""}${
+        canResize ? "" : " no-resize"
+      }`}
       onPointerDown={onPointerDown}
       onMouseMove={handleMouseMove}
-      onMouseLeave={() => setCursor("grab")}
+      onMouseLeave={() => setOnResizeEdge(false)}
       style={{
         transform: `translateX(${finalLeft}px)`,
         width: finalWidth,
         height: NODE_HEIGHT / 2,
-        cursor: isDragging ? "grabbing" : cursor,
+        cursor: barCursor,
       }}
       role="button"
       tabIndex={0}
@@ -162,7 +190,9 @@ export default function GanttBar({
             className="gantt-progress-fill"
             style={{ width: `${progress}%` }}
           />
-          {showProgressHandle && (
+          {/* The fill stays as a readout; only the draggable handle is gated.
+              canChangeProgress is already false for a summary's rolled-up progress. */}
+          {canChangeProgress && (
             <div
               className={`gantt-progress-handle${
                 isDraggingProgress ? " dragging" : ""
