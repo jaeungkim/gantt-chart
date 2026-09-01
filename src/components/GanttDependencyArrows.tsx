@@ -1,6 +1,6 @@
-import { NODE_HEIGHT } from "constants/gantt";
+import { MILESTONE_HALF_DIAGONAL, NODE_HEIGHT } from "constants/gantt";
 import { useGanttStore } from "stores/store";
-import { RenderedDependency, TaskTransformed } from "types/task";
+import { isMilestoneTask, RenderedDependency, TaskTransformed } from "types/task";
 import { getSmartGanttPath } from "utils/arrowPath";
 
 interface Props {
@@ -23,11 +23,20 @@ function calculateArrowCoords(
   const fromY = targetIndex * rowHeight + barCenterY;
   const toY = sourceIndex * rowHeight + barCenterY;
 
-  const leftX = targetTask.barLeft;
-  const rightX = targetTask.barLeft + targetTask.barWidth;
+  // 마일스톤은 다이아몬드 꼭짓점에 화살표 연결
+  const targetHalf = isMilestoneTask(targetTask) ? MILESTONE_HALF_DIAGONAL : 0;
+  const sourceHalf = isMilestoneTask(sourceTask) ? MILESTONE_HALF_DIAGONAL : 0;
 
-  const currentLeftX = sourceTask.barLeft + sourceOffset.offsetX;
-  const currentRightX = currentLeftX + sourceTask.barWidth + sourceOffset.offsetWidth;
+  const leftX = targetTask.barLeft - targetHalf;
+  const rightX = targetTask.barLeft + (targetHalf || targetTask.barWidth);
+
+  const currentLeftX = sourceTask.barLeft + sourceOffset.offsetX - sourceHalf;
+  const currentRightX = sourceHalf
+    ? sourceTask.barLeft + sourceOffset.offsetX + sourceHalf
+    : sourceTask.barLeft +
+      sourceOffset.offsetX +
+      sourceTask.barWidth +
+      sourceOffset.offsetWidth;
 
   // 의존성 타입에 따른 X 좌표 설정
   // FS: 선행 태스크 우측 → 후행 태스크 좌측

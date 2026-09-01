@@ -2,7 +2,7 @@ import { GANTT_SCALE_CONFIG } from "constants/gantt";
 import { useRef } from "react";
 import { useGanttStore } from "stores/store";
 import { GanttDragOffset } from "types/gantt";
-import { Task, TaskTransformed } from "types/task";
+import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 
 export type DragMode = "bar" | "left" | "right";
@@ -48,8 +48,10 @@ export function useGanttBarDrag(
   const scaleConfig = GANTT_SCALE_CONFIG[selectedScale];
   const { basePxPerDragStep, dragStepAmount, dragStepUnit } = scaleConfig;
 
-  // 드래그 모드 감지
+  // 드래그 모드 감지 (마일스톤은 리사이즈 불가 - 항상 이동)
   const detectDragMode = (e: React.PointerEvent<HTMLDivElement>): DragMode => {
+    if (isMilestoneTask(task)) return "bar";
+
     const rect = e.currentTarget.getBoundingClientRect();
     const relativeX = e.clientX - rect.left;
 

@@ -1,5 +1,5 @@
 import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
-import { Task, TaskTransformed } from "types/task";
+import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 import { calculateDateOffsets } from "./timeline";
 
@@ -41,9 +41,10 @@ export function transformTasks(
     const order = index + 1;
 
     // Calculate bar position and width
+    // 마일스톤은 startDate 한 점 기준 (endDate 무시)
     const { barMarginLeftAmount, barWidthSize } = calculateDateOffsets(
       dayjs(task.startDate),
-      dayjs(task.endDate),
+      isMilestoneTask(task) ? dayjs(task.startDate) : dayjs(task.endDate),
       timelineTicks,
       selectedScale
     );
