@@ -31,6 +31,13 @@ interface UseGanttScrollApiParams {
   transformedTasks: TaskTransformed[];
   selectedScale: GanttScaleKey;
   rowHeight: number;
+  /**
+   * How much width the pinned task list on the left covers (default 0)
+   *
+   * The timeline starts that far to the right, so centering has to measure against the
+   * narrowed viewport or the target lands behind the pane.
+   */
+  viewportInsetPx?: number;
 }
 
 /**
@@ -45,21 +52,26 @@ export function useGanttScrollApi({
   transformedTasks,
   selectedScale,
   rowHeight,
+  viewportInsetPx = 0,
 }: UseGanttScrollApiParams): GanttHandle {
   const scrollToOffset = useCallback(
     (left: number, options?: GanttScrollOptions) => {
       const el = scrollRef.current;
       if (!el) return;
 
+      // "start" needs no correction - at scrollLeft 0 the timeline origin already sits
+      // just right of the pane
       const target =
-        options?.align === "start" ? left : left - el.clientWidth / 2;
+        options?.align === "start"
+          ? left
+          : left - (el.clientWidth - viewportInsetPx) / 2;
 
       el.scrollTo({
         left: Math.max(0, target),
         behavior: options?.smooth === false ? "auto" : "smooth",
       });
     },
-    [scrollRef]
+    [scrollRef, viewportInsetPx]
   );
 
   const scrollToDate = useCallback(
@@ -100,12 +112,14 @@ export function useGanttScrollApi({
           0,
           options?.align === "start"
             ? task.barLeft
-            : task.barLeft + task.barWidth / 2 - el.clientWidth / 2
+            : task.barLeft +
+              task.barWidth / 2 -
+              (el.clientWidth - viewportInsetPx) / 2
         ),
         behavior: options?.smooth === false ? "auto" : "smooth",
       });
     },
-    [transformedTasks, rowHeight, scrollRef]
+    [transformedTasks, rowHeight, scrollRef, viewportInsetPx]
   );
 
   return useMemo(

@@ -1,7 +1,39 @@
-import { GanttScaleConfig, GanttScaleKey } from 'types/gantt';
-import { quarterOfYear } from 'utils/dayjs';
+import { GanttColumn, GanttScaleConfig, GanttScaleKey } from 'types/gantt';
+import dayjs, { quarterOfYear } from 'utils/dayjs';
 
 export const NODE_HEIGHT = 38;
+/** Full timeline header height (44 top group + 28 bottom cell + 1 border) - the grid header matches it */
+export const HEADER_HEIGHT = 73;
+/** Default grid column width (px) */
+export const DEFAULT_COLUMN_WIDTH = 120;
+/** Grid pane width limits (px) */
+export const MIN_GRID_WIDTH = 120;
+export const MAX_GRID_WIDTH = 800;
+/** Indentation per tree level (px) */
+export const TREE_INDENT = 16;
+
+/** Date format for the grid's date columns - replaceable through the columns prop */
+const GRID_DATE_FORMAT = 'YYYY-MM-DD';
+
+/**
+ * Default task grid columns
+ * Replaceable wholesale through the columns prop, so no header label is baked into the library.
+ */
+export const DEFAULT_COLUMNS: GanttColumn[] = [
+  { key: 'name', header: 'Name', width: 220 },
+  {
+    key: 'startDate',
+    header: 'Start',
+    width: 110,
+    render: (task) => dayjs(task.startDate).format(GRID_DATE_FORMAT),
+  },
+  {
+    key: 'endDate',
+    header: 'End',
+    width: 110,
+    render: (task) => dayjs(task.endDate).format(GRID_DATE_FORMAT),
+  },
+];
 export const TIMELINE_SHIFT_BUFFER = 5;
 /** Bars render at least this wide, however narrow they are (px) - keeps short tasks grabbable */
 export const MIN_BAR_WIDTH = 14;

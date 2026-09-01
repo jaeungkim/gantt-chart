@@ -36,6 +36,13 @@ export interface TaskTransformed extends Task {
   depth: number;
   order: number;
   originalOrder: number;
+  /**
+   * A summary row with children (true only when hierarchy is on)
+   *
+   * Its start/end are recomputed from the children, so resizing and progress editing are
+   * disabled and dragging the bar moves the whole subtree.
+   */
+  isSummary?: boolean;
   dependencies?: TaskDependency[];
 }
 

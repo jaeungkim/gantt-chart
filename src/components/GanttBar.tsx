@@ -51,11 +51,13 @@ export default function GanttBar({
   const { onProgressPointerDown, progress, isDraggingProgress } =
     useGanttProgressDrag(currentTask, barRef, onTasksChange);
   const showProgress = !isMilestone && progress !== null;
+  // A summary row's progress is rolled up from its children, so it is not draggable
+  const showProgressHandle = showProgress && !currentTask.isSummary;
 
-  // Change the cursor based on the mouse position (milestones cannot be resized)
+  // Change the cursor based on the mouse position (milestones and summaries cannot be resized)
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isMilestone) return;
+      if (isMilestone || currentTask.isSummary) return;
 
       const bar = barRef.current;
       if (!bar) return;
@@ -77,7 +79,7 @@ export default function GanttBar({
         setCursor("grab");
       }
     },
-    [isMilestone]
+    [isMilestone, currentTask.isSummary]
   );
 
   // Build the tooltip text (shown differently per mode)
@@ -140,7 +142,7 @@ export default function GanttBar({
       id={`task-${currentTask.id}`}
       className={`gantt-task-bar${isDragging ? " dragging" : ""}${
         labelOutside ? " compact" : ""
-      }`}
+      }${currentTask.isSummary ? " summary" : ""}`}
       onPointerDown={onPointerDown}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => setCursor("grab")}
@@ -165,19 +167,21 @@ export default function GanttBar({
             className="gantt-progress-fill"
             style={{ width: `${progress}%` }}
           />
-          <div
-            className={`gantt-progress-handle${
-              isDraggingProgress ? " dragging" : ""
-            }`}
-            style={{ left: `${progress}%` }}
-            onPointerDown={onProgressPointerDown}
-            role="slider"
-            tabIndex={-1}
-            aria-label={`${currentTask.name} progress`}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={progress}
-          />
+          {showProgressHandle && (
+            <div
+              className={`gantt-progress-handle${
+                isDraggingProgress ? " dragging" : ""
+              }`}
+              style={{ left: `${progress}%` }}
+              onPointerDown={onProgressPointerDown}
+              role="slider"
+              tabIndex={-1}
+              aria-label={`${currentTask.name} progress`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress}
+            />
+          )}
         </>
       )}
 

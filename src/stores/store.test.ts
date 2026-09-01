@@ -68,11 +68,13 @@ describe('setSelectedScale persistence', () => {
     stubSessionStorage();
 
     for (let i = 0; i < 50; i++) {
-      store.getState().setDragOffset('t1', {
-        offsetX: i,
-        offsetWidth: 0,
-        offsetStartDate: dayjs('2025-01-01'),
-        offsetEndDate: dayjs('2025-01-02'),
+      store.getState().setDragOffsets({
+        t1: {
+          offsetX: i,
+          offsetWidth: 0,
+          offsetStartDate: dayjs('2025-01-01'),
+          offsetEndDate: dayjs('2025-01-02'),
+        },
       });
     }
     store.getState().clearAllDragOffsets();
@@ -128,11 +130,13 @@ describe('per-instance isolation', () => {
         sequence: '1',
       },
     ]);
-    a.getState().setDragOffset('a1', {
-      offsetX: 12,
-      offsetWidth: 0,
-      offsetStartDate: dayjs('2025-01-01'),
-      offsetEndDate: dayjs('2025-01-02'),
+    a.getState().setDragOffsets({
+      a1: {
+        offsetX: 12,
+        offsetWidth: 0,
+        offsetStartDate: dayjs('2025-01-01'),
+        offsetEndDate: dayjs('2025-01-02'),
+      },
     });
 
     expect(b.getState().selectedScale).toBe('month');

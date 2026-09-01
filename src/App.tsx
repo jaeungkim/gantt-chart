@@ -15,6 +15,8 @@ function App() {
       width="100%"
       locale={locale}
       firstDayOfWeek={weekStart === null ? undefined : Number(weekStart)}
+      showTaskList
+      hierarchy
     />
   );
 }

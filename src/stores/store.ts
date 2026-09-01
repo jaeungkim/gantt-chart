@@ -50,8 +50,9 @@ export interface GanttState {
   setRawTasks: (rawTasks: Task[]) => void;
   setBottomRowCells: (cells: GanttBottomRowCell[]) => void;
   setTransformedTasks: (tasks: TaskTransformed[]) => void;
-  setDragOffset: (id: string, offset: GanttDragOffset) => void;
-  clearDragOffset: (id: string) => void;
+  /** Update several tasks' offsets at once - dragging a summary bar moves its whole subtree */
+  setDragOffsets: (offsets: Record<string, GanttDragOffset>) => void;
+  clearDragOffsets: (ids: string[]) => void;
   clearAllDragOffsets: () => void;
 
   // Computed selectors
@@ -99,15 +100,23 @@ export function createGanttStore(
     setBottomRowCells: (cells) => set({ bottomRowCells: cells }),
     setTransformedTasks: (tasks) => set({ transformedTasks: tasks }),
 
-    setDragOffset: (id, offset) =>
+    // Runs every drag frame - one store update even when a whole subtree moves
+    setDragOffsets: (offsets) =>
       set((state) => ({
-        dragOffsets: { ...state.dragOffsets, [id]: offset },
+        dragOffsets: { ...state.dragOffsets, ...offsets },
       })),
 
-    clearDragOffset: (id) =>
+    clearDragOffsets: (ids) =>
       set((state) => {
-        const { [id]: _removed, ...rest } = state.dragOffsets;
-        return { dragOffsets: rest };
+        const rest = { ...state.dragOffsets };
+        let removed = false;
+        for (const id of ids) {
+          if (id in rest) {
+            delete rest[id];
+            removed = true;
+          }
+        }
+        return removed ? { dragOffsets: rest } : state;
       }),
 
     // Keep the offset of a drag that is still in progress - so a drag started right
