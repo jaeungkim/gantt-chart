@@ -35,6 +35,7 @@ import {
   GanttBottomRowCell,
   GanttColumn,
   GanttFormatOverrides,
+  GanttReorderChange,
   GanttScaleKey,
   GanttTheme,
 } from "types/gantt";
@@ -176,6 +177,26 @@ export interface GanttProps {
   defaultCollapsedIds?: string[];
   /** Called whenever the collapsed state changes - in controlled and uncontrolled mode alike */
   onCollapsedChange?: (collapsedIds: string[]) => void;
+  /**
+   * Whether a task list row can be dragged to reorder and re-parent (default false)
+   *
+   * Vertical drag moves the row among its siblings; horizontal offset indents or outdents it
+   * the way an outliner does, and dropping onto the middle of a row makes that row the parent.
+   * A drop that would put a row inside its own subtree is marked invalid during the drag and
+   * does nothing on release.
+   *
+   * Follows the same guards as a bar move: a row is draggable only where
+   * `resolveTaskInteraction` says the task can move, so `readOnly` (or `allowMove: false`, on
+   * the chart or on the task) blocks it.
+   */
+  allowRowReorder?: boolean;
+  /**
+   * Called when a row drag is released on a legal target, before anything is committed
+   *
+   * Returning `false` cancels the drop - the chart stays as it was and `onTasksChange` does
+   * not fire. Otherwise the chart updates and `onTasksChange` fires once with the same array.
+   */
+  onReorder?: (change: GanttReorderChange) => void | boolean;
 }
 
 /**
@@ -230,6 +251,8 @@ function GanttChart({
   collapsedIds,
   defaultCollapsedIds,
   onCollapsedChange,
+  allowRowReorder = false,
+  onReorder,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -554,6 +577,10 @@ function GanttChart({
                 hierarchy={hierarchy}
                 collapsedIds={collapsedSet}
                 onToggleCollapse={handleToggleCollapse}
+                allowRowReorder={allowRowReorder}
+                interaction={interaction}
+                onReorder={onReorder}
+                onTasksChange={onTasksChange}
               />
             )}
 

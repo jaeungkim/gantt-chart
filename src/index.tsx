@@ -27,6 +27,7 @@ export type {
 export type {
   GanttColumn,
   GanttFormatOverrides,
+  GanttReorderChange,
   GanttScaleFormat,
   GanttScaleKey,
   GanttTheme,
