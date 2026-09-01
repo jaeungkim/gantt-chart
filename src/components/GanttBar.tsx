@@ -17,18 +17,30 @@ import {
   Task,
   TaskTransformed,
 } from "types/task";
+import { formatTaskAriaLabel } from "utils/a11y";
 import { resolveFormatters } from "utils/i18n";
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
   onTasksChange?: (updatedTasks: Task[]) => void;
   interaction?: GanttInteractionConfig;
+  /**
+   * Roving tabindex of the treegrid (default -1)
+   *
+   * Exactly one cell in the chart carries 0, so Tab enters and leaves the whole
+   * grid once and the arrow keys move within it.
+   */
+  tabIndex?: number;
+  /** `row:column` coordinate the chart's focus manager looks the cell up by */
+  cellCoord?: string;
 }
 
 export default function GanttBar({
   currentTask,
   onTasksChange,
   interaction,
+  tabIndex = -1,
+  cellCoord,
 }: GanttBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
   const { onPointerDown, dragMode } = useGanttBarDrag(
@@ -108,6 +120,14 @@ export default function GanttBar({
     () => resolveFormatters(selectedScale, localeOptions),
     [selectedScale, localeOptions]
   );
+  // "Design phase, Mar 3 to Mar 14, 40% complete" - the dates are on the bar itself
+  // because a screen reader user never sees the date header above it
+  const ariaLabel = formatTaskAriaLabel(
+    currentTask,
+    tooltip,
+    showProgress ? progress : null
+  );
+
   const getTooltipText = (mode: DragMode | null) => {
     if (!liveOffset) return "";
 
@@ -140,9 +160,10 @@ export default function GanttBar({
           height: NODE_HEIGHT / 2,
           cursor: barCursor,
         }}
-        role="button"
-        tabIndex={0}
-        aria-label={`Milestone: ${currentTask.name}`}
+        role="gridcell"
+        tabIndex={tabIndex}
+        data-gantt-cell={cellCoord}
+        aria-label={ariaLabel}
       >
         <div className="gantt-milestone-diamond" />
         <span className="gantt-milestone-name">{currentTask.name}</span>
@@ -175,13 +196,10 @@ export default function GanttBar({
         height: NODE_HEIGHT / 2,
         cursor: barCursor,
       }}
-      role="button"
-      tabIndex={0}
-      aria-label={
-        showProgress
-          ? `Task: ${currentTask.name}, ${progress}% complete`
-          : `Task: ${currentTask.name}`
-      }
+      role="gridcell"
+      tabIndex={tabIndex}
+      data-gantt-cell={cellCoord}
+      aria-label={ariaLabel}
     >
       {/* Progress fill + handle */}
       {showProgress && (

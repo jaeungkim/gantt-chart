@@ -103,7 +103,8 @@ export function useGanttScrollApi({
       if (!el) return;
 
       // Vertical: move only when that row is outside the viewport (a visible row is left where it is)
-      const rowTop = index * rowHeight;
+      // `order` is the row number, so grouping and shared lanes are accounted for
+      const rowTop = (task.order - 1) * rowHeight;
       const outOfView =
         rowTop < el.scrollTop ||
         rowTop + rowHeight > el.scrollTop + el.clientHeight;

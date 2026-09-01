@@ -13,10 +13,13 @@ import {
 
 interface Props {
   transformedTasks: TaskTransformed[];
+  /** Row count of the chart - a lane row can carry several tasks, so it is not the task count */
+  rowCount: number;
 }
 
 export default function GanttDependencyArrows({
   transformedTasks,
+  rowCount,
 }: Props) {
   const liveOffsets = useGanttStore((store) => store.dragOffsets);
   const bottomRowCells = useGanttStore((store) => store.bottomRowCells);
@@ -31,7 +34,7 @@ export default function GanttDependencyArrows({
   }, []);
 
   const { rowVirtualizer, isBarVisible } = useGanttVirtualization({
-    transformedTasks,
+    rowCount,
     bottomRowCells,
     scrollRef,
   });
@@ -68,7 +71,7 @@ export default function GanttDependencyArrows({
       ref={attachSvg}
       className="gantt-dependency-arrows"
       style={{
-        height: `${transformedTasks.length * NODE_HEIGHT}px`,
+        height: `${rowCount * NODE_HEIGHT}px`,
       }}
     >
       <defs>

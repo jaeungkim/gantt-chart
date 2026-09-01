@@ -242,6 +242,7 @@
 
 /* ===== MAIN CHART AREA ===== */
 .gantt-main {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -399,11 +400,13 @@
   width: 20px;
 }
 
+/* Sits over the pane edge, outside the scroll container - the pane is pinned left,
+   so the splitter must not travel with the horizontal scroll */
 .gantt-grid-splitter {
   position: absolute;
   top: 0;
-  right: 0;
   bottom: 0;
+  z-index: 60;
   width: 5px;
   cursor: col-resize;
   touch-action: none;
@@ -905,5 +908,74 @@
   .gantt-task-name {
     font-size: 11px;
     padding: 0 10px;
+  }
+}
+
+/* ===== GROUPING (swimlanes) ===== */
+.gantt-grid-row.group,
+.gantt-task-row.group {
+  background: var(--gantt-muted);
+  font-weight: 600;
+}
+
+.gantt-grid-row.group .gantt-grid-cell {
+  gap: 6px;
+}
+
+/* Pinned left so the label stays readable however far the timeline is scrolled */
+.gantt-group-label {
+  position: sticky;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 10px;
+  pointer-events: auto;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gantt-grid-group-count {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--gantt-border);
+  color: var(--gantt-muted-foreground);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+/* ===== ACCESSIBILITY ===== */
+/* Visible to a screen reader only - the live region and the timeline column header */
+.gantt-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Keyboard focus has to be visible on every cell - the bars and grid cells are
+   plain divs, so nothing draws an outline for them by default */
+.gantt-container [data-gantt-cell]:focus-visible {
+  outline: 2px solid var(--gantt-accent);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gantt-container *,
+  .gantt-container *::before,
+  .gantt-container *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
   }
 }

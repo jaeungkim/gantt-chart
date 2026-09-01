@@ -27,7 +27,9 @@ export type {
 export type {
   GanttColumn,
   GanttFormatOverrides,
+  GanttGroupBy,
   GanttScaleFormat,
   GanttScaleKey,
   GanttTheme,
 } from './types/gantt';
+export type { GanttRow, GanttRowGroup } from './utils/grouping';

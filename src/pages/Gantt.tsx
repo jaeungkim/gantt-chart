@@ -2,6 +2,7 @@ import GanttBar from "components/GanttBar";
 import GanttChartHeader from "components/GanttChartHeader";
 import GanttDependencyArrows from "components/GanttDependencyArrows";
 import GanttDragGuides from "components/GanttDragGuides";
+import GanttGridSplitter from "components/GanttGridSplitter";
 import GanttTaskGrid from "components/GanttTaskGrid";
 import ScaleSelector from "components/ScaleSelector";
 import {
@@ -35,18 +36,32 @@ import {
   GanttBottomRowCell,
   GanttColumn,
   GanttFormatOverrides,
+  GanttGroupBy,
   GanttScaleKey,
   GanttTheme,
 } from "types/gantt";
 import { GanttInteractionConfig, Task } from "types/task";
+import {
+  deleteTask,
+  formatTaskAriaLabel,
+  GanttFocus,
+  GanttKeyboardRow,
+  nudgeTaskDates,
+  resolveKeyboardAction,
+  rowAriaProps,
+  stepTaskProgress,
+  taskAtFocus,
+} from "utils/a11y";
 import dayjs from "utils/dayjs";
+import { buildGanttRows } from "utils/grouping";
+import { resolveFormatters } from "utils/i18n";
 import {
   calculateDateOffsetPx,
   computeNonWorkingRanges,
   computeTimelineData,
   originShiftPx,
 } from "utils/timeline";
-import { getVisibleTasks } from "utils/tree";
+import { buildTaskTree, getVisibleTasks } from "utils/tree";
 
 /** Gantt component defaults */
 const DEFAULT_HEIGHT = 600;
@@ -176,6 +191,19 @@ export interface GanttProps {
   defaultCollapsedIds?: string[];
   /** Called whenever the collapsed state changes - in controlled and uncontrolled mode alike */
   onCollapsedChange?: (collapsedIds: string[]) => void;
+  /**
+   * Groups the rows into swimlanes - a task field name, or an accessor returning
+   * the group value
+   *
+   * Each group gets a header row and its tasks are indented one level below it.
+   * With `hierarchy` on, grouping decides the top level and the parentId nesting
+   * is kept inside each group: a task's group is read off its root ancestor, so a
+   * subtree is never split across two groups. Group headers collapse through the
+   * same `collapsedIds` list, under the id `group:<value>`.
+   */
+  groupBy?: GanttGroupBy;
+  /** Header label for tasks whose group value is missing (default `"Ungrouped"`) */
+  ungroupedLabel?: string;
 }
 
 /**
@@ -230,6 +258,8 @@ function GanttChart({
   collapsedIds,
   defaultCollapsedIds,
   onCollapsedChange,
+  groupBy,
+  ungroupedLabel,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -303,21 +333,36 @@ function GanttChart({
     [collapsed, collapsedIds, onCollapsedChange]
   );
 
-  // Rows left after hiding collapsed subtrees - the grid and the timeline read the same
-  // array, so their rows cannot drift apart
+  // The parentId tree - also what grouping reads a task's root ancestor from
+  const tree = useMemo(
+    () => (hierarchy ? buildTaskTree(rawTasks) : undefined),
+    [hierarchy, rawTasks]
+  );
+
+  // Tasks left after hiding collapsed subtrees
   const visibleTasks = useMemo(() => {
     if (!hierarchy || !collapsedSet.size) return transformedTasks;
+    return getVisibleTasks(transformedTasks, collapsedSet, tree);
+  }, [hierarchy, collapsedSet, transformedTasks, tree]);
 
-    const visible = getVisibleTasks(transformedTasks, collapsedSet);
-    if (visible.length === transformedTasks.length) return transformedTasks;
-
-    // Arrows use order as the row index - renumber it without the hidden rows
-    return visible.map((task, index) => ({ ...task, order: index + 1 }));
-  }, [hierarchy, collapsedSet, transformedTasks]);
+  // The row model - the grid and the timeline read the same array, so their rows
+  // cannot drift apart. It also rewrites every task's `order` to its row number,
+  // which is what the dependency arrows position by.
+  const rows = useMemo(
+    () =>
+      buildGanttRows(visibleTasks, {
+        groupBy,
+        collapsedIds: collapsedSet,
+        tree,
+        ungroupedLabel,
+      }),
+    [visibleTasks, groupBy, collapsedSet, tree, ungroupedLabel]
+  );
+  const rowTasks = useMemo(() => rows.flatMap((row) => row.tasks), [rows]);
 
   // Virtualization hook
   const { rowVirtualizer, isBarVisible } = useGanttVirtualization({
-    transformedTasks: visibleTasks,
+    rowCount: rows.length,
     bottomRowCells,
     scrollRef,
   });
@@ -472,7 +517,7 @@ function GanttChart({
   const scrollApi = useGanttScrollApi({
     scrollRef,
     bottomRowCells,
-    transformedTasks: visibleTasks,
+    transformedTasks: rowTasks,
     selectedScale,
     rowHeight: NODE_HEIGHT,
     viewportInsetPx: gridInset,
@@ -481,7 +526,7 @@ function GanttChart({
     scrollRef,
     bottomRowCells,
     selectedScale,
-    taskCount: transformedTasks.length,
+    taskCount: rows.length,
     totalWidth,
   });
   useImperativeHandle(
@@ -489,6 +534,210 @@ function GanttChart({
     () => ({ ...scrollApi, ...exportApi }),
     [scrollApi, exportApi]
   );
+
+  // ===== Keyboard navigation and editing =====
+  // One roving tabindex across both panes: the chart is a single tab stop, and
+  // every move, resize, expand and delete is reachable from the keyboard, so no
+  // part of it depends on being able to drag.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [focus, setFocus] = useState<GanttFocus>({ row: 0, col: 0 });
+  // Bumped on every keyboard move; the focus effect keys off it so a move that
+  // lands on the same cell (after an edit re-render) still restores focus
+  const [focusNonce, setFocusNonce] = useState(0);
+  const [announcement, setAnnouncement] = useState("");
+
+  // Cells before the bars. A group header row is a single full-width cell.
+  const gridColumnCount = gridVisible ? gridColumns.length : 0;
+  const safeFocus = useMemo<GanttFocus>(
+    () => ({ row: Math.min(focus.row, Math.max(rows.length - 1, 0)), col: focus.col }),
+    [focus, rows.length]
+  );
+
+  const keyboardRows = useMemo<GanttKeyboardRow[]>(
+    () =>
+      rows.map((row) => {
+        const expandable =
+          !!row.group || (hierarchy && !!row.tasks[0]?.isSummary);
+        return {
+          cells: row.group ? 1 : Math.max(gridColumnCount + row.tasks.length, 1),
+          firstBarCell: row.group ? 1 : gridColumnCount,
+          expandable,
+          expanded: !collapsedSet.has(row.id),
+        };
+      }),
+    [rows, gridColumnCount, hierarchy, collapsedSet]
+  );
+
+  const { tooltip: announceDate } = useMemo(
+    () => resolveFormatters(selectedScale, localeOptions),
+    [selectedScale, localeOptions]
+  );
+
+  const commitTasks = useCallback(
+    (updated: Task[]) => {
+      setRawTasks(updated);
+      onTasksChange?.(updated);
+    },
+    [setRawTasks, onTasksChange]
+  );
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const action = resolveKeyboardAction(event, safeFocus, keyboardRows);
+      if (!action) return;
+
+      // Claimed as soon as the key is recognized, before anything is executed:
+      // alt+arrow is the browser's own back/forward, so leaving it until after the
+      // work would let an early exit navigate the page away
+      event.preventDefault();
+
+      const row = rows[action.kind === "focus" ? safeFocus.row : action.row];
+      const keyboardRow = keyboardRows[safeFocus.row];
+      const task =
+        action.kind === "focus"
+          ? undefined
+          : taskAtFocus(row, action.col ?? 0, keyboardRow?.firstBarCell ?? 0);
+
+      switch (action.kind) {
+        case "focus":
+          setFocus(action.focus);
+          setFocusNonce((nonce) => nonce + 1);
+          break;
+
+        case "toggle":
+          if (row) handleToggleCollapse(row.id);
+          break;
+
+        case "activate":
+          if (task) {
+            setAnnouncement(formatTaskAriaLabel(task, announceDate, null));
+          }
+          break;
+
+        case "delete": {
+          if (!task) return;
+
+          const updated = deleteTask(rawTasks, task, interaction);
+          if (!updated) {
+            setAnnouncement(`${task.name} cannot be deleted`);
+            break;
+          }
+          commitTasks(updated);
+          setAnnouncement(`${task.name} deleted`);
+          break;
+        }
+
+        case "nudge": {
+          if (!task) return;
+
+          const updated = nudgeTaskDates(
+            rawTasks,
+            task,
+            action.mode,
+            action.steps,
+            selectedScale,
+            interaction
+          );
+          if (!updated) {
+            setAnnouncement(`${task.name} cannot be changed`);
+            break;
+          }
+
+          commitTasks(updated);
+          const moved = updated.find((entry) => entry.id === task.id);
+          if (moved) {
+            setAnnouncement(
+              `${task.name}, ${announceDate(dayjs(moved.startDate))} to ${announceDate(dayjs(moved.endDate))}`
+            );
+          }
+          setFocusNonce((nonce) => nonce + 1);
+          break;
+        }
+
+        case "progress": {
+          if (!task) return;
+
+          const updated = stepTaskProgress(
+            rawTasks,
+            task,
+            action.delta,
+            interaction
+          );
+          if (!updated) {
+            setAnnouncement(`${task.name} progress cannot be changed`);
+            break;
+          }
+
+          commitTasks(updated);
+          const changed = updated.find((entry) => entry.id === task.id);
+          setAnnouncement(`${task.name}, ${changed?.progress ?? 0}% complete`);
+          setFocusNonce((nonce) => nonce + 1);
+          break;
+        }
+      }
+    },
+    [
+      safeFocus,
+      keyboardRows,
+      rows,
+      handleToggleCollapse,
+      rawTasks,
+      interaction,
+      selectedScale,
+      commitTasks,
+      announceDate,
+    ]
+  );
+
+  // Clicking a bar or a cell moves the roving tabindex with it, so the next arrow
+  // key continues from where the pointer left off
+  const handleFocusCapture = useCallback(
+    (event: React.FocusEvent<HTMLDivElement>) => {
+      const coord = event.target
+        .closest?.("[data-gantt-cell]")
+        ?.getAttribute("data-gantt-cell");
+      if (!coord) return;
+
+      const [row, col] = coord.split(":").map(Number);
+      setFocus((prev) =>
+        prev.row === row && prev.col === col ? prev : { row, col }
+      );
+    },
+    []
+  );
+
+  // Move the DOM focus after a keyboard move. A row scrolled out of the
+  // virtualized window has no element yet, so it is brought into view and
+  // retried on the next frames.
+  useEffect(() => {
+    if (!focusNonce) return;
+
+    let attempts = 3;
+    let frame = 0;
+
+    const focusCell = () => {
+      const cell = bodyRef.current?.querySelector<HTMLElement>(
+        `[data-gantt-cell="${safeFocus.row}:${safeFocus.col}"]`
+      );
+      if (cell) {
+        cell.focus({ preventScroll: true });
+        cell.scrollIntoView({ block: "nearest", inline: "nearest" });
+        return;
+      }
+      if (--attempts <= 0) return;
+
+      rowVirtualizer.scrollToIndex(safeFocus.row, { align: "auto" });
+      const target = rows[safeFocus.row]?.tasks[0];
+      if (target) scrollApi.scrollToTask(target.id, { smooth: false });
+      frame = requestAnimationFrame(focusCell);
+    };
+
+    focusCell();
+    return () => cancelAnimationFrame(frame);
+    // safeFocus is what focusNonce tracks - depending on it too would refocus on
+    // every pointer click as well
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusNonce]);
 
   // initialScrollTo is applied once, when the timeline first becomes ready
   const didInitialScrollRef = useRef(false);
@@ -537,27 +786,46 @@ function GanttChart({
         />
       </div>
 
+      {/* Live region - date changes made from the keyboard are announced here */}
+      <div className="gantt-sr-only" role="status" aria-live="polite">
+        {announcement}
+      </div>
+
       {/* Main chart area */}
       <div className="gantt-main">
         <div ref={scrollRef} className="gantt-scroll-container">
           {/* The grid and the timeline sit side by side in one scroll container, so
-              vertical scrolling and row virtualization are shared by construction */}
-          <div className="gantt-body">
+              vertical scrolling and row virtualization are shared by construction.
+              They are also one treegrid: the task list holds the rows and each row
+              owns its bars in the timeline through aria-owns. */}
+          <div
+            ref={bodyRef}
+            className="gantt-body"
+            role="treegrid"
+            aria-label="Gantt chart"
+            aria-rowcount={rows.length + (gridVisible ? 1 : 0)}
+            onKeyDown={handleKeyDown}
+            onFocusCapture={handleFocusCapture}
+          >
             {gridVisible && (
               <GanttTaskGrid
-                tasks={visibleTasks}
+                rows={rows}
                 columns={gridColumns}
                 virtualItems={rowVirtualizer.getVirtualItems()}
                 totalHeight={rowVirtualizer.getTotalSize()}
                 width={gridWidth}
-                onWidthChange={setGridWidth}
                 hierarchy={hierarchy}
                 collapsedIds={collapsedSet}
                 onToggleCollapse={handleToggleCollapse}
+                focus={safeFocus}
               />
             )}
 
-            <div className="gantt-timeline" style={{ width: `${totalWidth}px` }}>
+            <div
+              className="gantt-timeline"
+              style={{ width: `${totalWidth}px` }}
+              role="presentation"
+            >
               {/* Drag guides (run through everything, header included) */}
               <GanttDragGuides width={totalWidth} />
 
@@ -578,6 +846,7 @@ function GanttChart({
                   height: `${rowVirtualizer.getTotalSize()}px`,
                   width: `${totalWidth}px`,
                 }}
+                role="presentation"
               >
                 {/* Non-working-day shading */}
                 {nonWorkingRanges.length > 0 && (
@@ -595,22 +864,65 @@ function GanttChart({
                   </div>
                 )}
 
-                {/* Task rows (background) */}
-                <div className="gantt-rows">
+                {/* Task rows (background). Without the task list pane these are the
+                    treegrid's rows, otherwise the list holds them and these are decoration */}
+                <div className="gantt-rows" role="presentation">
                   {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                    const task = visibleTasks[virtualRow.index];
-                    if (!task) return null;
+                    const row = rows[virtualRow.index];
+                    if (!row) return null;
+
+                    const style = {
+                      // border-box, so the 1px border is inside the height - matches the row spacing exactly
+                      height: `${virtualRow.size}px`,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    };
+                    const className = `gantt-task-row${row.group ? " group" : ""}`;
+
+                    if (gridVisible) {
+                      return (
+                        <div
+                          key={`row-${row.id}`}
+                          className={className}
+                          style={style}
+                          aria-hidden="true"
+                        />
+                      );
+                    }
+
+                    const expandable =
+                      !!row.group || (hierarchy && !!row.tasks[0]?.isSummary);
 
                     return (
                       <div
-                        key={`row-${task.id}`}
-                        className="gantt-task-row"
-                        style={{
-                          // border-box, so the 1px border is inside the height - matches the row spacing exactly
-                          height: `${virtualRow.size}px`,
-                          transform: `translateY(${virtualRow.start}px)`,
-                        }}
-                      />
+                        key={`row-${row.id}`}
+                        className={className}
+                        style={style}
+                        {...rowAriaProps(row, virtualRow.index, {
+                          headerOffset: 0,
+                          expandable,
+                          expanded: !collapsedSet.has(row.id),
+                          ownedIds: row.tasks.map((task) => `task-${task.id}`),
+                        })}
+                      >
+                        {row.group && (
+                          <div
+                            className="gantt-group-label"
+                            role="gridcell"
+                            tabIndex={
+                              safeFocus.row === virtualRow.index &&
+                              safeFocus.col === 0
+                                ? 0
+                                : -1
+                            }
+                            data-gantt-cell={`${virtualRow.index}:0`}
+                          >
+                            {row.group.label}
+                            <span className="gantt-grid-group-count">
+                              {row.group.count}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -625,43 +937,64 @@ function GanttChart({
                 )}
 
                 {/* Dependency arrows */}
-                <GanttDependencyArrows transformedTasks={visibleTasks} />
+                <GanttDependencyArrows
+                  transformedTasks={rowTasks}
+                  rowCount={rows.length}
+                />
 
-                {/* Task bars */}
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const task = visibleTasks[virtualRow.index];
-                  if (!task) return null;
+                {/* Task bars - a row carries more than one only when tasks share a lane */}
+                {rowVirtualizer.getVirtualItems().flatMap((virtualRow) => {
+                  const row = rows[virtualRow.index];
+                  if (!row) return [];
 
-                  const barLeft = task.barLeft ?? 0;
-                  const barWidth = task.barWidth ?? 0;
+                  return row.tasks.map((task, laneIndex) => {
+                    const barLeft = task.barLeft ?? 0;
+                    const barWidth = task.barWidth ?? 0;
 
-                  if (!isBarVisible(barLeft, barWidth)) return null;
+                    if (!isBarVisible(barLeft, barWidth)) return null;
 
-                  return (
-                    <div
-                      key={task.id}
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        height: `${virtualRow.size - 1}px`,
-                        transform: `translateY(${virtualRow.start}px)`,
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      <GanttBar
-                        currentTask={task}
-                        onTasksChange={onTasksChange}
-                        interaction={interaction}
-                      />
-                    </div>
-                  );
+                    const col = gridColumnCount + laneIndex;
+
+                    return (
+                      <div
+                        key={task.id}
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          height: `${virtualRow.size - 1}px`,
+                          transform: `translateY(${virtualRow.start}px)`,
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <GanttBar
+                          currentTask={task}
+                          onTasksChange={onTasksChange}
+                          interaction={interaction}
+                          tabIndex={
+                            safeFocus.row === virtualRow.index &&
+                            safeFocus.col === col
+                              ? 0
+                              : -1
+                          }
+                          cellCoord={`${virtualRow.index}:${col}`}
+                        />
+                      </div>
+                    );
+                  });
                 })}
               </div>
             </div>
           </div>
+
         </div>
+
+        {/* Outside the scroll container so it stays pinned to the pane edge, and
+            outside the treegrid so the chart keeps exactly one tab stop */}
+        {gridVisible && (
+          <GanttGridSplitter width={gridWidth} onWidthChange={setGridWidth} />
+        )}
       </div>
     </section>
   );
