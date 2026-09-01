@@ -365,10 +365,11 @@ Dates outside the rendered timeline and unknown task ids are ignored rather than
 
 ### Undo/redo
 
-Every completed gesture is one undo step, however many bars it changed — dragging a
-summary row moves its whole subtree and one undo puts every task in it back. Undo and
-redo write through the chart the same way a drag does, so `onTasksChange` fires with
-the restored data.
+Every completed gesture — a move, a resize, a progress drag, a row reorder — is one
+undo step, however many rows it changed. Dragging a summary row moves its whole subtree
+and one undo puts every task in it back; a reorder renumbers `sequence` across the array
+and one undo puts all of it back. Undo and redo write through the chart the same way a
+drag does, so `onTasksChange` fires with the restored data.
 
 | Shortcut | Action |
 |----------|--------|
