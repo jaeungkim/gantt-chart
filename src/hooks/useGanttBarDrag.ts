@@ -3,11 +3,13 @@ import {
   GANTT_SCALE_CONFIG,
   MIN_RESIZABLE_WIDTH,
 } from "constants/gantt";
+import { Dayjs } from "dayjs";
 import { useRef } from "react";
 import { useGanttStore, useGanttStoreApi } from "stores/context";
-import { GanttDragOffset } from "types/gantt";
+import { GanttDragOffset, GanttScaleKey } from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
+import { shiftByDragSteps } from "utils/timeline";
 
 export type DragMode = "bar" | "left" | "right";
 
@@ -15,24 +17,15 @@ interface DragContext {
   mode: DragMode;
   pointerId: number;
   initialClientX: number;
-  initialStartDate: dayjs.Dayjs;
-  initialEndDate: dayjs.Dayjs;
+  initialStartDate: Dayjs;
+  initialEndDate: Dayjs;
   initialBarWidth: number;
   dragSteps: number;
   basePxPerDragStep: number;
-  dragStepAmount: number;
-  dragStepUnit: string;
+  // 드래그 도중 스케일이 바뀌어도 시작 시점의 스텝 단위로 계산한다
+  scaleKey: GanttScaleKey;
   taskId: string;
 }
-
-// 시간 단위 변환 상수
-const TIME_UNIT_MULTIPLIERS = {
-  minute: 1,
-  hour: 60,
-  day: 60 * 24,
-  week: 60 * 24 * 7,
-  month: 60 * 24 * 30,
-} as const;
 
 /**
  * Gantt 바 드래그 기능을 제공하는 훅
@@ -48,8 +41,7 @@ export function useGanttBarDrag(
   onTasksChangeRef.current = onTasksChange;
 
   const selectedScale = useGanttStore((s) => s.selectedScale);
-  const scaleConfig = GANTT_SCALE_CONFIG[selectedScale];
-  const { basePxPerDragStep, dragStepAmount, dragStepUnit } = scaleConfig;
+  const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
 
   // 드래그 모드 감지
   // 마일스톤과 좁은 바는 리사이즈 불가 - 엣지 영역이 바 전체를 덮어 이동이 막히는 것을 방지
@@ -84,8 +76,7 @@ export function useGanttBarDrag(
       initialBarWidth: task.barWidth,
       dragSteps: 0,
       basePxPerDragStep,
-      dragStepAmount,
-      dragStepUnit,
+      scaleKey: selectedScale,
       taskId: task.id,
     };
 
@@ -112,24 +103,23 @@ export function useGanttBarDrag(
       ctx.dragSteps = steps;
 
       const draggedPx = steps * ctx.basePxPerDragStep;
-      const minutesPerStep = ctx.dragStepAmount * TIME_UNIT_MULTIPLIERS[ctx.dragStepUnit as keyof typeof TIME_UNIT_MULTIPLIERS];
-      const totalMinutes = steps * minutesPerStep;
+      const shift = (date: Dayjs) => shiftByDragSteps(date, steps, ctx.scaleKey);
 
-      let newStartDate: dayjs.Dayjs;
-      let newEndDate: dayjs.Dayjs;
+      let newStartDate: Dayjs;
+      let newEndDate: Dayjs;
       let offsetX = 0;
       let offsetWidth = 0;
 
       switch (ctx.mode) {
         case "bar":
-          newStartDate = ctx.initialStartDate.add(totalMinutes, "minute");
-          newEndDate = ctx.initialEndDate.add(totalMinutes, "minute");
+          newStartDate = shift(ctx.initialStartDate);
+          newEndDate = shift(ctx.initialEndDate);
           offsetX = draggedPx;
           offsetWidth = 0;
           break;
 
         case "left":
-          newStartDate = ctx.initialStartDate.add(totalMinutes, "minute");
+          newStartDate = shift(ctx.initialStartDate);
           newEndDate = ctx.initialEndDate;
           offsetX = draggedPx;
           offsetWidth = -draggedPx;
@@ -137,7 +127,7 @@ export function useGanttBarDrag(
 
         case "right":
           newStartDate = ctx.initialStartDate;
-          newEndDate = ctx.initialEndDate.add(totalMinutes, "minute");
+          newEndDate = shift(ctx.initialEndDate);
           offsetX = 0;
           offsetWidth = draggedPx;
           break;
@@ -195,8 +185,8 @@ export function useGanttBarDrag(
       }
 
       const currentRawTasks = storeApi.getState().rawTasks;
-      const minutesPerStep = ctx.dragStepAmount * TIME_UNIT_MULTIPLIERS[ctx.dragStepUnit as keyof typeof TIME_UNIT_MULTIPLIERS];
-      const totalMinutes = ctx.dragSteps * minutesPerStep;
+      const commit = (date: string) =>
+        shiftByDragSteps(dayjs(date), ctx.dragSteps, ctx.scaleKey).toISOString();
 
       const updatedTasks = currentRawTasks.map((t) => {
         if (t.id !== ctx.taskId) return t;
@@ -205,20 +195,20 @@ export function useGanttBarDrag(
           case "bar":
             return {
               ...t,
-              startDate: dayjs(t.startDate).add(totalMinutes, "minute").toISOString(),
-              endDate: dayjs(t.endDate).add(totalMinutes, "minute").toISOString(),
+              startDate: commit(t.startDate),
+              endDate: commit(t.endDate),
             };
 
           case "left":
             return {
               ...t,
-              startDate: dayjs(t.startDate).add(totalMinutes, "minute").toISOString(),
+              startDate: commit(t.startDate),
             };
 
           case "right":
             return {
               ...t,
-              endDate: dayjs(t.endDate).add(totalMinutes, "minute").toISOString(),
+              endDate: commit(t.endDate),
             };
 
           default:

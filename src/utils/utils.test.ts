@@ -167,7 +167,7 @@ describe('GANTT_SCALE_CONFIG labels', () => {
     expect(GANTT_SCALE_CONFIG.week.formatHeaderLabel?.(afternoon)).toBe('Sep 2025');
     expect(GANTT_SCALE_CONFIG.month.formatHeaderLabel?.(afternoon)).toBe('Sep 2025');
     expect(GANTT_SCALE_CONFIG.year.formatHeaderLabel?.(afternoon)).toBe('2025');
-    expect(afternoon.format(DATE_FORMATS.day)).toBe('Sep 1, 2025 15:00');
+    expect(afternoon.format(DATE_FORMATS.day)).toBe('Sep 1, 2025 15:00 UTC');
     expect(afternoon.format(DATE_FORMATS.week)).toBe('Sep 1, 2025');
   });
 });

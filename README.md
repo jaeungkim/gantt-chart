@@ -151,6 +151,27 @@ type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 // SF = Start-to-Finish
 ```
 
+### Time zone
+
+**The chart draws and labels the timeline in UTC.** The grid, the bars, the tick and header
+labels, and the drag tooltips all use UTC, so the same tasks render identically for every
+viewer — a chart shared between Seoul and London puts every bar on the same day cell.
+`onTasksChange` hands back UTC ISO strings (`2024-06-01T09:00:00.000Z`).
+
+- A string with a zone (`"2024-06-01T09:00:00Z"`, `"2024-06-01T18:00:00+09:00"`) is that
+  instant, shown at its UTC clock time — both examples render at `09:00`.
+- A string without a zone (`"2024-06-01"`, `"2024-06-01T09:00"`) is read as UTC wall clock,
+  so it renders exactly as written and lands on the day it names, wherever the viewer is.
+
+`holidays` entries are UTC days too, and the `Dayjs` handed to `isNonWorkingDay` is in UTC mode,
+so `date.day()` inside it is the UTC weekday.
+
+Want the chart to read in your own zone instead? Convert to that zone's wall clock and drop
+the offset before passing the tasks in (e.g. `"2024-06-01T18:00"` for 18:00 KST), and convert
+back in `onTasksChange`. There is no per-viewer local-time mode: local rendering would move
+bars between day cells depending on where the viewer sits, and local DST days (23 or 25 hours
+long) would make a one-day drag land an hour off the day it was dropped on.
+
 ## Timeline Scales
 
 | Scale | Header Label | Tick Unit | Drag Step |
