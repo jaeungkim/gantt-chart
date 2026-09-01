@@ -35,6 +35,10 @@ interface GanttTaskGridProps {
   interaction: GanttInteractionConfig;
   onReorder?: (change: GanttReorderChange) => void | boolean;
   onTasksChange?: (updatedTasks: Task[]) => void;
+  /** The selected row, highlighted in step with its bar */
+  selectedTaskId?: string | null;
+  onRowClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
+  onRowDoubleClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
 }
 
 /** Without a render, task[key] is shown as-is */
@@ -74,6 +78,9 @@ export default function GanttTaskGrid({
   interaction,
   onReorder,
   onTasksChange,
+  selectedTaskId,
+  onRowClick,
+  onRowDoubleClick,
 }: GanttTaskGridProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const { onRowPointerDown, dragState } = useGanttRowDrag({
@@ -169,6 +176,8 @@ export default function GanttTaskGrid({
                 dragState?.draggedId === task.id ? "dragging" : "",
                 isDropParent ? "drop-into" : "",
                 isDropParent && !dropTarget.valid ? "invalid" : "",
+                task.id === selectedTaskId ? "selected" : "",
+                task.className ?? "",
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -176,6 +185,10 @@ export default function GanttTaskGrid({
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
               }}
+              onClick={onRowClick && ((e) => onRowClick(task, e))}
+              onDoubleClick={
+                onRowDoubleClick && ((e) => onRowDoubleClick(task, e))
+              }
             >
               {columns.map((column, index) => (
                 <div
@@ -197,7 +210,11 @@ export default function GanttTaskGrid({
                         className={`gantt-grid-expander${
                           collapsed ? "" : " open"
                         }`}
-                        onClick={() => onToggleCollapse(task.id)}
+                        onClick={(e) => {
+                          // Expanding a row is not selecting it
+                          e.stopPropagation();
+                          onToggleCollapse(task.id);
+                        }}
                         aria-expanded={!collapsed}
                         aria-label={`${collapsed ? "Expand" : "Collapse"} ${task.name}`}
                       >
