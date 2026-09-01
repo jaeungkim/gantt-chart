@@ -36,6 +36,9 @@
   /* 액센트 */
   --accent: #3b82f6;
 
+  /* 오늘 마커 */
+  --today-marker: #f43f5e;
+
   /* 트랜지션 */
   --transition-fast: 150ms ease;
   --transition-normal: 200ms ease;
@@ -61,6 +64,8 @@
   --bar-shadow-drag: 0 8px 24px rgba(0, 0, 0, 0.4);
 
   --arrow: #71717a;
+
+  --today-marker: #fb7185;
 }
 
 /* ===== BASE LAYOUT ===== */
@@ -263,6 +268,19 @@
   align-items: center;
   border-bottom: 1px solid var(--border-subtle);
   pointer-events: none;
+}
+
+/* ===== TODAY MARKER ===== */
+.gantt-today-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--today-marker);
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* ===== DEPENDENCY ARROWS ===== */
