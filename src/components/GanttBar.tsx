@@ -11,20 +11,38 @@ import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
 import { useGanttProgressDrag } from "hooks/useGanttProgressDrag";
 import { useRef, useState, useCallback } from "react";
 import { useGanttStore } from "stores/context";
-import { isMilestoneTask, Task, TaskTransformed } from "types/task";
+import {
+  GanttInteractionConfig,
+  isMilestoneTask,
+  resolveTaskInteraction,
+  Task,
+  TaskTransformed,
+} from "types/task";
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
   onTasksChange?: (updatedTasks: Task[]) => void;
+  interaction?: GanttInteractionConfig;
 }
 
 export default function GanttBar({
   currentTask,
   onTasksChange,
+  interaction,
 }: GanttBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
-  const { onPointerDown, dragMode } = useGanttBarDrag(currentTask, onTasksChange);
-  const [cursor, setCursor] = useState<"grab" | "ew-resize">("grab");
+  const { onPointerDown, dragMode } = useGanttBarDrag(
+    currentTask,
+    onTasksChange,
+    interaction
+  );
+  const { canMove, canResize, canChangeProgress } = resolveTaskInteraction(
+    currentTask,
+    interaction
+  );
+  // Only the pointer position is tracked here - the cursor itself is derived below,
+  // so a permission that changes after mount cannot leave a stale affordance behind
+  const [onResizeEdge, setOnResizeEdge] = useState(false);
 
   // Read the drag offset
   const liveOffset = useGanttStore((store) => store.dragOffsets[currentTask.id]);
@@ -50,33 +68,36 @@ export default function GanttBar({
     useGanttProgressDrag(currentTask, barRef, onTasksChange);
   const showProgress = !isMilestone && progress !== null;
 
-  // Change the cursor based on the mouse position (milestones cannot be resized)
+  // Track whether the pointer is over a resize edge (milestones and narrow bars have none)
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isMilestone) return;
-
       const bar = barRef.current;
       if (!bar) return;
 
       const rect = bar.getBoundingClientRect();
       if (rect.width < MIN_RESIZABLE_WIDTH) {
-        setCursor("grab");
+        setOnResizeEdge(false);
         return;
       }
 
       const relativeX = e.clientX - rect.left;
 
-      if (
-        relativeX <= EDGE_THRESHOLD ||
-        relativeX >= rect.width - EDGE_THRESHOLD
-      ) {
-        setCursor("ew-resize");
-      } else {
-        setCursor("grab");
-      }
+      setOnResizeEdge(
+        relativeX <= EDGE_THRESHOLD || relativeX >= rect.width - EDGE_THRESHOLD
+      );
     },
-    [isMilestone]
+    []
   );
+
+  // A gesture that is not allowed shows no affordance at all
+  const restCursor = canMove ? "grab" : "default";
+  const barCursor = isDragging
+    ? canMove || canResize
+      ? "grabbing"
+      : restCursor
+    : onResizeEdge && canResize
+      ? "ew-resize"
+      : restCursor;
 
   // Build the tooltip text (shown differently per mode)
   const format = DATE_FORMATS[selectedScale];
@@ -110,7 +131,7 @@ export default function GanttBar({
         style={{
           transform: `translateX(${finalLeft - MILESTONE_HALF_DIAGONAL}px)`,
           height: NODE_HEIGHT / 2,
-          cursor: isDragging ? "grabbing" : "grab",
+          cursor: barCursor,
         }}
         role="button"
         tabIndex={0}
@@ -135,15 +156,15 @@ export default function GanttBar({
       id={`task-${currentTask.id}`}
       className={`gantt-task-bar${isDragging ? " dragging" : ""}${
         labelOutside ? " compact" : ""
-      }`}
+      }${canResize ? "" : " no-resize"}`}
       onPointerDown={onPointerDown}
       onMouseMove={handleMouseMove}
-      onMouseLeave={() => setCursor("grab")}
+      onMouseLeave={() => setOnResizeEdge(false)}
       style={{
         transform: `translateX(${finalLeft}px)`,
         width: finalWidth,
         height: NODE_HEIGHT / 2,
-        cursor: isDragging ? "grabbing" : cursor,
+        cursor: barCursor,
       }}
       role="button"
       tabIndex={0}
@@ -160,19 +181,22 @@ export default function GanttBar({
             className="gantt-progress-fill"
             style={{ width: `${progress}%` }}
           />
-          <div
-            className={`gantt-progress-handle${
-              isDraggingProgress ? " dragging" : ""
-            }`}
-            style={{ left: `${progress}%` }}
-            onPointerDown={onProgressPointerDown}
-            role="slider"
-            tabIndex={-1}
-            aria-label={`${currentTask.name} progress`}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={progress}
-          />
+          {/* The fill stays as a readout; only the draggable handle is gated */}
+          {canChangeProgress && (
+            <div
+              className={`gantt-progress-handle${
+                isDraggingProgress ? " dragging" : ""
+              }`}
+              style={{ left: `${progress}%` }}
+              onPointerDown={onProgressPointerDown}
+              role="slider"
+              tabIndex={-1}
+              aria-label={`${currentTask.name} progress`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress}
+            />
+          )}
         </>
       )}
 

@@ -25,6 +25,8 @@ Currently, this project is built specifically for React due to my development ba
   - Snap to configured intervals
 - 🧲 Smart dependency arrows (FS, SS, FF, SF)
 - ◆ Milestones and per-task progress
+- 🔒 Read-only mode, per-capability and per-task
+- 🚧 Drag bounds and a fixed visible range
 - 🗓️ Weekend and holiday shading
 - ⚡ Virtualized rendering for performance
 - 🌙 Light/Dark/System theme support
@@ -102,6 +104,62 @@ export default function App() {
 | `isNonWorkingDay` | `(date: Dayjs) => boolean` | - | Replaces the default weekend/holiday check entirely |
 | `initialScrollTo` | `"today" \| string` | - | Scroll here once after the first render |
 | `storageKey` | `string` | `"gantt-scale"` | sessionStorage key for the scale. Give each chart its own key when rendering more than one on a page. |
+| `readOnly` | `boolean` | `false` | Blocks moving, resizing and progress dragging on every task |
+| `allowMove` | `boolean` | `true` | Allows/blocks moving bars. Beats `readOnly` |
+| `allowResize` | `boolean` | `true` | Allows/blocks resizing bars. Beats `readOnly` |
+| `allowProgressChange` | `boolean` | `true` | Allows/blocks dragging the progress handle. Beats `readOnly` |
+| `minDate` | `string` | - | Earliest date any bar may be dragged to (UTC ISO string) |
+| `maxDate` | `string` | - | Latest date any bar may be dragged to (UTC ISO string) |
+| `visibleStart` | `string` | - | Pins the timeline start (UTC ISO string) instead of fitting to the tasks |
+| `visibleEnd` | `string` | - | Pins the timeline end (UTC ISO string) instead of fitting to the tasks |
+
+### Read-only and per-task interaction
+
+Every interaction prop has a matching optional field on `Task`, and the task's own
+field wins. Resolution runs most specific first:
+
+`task.allowX` > `task.readOnly` > `allowX` prop > `readOnly` prop > allowed
+
+A blocked gesture renders no affordance at all - no grab or resize cursor, no resize
+grips, no progress handle - rather than failing on interaction.
+
+```tsx
+// A fully frozen chart
+<ReactGanttChart tasks={tasks} readOnly />
+
+// Frozen except progress, which stays draggable everywhere
+<ReactGanttChart tasks={tasks} readOnly allowProgressChange />
+
+// Editable chart with a few exceptions and a drag window
+<ReactGanttChart
+  tasks={[
+    { ...baseline, readOnly: true },                    // this one is frozen
+    { ...review, allowResize: false },                  // movable, not resizable
+    { ...launch, minDate: '2026-03-01T00:00:00Z' },     // cannot slip earlier than March
+  ]}
+  minDate="2026-01-01T00:00:00Z"
+  maxDate="2026-12-31T00:00:00Z"
+/>
+```
+
+Dragging against a bound snaps to it: the bar stops on the bound and the date passed
+to `onTasksChange` is the bound itself. A `bar` drag keeps its length while snapping;
+a resize is still never allowed to invert the bar, so the non-inversion guard wins if a
+task's window has already been passed.
+
+### Fixed visible range
+
+`visibleStart` / `visibleEnd` pin the rendered timeline instead of auto-fitting to the
+task dates plus a buffer. Either end can be pinned on its own, and the other keeps
+auto-fitting.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  visibleStart="2026-01-01T00:00:00Z"
+  visibleEnd="2026-04-01T00:00:00Z"
+/>
+```
 
 ## Imperative API
 
@@ -137,6 +195,14 @@ interface Task {
   type?: 'task' | 'milestone';   // milestones render as a diamond at startDate
   progress?: number;             // 0-100, draws a fill inside the bar
   dependencies?: TaskDependency[];
+
+  // Per-task interaction overrides - each one wins over the chart-level prop
+  readOnly?: boolean;
+  allowMove?: boolean;
+  allowResize?: boolean;
+  allowProgressChange?: boolean;
+  minDate?: string;              // UTC ISO string
+  maxDate?: string;              // UTC ISO string
 }
 
 interface TaskDependency {

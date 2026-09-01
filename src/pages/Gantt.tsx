@@ -25,7 +25,7 @@ import {
 } from "stores/store";
 import { NODE_HEIGHT } from "constants/gantt";
 import { GanttBottomRowCell, GanttScaleKey, GanttTheme } from "types/gantt";
-import { Task } from "types/task";
+import { GanttInteractionConfig, Task } from "types/task";
 import dayjs from "utils/dayjs";
 import {
   calculateDateOffsetPx,
@@ -91,6 +91,22 @@ export interface GanttProps {
    * do not touch the scroll position.
    */
   initialScrollTo?: "today" | string;
+  /** Blocks moving, resizing and progress dragging on every task */
+  readOnly?: boolean;
+  /** Allows/blocks moving bars (default true) - beats `readOnly` */
+  allowMove?: boolean;
+  /** Allows/blocks resizing bars (default true) - beats `readOnly` */
+  allowResize?: boolean;
+  /** Allows/blocks dragging the progress handle (default true) - beats `readOnly` */
+  allowProgressChange?: boolean;
+  /** Earliest date any bar may be dragged to (ISO string) - a task's own `minDate` wins */
+  minDate?: string;
+  /** Latest date any bar may be dragged to (ISO string) - a task's own `maxDate` wins */
+  maxDate?: string;
+  /** Pins the timeline to start here (ISO string) instead of fitting to the tasks */
+  visibleStart?: string;
+  /** Pins the timeline to end here (ISO string) instead of fitting to the tasks */
+  visibleEnd?: string;
 }
 
 /**
@@ -128,6 +144,14 @@ function GanttChart({
   isNonWorkingDay,
   storageKey = DEFAULT_SCALE_STORAGE_KEY,
   initialScrollTo,
+  readOnly,
+  allowMove,
+  allowResize,
+  allowProgressChange,
+  minDate,
+  maxDate,
+  visibleStart,
+  visibleEnd,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -185,6 +209,31 @@ function GanttChart({
     setRawTasks(tasks);
   }, [tasks, setRawTasks]);
 
+  // Interaction settings, passed down to every bar as one object
+  const interaction = useMemo<GanttInteractionConfig>(
+    () => ({
+      readOnly,
+      allowMove,
+      allowResize,
+      allowProgressChange,
+      minDate,
+      maxDate,
+    }),
+    [readOnly, allowMove, allowResize, allowProgressChange, minDate, maxDate]
+  );
+
+  // Fixed timeline window - undefined on both ends means auto-fit to the tasks
+  const visibleRange = useMemo(
+    () =>
+      visibleStart || visibleEnd
+        ? {
+            start: visibleStart ? dayjs(visibleStart) : undefined,
+            end: visibleEnd ? dayjs(visibleEnd) : undefined,
+          }
+        : undefined,
+    [visibleStart, visibleEnd]
+  );
+
   // Cells of the previous timeline - used to compute how far the origin moved and compensate the scroll
   const prevCellsRef = useRef<GanttBottomRowCell[]>([]);
   const pendingScrollShiftRef = useRef(0);
@@ -193,7 +242,8 @@ function GanttChart({
   useLayoutEffect(() => {
     const { bottomCells, transformedTasks: transformed } = computeTimelineData(
       rawTasks,
-      selectedScale
+      selectedScale,
+      visibleRange
     );
 
     // When the timeline start date changes, every bar shifts as a whole.
@@ -218,6 +268,7 @@ function GanttChart({
   }, [
     rawTasks,
     selectedScale,
+    visibleRange,
     setBottomRowCells,
     setTransformedTasks,
     clearAllDragOffsets,
@@ -406,6 +457,7 @@ function GanttChart({
                   <GanttBar
                     currentTask={task}
                     onTasksChange={onTasksChange}
+                    interaction={interaction}
                   />
                 </div>
               );

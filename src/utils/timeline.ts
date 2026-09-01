@@ -2,8 +2,11 @@ import { GANTT_SCALE_CONFIG, TIMELINE_SHIFT_BUFFER } from "constants/gantt";
 import { Dayjs } from "dayjs";
 import {
   GanttBottomRowCell,
+  GanttDragBounds,
+  GanttDragMode,
   GanttScaleKey,
   GanttTopHeaderGroup,
+  GanttVisibleRange,
 } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
@@ -95,6 +98,86 @@ export function shiftByDragSteps(
 ): Dayjs {
   const { dragStepUnit, dragStepAmount } = GANTT_SCALE_CONFIG[scaleKey];
   return date.add(steps * dragStepAmount, dragStepUnit);
+}
+
+/**
+ * Distance between two dates in px, at the scale's drag resolution
+ *
+ * The inverse of shiftByDragSteps: a date moved by N drag steps sits exactly
+ * N * basePxPerDragStep away. Fractional, so a date clamped part-way through a
+ * step still gets an exact px offset.
+ */
+export function pxBetweenDates(
+  from: Dayjs,
+  to: Dayjs,
+  scaleKey: GanttScaleKey
+): number {
+  const { dragStepUnit, dragStepAmount, basePxPerDragStep } =
+    GANTT_SCALE_CONFIG[scaleKey];
+  return (to.diff(from, dragStepUnit, true) / dragStepAmount) * basePxPerDragStep;
+}
+
+/**
+ * Clamps a dragged bar into its allowed date window
+ *
+ * A drag that runs past a bound snaps to it instead of stopping short or
+ * jumping - the returned dates are what gets both previewed and committed.
+ *
+ * - `bar`: both ends move together, so the bar keeps its length. When the bar is
+ *   longer than the window itself the two bounds cannot both hold; `min` wins.
+ * - `left`/`right`: only the dragged edge moves, and the bar is kept at least one
+ *   drag step wide. That non-inversion guard is applied last, so a task whose
+ *   window has already been passed stays a valid bar rather than folding over.
+ *
+ * Returns the inputs untouched when no bound is set.
+ */
+export function clampDragDates(
+  mode: GanttDragMode,
+  startDate: Dayjs,
+  endDate: Dayjs,
+  bounds: GanttDragBounds,
+  scaleKey: GanttScaleKey
+): { startDate: Dayjs; endDate: Dayjs } {
+  const { min, max } = bounds;
+  if (!min && !max) return { startDate, endDate };
+
+  if (mode === "bar") {
+    let start = startDate;
+    let end = endDate;
+
+    if (max && end.valueOf() > max.valueOf()) {
+      const overshoot = end.valueOf() - max.valueOf();
+      start = start.subtract(overshoot, "millisecond");
+      end = max;
+    }
+    if (min && start.valueOf() < min.valueOf()) {
+      const overshoot = min.valueOf() - start.valueOf();
+      start = min;
+      end = end.add(overshoot, "millisecond");
+    }
+
+    return { startDate: start, endDate: end };
+  }
+
+  if (mode === "left") {
+    let start = startDate;
+    if (min && start.valueOf() < min.valueOf()) start = min;
+    if (max && start.valueOf() > max.valueOf()) start = max;
+
+    const latestStart = shiftByDragSteps(endDate, -1, scaleKey);
+    if (start.valueOf() > latestStart.valueOf()) start = latestStart;
+
+    return { startDate: start, endDate };
+  }
+
+  let end = endDate;
+  if (max && end.valueOf() > max.valueOf()) end = max;
+  if (min && end.valueOf() < min.valueOf()) end = min;
+
+  const earliestEnd = shiftByDragSteps(startDate, 1, scaleKey);
+  if (end.valueOf() < earliestEnd.valueOf()) end = earliestEnd;
+
+  return { startDate, endDate: end };
 }
 
 export function calculateDateOffsets(
@@ -227,8 +310,8 @@ function padDateRange(
 }
 
 function createBottomRowCells(
-  paddedMinDate: Dayjs,
-  paddedMaxDate: Dayjs,
+  rangeStart: Dayjs,
+  rangeEnd: Dayjs,
   selectedScale: GanttScaleKey
 ): GanttBottomRowCell[] {
   const config = GANTT_SCALE_CONFIG[selectedScale];
@@ -241,8 +324,8 @@ function createBottomRowCells(
   } = config;
 
   const cells: GanttBottomRowCell[] = [];
-  let current = paddedMinDate.startOf(tickUnit);
-  const maxTime = paddedMaxDate.valueOf();
+  let current = rangeStart.startOf(tickUnit);
+  const maxTime = rangeEnd.valueOf();
   const dragStepRatio = basePxPerDragStep / dragStepAmount;
 
   while (current.valueOf() < maxTime) {
@@ -306,27 +389,43 @@ export function createTopHeaderGroups(
 /**
  * Computes the timeline data
  * Returns bottomCells and transformedTasks for the given rawTasks and scale
+ *
+ * `visibleRange` pins either end of the window. A pinned end is used verbatim
+ * (no task fitting, no buffer padding) so the chart renders exactly what was
+ * asked for; an open end still auto-fits to the tasks as before.
  */
 export function computeTimelineData(
   rawTasks: Task[],
-  selectedScale: GanttScaleKey
+  selectedScale: GanttScaleKey,
+  visibleRange?: GanttVisibleRange
 ): TimelineData {
-  if (!rawTasks.length) {
+  const fixedStart = visibleRange?.start;
+  const fixedEnd = visibleRange?.end;
+
+  // Without tasks there is nothing to fit to, so only a fully pinned window can be drawn
+  if (!rawTasks.length && !(fixedStart && fixedEnd)) {
     return { bottomCells: [], transformedTasks: [] };
   }
 
-  // Find the date range and add padding
-  const { minDate, maxDate } = findDateRangeFromTasks(rawTasks);
-  const { paddedMinDate, paddedMaxDate } = padDateRange(
-    minDate,
-    maxDate,
-    selectedScale
-  );
+  let rangeStart = fixedStart;
+  let rangeEnd = fixedEnd;
+
+  if (!rangeStart || !rangeEnd) {
+    // Find the date range and add padding
+    const { minDate, maxDate } = findDateRangeFromTasks(rawTasks);
+    const { paddedMinDate, paddedMaxDate } = padDateRange(
+      minDate,
+      maxDate,
+      selectedScale
+    );
+    rangeStart = rangeStart ?? paddedMinDate;
+    rangeEnd = rangeEnd ?? paddedMaxDate;
+  }
 
   // Build the timeline pieces
   const bottomCells = createBottomRowCells(
-    paddedMinDate,
-    paddedMaxDate,
+    rangeStart,
+    rangeEnd,
     selectedScale
   );
   const transformedTasks = transformTasks(rawTasks, bottomCells, selectedScale);

@@ -6,12 +6,26 @@ import {
 import { Dayjs } from "dayjs";
 import { useRef } from "react";
 import { useGanttStore, useGanttStoreApi } from "stores/context";
-import { GanttDragOffset, GanttScaleKey } from "types/gantt";
-import { isMilestoneTask, Task, TaskTransformed } from "types/task";
+import {
+  GanttDragBounds,
+  GanttDragMode,
+  GanttDragOffset,
+  GanttScaleKey,
+} from "types/gantt";
+import {
+  GanttInteractionConfig,
+  resolveTaskInteraction,
+  Task,
+  TaskTransformed,
+} from "types/task";
 import dayjs from "utils/dayjs";
-import { shiftByDragSteps } from "utils/timeline";
+import {
+  clampDragDates,
+  pxBetweenDates,
+  shiftByDragSteps,
+} from "utils/timeline";
 
-export type DragMode = "bar" | "left" | "right";
+export type DragMode = GanttDragMode;
 
 interface DragContext {
   mode: DragMode;
@@ -25,6 +39,22 @@ interface DragContext {
   // Keep computing in the step unit from when the drag started, even if the scale changes mid-drag
   scaleKey: GanttScaleKey;
   taskId: string;
+  /** null when the task has no bounds - then the drag math is left exactly as it was */
+  bounds: GanttDragBounds | null;
+  /** Latest bound-clamped dates, committed instead of a plain step shift */
+  clamped: { startDate: Dayjs; endDate: Dayjs } | null;
+}
+
+/** Parses the bound props into dayjs, or null when neither end is set */
+function toDragBounds(
+  min: string | undefined,
+  max: string | undefined
+): GanttDragBounds | null {
+  if (!min && !max) return null;
+  return {
+    min: min ? dayjs(min) : undefined,
+    max: max ? dayjs(max) : undefined,
+  };
 }
 
 /**
@@ -32,7 +62,8 @@ interface DragContext {
  */
 export function useGanttBarDrag(
   task: TaskTransformed,
-  onTasksChange?: (updatedTasks: Task[]) => void
+  onTasksChange?: (updatedTasks: Task[]) => void,
+  interaction?: GanttInteractionConfig
 ) {
   const storeApi = useGanttStoreApi();
   const dragContextRef = useRef<DragContext | null>(null);
@@ -43,20 +74,27 @@ export function useGanttBarDrag(
   const selectedScale = useGanttStore((s) => s.selectedScale);
   const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
 
+  const { canMove, canResize, minDate, maxDate } = resolveTaskInteraction(
+    task,
+    interaction
+  );
+
   // Detect the drag mode
-  // Milestones and narrow bars cannot be resized - keeps the edge zones from covering the
-  // whole bar and blocking the move
-  const detectDragMode = (e: React.PointerEvent<HTMLDivElement>): DragMode => {
-    if (isMilestoneTask(task)) return "bar";
-
+  // Milestones, narrow bars and tasks with resizing disabled cannot be resized - keeps the
+  // edge zones from covering the whole bar and blocking the move
+  // Returns null when the gesture is not allowed at all, so no drag starts
+  const detectDragMode = (
+    e: React.PointerEvent<HTMLDivElement>
+  ): DragMode | null => {
     const rect = e.currentTarget.getBoundingClientRect();
-    if (rect.width < MIN_RESIZABLE_WIDTH) return "bar";
 
-    const relativeX = e.clientX - rect.left;
+    if (canResize && rect.width >= MIN_RESIZABLE_WIDTH) {
+      const relativeX = e.clientX - rect.left;
+      if (relativeX <= EDGE_THRESHOLD) return "left";
+      if (relativeX >= rect.width - EDGE_THRESHOLD) return "right";
+    }
 
-    if (relativeX <= EDGE_THRESHOLD) return "left";
-    if (relativeX >= rect.width - EDGE_THRESHOLD) return "right";
-    return "bar";
+    return canMove ? "bar" : null;
   };
 
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
@@ -66,6 +104,7 @@ export function useGanttBarDrag(
     if (dragContextRef.current) return;
 
     const mode = detectDragMode(e);
+    if (!mode) return;
     dragModeRef.current = mode;
 
     dragContextRef.current = {
@@ -79,6 +118,8 @@ export function useGanttBarDrag(
       basePxPerDragStep,
       scaleKey: selectedScale,
       taskId: task.id,
+      bounds: toDragBounds(minDate, maxDate),
+      clamped: null,
     };
 
     storeApi.getState().setCurrentTask(task);
@@ -137,6 +178,35 @@ export function useGanttBarDrag(
           return;
       }
 
+      // Snap to the allowed window. Offsets are then measured from the clamped
+      // dates rather than the raw step count, so the bar stops on the bound
+      // instead of overshooting it.
+      if (ctx.bounds) {
+        const clamped = clampDragDates(
+          ctx.mode,
+          newStartDate,
+          newEndDate,
+          ctx.bounds,
+          ctx.scaleKey
+        );
+        ctx.clamped = clamped;
+        newStartDate = clamped.startDate;
+        newEndDate = clamped.endDate;
+
+        const startPx = pxBetweenDates(
+          ctx.initialStartDate,
+          newStartDate,
+          ctx.scaleKey
+        );
+        const endPx = pxBetweenDates(
+          ctx.initialEndDate,
+          newEndDate,
+          ctx.scaleKey
+        );
+        offsetX = startPx;
+        offsetWidth = endPx - startPx;
+      }
+
       const offset: GanttDragOffset = {
         offsetX,
         offsetWidth,
@@ -189,6 +259,11 @@ export function useGanttBarDrag(
       const commit = (date: string) =>
         shiftByDragSteps(dayjs(date), ctx.dragSteps, ctx.scaleKey).toISOString();
 
+      // With bounds in play the committed dates are the clamped ones, so a bar
+      // dropped against a bound reports exactly the bound to onTasksChange
+      const clampedStart = ctx.clamped?.startDate.toISOString();
+      const clampedEnd = ctx.clamped?.endDate.toISOString();
+
       const updatedTasks = currentRawTasks.map((t) => {
         if (t.id !== ctx.taskId) return t;
 
@@ -196,20 +271,20 @@ export function useGanttBarDrag(
           case "bar":
             return {
               ...t,
-              startDate: commit(t.startDate),
-              endDate: commit(t.endDate),
+              startDate: clampedStart ?? commit(t.startDate),
+              endDate: clampedEnd ?? commit(t.endDate),
             };
 
           case "left":
             return {
               ...t,
-              startDate: commit(t.startDate),
+              startDate: clampedStart ?? commit(t.startDate),
             };
 
           case "right":
             return {
               ...t,
-              endDate: commit(t.endDate),
+              endDate: clampedEnd ?? commit(t.endDate),
             };
 
           default:
