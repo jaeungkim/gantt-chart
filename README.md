@@ -24,6 +24,8 @@ Currently, this project is built specifically for React due to my development ba
   - Resize from left/right edges
   - Snap to configured intervals
 - 🧲 Smart dependency arrows (FS, SS, FF, SF)
+- ◆ Milestones and per-task progress
+- 🗓️ Weekend and holiday shading
 - ⚡ Virtualized rendering for performance
 - 🌙 Light/Dark/System theme support
 - 📍 Today marker indicator
@@ -95,6 +97,10 @@ export default function App() {
 | `theme` | `"light" \| "dark" \| "system"` | - | Theme mode |
 | `defaultScale` | `"day" \| "week" \| "month" \| "year"` | `"month"` | Initial timeline scale |
 | `className` | `string` | - | Additional CSS class for the container |
+| `showNonWorkingDays` | `boolean` | `true` | Shade weekends and holidays at day/week scales |
+| `holidays` | `string[]` | - | Extra non-working dates, `YYYY-MM-DD` |
+| `isNonWorkingDay` | `(date: Dayjs) => boolean` | - | Replaces the default weekend/holiday check entirely |
+| `storageKey` | `string` | `"gantt-scale"` | sessionStorage key for the scale. Give each chart its own key when rendering more than one on a page. |
 
 ## Task Format
 
@@ -108,6 +114,8 @@ interface Task {
   endDate: string;      // UTC ISO string
   parentId: string | null;
   sequence: string;
+  type?: 'task' | 'milestone';   // milestones render as a diamond at startDate
+  progress?: number;             // 0-100, draws a fill inside the bar
   dependencies?: TaskDependency[];
 }
 

@@ -1,5 +1,5 @@
 import { useShallow } from "zustand/react/shallow";
-import { useGanttStore } from "stores/store";
+import { useGanttStore } from "stores/context";
 
 /**
  * Gantt 스토어에서 필요한 상태와 액션을 선택하는 훅

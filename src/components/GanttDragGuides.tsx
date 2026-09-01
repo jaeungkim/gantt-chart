@@ -1,5 +1,5 @@
 import { DATE_FORMATS } from "constants/gantt";
-import { useGanttStore } from "stores/store";
+import { useGanttStore } from "stores/context";
 import { isMilestoneTask } from "types/task";
 
 interface GanttDragGuidesProps {

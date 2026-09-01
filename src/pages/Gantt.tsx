@@ -3,12 +3,17 @@ import GanttChartHeader from "components/GanttChartHeader";
 import GanttDependencyArrows from "components/GanttDependencyArrows";
 import GanttDragGuides from "components/GanttDragGuides";
 import ScaleSelector from "components/ScaleSelector";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dayjs } from "dayjs";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
 import { useResolvedTheme } from "hooks/useResolvedTheme";
-import { readPersistedScale } from "stores/store";
+import { GanttStoreContext } from "stores/context";
+import {
+  createGanttStore,
+  DEFAULT_SCALE_STORAGE_KEY,
+  readPersistedScale,
+} from "stores/store";
 import { GanttScaleKey, GanttTheme } from "types/gantt";
 import { Task } from "types/task";
 import dayjs from "utils/dayjs";
@@ -58,13 +63,37 @@ export interface GanttProps {
   holidays?: string[];
   /** 비근무일 판별 커스텀 함수 - 지정 시 기본 주말/휴일 판별을 대체 */
   isNonWorkingDay?: (date: Dayjs) => boolean;
+  /**
+   * 스케일 선택을 저장할 sessionStorage 키 (기본 `"gantt-scale"`)
+   *
+   * 한 페이지에 차트를 두 개 이상 두면 서로 다른 키를 주어야 각자의 스케일을
+   * 따로 기억한다. 같은 키를 공유하면 마지막에 바꾼 값이 양쪽에 적용된다.
+   */
+  storageKey?: string;
 }
 
 /**
- * Gantt 차트 메인 컴포넌트
+ * Gantt 차트 컴포넌트
+ *
+ * 인스턴스마다 독립된 스토어를 만들어 컨텍스트로 내려준다.
+ * (모듈 싱글턴이면 한 페이지의 두 차트가 상태를 공유해 서로를 덮어쓴다)
+ */
+function Gantt(props: GanttProps) {
+  const storageKey = props.storageKey ?? DEFAULT_SCALE_STORAGE_KEY;
+  const [store] = useState(() => createGanttStore(storageKey));
+
+  return (
+    <GanttStoreContext.Provider value={store}>
+      <GanttChart {...props} />
+    </GanttStoreContext.Provider>
+  );
+}
+
+/**
+ * 실제 차트 렌더링
  * 가상화를 사용하여 대량의 태스크를 효율적으로 렌더링
  */
-function Gantt({
+function GanttChart({
   tasks = EMPTY_TASKS,
   onTasksChange,
   height = DEFAULT_HEIGHT,
@@ -75,6 +104,7 @@ function Gantt({
   showNonWorkingDays = true,
   holidays,
   isNonWorkingDay,
+  storageKey = DEFAULT_SCALE_STORAGE_KEY,
 }: GanttProps) {
   // 스토어 상태 및 액션
   const {
@@ -109,7 +139,7 @@ function Gantt({
   // 초기 스케일 설정 - 세션에 저장된 사용자 선택이 있으면 그 값이 defaultScale보다 우선
   // (마운트 시 1회만. defaultScale은 시드일 뿐이라 이후 변경은 무시한다)
   useEffect(() => {
-    setSelectedScale(readPersistedScale() ?? defaultScale);
+    setSelectedScale(readPersistedScale(storageKey) ?? defaultScale);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -4,7 +4,7 @@ import {
   MIN_RESIZABLE_WIDTH,
 } from "constants/gantt";
 import { useRef } from "react";
-import { useGanttStore } from "stores/store";
+import { useGanttStore, useGanttStoreApi } from "stores/context";
 import { GanttDragOffset } from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
@@ -41,6 +41,7 @@ export function useGanttBarDrag(
   task: TaskTransformed,
   onTasksChange?: (updatedTasks: Task[]) => void
 ) {
+  const storeApi = useGanttStoreApi();
   const dragContextRef = useRef<DragContext | null>(null);
   const dragModeRef = useRef<DragMode | null>(null);
   const onTasksChangeRef = useRef(onTasksChange);
@@ -88,7 +89,7 @@ export function useGanttBarDrag(
       taskId: task.id,
     };
 
-    useGanttStore.getState().setCurrentTask(task);
+    storeApi.getState().setCurrentTask(task);
     e.currentTarget.setPointerCapture(e.pointerId);
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -152,7 +153,7 @@ export function useGanttBarDrag(
         offsetEndDate: newEndDate,
       };
 
-      useGanttStore.getState().setDragOffset(ctx.taskId, offset);
+      storeApi.getState().setDragOffset(ctx.taskId, offset);
     };
 
     const detachListeners = () => {
@@ -164,8 +165,8 @@ export function useGanttBarDrag(
     const endDrag = (taskId: string) => {
       dragContextRef.current = null;
       dragModeRef.current = null;
-      useGanttStore.getState().setCurrentTask(null);
-      useGanttStore.getState().clearDragOffset(taskId);
+      storeApi.getState().setCurrentTask(null);
+      storeApi.getState().clearDragOffset(taskId);
     };
 
     // 브라우저가 제스처를 취소한 경우(스크롤 인계, 멀티터치 등)는 커밋하지 않고 되돌린다
@@ -193,7 +194,7 @@ export function useGanttBarDrag(
         return;
       }
 
-      const currentRawTasks = useGanttStore.getState().rawTasks;
+      const currentRawTasks = storeApi.getState().rawTasks;
       const minutesPerStep = ctx.dragStepAmount * TIME_UNIT_MULTIPLIERS[ctx.dragStepUnit as keyof typeof TIME_UNIT_MULTIPLIERS];
       const totalMinutes = ctx.dragSteps * minutesPerStep;
 
@@ -225,7 +226,7 @@ export function useGanttBarDrag(
         }
       });
 
-      useGanttStore.getState().setRawTasks(updatedTasks);
+      storeApi.getState().setRawTasks(updatedTasks);
       onTasksChangeRef.current?.(updatedTasks);
 
       // dragOffset은 여기서 지우지 않는다 - 새 transformedTasks가 계산되기 전에
@@ -233,7 +234,7 @@ export function useGanttBarDrag(
       // Gantt의 타임라인 재계산 이펙트가 새 위치와 함께 한 번에 정리한다.
       dragContextRef.current = null;
       dragModeRef.current = null;
-      useGanttStore.getState().setCurrentTask(null);
+      storeApi.getState().setCurrentTask(null);
     };
 
     document.addEventListener("pointermove", handlePointerMove);
