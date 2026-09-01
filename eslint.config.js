@@ -51,6 +51,9 @@ export default tseslint.config(
       "react/prop-types": "off", // Using TypeScript instead
       "react/display-name": "off", // React.memo, React.forwardRef
       "react-hooks/exhaustive-deps": "warn", // Warn instead of error for better DX
+      // v7 compiler rule flags pre-existing latest-ref patterns in drag hooks;
+      // keep as warning until those are refactored
+      "react-hooks/refs": "warn",
 
       // General rules
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
