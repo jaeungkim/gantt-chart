@@ -62,6 +62,12 @@ export default tseslint.config(
     },
   },
   {
+    // The package barrel deliberately re-exports the headless core's functions alongside
+    // the component, so the fast-refresh "components only" rule does not apply to it.
+    files: ["src/index.tsx"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
+  {
     // ===== Headless core boundary =====
     // src/core/ has to stay runnable in Node and publishable on its own, so nothing in it
     // may reach for React, the store, a component, or anything that thinks in pixels.

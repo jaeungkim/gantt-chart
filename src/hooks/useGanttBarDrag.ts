@@ -6,13 +6,95 @@ import {
 import { Dayjs } from "dayjs";
 import { useRef } from "react";
 import { useGanttStore, useGanttStoreApi } from "stores/context";
-import { GanttDragOffset, GanttScaleKey } from "types/gantt";
+import { GanttDragOffset, GanttScaleKey, GanttScheduling } from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 import dayjs from "core/dates";
+import { scheduleTasks } from "core";
 import { shiftByDragSteps } from "utils/timeline";
 import { collectSubtreeIds } from "core/tree";
 
 export type DragMode = "bar" | "left" | "right";
+
+/** The dates the drag is proposing for the tasks it moves directly */
+type DraggedDates = Map<string, { start: Dayjs; end: Dayjs }>;
+
+/** The task array with the dragged tasks' proposed dates written in */
+function applyDraggedDates(rawTasks: Task[], dragged: DraggedDates): Task[] {
+  return rawTasks.map((t) => {
+    const next = dragged.get(t.id);
+    return next
+      ? {
+          ...t,
+          startDate: next.start.toISOString(),
+          endDate: next.end.toISOString(),
+        }
+      : t;
+  });
+}
+
+/**
+ * Runs the scheduling engine for the tasks the drag is moving.
+ * The dragged tasks are the seeds, so only what they reach is rescheduled and the bar
+ * under the pointer stays exactly where the pointer put it.
+ */
+function reschedule(
+  rawTasks: Task[],
+  dragged: DraggedDates,
+  scheduling: GanttScheduling
+) {
+  return scheduleTasks(applyDraggedDates(rawTasks, dragged), {
+    policy: scheduling.policy,
+    calendar: scheduling.calendar,
+    hierarchy: scheduling.hierarchy,
+    seeds: [...dragged.keys()],
+    onCycle: scheduling.onCycle,
+  });
+}
+
+/** Converts a date delta into the pixels the timeline draws it as, at this scale */
+function datesToPx(from: Dayjs, to: Dayjs, scaleKey: GanttScaleKey): number {
+  const { dragStepUnit, dragStepAmount, basePxPerDragStep } =
+    GANTT_SCALE_CONFIG[scaleKey];
+  return (to.diff(from, dragStepUnit) / dragStepAmount) * basePxPerDragStep;
+}
+
+/**
+ * Live offsets for the successors this frame moved.
+ *
+ * The engine speaks in dates and the preview layer in pixels, so each successor's date
+ * delta goes through the same px-per-drag-step ratio the dragged bar itself uses. Their
+ * duration never changes, so the width offset is always zero.
+ */
+function previewOffsets(
+  rawTasks: Task[],
+  dragged: DraggedDates,
+  scaleKey: GanttScaleKey,
+  scheduling: GanttScheduling
+): { offsets: Record<string, GanttDragOffset>; ids: string[] } {
+  const result = reschedule(rawTasks, dragged, scheduling);
+  if (!result.movedIds.length) return { offsets: {}, ids: [] };
+
+  const before = new Map(rawTasks.map((t) => [t.id, t]));
+  const after = new Map(result.tasks.map((t) => [t.id, t]));
+  const offsets: Record<string, GanttDragOffset> = {};
+
+  for (const id of result.movedIds) {
+    const original = before.get(id);
+    const moved = after.get(id);
+    if (!original || !moved) continue;
+
+    const offsetStartDate = dayjs(moved.startDate);
+
+    offsets[id] = {
+      offsetX: datesToPx(dayjs(original.startDate), offsetStartDate, scaleKey),
+      offsetWidth: 0,
+      offsetStartDate,
+      offsetEndDate: dayjs(moved.endDate),
+    };
+  }
+
+  return { offsets, ids: result.movedIds };
+}
 
 interface DragContext {
   mode: DragMode;
@@ -30,6 +112,10 @@ interface DragContext {
   taskIds: string[];
   /** Dates the moving tasks had when the drag started */
   initialDates: Map<string, { start: Dayjs; end: Dayjs }>;
+  /** Successors the last preview frame moved - cleared when they stop moving */
+  previewIds: string[];
+  /** Extra days the working-day calendar snapped the last frame by (0 when it is off) */
+  snapDays: number;
 }
 
 /**
@@ -37,7 +123,8 @@ interface DragContext {
  */
 export function useGanttBarDrag(
   task: TaskTransformed,
-  onTasksChange?: (updatedTasks: Task[]) => void
+  onTasksChange?: (updatedTasks: Task[]) => void,
+  scheduling?: GanttScheduling
 ) {
   const storeApi = useGanttStoreApi();
   const dragContextRef = useRef<DragContext | null>(null);
@@ -108,6 +195,8 @@ export function useGanttBarDrag(
       taskId: task.id,
       taskIds,
       initialDates,
+      previewIds: [],
+      snapDays: 0,
     };
 
     storeApi.getState().setCurrentTask(task);
@@ -166,24 +255,73 @@ export function useGanttBarDrag(
           return;
       }
 
+      // With the working-day calendar on, a drop lands on a working day: the edge that
+      // moved snaps forward and everything moving with it follows by the same days
+      let snapDays = 0;
+      if (scheduling?.calendar.skipsNonWorkingDays) {
+        const anchor = ctx.mode === "right" ? newEndDate : newStartDate;
+        const snapped = scheduling.calendar.snapForward(anchor);
+        snapDays = snapped.diff(anchor, "day");
+
+        // A left-edge resize must not snap past the bar's own end
+        if (ctx.mode === "left" && snapped.valueOf() >= newEndDate.valueOf()) {
+          snapDays = 0;
+        }
+      }
+      ctx.snapDays = snapDays;
+
+      if (snapDays) {
+        const snapPx = datesToPx(
+          newStartDate,
+          newStartDate.add(snapDays, "day"),
+          ctx.scaleKey
+        );
+        if (ctx.mode !== "right") {
+          newStartDate = newStartDate.add(snapDays, "day");
+          offsetX += snapPx;
+        }
+        if (ctx.mode !== "left") {
+          newEndDate = newEndDate.add(snapDays, "day");
+        }
+        if (ctx.mode === "left") offsetWidth -= snapPx;
+        if (ctx.mode === "right") offsetWidth += snapPx;
+      }
+
       // Descendants shift by the same pixels, but each keeps its own dates
       const offsets: Record<string, GanttDragOffset> = {};
+      const draggedDates: DraggedDates = new Map();
+      const followerPx = draggedPx + (snapDays ? offsetX - draggedPx : 0);
       for (const id of ctx.taskIds) {
         const initial = ctx.initialDates.get(id);
-        offsets[id] =
-          id === ctx.taskId || !initial
-            ? {
-                offsetX,
-                offsetWidth,
-                offsetStartDate: newStartDate,
-                offsetEndDate: newEndDate,
-              }
-            : {
-                offsetX: draggedPx,
-                offsetWidth: 0,
-                offsetStartDate: shift(initial.start),
-                offsetEndDate: shift(initial.end),
-              };
+        const isDraggedBar = id === ctx.taskId || !initial;
+        const start = isDraggedBar
+          ? newStartDate
+          : shift(initial.start).add(snapDays, "day");
+        const end = isDraggedBar
+          ? newEndDate
+          : shift(initial.end).add(snapDays, "day");
+
+        offsets[id] = {
+          offsetX: isDraggedBar ? offsetX : followerPx,
+          offsetWidth: isDraggedBar ? offsetWidth : 0,
+          offsetStartDate: start,
+          offsetEndDate: end,
+        };
+        draggedDates.set(id, { start, end });
+      }
+
+      // Preview the successors this move pushes around, and drop the ones it no longer does
+      if (scheduling && scheduling.policy !== "off") {
+        const preview = previewOffsets(
+          storeApi.getState().rawTasks,
+          draggedDates,
+          ctx.scaleKey,
+          scheduling
+        );
+        const stale = ctx.previewIds.filter((id) => !(id in preview.offsets));
+        ctx.previewIds = preview.ids;
+        if (stale.length) storeApi.getState().clearDragOffsets(stale);
+        Object.assign(offsets, preview.offsets);
       }
 
       storeApi.getState().setDragOffsets(offsets);
@@ -195,11 +333,11 @@ export function useGanttBarDrag(
       document.removeEventListener("pointercancel", handlePointerCancel);
     };
 
-    const endDrag = (taskIds: string[]) => {
+    const endDrag = (ctx: DragContext) => {
       dragContextRef.current = null;
       dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);
-      storeApi.getState().clearDragOffsets(taskIds);
+      storeApi.getState().clearDragOffsets([...ctx.taskIds, ...ctx.previewIds]);
     };
 
     // When the browser cancels the gesture (scroll takeover, multi-touch, etc.) revert instead of committing
@@ -208,7 +346,7 @@ export function useGanttBarDrag(
       if (ctx && cancelEvent.pointerId !== ctx.pointerId) return;
 
       detachListeners();
-      if (ctx) endDrag(ctx.taskIds);
+      if (ctx) endDrag(ctx);
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
@@ -223,17 +361,19 @@ export function useGanttBarDrag(
       }
 
       if (ctx.dragSteps === 0) {
-        endDrag(ctx.taskIds);
+        endDrag(ctx);
         return;
       }
 
       const currentRawTasks = storeApi.getState().rawTasks;
       const commit = (date: string) =>
-        shiftByDragSteps(dayjs(date), ctx.dragSteps, ctx.scaleKey).toISOString();
+        shiftByDragSteps(dayjs(date), ctx.dragSteps, ctx.scaleKey)
+          .add(ctx.snapDays, "day")
+          .toISOString();
 
       // However many tasks moved, there is one updated array - onTasksChange fires once
       const movedIds = new Set(ctx.taskIds);
-      const updatedTasks = currentRawTasks.map((t) => {
+      const draggedTasks = currentRawTasks.map((t) => {
         if (!movedIds.has(t.id)) return t;
 
         switch (ctx.mode) {
@@ -260,6 +400,17 @@ export function useGanttBarDrag(
             return t;
         }
       });
+
+      // One commit: the drag and everything it pushed land in the same array
+      const draggedDates: DraggedDates = new Map(
+        draggedTasks
+          .filter((t) => movedIds.has(t.id))
+          .map((t) => [t.id, { start: dayjs(t.startDate), end: dayjs(t.endDate) }])
+      );
+      const updatedTasks =
+        scheduling && scheduling.policy !== "off"
+          ? reschedule(draggedTasks, draggedDates, scheduling).tasks
+          : draggedTasks;
 
       storeApi.getState().setRawTasks(updatedTasks);
       onTasksChangeRef.current?.(updatedTasks);

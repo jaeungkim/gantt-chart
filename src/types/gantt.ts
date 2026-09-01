@@ -1,6 +1,19 @@
 import { Dayjs } from 'dayjs';
 import type { ReactNode } from 'react';
+import type { SchedulingPolicy, WorkingCalendar } from 'core';
 import type { TaskTransformed } from './task';
+
+/**
+ * What the drag handlers need to reschedule successors.
+ * Assembled once in Gantt and handed down, so the engine's configuration reaches the
+ * drag hook without every component in between knowing about it.
+ */
+export interface GanttScheduling {
+  policy: SchedulingPolicy;
+  calendar: WorkingCalendar;
+  hierarchy: boolean;
+  onCycle?: (taskIds: string[]) => void;
+}
 
 /** Theme type - 'light', 'dark', or 'system' (follows the OS setting) */
 export type GanttTheme = 'light' | 'dark' | 'system';

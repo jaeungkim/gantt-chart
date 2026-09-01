@@ -43,6 +43,12 @@
   --gantt-milestone-bg: #52525b;
   --gantt-milestone-bg-hover: #3f3f46;
 
+  /* Critical path */
+  --gantt-critical: #dc2626;
+  --gantt-critical-bg: #fecaca;
+  --gantt-critical-bg-hover: #fca5a5;
+  --gantt-critical-text: #7f1d1d;
+
   /* Progress */
   --gantt-progress-bg: #a1a1aa;
   --gantt-progress-handle: #52525b;
@@ -82,6 +88,11 @@
   --gantt-milestone-bg: #d4d4d8;
   --gantt-milestone-bg-hover: #e4e4e7;
 
+  --gantt-critical: #f87171;
+  --gantt-critical-bg: #7f1d1d;
+  --gantt-critical-bg-hover: #991b1b;
+  --gantt-critical-text: #fee2e2;
+
   --gantt-progress-bg: #52525b;
   --gantt-progress-handle: #a1a1aa;
 
@@ -113,6 +124,11 @@
 
     --gantt-milestone-bg: #d4d4d8;
     --gantt-milestone-bg-hover: #e4e4e7;
+
+    --gantt-critical: #f87171;
+    --gantt-critical-bg: #7f1d1d;
+    --gantt-critical-bg-hover: #991b1b;
+    --gantt-critical-text: #fee2e2;
 
     --gantt-progress-bg: #52525b;
     --gantt-progress-handle: #a1a1aa;
@@ -721,6 +737,42 @@
 .gantt-task-bar.summary:hover::before,
 .gantt-task-bar.summary:hover::after {
   opacity: 0;
+}
+
+/* ===== CRITICAL PATH ===== */
+/* Applied only while the criticalPath prop is on: zero-slack tasks and the links between them */
+.gantt-task-bar.critical {
+  background: var(--gantt-critical-bg);
+}
+
+.gantt-task-bar.critical:hover {
+  background: var(--gantt-critical-bg-hover);
+}
+
+.gantt-task-bar.critical .gantt-task-name {
+  color: var(--gantt-critical-text);
+}
+
+.gantt-task-bar.critical .gantt-task-name.outside {
+  color: var(--gantt-foreground);
+}
+
+.gantt-task-bar.critical .gantt-progress-fill {
+  background: var(--gantt-critical);
+  opacity: 0.45;
+}
+
+.gantt-milestone.critical .gantt-milestone-diamond {
+  background: var(--gantt-critical);
+}
+
+.gantt-dependency-arrow.critical {
+  stroke: var(--gantt-critical);
+  stroke-width: 2;
+}
+
+.gantt-dependency-arrow-head.critical {
+  fill: var(--gantt-critical);
 }
 
 /* Narrow bars: hide the resize handles (the whole bar is the move handle) */

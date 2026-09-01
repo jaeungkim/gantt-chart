@@ -11,19 +11,26 @@ import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
 import { useGanttProgressDrag } from "hooks/useGanttProgressDrag";
 import { useRef, useState, useCallback } from "react";
 import { useGanttStore } from "stores/context";
+import { GanttScheduling } from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
   onTasksChange?: (updatedTasks: Task[]) => void;
+  scheduling?: GanttScheduling;
 }
 
 export default function GanttBar({
   currentTask,
   onTasksChange,
+  scheduling,
 }: GanttBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
-  const { onPointerDown, dragMode } = useGanttBarDrag(currentTask, onTasksChange);
+  const { onPointerDown, dragMode } = useGanttBarDrag(
+    currentTask,
+    onTasksChange,
+    scheduling
+  );
   const [cursor, setCursor] = useState<"grab" | "ew-resize">("grab");
 
   // Read the drag offset
@@ -107,7 +114,9 @@ export default function GanttBar({
       <div
         ref={barRef}
         id={`task-${currentTask.id}`}
-        className={`gantt-milestone${isDragging ? " dragging" : ""}`}
+        className={`gantt-milestone${isDragging ? " dragging" : ""}${
+          currentTask.critical ? " critical" : ""
+        }`}
         onPointerDown={onPointerDown}
         style={{
           transform: `translateX(${finalLeft - MILESTONE_HALF_DIAGONAL}px)`,
@@ -137,7 +146,9 @@ export default function GanttBar({
       id={`task-${currentTask.id}`}
       className={`gantt-task-bar${isDragging ? " dragging" : ""}${
         labelOutside ? " compact" : ""
-      }${currentTask.isSummary ? " summary" : ""}`}
+      }${currentTask.isSummary ? " summary" : ""}${
+        currentTask.critical ? " critical" : ""
+      }`}
       onPointerDown={onPointerDown}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => setCursor("grab")}

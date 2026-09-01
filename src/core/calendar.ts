@@ -81,7 +81,8 @@ function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
       cursor = cursor.add(1, DAY);
       if (isWorkingDay(cursor)) count++;
     }
-    return count * sign;
+    // Not `count * sign` - that hands back -0 for a backwards span of no working days
+    return count === 0 ? 0 : count * sign;
   };
 
   return {

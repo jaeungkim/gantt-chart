@@ -13,10 +13,13 @@ import {
 
 interface Props {
   transformedTasks: TaskTransformed[];
+  /** Link keys on the critical path (from computeCriticalPath) - undefined when it is off */
+  criticalLinkIds?: Set<string>;
 }
 
 export default function GanttDependencyArrows({
   transformedTasks,
+  criticalLinkIds,
 }: Props) {
   const liveOffsets = useGanttStore((store) => store.dragOffsets);
   const bottomRowCells = useGanttStore((store) => store.bottomRowCells);
@@ -52,9 +55,11 @@ export default function GanttDependencyArrows({
     isBarVisible,
   };
 
-  const dependencies = buildDependencies(taskById, liveOffsets).filter((dep) =>
-    isArrowVisible(dep, viewport)
-  );
+  const dependencies = buildDependencies(
+    taskById,
+    liveOffsets,
+    criticalLinkIds
+  ).filter((dep) => isArrowVisible(dep, viewport));
 
   // Marker ids are document-global, so each instance needs its own or several charts on a
   // page would mix them up
@@ -62,6 +67,7 @@ export default function GanttDependencyArrows({
   // alphanumerics are kept
   const instanceId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const arrowheadId = `gantt-arrowhead-${instanceId}`;
+  const criticalArrowheadId = `${arrowheadId}-critical`;
 
   return (
     <svg
@@ -72,25 +78,30 @@ export default function GanttDependencyArrows({
       }}
     >
       <defs>
-        <marker
-          id={arrowheadId}
-          markerWidth="5"
-          markerHeight="5"
-          refX="4.5"
-          refY="2.5"
-          orient="auto"
-        >
-          <polygon
-            className="gantt-dependency-arrow-head"
-            points="0 0, 5 2.5, 0 5"
-          />
-        </marker>
+        {[arrowheadId, criticalArrowheadId].map((id) => (
+          <marker
+            key={id}
+            id={id}
+            markerWidth="5"
+            markerHeight="5"
+            refX="4.5"
+            refY="2.5"
+            orient="auto"
+          >
+            <polygon
+              className={`gantt-dependency-arrow-head${
+                id === criticalArrowheadId ? " critical" : ""
+              }`}
+              points="0 0, 5 2.5, 0 5"
+            />
+          </marker>
+        ))}
       </defs>
 
       {dependencies.map((dep, index) => (
         <path
           key={`arrow-${index}`}
-          className="gantt-dependency-arrow"
+          className={`gantt-dependency-arrow${dep.critical ? " critical" : ""}`}
           d={getSmartGanttPath(
             dep.type,
             dep.fromX,
@@ -98,7 +109,7 @@ export default function GanttDependencyArrows({
             dep.toX,
             dep.toY
           )}
-          markerEnd={`url(#${arrowheadId})`}
+          markerEnd={`url(#${dep.critical ? criticalArrowheadId : arrowheadId})`}
           fill="none"
         />
       ))}

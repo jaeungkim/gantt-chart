@@ -34,10 +34,17 @@ import {
   GanttBottomRowCell,
   GanttColumn,
   GanttScaleKey,
+  GanttScheduling,
   GanttTheme,
 } from "types/gantt";
 import { Task } from "types/task";
 import dayjs from "core/dates";
+import {
+  CALENDAR_DAYS,
+  computeCriticalPath,
+  createWorkingCalendar,
+  type SchedulingPolicy,
+} from "core";
 import {
   calculateDateOffsetPx,
   computeNonWorkingRanges,
@@ -135,6 +142,44 @@ export interface GanttProps {
   defaultCollapsedIds?: string[];
   /** Called whenever the collapsed state changes - in controlled and uncontrolled mode alike */
   onCollapsedChange?: (collapsedIds: string[]) => void;
+  /**
+   * How a move propagates to the dragged task's successors (default `"off"`)
+   *
+   * - `"off"` - nothing propagates. A chart that passes no policy behaves exactly as before.
+   * - `"shift-on-overlap"` - a successor is pushed later only when the link would break,
+   *   and is never pulled earlier.
+   * - `"maintain-gap"` - a successor sits at its earliest legal date, following the
+   *   predecessor in both directions, so the gap stays equal to the link's `lag`.
+   *
+   * Successors are previewed live during the drag and committed in a single
+   * `onTasksChange` call on drop. Tasks marked `manuallyScheduled` are never moved.
+   */
+  schedulingPolicy?: SchedulingPolicy;
+  /**
+   * Called with the ids caught in a dependency cycle
+   *
+   * The engine never follows a cycle - those tasks are left where they are and the rest of
+   * the project still schedules. Use `canLink` from the core to keep cycles out of the data
+   * in the first place.
+   */
+  onSchedulingCycle?: (taskIds: string[]) => void;
+  /**
+   * Route every date calculation through a working-day calendar (default false)
+   *
+   * On, durations, drag results and dependency lag all skip non-working days; bars still
+   * span them visually but the days do not count. The calendar is built from the same
+   * `holidays` / `isNonWorkingDay` configuration that shades the timeline, so what is
+   * shaded and what is skipped cannot drift apart.
+   */
+  workingCalendar?: boolean;
+  /**
+   * Compute the critical path and highlight it (default false)
+   *
+   * Adds a `critical` class to zero-slack bars and to the links along the chain, and fills
+   * in the read-only `totalSlack` / `freeSlack` / early / late fields on every task so a
+   * `columns` renderer can show them. Tasks at 100% progress are never critical.
+   */
+  criticalPath?: boolean;
 }
 
 /**
@@ -178,6 +223,10 @@ function GanttChart({
   collapsedIds,
   defaultCollapsedIds,
   onCollapsedChange,
+  schedulingPolicy = "off",
+  onSchedulingCycle,
+  workingCalendar = false,
+  criticalPath = false,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -233,17 +282,69 @@ function GanttChart({
     [collapsed, collapsedIds, onCollapsedChange]
   );
 
+  // One definition of "non-working" for the whole chart: the shading below and the
+  // scheduling calendar read the same predicate, so they cannot disagree about a Saturday
+  const isOffDay = useMemo(() => {
+    if (isNonWorkingDay) return isNonWorkingDay;
+
+    const holidaySet = new Set(holidays);
+    return (date: Dayjs) => {
+      const dayOfWeek = date.day();
+      return (
+        dayOfWeek === 0 ||
+        dayOfWeek === 6 ||
+        holidaySet.has(date.format("YYYY-MM-DD"))
+      );
+    };
+  }, [holidays, isNonWorkingDay]);
+
+  // The calendar every date calculation routes through. Off, it counts every day, which is
+  // plain calendar arithmetic - so nothing about the default behaviour changes.
+  const calendar = useMemo(
+    () =>
+      workingCalendar
+        ? createWorkingCalendar({ isNonWorkingDay: isOffDay })
+        : CALENDAR_DAYS,
+    [workingCalendar, isOffDay]
+  );
+
+  const scheduling = useMemo<GanttScheduling>(
+    () => ({
+      policy: schedulingPolicy,
+      calendar,
+      hierarchy,
+      onCycle: onSchedulingCycle,
+    }),
+    [schedulingPolicy, calendar, hierarchy, onSchedulingCycle]
+  );
+
+  // ===== Critical path (only computed while the prop is on) =====
+  const criticalPathResult = useMemo(
+    () => (criticalPath ? computeCriticalPath(rawTasks, { calendar }) : null),
+    [criticalPath, rawTasks, calendar]
+  );
+
+  // CPM outputs ride along on the transformed rows, so a `columns` renderer can show slack
+  const scheduledTasks = useMemo(() => {
+    const metrics = criticalPathResult?.metrics;
+    if (!metrics?.size) return transformedTasks;
+    return transformedTasks.map((task) => {
+      const values = metrics.get(task.id);
+      return values ? { ...task, ...values } : task;
+    });
+  }, [transformedTasks, criticalPathResult]);
+
   // Rows left after hiding collapsed subtrees - the grid and the timeline read the same
   // array, so their rows cannot drift apart
   const visibleTasks = useMemo(() => {
-    if (!hierarchy || !collapsedSet.size) return transformedTasks;
+    if (!hierarchy || !collapsedSet.size) return scheduledTasks;
 
-    const visible = getVisibleTasks(transformedTasks, collapsedSet);
-    if (visible.length === transformedTasks.length) return transformedTasks;
+    const visible = getVisibleTasks(scheduledTasks, collapsedSet);
+    if (visible.length === scheduledTasks.length) return scheduledTasks;
 
     // Arrows use order as the row index - renumber it without the hidden rows
     return visible.map((task, index) => ({ ...task, order: index + 1 }));
-  }, [hierarchy, collapsedSet, transformedTasks]);
+  }, [hierarchy, collapsedSet, scheduledTasks]);
 
   // Virtualization hook
   const { rowVirtualizer, isBarVisible } = useGanttVirtualization({
@@ -346,27 +447,9 @@ function GanttChart({
   // Compute the non-working-day shading ranges
   const nonWorkingRanges = useMemo(() => {
     if (!showNonWorkingDays) return [];
-
-    const holidaySet = new Set(holidays);
-    const isOffDay =
-      isNonWorkingDay ??
-      ((date: Dayjs) => {
-        const dayOfWeek = date.day();
-        return (
-          dayOfWeek === 0 ||
-          dayOfWeek === 6 ||
-          holidaySet.has(date.format("YYYY-MM-DD"))
-        );
-      });
-
     return computeNonWorkingRanges(bottomRowCells, selectedScale, isOffDay);
-  }, [
-    showNonWorkingDays,
-    holidays,
-    isNonWorkingDay,
-    bottomRowCells,
-    selectedScale,
-  ]);
+  }, [showNonWorkingDays, isOffDay, bottomRowCells, selectedScale]);
+
 
   // Imperative scroll API
   const scrollApi = useGanttScrollApi({
@@ -517,7 +600,10 @@ function GanttChart({
                 )}
 
                 {/* Dependency arrows */}
-                <GanttDependencyArrows transformedTasks={visibleTasks} />
+                <GanttDependencyArrows
+                  transformedTasks={visibleTasks}
+                  criticalLinkIds={criticalPathResult?.criticalLinkIds}
+                />
 
                 {/* Task bars */}
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -545,6 +631,7 @@ function GanttChart({
                       <GanttBar
                         currentTask={task}
                         onTasksChange={onTasksChange}
+                        scheduling={scheduling}
                       />
                     </div>
                   );
