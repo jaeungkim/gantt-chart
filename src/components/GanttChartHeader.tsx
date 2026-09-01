@@ -1,4 +1,5 @@
 import { GANTT_SCALE_CONFIG } from "constants/gantt";
+import { useGanttColumnVirtualization } from "hooks/useGanttVirtualization";
 import React, { useMemo } from "react";
 import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
 import { mergeHeaderGroups } from "utils/headerUtils";
@@ -8,8 +9,8 @@ interface GanttChartHeaderProps {
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
   width: number;
-  /** 사용하지 않음 - 상단 그룹 라벨 고정은 CSS sticky로 처리 */
-  scrollRef?: React.RefObject<HTMLDivElement | null>;
+  /** 하단 시간 셀 가상화용 스크롤 컨테이너 (상단 그룹 라벨 고정은 CSS sticky로 처리) */
+  scrollRef: React.RefObject<HTMLDivElement | null>;
 }
 
 /**
@@ -20,8 +21,18 @@ function GanttChartHeader({
   bottomRowCells,
   selectedScale,
   width,
+  scrollRef,
 }: GanttChartHeaderProps) {
   const config = GANTT_SCALE_CONFIG[selectedScale];
+
+  // 하단 셀은 열 가상화 - day 스케일의 긴 범위는 셀이 수천 개다
+  // (상단 그룹은 병합된 소수의 라벨이라 그대로 그린다)
+  const { columnVirtualizer } = useGanttColumnVirtualization({
+    bottomRowCells,
+    scrollRef,
+  });
+  const virtualCells = columnVirtualizer.getVirtualItems();
+  const leadingPx = virtualCells[0]?.start ?? 0;
 
   // 헤더 그룹 생성 및 병합 (memoized)
   const topGroups = useMemo(
@@ -48,16 +59,21 @@ function GanttChartHeader({
           </div>
         </div>
 
-        {/* 하단 시간 셀 */}
+        {/* 하단 시간 셀 (가시 영역만) */}
         <div className="gantt-bottom-row">
-          {bottomRowCells.map((cell, idx) => {
+          {/* 건너뛴 앞쪽 셀들의 폭 - flex 흐름을 그대로 두려고 스페이서로 민다 */}
+          <div style={{ width: `${leadingPx}px` }} aria-hidden="true" />
+          {virtualCells.map((virtualCell) => {
+            const cell = bottomRowCells[virtualCell.index];
+            if (!cell) return null;
+
             const tickLabel = config.formatTickLabel?.(cell.startDate) || "";
 
             return (
               <div
-                key={`bottom-${idx}`}
+                key={`bottom-${virtualCell.index}`}
                 className="gantt-bottom-cell"
-                style={{ width: `${cell.widthPx}px` }}
+                style={{ width: `${virtualCell.size}px` }}
               >
                 {tickLabel}
               </div>

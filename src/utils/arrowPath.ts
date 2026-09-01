@@ -374,18 +374,64 @@ export function calculateArrowCoords(
   return { fromX, fromY, toX, toY };
 }
 
-/** 의존성 배열 빌드 */
+/**
+ * id로 태스크를 찾기 위한 인덱스.
+ *
+ * 태스크 배열이 바뀔 때 한 번만 만들어 재사용한다 - 의존성마다 배열을 훑으면
+ * 태스크 수의 제곱에 비례하는 비용이 드래그 프레임마다 다시 발생한다.
+ */
+export function buildTaskIndex(
+  transformedTasks: TaskTransformed[]
+): Map<string, TaskTransformed> {
+  return new Map(transformedTasks.map((task) => [task.id, task]));
+}
+
+/** 화살표 하나가 뷰포트를 벗어나는지 판정할 때 두는 여유 (px) */
+const ARROW_BLEED = 32;
+
+/** 화살표 컬링용 가시 영역 */
+export interface ArrowViewport {
+  /** 세로 가시 범위 (행 가상화 기준, px) */
+  topPx: number;
+  bottomPx: number;
+  /** 가로 가시성 - 열 가상화의 바 가시성 판정을 그대로 쓴다 */
+  isBarVisible: (left: number, width: number) => boolean;
+}
+
+/**
+ * 화살표가 가시 영역과 겹치는지 판정.
+ *
+ * 양 끝 좌표의 바운딩 박스로 보므로 양쪽 끝이 모두 화면 밖이어도 선이 화면을
+ * 가로지르면 그린다. 꺾인 경로가 끝점보다 조금 바깥으로 나가므로 여유를 둔다.
+ */
+export function isArrowVisible(
+  dep: Pick<RenderedDependency, "fromX" | "fromY" | "toX" | "toY">,
+  viewport: ArrowViewport
+): boolean {
+  const top = Math.min(dep.fromY, dep.toY) - ARROW_BLEED;
+  const bottom = Math.max(dep.fromY, dep.toY) + ARROW_BLEED;
+  if (bottom < viewport.topPx || top > viewport.bottomPx) return false;
+
+  const left = Math.min(dep.fromX, dep.toX) - ARROW_BLEED;
+  const right = Math.max(dep.fromX, dep.toX) + ARROW_BLEED;
+  return viewport.isBarVisible(left, right - left);
+}
+
+/**
+ * 의존성 배열 빌드.
+ * 인덱스를 순회 대상 겸 조회용으로 쓴다 (삽입 순서 = 태스크 순서).
+ */
 export function buildDependencies(
-  transformedTasks: TaskTransformed[],
+  taskById: Map<string, TaskTransformed>,
   liveOffsets: Record<string, DragOffset>
 ): RenderedDependency[] {
   const dependencies: RenderedDependency[] = [];
 
-  for (const currentTask of transformedTasks) {
+  for (const currentTask of taskById.values()) {
     const sourceOffset = liveOffsets[currentTask.id] ?? NO_OFFSET;
 
     for (const dep of currentTask.dependencies ?? []) {
-      const targetTask = transformedTasks.find((t) => t.id === dep.targetId);
+      const targetTask = taskById.get(dep.targetId);
       if (!targetTask) continue;
 
       const coords = calculateArrowCoords(
