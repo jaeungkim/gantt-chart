@@ -99,6 +99,61 @@ export interface GanttColumn {
   render?: (task: TaskTransformed) => ReactNode;
 }
 
+/** Anything the marker/band props accept as a date */
+export type GanttDateInput = string | Date | Dayjs;
+
+/** The rendered timeline range, as reported by `onRangeChange` */
+export interface GanttDateRange {
+  start: Dayjs;
+  end: Dayjs;
+}
+
+/**
+ * How many extra ticks the rendered range carries beyond the tasks' own span
+ *
+ * Grows as the user scrolls past an edge; measured in ticks of the current scale, so it
+ * is reset whenever the scale changes.
+ */
+export interface GanttRangeExtension {
+  before: number;
+  after: number;
+}
+
+/** A labelled vertical line at one date - deadlines, releases, and the built-in today line */
+export interface GanttMarker {
+  /** React key (default: the date) */
+  id?: string;
+  date: GanttDateInput;
+  /** Text shown at the top of the line - omitted, the line is drawn bare */
+  label?: string;
+  /** Extra class on the marker element */
+  className?: string;
+  /** Line color - any CSS color, overrides the class and the theme default */
+  color?: string;
+  /**
+   * Turn the marker into a warning (`data-warning="true"`) once a task ends past its date
+   *
+   * Checks every task, or only `taskIds` when that is given.
+   */
+  warnOnOverrun?: boolean;
+  /** Limits `warnOnOverrun` to these tasks */
+  taskIds?: string[];
+}
+
+/** A shaded band covering a date range - sprints, phases, freezes */
+export interface GanttRangeBand {
+  /** React key (default: the start date) */
+  id?: string;
+  startDate: GanttDateInput;
+  endDate: GanttDateInput;
+  /** Text shown at the top of the band */
+  label?: string;
+  /** Extra class on the band element */
+  className?: string;
+  /** Fill color - any CSS color, overrides the class and the theme default */
+  color?: string;
+}
+
 export interface GanttDragOffset {
   offsetX: number;
   offsetWidth: number;

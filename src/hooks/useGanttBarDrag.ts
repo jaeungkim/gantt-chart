@@ -11,6 +11,7 @@ import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 import { shiftByDragSteps } from "utils/timeline";
 import { collectSubtreeIds } from "utils/tree";
+import { edgeScrollVelocity } from "utils/viewport";
 
 export type DragMode = "bar" | "left" | "right";
 
@@ -23,6 +24,10 @@ interface DragContext {
   initialBarWidth: number;
   dragSteps: number;
   basePxPerDragStep: number;
+  /** Last pointer position, so an auto-scroll frame can recompute without a new event */
+  lastClientX: number;
+  /** How far the timeline has auto-scrolled since the drag started (px) */
+  autoScrollPx: number;
   // Keep computing in the step unit from when the drag started, even if the scale changes mid-drag
   scaleKey: GanttScaleKey;
   taskId: string;
@@ -34,10 +39,14 @@ interface DragContext {
 
 /**
  * Hook providing the Gantt bar drag behavior
+ *
+ * `autoScroll` (default on) scrolls the timeline when the drag reaches a viewport edge,
+ * faster the closer the pointer gets, and stops on drop or cancel.
  */
 export function useGanttBarDrag(
   task: TaskTransformed,
-  onTasksChange?: (updatedTasks: Task[]) => void
+  onTasksChange?: (updatedTasks: Task[]) => void,
+  autoScroll = true
 ) {
   const storeApi = useGanttStoreApi();
   const dragContextRef = useRef<DragContext | null>(null);
@@ -75,6 +84,11 @@ export function useGanttBarDrag(
     const mode = detectDragMode(e);
     dragModeRef.current = mode;
 
+    // The bar lives inside the scroll container, so no ref plumbing is needed to find it
+    const scrollEl = e.currentTarget.closest<HTMLElement>(
+      ".gantt-scroll-container"
+    );
+
     // Dragging a summary bar moves its whole subtree by the same delta
     const rawTasks = storeApi.getState().rawTasks;
     const taskIds = task.isSummary
@@ -104,6 +118,8 @@ export function useGanttBarDrag(
       initialBarWidth: task.barWidth,
       dragSteps: 0,
       basePxPerDragStep,
+      lastClientX: e.clientX,
+      autoScrollPx: 0,
       scaleKey: selectedScale,
       taskId: task.id,
       taskIds,
@@ -113,11 +129,14 @@ export function useGanttBarDrag(
     storeApi.getState().setCurrentTask(task);
     e.currentTarget.setPointerCapture(e.pointerId);
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
+    // Recomputes the drag from the last known pointer position - called both by pointer
+    // events and by the auto-scroll frames, where the pointer itself never moves
+    const applyMove = () => {
       const ctx = dragContextRef.current;
-      if (!ctx || moveEvent.pointerId !== ctx.pointerId) return;
+      if (!ctx) return;
 
-      const deltaX = moveEvent.clientX - ctx.initialClientX;
+      const deltaX =
+        ctx.lastClientX - ctx.initialClientX + ctx.autoScrollPx;
       const rawSteps = Math.round(deltaX / ctx.basePxPerDragStep);
 
       // Clamp the step count itself so at least one step of width is left
@@ -189,7 +208,66 @@ export function useGanttBarDrag(
       storeApi.getState().setDragOffsets(offsets);
     };
 
+    // ===== Edge auto-scroll =====
+    let autoScrollFrame: number | null = null;
+    let velocity = 0;
+
+    const stopAutoScroll = () => {
+      if (autoScrollFrame !== null) cancelAnimationFrame(autoScrollFrame);
+      autoScrollFrame = null;
+      velocity = 0;
+    };
+
+    const runAutoScroll = () => {
+      autoScrollFrame = null;
+      const ctx = dragContextRef.current;
+      if (!ctx || !scrollEl || velocity === 0) return;
+
+      const before = scrollEl.scrollLeft;
+      scrollEl.scrollLeft = before + velocity;
+      const moved = scrollEl.scrollLeft - before;
+
+      // Nothing moved means the range ends here - keep the loop alive anyway, so the drag
+      // resumes by itself once the range extends
+      if (moved !== 0) {
+        ctx.autoScrollPx += moved;
+        applyMove();
+      }
+
+      autoScrollFrame = requestAnimationFrame(runAutoScroll);
+    };
+
+    const updateAutoScroll = (clientX: number) => {
+      if (!autoScroll || !scrollEl) return;
+
+      // The pinned task list covers the left of the viewport, so the timeline's own left
+      // edge starts where the pane ends
+      const rect = scrollEl.getBoundingClientRect();
+      const gridEl = scrollEl.querySelector<HTMLElement>(".gantt-grid");
+      velocity = edgeScrollVelocity(
+        clientX,
+        rect.left + (gridEl?.offsetWidth ?? 0),
+        rect.right
+      );
+
+      if (velocity === 0) {
+        stopAutoScroll();
+      } else if (autoScrollFrame === null) {
+        autoScrollFrame = requestAnimationFrame(runAutoScroll);
+      }
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const ctx = dragContextRef.current;
+      if (!ctx || moveEvent.pointerId !== ctx.pointerId) return;
+
+      ctx.lastClientX = moveEvent.clientX;
+      updateAutoScroll(moveEvent.clientX);
+      applyMove();
+    };
+
     const detachListeners = () => {
+      stopAutoScroll();
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerup", handlePointerUp);
       document.removeEventListener("pointercancel", handlePointerCancel);

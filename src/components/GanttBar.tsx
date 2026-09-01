@@ -16,14 +16,21 @@ import { resolveFormatters } from "utils/i18n";
 interface GanttBarProps {
   currentTask: TaskTransformed;
   onTasksChange?: (updatedTasks: Task[]) => void;
+  /** Scroll the timeline when the drag reaches a viewport edge (default true) */
+  autoScrollOnDrag?: boolean;
 }
 
 export default function GanttBar({
   currentTask,
   onTasksChange,
+  autoScrollOnDrag = true,
 }: GanttBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
-  const { onPointerDown, dragMode } = useGanttBarDrag(currentTask, onTasksChange);
+  const { onPointerDown, dragMode } = useGanttBarDrag(
+    currentTask,
+    onTasksChange,
+    autoScrollOnDrag
+  );
   const [cursor, setCursor] = useState<"grab" | "ew-resize">("grab");
 
   // Read the drag offset

@@ -4,6 +4,7 @@ import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
 import { TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 import { calculateDateOffsetPx } from "utils/timeline";
+import { fitScale } from "utils/viewport";
 
 /** Options for the scrollTo* methods */
 export interface GanttScrollOptions {
@@ -11,6 +12,13 @@ export interface GanttScrollOptions {
   smooth?: boolean;
   /** Where the target lands inside the viewport (default 'center') */
   align?: "start" | "center";
+}
+
+/** A date pinned at a fixed distance from the timeline's visible left edge */
+export interface GanttZoomAnchor {
+  date: Dayjs;
+  /** px from the left edge of the timeline area (the task list pane excluded) */
+  viewportX: number;
 }
 
 /** Imperative API exposed through the ref */
@@ -21,6 +29,12 @@ export interface GanttHandle {
   scrollToToday: (options?: GanttScrollOptions) => void;
   /** Scroll horizontally and vertically to a given task */
   scrollToTask: (taskId: string, options?: GanttScrollOptions) => void;
+  /**
+   * Switch to the finest scale at which the whole project fits the viewport width
+   *
+   * Also scrolls the project into view. Does nothing while there are no tasks.
+   */
+  zoomToFit: () => void;
   /** The scroll container DOM node (null when unavailable) */
   getScrollElement: () => HTMLDivElement | null;
 }
@@ -38,6 +52,8 @@ interface UseGanttScrollApiParams {
    * narrowed viewport or the target lands behind the pane.
    */
   viewportInsetPx?: number;
+  /** Switches scale while keeping the anchor date where it is on screen */
+  zoomTo: (scale: GanttScaleKey, anchor: GanttZoomAnchor) => void;
 }
 
 /**
@@ -53,6 +69,7 @@ export function useGanttScrollApi({
   selectedScale,
   rowHeight,
   viewportInsetPx = 0,
+  zoomTo,
 }: UseGanttScrollApiParams): GanttHandle {
   const scrollToOffset = useCallback(
     (left: number, options?: GanttScrollOptions) => {
@@ -122,13 +139,34 @@ export function useGanttScrollApi({
     [transformedTasks, rowHeight, scrollRef, viewportInsetPx]
   );
 
+  const zoomToFit = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || !transformedTasks.length) return;
+
+    let minTime = Infinity;
+    let maxTime = -Infinity;
+    for (const task of transformedTasks) {
+      minTime = Math.min(minTime, dayjs(task.startDate).valueOf());
+      maxTime = Math.max(maxTime, dayjs(task.endDate).valueOf());
+    }
+    if (!Number.isFinite(minTime) || !Number.isFinite(maxTime)) return;
+
+    // Pinning the project's first moment to the timeline's left edge puts the whole of it
+    // on screen - the chosen scale is the one where it fits that width
+    zoomTo(fitScale(maxTime - minTime, el.clientWidth - viewportInsetPx), {
+      date: dayjs(minTime),
+      viewportX: 0,
+    });
+  }, [transformedTasks, scrollRef, viewportInsetPx, zoomTo]);
+
   return useMemo(
     () => ({
       scrollToDate,
       scrollToToday,
       scrollToTask,
+      zoomToFit,
       getScrollElement: () => scrollRef.current,
     }),
-    [scrollToDate, scrollToToday, scrollToTask, scrollRef]
+    [scrollToDate, scrollToToday, scrollToTask, zoomToFit, scrollRef]
   );
 }

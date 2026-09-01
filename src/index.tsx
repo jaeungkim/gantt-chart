@@ -9,6 +9,7 @@ export type { GanttProps } from './pages/Gantt';
 export type {
   GanttHandle,
   GanttScrollOptions,
+  GanttZoomAnchor,
 } from './hooks/useGanttScrollApi';
 export type {
   Task,
@@ -19,7 +20,10 @@ export type {
 } from './types/task';
 export type {
   GanttColumn,
+  GanttDateRange,
   GanttFormatOverrides,
+  GanttMarker,
+  GanttRangeBand,
   GanttScaleFormat,
   GanttScaleKey,
   GanttTheme,
