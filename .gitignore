@@ -21,3 +21,7 @@ dist-ssr
 *.sw?
 
 .playwright-mcp
+# Claude Code — personal/local files only; shared config is committed
+.claude/settings.local.json
+.claude/worktrees
+CLAUDE.local.md
