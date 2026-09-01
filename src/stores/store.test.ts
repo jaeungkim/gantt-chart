@@ -149,3 +149,40 @@ describe('per-instance isolation', () => {
     expect(readPersistedScale('gantt-scale-b')).toBe('day');
   });
 });
+
+describe('selection and revert flags', () => {
+  it('keeps the selection identity stable when the same row is clicked twice', () => {
+    expect(store.getState().selectedTaskId).toBeNull();
+
+    store.getState().setSelectedTaskId('a1');
+    const afterFirst = store.getState();
+
+    store.getState().setSelectedTaskId('a1');
+    expect(store.getState()).toBe(afterFirst);
+
+    store.getState().setSelectedTaskId(null);
+    expect(store.getState().selectedTaskId).toBeNull();
+  });
+
+  it('marks a whole subtree as reverting without duplicating ids', () => {
+    store.getState().beginRevert(['a1', 'a2']);
+    store.getState().beginRevert(['a2', 'a3']);
+    expect(store.getState().revertingIds).toEqual(['a1', 'a2', 'a3']);
+
+    store.getState().endRevert(['a2']);
+    expect(store.getState().revertingIds).toEqual(['a1', 'a3']);
+
+    // A clear that removes nothing leaves the state object alone
+    const unchanged = store.getState();
+    store.getState().endRevert(['nope']);
+    expect(store.getState()).toBe(unchanged);
+  });
+
+  it('gives every chart its own pending-mutation gate', () => {
+    const other = createGanttStore('gantt-scale-other');
+
+    expect(store.getState().mutationGate.begin('dates:a1')).toBe(1);
+    expect(store.getState().mutationGate.begin('dates:a1')).toBe(2);
+    expect(other.getState().mutationGate.begin('dates:a1')).toBe(1);
+  });
+});

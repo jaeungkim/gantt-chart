@@ -1,7 +1,7 @@
 import Gantt from "pages/Gantt";
 import { useEffect, useRef } from "react";
 import { GanttHandle } from "hooks/useGanttScrollApi";
-import { GanttMarker, GanttRangeBand } from "types/gantt";
+import { GanttBarRenderProps, GanttMarker, GanttRangeBand } from "types/gantt";
 import { sourceTasks } from "../db";
 
 // Dev playground only (not part of the published package) - append ?locale=ko-KR to
@@ -9,6 +9,12 @@ import { sourceTasks } from "../db";
 const params = new URLSearchParams(window.location.search);
 const locale = params.get("locale") ?? undefined;
 const weekStart = params.get("firstDayOfWeek");
+// ?veto=reject turns every change down half a second after the drop (?veto=3000 for a
+// slower answer), ?renderBar=1 swaps in a custom bar - both there to exercise the drag
+// paths by hand
+const vetoParam = params.get("veto");
+const vetoDelayMs = vetoParam === null ? null : Number(vetoParam) || 500;
+const customBar = params.get("renderBar") === "1";
 
 const day = (offset: number) =>
   new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
@@ -46,6 +52,20 @@ function App() {
       markers={markers}
       rangeBands={rangeBands}
       allowRowReorder
+      onBeforeTaskChange={
+        vetoDelayMs === null
+          ? undefined
+          : () => new Promise<boolean>((r) => setTimeout(() => r(false), vetoDelayMs))
+      }
+      renderBar={
+        customBar
+          ? ({ task, barProps }: GanttBarRenderProps) => (
+              <div {...barProps} className="demo-bar" data-id={task.id}>
+                {task.name}
+              </div>
+            )
+          : undefined
+      }
     />
   );
 }
