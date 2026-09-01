@@ -39,6 +39,12 @@
   /* Today marker */
   --gantt-today-marker: #f43f5e;
 
+  /* Date markers and range bands */
+  --gantt-marker: #6366f1;
+  --gantt-marker-warning: #f59e0b;
+  --gantt-marker-label: #ffffff;
+  --gantt-band-bg: rgba(99, 102, 241, 0.1);
+
   /* Milestone */
   --gantt-milestone-bg: #52525b;
   --gantt-milestone-bg-hover: #3f3f46;
@@ -79,6 +85,11 @@
 
   --gantt-today-marker: #fb7185;
 
+  --gantt-marker: #818cf8;
+  --gantt-marker-warning: #fbbf24;
+  --gantt-marker-label: #18181b;
+  --gantt-band-bg: rgba(129, 140, 248, 0.16);
+
   --gantt-milestone-bg: #d4d4d8;
   --gantt-milestone-bg-hover: #e4e4e7;
 
@@ -110,6 +121,11 @@
     --gantt-arrow: #71717a;
 
     --gantt-today-marker: #fb7185;
+
+    --gantt-marker: #818cf8;
+    --gantt-marker-warning: #fbbf24;
+    --gantt-marker-label: #18181b;
+    --gantt-band-bg: rgba(129, 140, 248, 0.16);
 
     --gantt-milestone-bg: #d4d4d8;
     --gantt-milestone-bg-hover: #e4e4e7;
@@ -652,6 +668,65 @@
   align-items: center;
   border-bottom: 1px solid var(--gantt-border-subtle);
   pointer-events: none;
+}
+
+/* ===== RANGE BANDS ===== */
+.gantt-range-band-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.gantt-range-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--gantt-band-color, var(--gantt-band-bg));
+}
+
+.gantt-range-band-label {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--gantt-muted-foreground);
+  white-space: nowrap;
+}
+
+/* ===== DATE MARKERS ===== */
+/* The today line is one of these - its own rule below only swaps the color */
+.gantt-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--gantt-marker-color, var(--gantt-marker));
+  pointer-events: none;
+  z-index: 2;
+}
+
+.gantt-marker[data-warning="true"] {
+  --gantt-marker-color: var(--gantt-marker-warning);
+}
+
+.gantt-marker-label {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--gantt-marker-label);
+  background: var(--gantt-marker-color, var(--gantt-marker));
+  border-radius: 3px;
+  white-space: nowrap;
 }
 
 /* ===== TODAY MARKER ===== */

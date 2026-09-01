@@ -32,12 +32,15 @@ import {
   shiftByDragSteps,
 } from "utils/timeline";
 import { collectSubtreeIds } from "utils/tree";
+import { edgeScrollVelocity } from "utils/viewport";
 
 export type DragMode = GanttDragMode;
 
 export interface GanttBarDragOptions {
   onTasksChange?: (updatedTasks: Task[]) => void;
   onBeforeTaskChange?: GanttBeforeChangeHandler;
+  /** Scroll the timeline when the drag reaches a viewport edge (default true) */
+  autoScroll?: boolean;
 }
 
 interface DragContext {
@@ -49,6 +52,10 @@ interface DragContext {
   initialBarWidth: number;
   dragSteps: number;
   basePxPerDragStep: number;
+  /** Last pointer position, so an auto-scroll frame can recompute without a new event */
+  lastClientX: number;
+  /** How far the timeline has auto-scrolled since the drag started (px) */
+  autoScrollPx: number;
   // Keep computing in the step unit from when the drag started, even if the scale changes mid-drag
   scaleKey: GanttScaleKey;
   taskId: string;
@@ -88,6 +95,9 @@ function toDragBounds(
 
 /**
  * Hook providing the Gantt bar drag behavior
+ *
+ * `autoScroll` (default on) scrolls the timeline when the drag reaches a viewport edge,
+ * faster the closer the pointer gets, and stops on drop or cancel.
  */
 export function useGanttBarDrag(
   task: TaskTransformed,
@@ -139,6 +149,11 @@ export function useGanttBarDrag(
     if (!mode) return;
     dragModeRef.current = mode;
     movedRef.current = false;
+
+    // The bar lives inside the scroll container, so no ref plumbing is needed to find it
+    const scrollEl = e.currentTarget.closest<HTMLElement>(
+      ".gantt-scroll-container"
+    );
 
     // Dragging a summary bar moves its whole subtree by the same delta
     const rawTasks = storeApi.getState().rawTasks;
@@ -195,6 +210,8 @@ export function useGanttBarDrag(
       initialBarWidth: task.barWidth,
       dragSteps: 0,
       basePxPerDragStep,
+      lastClientX: e.clientX,
+      autoScrollPx: 0,
       scaleKey: selectedScale,
       taskId: task.id,
       taskIds,
@@ -209,11 +226,14 @@ export function useGanttBarDrag(
     storeApi.getState().setCurrentTask(task);
     e.currentTarget.setPointerCapture(e.pointerId);
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
+    // Recomputes the drag from the last known pointer position - called both by pointer
+    // events and by the auto-scroll frames, where the pointer itself never moves
+    const applyMove = () => {
       const ctx = dragContextRef.current;
-      if (!ctx || moveEvent.pointerId !== ctx.pointerId) return;
+      if (!ctx) return;
 
-      const deltaX = moveEvent.clientX - ctx.initialClientX;
+      const deltaX =
+        ctx.lastClientX - ctx.initialClientX + ctx.autoScrollPx;
       const rawSteps = Math.round(deltaX / ctx.basePxPerDragStep);
 
       // Clamp the step count itself so at least one step of width is left
@@ -348,17 +368,93 @@ export function useGanttBarDrag(
       storeApi.getState().setDragOffsets(offsets);
     };
 
+    // ===== Edge auto-scroll =====
+    let autoScrollFrame: number | null = null;
+    let velocity = 0;
+
+    const stopAutoScroll = () => {
+      if (autoScrollFrame !== null) cancelAnimationFrame(autoScrollFrame);
+      autoScrollFrame = null;
+      velocity = 0;
+    };
+
+    /**
+     * Puts back the scrolling this drag caused
+     *
+     * The timeline only followed the bar. When the gesture is discarded - cancelled, or
+     * vetoed after the fact - the bar goes back to where it started, and leaving the
+     * viewport parked where the data never moved to would strand the user looking at
+     * empty timeline. Relative, so a manual scroll during a pending veto still stands,
+     * and so does a range extension's own compensation.
+     */
+    const undoAutoScroll = (ctx: DragContext) => {
+      if (!scrollEl || !ctx.autoScrollPx) return;
+
+      scrollEl.scrollBy({ left: -ctx.autoScrollPx, behavior: "smooth" });
+      ctx.autoScrollPx = 0;
+    };
+
+    const runAutoScroll = () => {
+      autoScrollFrame = null;
+      const ctx = dragContextRef.current;
+      if (!ctx || !scrollEl || velocity === 0) return;
+
+      const before = scrollEl.scrollLeft;
+      scrollEl.scrollLeft = before + velocity;
+      const moved = scrollEl.scrollLeft - before;
+
+      // Nothing moved means the range ends here - keep the loop alive anyway, so the drag
+      // resumes by itself once the range extends
+      if (moved !== 0) {
+        ctx.autoScrollPx += moved;
+        applyMove();
+      }
+
+      autoScrollFrame = requestAnimationFrame(runAutoScroll);
+    };
+
+    const updateAutoScroll = (clientX: number) => {
+      if (optionsRef.current.autoScroll === false || !scrollEl) return;
+
+      // The pinned task list covers the left of the viewport, so the timeline's own left
+      // edge starts where the pane ends
+      const rect = scrollEl.getBoundingClientRect();
+      const gridEl = scrollEl.querySelector<HTMLElement>(".gantt-grid");
+      velocity = edgeScrollVelocity(
+        clientX,
+        rect.left + (gridEl?.offsetWidth ?? 0),
+        rect.right
+      );
+
+      if (velocity === 0) {
+        stopAutoScroll();
+      } else if (autoScrollFrame === null) {
+        autoScrollFrame = requestAnimationFrame(runAutoScroll);
+      }
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const ctx = dragContextRef.current;
+      if (!ctx || moveEvent.pointerId !== ctx.pointerId) return;
+
+      ctx.lastClientX = moveEvent.clientX;
+      updateAutoScroll(moveEvent.clientX);
+      applyMove();
+    };
+
     const detachListeners = () => {
+      stopAutoScroll();
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerup", handlePointerUp);
       document.removeEventListener("pointercancel", handlePointerCancel);
     };
 
-    const endDrag = (taskIds: string[]) => {
+    const endDrag = (ctx: DragContext) => {
+      undoAutoScroll(ctx);
       dragContextRef.current = null;
       dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);
-      storeApi.getState().clearDragOffsets(taskIds);
+      storeApi.getState().clearDragOffsets(ctx.taskIds);
     };
 
     // When the browser cancels the gesture (scroll takeover, multi-touch, etc.) revert instead of committing
@@ -367,7 +463,7 @@ export function useGanttBarDrag(
       if (ctx && cancelEvent.pointerId !== ctx.pointerId) return;
 
       detachListeners();
-      if (ctx) endDrag(ctx.taskIds);
+      if (ctx) endDrag(ctx);
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
@@ -382,7 +478,7 @@ export function useGanttBarDrag(
       }
 
       if (ctx.dragSteps === 0) {
-        endDrag(ctx.taskIds);
+        endDrag(ctx);
         return;
       }
 
@@ -458,6 +554,7 @@ export function useGanttBarDrag(
       // Nothing was written, so dropping the drag offsets puts the bar back where it
       // started - the reverting flag is only there to make that a transition
       const rollback = () => {
+        undoAutoScroll(ctx);
         const state = storeApi.getState();
         state.beginRevert(ctx.taskIds);
         state.clearDragOffsets(ctx.taskIds);

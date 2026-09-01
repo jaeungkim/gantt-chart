@@ -36,9 +36,11 @@ Currently, this project is built specifically for React due to my development ba
 - 🔒 Read-only mode, per-capability and per-task
 - 🚧 Drag bounds and a fixed visible range
 - 🗓️ Weekend and holiday shading
+- 🔍 Cursor-anchored Ctrl/Cmd + wheel zoom, plus `zoomToFit()`
+- ♾️ Range that extends as you scroll or drag past its end, with an `onRangeChange` hook
 - ⚡ Virtualized rendering for performance
 - 🌙 Light/Dark/System theme support
-- 📍 Today marker indicator
+- 📍 Today marker, custom date markers and shaded range bands
 - 💬 Hover and drag tooltips
 - 🖼️ Client-side PNG export of the whole chart, no extra dependency
 - 📦 Lightweight with minimal dependencies
@@ -141,6 +143,12 @@ export default function App() {
 | `visibleEnd` | `string` | - | Pins the timeline end (UTC ISO string) instead of fitting to the tasks |
 | `allowRowReorder` | `boolean` | `false` | Let a task list row be dragged to reorder siblings and re-parent. Follows `readOnly` / `allowMove` |
 | `onReorder` | `(change: GanttReorderChange) => void \| boolean` | - | Fires on a row drop, before anything is committed. Return `false` to cancel |
+| `markers` | `GanttMarker[]` | - | Labelled vertical lines at given dates ([markers](#markers-and-range-bands)) |
+| `rangeBands` | `GanttRangeBand[]` | - | Shaded bands covering a date range |
+| `zoomOnWheel` | `boolean` | `false` | Ctrl/Cmd + wheel steps through the scale ladder ([zoom](#zooming)) |
+| `infiniteScroll` | `boolean` | `false` | Extend the rendered range when scrolling or dragging past an end |
+| `onRangeChange` | `(range: GanttDateRange) => void` | - | Fires whenever the rendered timeline range changes |
+| `autoScrollOnDrag` | `boolean` | `true` | Scroll the timeline when a bar drag reaches a viewport edge |
 | `allowLinkCreate` | `boolean` | `true` | Show the connector dots and accept dependency drags ([editing dependencies](#editing-dependencies)) |
 | `allowLinkDelete` | `boolean` | `true` | Let arrows be selected and removed |
 | `allowTaskCreate` | `boolean` | `true` | Let a task be drawn on empty row space ([drawing a task](#drawing-a-task)) |
@@ -602,9 +610,21 @@ const ref = useRef<GanttHandle>(null);
 ref.current?.scrollToToday();
 ref.current?.scrollToDate('2026-09-01');
 ref.current?.scrollToTask('task-42', { smooth: false, align: 'start' });
+ref.current?.zoomToFit();
+ref.current?.getScrollElement();
 ```
 
-Dates outside the rendered timeline and unknown task ids are ignored rather than throwing, so calls during data loading are safe. `scrollToTask` only moves vertically when the row is off-screen.
+| Method | What it does |
+|--------|--------------|
+| `scrollToDate(date, options?)` | Scroll horizontally to a date |
+| `scrollToToday(options?)` | Scroll horizontally to today |
+| `scrollToTask(taskId, options?)` | Scroll to a task, vertically too when its row is off-screen |
+| `zoomToFit()` | Switch to the finest scale at which the whole project fits the viewport width, and scroll it into view |
+| `getScrollElement()` | The scroll container DOM node, or `null` |
+
+`options` is `{ smooth?: boolean; align?: 'start' \| 'center' }`.
+
+Dates outside the rendered timeline and unknown task ids are ignored rather than throwing, so calls during data loading are safe. `scrollToTask` only moves vertically when the row is off-screen. `zoomToFit` does nothing while there are no tasks.
 
 ### PNG export
 
@@ -775,6 +795,94 @@ in `sessionStorage` (see `storageKey`).
 
 The bottom row is column-virtualized, so a long range at hour granularity stays cheap: 150
 days of tasks is 3,762 hour cells, of which about 25 are in the DOM at a time.
+
+## Zooming
+
+`zoomOnWheel` turns Ctrl/Cmd + wheel into a zoom: each gesture moves one step along the
+scale ladder and the date under the cursor stays exactly where it is, so you zoom into what
+you are pointing at rather than into the middle of the chart. Plain wheel still scrolls
+vertically and Shift + wheel horizontally — those are never taken over. One gesture is one
+step, however many events a trackpad pinch fires.
+
+```tsx
+<ReactGanttChart tasks={tasks} zoomOnWheel />
+```
+
+It is off by default because Ctrl + wheel is the browser's own page zoom; turning it on
+takes that over inside the chart. The scale selector stays in sync either way.
+
+`zoomToFit()` on the [imperative handle](#imperative-api) picks the finest scale at which
+the whole project fits the viewport width and scrolls the project into view. With the task
+list pane open, "viewport width" means the timeline area, not the whole container.
+
+## Infinite range
+
+By default the timeline covers the tasks plus a small buffer and stops there. With
+`infiniteScroll`, scrolling — or dragging a bar — towards either end extends the rendered
+range by about a viewport at a time instead of hitting a wall. What you are looking at does
+not move while this happens: when the range grows at the front, the scroll position is
+compensated by exactly the width that was added.
+
+`onRangeChange` fires whenever the rendered range changes — the hook for loading tasks
+lazily for the window that just became reachable. It also fires on the first render and on
+every scale change, so it is a complete picture of what is on screen, not only of
+extensions.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  infiniteScroll
+  onRangeChange={({ start, end }) => loadTasksBetween(start.toDate(), end.toDate())}
+/>
+```
+
+`start` and `end` are UTC `Dayjs` values. Extension is capped at 2000 ticks per side, so a
+runaway scroll cannot grow the timeline without bound.
+
+Dragging a bar towards a viewport edge scrolls the timeline on its own, faster the closer
+the pointer gets, and stops on drop or cancel — including while an
+[`onBeforeTaskChange`](#cancellable-changes-and-optimistic-updates) veto is still pending, where the pointer is
+already up. That one is on by default; pass `autoScrollOnDrag={false}` to turn it off.
+
+A discarded gesture takes its scrolling with it: when a drag is cancelled, or rolled back
+because the before-handler said no, the timeline scrolls back by however far the
+auto-scroll carried it, so the bar sliding home is still the thing you are looking at. The
+undo is relative, so a manual scroll made while the veto was in flight survives it.
+
+## Markers and range bands
+
+`markers` draws labelled vertical lines at given dates and `rangeBands` shades date ranges.
+The built-in today line is one of these markers, so anything below styles it the same way.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  markers={[
+    { id: 'launch', date: '2026-10-01', label: 'Launch', color: '#10b981' },
+    { id: 'due', date: '2026-09-20', label: 'Due', warnOnOverrun: true, taskIds: ['task-42'] },
+  ]}
+  rangeBands={[
+    { id: 'sprint-7', startDate: '2026-09-14', endDate: '2026-09-28', label: 'Sprint 7' },
+  ]}
+/>
+```
+
+| `GanttMarker` | Type | Description |
+|---------------|------|-------------|
+| `date` | `string \| Date \| Dayjs` | Where the line goes |
+| `id` | `string` | React key (default: the date) |
+| `label` | `string` | Text at the top of the line; omitted, the line is bare |
+| `className` | `string` | Extra class on the marker element |
+| `color` | `string` | Any CSS color — wins over the class and the theme default |
+| `warnOnOverrun` | `boolean` | Set `data-warning="true"` once a task ends past the date |
+| `taskIds` | `string[]` | Limits the overrun check to these tasks (default: all of them) |
+
+`GanttRangeBand` takes `startDate`, `endDate`, and the same `id` / `label` / `className` /
+`color`. Markers and bands outside the rendered range are dropped, and a band that only
+overlaps it is clipped.
+
+Colours come from `--gantt-marker`, `--gantt-marker-warning` and `--gantt-band-bg`, so a
+whole palette can be set once in CSS instead of per marker.
 
 ## i18n and date formats
 

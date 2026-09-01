@@ -30,6 +30,8 @@ interface GanttBarProps {
   currentTask: TaskTransformed;
   options?: GanttBarOptions;
   interaction?: GanttInteractionConfig;
+  /** Scroll the timeline when the drag reaches a viewport edge (default true) */
+  autoScrollOnDrag?: boolean;
   onDependencyCreate?: (change: GanttDependencyChange) => boolean | void;
 }
 
@@ -46,6 +48,7 @@ export default function GanttBar({
   currentTask,
   options = NO_OPTIONS,
   interaction,
+  autoScrollOnDrag = true,
   onDependencyCreate,
 }: GanttBarProps) {
   const {
@@ -61,7 +64,7 @@ export default function GanttBar({
   const barRef = useRef<HTMLDivElement>(null);
   const { onPointerDown, dragMode, consumeDragClick } = useGanttBarDrag(
     currentTask,
-    { onTasksChange, onBeforeTaskChange },
+    { onTasksChange, onBeforeTaskChange, autoScroll: autoScrollOnDrag },
     interaction
   );
   const { canMove, canResize, canChangeProgress, canCreateLink } =
