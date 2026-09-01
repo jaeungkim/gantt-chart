@@ -356,6 +356,7 @@
 /* ===== TASK BAR ===== */
 .gantt-task-bar {
   position: relative;
+  touch-action: none;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -482,6 +483,7 @@
 /* ===== MILESTONE ===== */
 .gantt-milestone {
   position: relative;
+  touch-action: none;
   z-index: 10;
   display: flex;
   align-items: center;

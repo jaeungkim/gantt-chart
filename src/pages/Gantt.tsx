@@ -57,6 +57,7 @@ function Gantt({
     setTransformedTasks,
     setBottomRowCells,
     setSelectedScale,
+    clearAllDragOffsets,
     getTotalWidth,
   } = useGanttSelectors();
 
@@ -102,7 +103,15 @@ function Gantt({
 
     setBottomRowCells(bottomCells);
     setTransformedTasks(transformed);
-  }, [rawTasks, selectedScale, setBottomRowCells, setTransformedTasks]);
+    // 새 위치가 준비된 시점에 드래그 오프셋 정리 - 드롭 시 한 프레임 깜빡임 방지
+    clearAllDragOffsets();
+  }, [
+    rawTasks,
+    selectedScale,
+    setBottomRowCells,
+    setTransformedTasks,
+    clearAllDragOffsets,
+  ]);
 
   // 스케일 변경 핸들러
   const handleScaleChange = (scale: GanttScaleKey) => {
