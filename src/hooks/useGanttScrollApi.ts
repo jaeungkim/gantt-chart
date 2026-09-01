@@ -4,7 +4,7 @@ import { GanttExportApi } from "hooks/useGanttExportApi";
 import { GanttHistoryApi } from "hooks/useGanttHistoryApi";
 import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
 import { TaskTransformed } from "types/task";
-import dayjs from "utils/dayjs";
+import dayjs from "core/dates";
 import { calculateDateOffsetPx } from "utils/timeline";
 import { fitScale } from "utils/viewport";
 

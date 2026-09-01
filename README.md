@@ -29,7 +29,11 @@ Currently, this project is built specifically for React due to my development ba
   - Reorder and re-parent rows, with indent/outdent on horizontal offset
 - ↩️ Undo/redo — one step per gesture, keyboard shortcuts and an imperative API
 - 👆 Touch support — long-press to lift a bar, swipe to scroll
-- 🧲 Smart dependency arrows (FS, SS, FF, SF), drawn between bars by dragging and removed by selecting
+- 🧲 Smart dependency arrows (FS, SS, FF, SF) with signed lag/lead, drawn between bars by dragging and removed by selecting
+- ⚙️ Auto-scheduling: a drag propagates to successors, with cycle detection
+- 🗓️ Working-day calendar: durations, lag and snapping skip weekends and holidays
+- 🔺 Critical path and slack (CPM forward + backward pass)
+- 📊 Baseline bars: planned vs actual, with a milestone diamond
 - ✏️ Draw a new task on empty row space, snapped to the current scale
 - ◆ Milestones and per-task progress
 - 🖱️ Click / double-click / select events with a visible selection highlight
@@ -158,6 +162,11 @@ export default function App() {
 | `onDependencyCreate` | `(change: GanttDependencyChange) => boolean \| void` | - | Fires before a drawn link is applied — return `false` to reject it |
 | `onDependencyDelete` | `(change: GanttDependencyChange) => boolean \| void` | - | Fires before an arrow is removed — return `false` to keep it |
 | `onTaskCreate` | `(draft: GanttTaskDraft) => void` | - | Fires with the range drawn on empty row space. Required for the gesture to do anything |
+| `schedulingPolicy` | `"off" \| "shift-on-overlap" \| "maintain-gap"` | `"off"` | How a drag propagates to the dragged task's successors |
+| `onSchedulingCycle` | `(taskIds: string[]) => void` | - | Called with the ids caught in a dependency cycle |
+| `workingCalendar` | `boolean` | `false` | Route date arithmetic through a working-day calendar |
+| `criticalPath` | `boolean` | `false` | Compute and highlight the critical path, and expose slack |
+| `renderBaseline` | `(task: TaskTransformed) => ReactNode` | - | Replaces the default baseline bar |
 
 ## Task List and Hierarchy
 
@@ -634,6 +643,184 @@ interface GanttTaskDraft {
 }
 ```
 
+## Scheduling
+
+Four features share one engine, and **every one of them is off by default** — a chart that
+passes today's props behaves exactly as it did before.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  schedulingPolicy="shift-on-overlap"
+  workingCalendar
+  criticalPath
+/>
+```
+
+### Auto-scheduling
+
+Dragging a task propagates through its dependency graph in one topological forward pass:
+each link asks for the smallest whole-day shift that satisfies it, the largest of a task's
+links wins, and the task moves by that many days. Times of day and durations survive
+untouched. Successors preview live during the drag and land in a **single** `onTasksChange`
+call on drop.
+
+| `schedulingPolicy` | Behaviour |
+|---|---|
+| `"off"` (default) | Nothing propagates. Only the dragged task moves. |
+| `"shift-on-overlap"` | A successor is pushed later only when the link would otherwise break. It is never pulled earlier. |
+| `"maintain-gap"` | A successor sits at its earliest legal date, following the predecessor both ways, so the gap stays equal to the link's `lag`. |
+
+A task's `dependencies` list its **predecessors**, and `lag` is signed — positive waits,
+negative overlaps:
+
+| Type | Constraint |
+|---|---|
+| `FS` | successor start ≥ predecessor finish + lag |
+| `SS` | successor start ≥ predecessor start + lag |
+| `FF` | successor finish ≥ predecessor finish + lag |
+| `SF` | successor finish ≥ predecessor start + lag |
+
+`manuallyScheduled: true` pins a task: the engine never moves it, though its dates still
+constrain everything downstream. Summary rows are pinned too when `hierarchy` is on —
+their dates come from their children.
+
+**Cycles never hang the engine.** They are detected before any propagation, reported
+through `onSchedulingCycle`, and the tasks caught in one are skipped while the rest of the
+project still schedules. Better still, keep them out of the data:
+
+```ts
+import { canLink } from '@jaeungkim/gantt-chart';
+
+const { ok, cycle } = canLink(tasks, predecessorId, successorId);
+if (!ok) alert(`That link would create a loop: ${cycle.join(' → ')}`);
+```
+
+### Working-day calendar
+
+`workingCalendar` routes every date calculation through a calendar that skips non-working
+days: durations, dependency lag, propagation and drag snapping all count working days, and
+a drop always lands on one. Bars still *span* a weekend — the days simply do not count.
+
+The calendar is built from the same `holidays` / `isNonWorkingDay` configuration that
+shades the timeline, so what is shaded and what is skipped cannot drift apart:
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  workingCalendar
+  holidays={['2026-09-21', '2026-09-22']}
+/>
+```
+
+Off, the calendar counts every day — which is why plain calendar-date behaviour is not a
+special case in the code, just this same engine with a calendar that skips nothing.
+
+### Critical path and slack
+
+`criticalPath` runs a CPM forward and backward pass. Each task's own dates act as a "start
+no earlier than" constraint, so the forward pass only ever pushes a task later; the
+backward pass then works out how much later it could still finish without moving the
+project's end.
+
+Zero-total-slack tasks get a `critical` class, and so do the links that actually bind them
+(a slack link between two critical tasks is not part of the chain). A task at 100%
+`progress` is never critical — it cannot delay anything. Restyle it with the CSS tokens:
+
+```css
+.gantt-container {
+  --gantt-critical: #dc2626;
+  --gantt-critical-bg: #fecaca;
+}
+```
+
+The numbers also land on every row as read-only fields, so a `columns` renderer can show
+them:
+
+```tsx
+const columns: GanttColumn[] = [
+  { key: 'name', header: 'Task', width: 220 },
+  { key: 'duration', header: 'Days', width: 60, render: (t) => t.duration },
+  { key: 'totalSlack', header: 'Slack', width: 60, render: (t) => t.totalSlack },
+];
+```
+
+`totalSlack`, `freeSlack`, `duration` (working days when the calendar is on), and
+`earlyStart` / `earlyFinish` / `lateStart` / `lateFinish` as UTC ISO strings.
+
+### Baselines
+
+`baselineStart` / `baselineEnd` draw a thin snapshot bar under the live one, and a small
+diamond for a milestone. The element belongs to the row rather than to the bar, so dragging
+slides the live bar across a baseline that stays put — which is the point of having one.
+Colour comes from `--gantt-baseline-bg`, or replace the element with `renderBaseline`.
+
+### Worked example
+
+```tsx
+const tasks: Task[] = [
+  { id: 'a', name: 'Kickoff',       startDate: '2026-08-31T09:00:00Z', endDate: '2026-08-31T17:00:00Z',
+    parentId: null, sequence: '1' },
+  { id: 'b', name: 'Content audit', startDate: '2026-09-01T09:00:00Z', endDate: '2026-09-04T17:00:00Z',
+    parentId: null, sequence: '2',
+    baselineStart: '2026-09-01T09:00:00Z', baselineEnd: '2026-09-03T17:00:00Z',
+    dependencies: [{ targetId: 'a', type: 'FS' }] },
+  { id: 'c', name: 'Visual design', startDate: '2026-09-01T09:00:00Z', endDate: '2026-09-02T17:00:00Z',
+    parentId: null, sequence: '3',
+    dependencies: [{ targetId: 'a', type: 'FS' }] },
+  { id: 'd', name: 'Build',         startDate: '2026-09-05T09:00:00Z', endDate: '2026-09-09T17:00:00Z',
+    parentId: null, sequence: '4',
+    dependencies: [{ targetId: 'b', type: 'FS' }, { targetId: 'c', type: 'FS', lag: 1 }] },
+];
+```
+
+`b` hands straight over to `d`, so that link is tight. `c` finishes a day early and its link
+carries a day of lag, which leaves it a day of room.
+
+With `schedulingPolicy="shift-on-overlap"`:
+
+| Drag | What moves |
+|---|---|
+| **Content audit** +3 days | **Build** +3 days — it is the binding predecessor |
+| **Visual design** +1 day | nothing; the day of float absorbs it |
+| **Visual design** +3 days | **Build** +2 days — the float, then the overflow |
+
+With `criticalPath` on: `a → b → d` all have zero total slack and get the `critical` class,
+along with the `a → b` and `b → d` links. **Visual design** has `totalSlack: 1` and stays
+grey.
+
+Turn `workingCalendar` on and **Build** — which runs Saturday to Wednesday — reports a
+duration of 3 working days instead of 4 calendar days, while a drag that would drop a task
+on a Saturday lands on the Monday instead.
+
+### Headless core
+
+All of the above is plain data and pure functions under `src/core/` — no React, no DOM, no
+pixels. It is exported from the package, so a server, a worker or a test can schedule
+without rendering anything:
+
+```ts
+import {
+  scheduleTasks,
+  computeCriticalPath,
+  createWorkingCalendar,
+  canLink,
+} from '@jaeungkim/gantt-chart';
+
+const calendar = createWorkingCalendar({ holidays: ['2026-09-21'] });
+
+const { tasks: rescheduled, movedIds, cycle } = scheduleTasks(tasks, {
+  policy: 'shift-on-overlap',
+  calendar,
+  seeds: ['b'],          // only what 'b' reaches is touched
+});
+
+const { metrics, criticalTaskIds, projectFinish } = computeCriticalPath(tasks, { calendar });
+```
+
+`forwardPass` and `backwardPass` are exported separately for anyone who wants half of CPM.
+
 ## Imperative API
 
 Pass a ref to scroll the chart programmatically, export it as a PNG, or drive undo/redo:
@@ -833,11 +1020,17 @@ interface Task {
   allowLinkDelete?: boolean;
   minDate?: string;              // UTC ISO string
   maxDate?: string;              // UTC ISO string
+
+  // Scheduling - all inert until the matching prop is on
+  manuallyScheduled?: boolean;   // the scheduling engine never moves this task
+  baselineStart?: string;        // UTC ISO string - draws a thin planned bar underneath
+  baselineEnd?: string;          // UTC ISO string
 }
 
 interface TaskDependency {
-  targetId: string;
+  targetId: string;              // the PREDECESSOR - a task lists what it waits on
   type: DependencyType;
+  lag?: number;                  // signed days; negative is a lead (overlap)
 }
 
 type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
@@ -1076,6 +1269,8 @@ The stylesheet loads no remote fonts; it uses the system font stack unless you o
 - [x] Touch gestures ([touch](#touch))
 - [x] Custom bar colors
 - [x] Keyboard-accessible scale selector
+- [x] Auto-scheduling, working-day calendar, critical path, baselines ([scheduling](#scheduling))
+- [ ] Per-task and per-resource calendars
 
 ## 🤝 Contributing
 

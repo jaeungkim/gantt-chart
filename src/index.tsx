@@ -50,3 +50,32 @@ export type {
   GanttHeaderCellRenderProps,
   GanttHeaderCellRenderer,
 } from './types/gantt';
+
+// Headless scheduling core - no React, no DOM. Usable on a server or in a worker.
+export {
+  backwardPass,
+  buildTaskGraph,
+  buildTaskTree,
+  CALENDAR_DAYS,
+  canLink,
+  collectSubtreeIds,
+  computeCriticalPath,
+  createWorkingCalendar,
+  findPath,
+  forwardPass,
+  linkKey,
+  rollUpTasks,
+  scheduleTasks,
+} from './core';
+export type {
+  CriticalPathResult,
+  ScheduleOptions,
+  ScheduleResult,
+  SchedulingLink,
+  SchedulingPolicy,
+  TaskGraph,
+  TaskScheduleMetrics,
+  TaskTree,
+  WorkingCalendar,
+  WorkingCalendarOptions,
+} from './core';

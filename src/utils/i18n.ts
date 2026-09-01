@@ -6,7 +6,7 @@ import {
   GanttLocaleOptions,
   GanttScaleKey,
 } from 'types/gantt';
-import { quarterOfYear } from 'utils/dayjs';
+import { quarterOfYear } from 'core/dates';
 
 /**
  * Label formatting, localized through `Intl.DateTimeFormat`
@@ -20,7 +20,7 @@ import { quarterOfYear } from 'utils/dayjs';
  * do not opt in are untouched.
  *
  * Everything is formatted with `timeZone: 'UTC'` - the chart is drawn in UTC
- * (see utils/dayjs), so a label rendered in the viewer's zone would disagree with the
+ * (see core/dates), so a label rendered in the viewer's zone would disagree with the
  * cell it sits in.
  */
 

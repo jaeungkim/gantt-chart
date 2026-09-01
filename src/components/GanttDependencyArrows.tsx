@@ -21,6 +21,8 @@ import { LINK_REJECTION_LABEL, removeDependency } from "utils/dependency";
 
 interface Props {
   transformedTasks: TaskTransformed[];
+  /** Link keys on the critical path (from computeCriticalPath) - undefined when it is off */
+  criticalLinkIds?: Set<string>;
   interaction?: GanttInteractionConfig;
   onTasksChange?: (updatedTasks: Task[]) => void;
   /** Returning false keeps the dependency */
@@ -45,6 +47,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 export default function GanttDependencyArrows({
   transformedTasks,
+  criticalLinkIds,
   interaction,
   onTasksChange,
   onDependencyDelete,
@@ -86,9 +89,11 @@ export default function GanttDependencyArrows({
     isBarVisible,
   };
 
-  const dependencies = buildDependencies(taskById, liveOffsets).filter((dep) =>
-    isArrowVisible(dep, viewport)
-  );
+  const dependencies = buildDependencies(
+    taskById,
+    liveOffsets,
+    criticalLinkIds
+  ).filter((dep) => isArrowVisible(dep, viewport));
 
   const isSelected = (dep: RenderedDependency) =>
     selected?.sourceId === dep.sourceId && selected?.targetId === dep.targetId;
@@ -156,6 +161,7 @@ export default function GanttDependencyArrows({
   // alphanumerics are kept
   const instanceId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const arrowheadId = `gantt-arrowhead-${instanceId}`;
+  const criticalArrowheadId = `${arrowheadId}-critical`;
 
   return (
     <svg
@@ -166,19 +172,24 @@ export default function GanttDependencyArrows({
       }}
     >
       <defs>
-        <marker
-          id={arrowheadId}
-          markerWidth="5"
-          markerHeight="5"
-          refX="4.5"
-          refY="2.5"
-          orient="auto"
-        >
-          <polygon
-            className="gantt-dependency-arrow-head"
-            points="0 0, 5 2.5, 0 5"
-          />
-        </marker>
+        {[arrowheadId, criticalArrowheadId].map((id) => (
+          <marker
+            key={id}
+            id={id}
+            markerWidth="5"
+            markerHeight="5"
+            refX="4.5"
+            refY="2.5"
+            orient="auto"
+          >
+            <polygon
+              className={`gantt-dependency-arrow-head${
+                id === criticalArrowheadId ? " critical" : ""
+              }`}
+              points="0 0, 5 2.5, 0 5"
+            />
+          </marker>
+        ))}
       </defs>
 
       {dependencies.map((dep, index) => {
@@ -217,9 +228,11 @@ export default function GanttDependencyArrows({
             <path
               className={`gantt-dependency-arrow${
                 selectedArrow ? " selected" : ""
-              }`}
+              }${dep.critical ? " critical" : ""}`}
               d={path}
-              markerEnd={`url(#${arrowheadId})`}
+              markerEnd={`url(#${
+                dep.critical ? criticalArrowheadId : arrowheadId
+              })`}
               fill="none"
             />
             {selectedArrow && (

@@ -1,5 +1,5 @@
-import { isMilestoneTask, normalizeProgress, Task } from "types/task";
-import dayjs from "utils/dayjs";
+import { isMilestoneTask, normalizeProgress, Task } from "./types";
+import dayjs from "./dates";
 
 /** The minimum a task needs for the tree math - TaskTransformed fits as-is */
 type TaskNode = Pick<Task, "id" | "parentId">;

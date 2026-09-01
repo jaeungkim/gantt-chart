@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GanttBeforeChangeHandler } from 'types/gantt';
 import { Task } from 'types/task';
-import dayjs from 'utils/dayjs';
+import dayjs from 'core/dates';
 import { buildTaskChange, mutationKey } from 'utils/mutation';
 // This import is itself the SSR-safety regression test - touching sessionStorage at
 // module scope would make loading the file fail outright in a Node environment (no jsdom).

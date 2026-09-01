@@ -1,43 +1,14 @@
-export type TaskType = 'task' | 'milestone';
+// The data model lives in the headless core; this module adds the render-side types.
+export { isMilestoneTask, normalizeProgress } from 'core/types';
+export type {
+  DependencyType,
+  Task,
+  TaskDependency,
+  TaskType,
+} from 'core/types';
 
-export interface Task {
-  id: string;
-  name: string;
-  startDate: string;
-  endDate: string;
-  parentId: string | null;
-  sequence: string;
-  /** Task kind - 'milestone' renders as a diamond at startDate (default 'task') */
-  type?: TaskType;
-  /** Progress 0-100 (%) - omitted means no progress display */
-  progress?: number;
-  /**
-   * Bar color - any CSS color value
-   *
-   * The progress fill and the hover shade are derived from it, so one value colors the
-   * whole bar. Omitted, the `--gantt-*` theme tokens decide as before.
-   */
-  color?: string;
-  /** Extra class name put on this task's bar and its task-list row */
-  className?: string;
-  dependencies?: TaskDependency[];
-  /** Blocks every gesture on this task - overrides the chart's `readOnly` prop */
-  readOnly?: boolean;
-  /** Allows/blocks moving this task - overrides both `readOnly` settings */
-  allowMove?: boolean;
-  /** Allows/blocks resizing this task - overrides both `readOnly` settings */
-  allowResize?: boolean;
-  /** Allows/blocks dragging this task's progress handle - overrides both `readOnly` settings */
-  allowProgressChange?: boolean;
-  /** Allows/blocks starting a dependency drag from this task - overrides both `readOnly` settings */
-  allowLinkCreate?: boolean;
-  /** Allows/blocks deleting a dependency this task owns - overrides both `readOnly` settings */
-  allowLinkDelete?: boolean;
-  /** Earliest date this task may be dragged to (ISO string) - overrides the chart's `minDate` */
-  minDate?: string;
-  /** Latest date this task may be dragged to (ISO string) - overrides the chart's `maxDate` */
-  maxDate?: string;
-}
+import { isMilestoneTask } from 'core/types';
+import type { Task, TaskDependency } from 'core/types';
 
 /**
  * Chart-wide interaction settings
@@ -139,10 +110,6 @@ export function canCreateTasks(
   return config.allowTaskCreate ?? !config.readOnly;
 }
 
-export function isMilestoneTask(task: Pick<Task, 'type'>): boolean {
-  return task.type === 'milestone';
-}
-
 /**
  * CSS custom properties a colored bar sets
  *
@@ -173,19 +140,6 @@ export function resolveTaskColors(color: string | undefined): TaskColorVars {
     '--gantt-progress-color': `color-mix(in srgb, ${base} 62%, #000)`,
   };
 }
-
-/** Normalizes progress into the 0-100 range; null when the value is missing or invalid */
-export function normalizeProgress(progress: number | undefined): number | null {
-  if (typeof progress !== 'number' || Number.isNaN(progress)) return null;
-  return Math.min(100, Math.max(0, progress));
-}
-
-export interface TaskDependency {
-  targetId: string;
-  type: DependencyType;
-}
-
-export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 export interface TaskTransformed extends Task {
   barLeft: number;
   barWidth: number;
@@ -200,6 +154,19 @@ export interface TaskTransformed extends Task {
    */
   isSummary?: boolean;
   dependencies?: TaskDependency[];
+  /** Baseline bar geometry - present only when the task carries baseline dates */
+  baselineLeft?: number;
+  baselineWidth?: number;
+  /** CPM outputs - present only while the `criticalPath` prop is on (read-only) */
+  earlyStart?: string;
+  earlyFinish?: string;
+  lateStart?: string;
+  lateFinish?: string;
+  totalSlack?: number;
+  freeSlack?: number;
+  critical?: boolean;
+  /** Duration in calendar days, or working days when the working-day calendar is on */
+  duration?: number;
 }
 
 export interface RenderedDependency extends TaskDependency {
@@ -209,4 +176,6 @@ export interface RenderedDependency extends TaskDependency {
   fromY: number;
   toX: number;
   toY: number;
+  /** True when this link sits on the critical path */
+  critical?: boolean;
 }

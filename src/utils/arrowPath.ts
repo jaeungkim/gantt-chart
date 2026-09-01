@@ -1,4 +1,5 @@
 import { MILESTONE_HALF_DIAGONAL, NODE_HEIGHT } from "constants/gantt";
+import { linkKey } from "core";
 import {
   isMilestoneTask,
   RenderedDependency,
@@ -445,7 +446,8 @@ export function isArrowVisible(
  */
 export function buildDependencies(
   taskById: Map<string, TaskTransformed>,
-  liveOffsets: Record<string, DragOffset>
+  liveOffsets: Record<string, DragOffset>,
+  criticalLinkIds?: Set<string>
 ): RenderedDependency[] {
   const dependencies: RenderedDependency[] = [];
 
@@ -465,7 +467,19 @@ export function buildDependencies(
       );
       if (!coords) continue;
 
-      dependencies.push({ ...dep, sourceId: currentTask.id, ...coords });
+      dependencies.push({
+        ...dep,
+        sourceId: currentTask.id,
+        ...coords,
+        critical: criticalLinkIds?.has(
+          linkKey({
+            predecessorId: targetTask.id,
+            successorId: currentTask.id,
+            type: dep.type,
+            lag: dep.lag ?? 0,
+          })
+        ),
+      });
     }
   }
 

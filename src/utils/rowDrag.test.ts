@@ -3,7 +3,7 @@ import type { Task } from 'types/task';
 import { describe, expect, it } from 'vitest';
 import { moveTaskInTree, resolveRowDropTarget } from './rowDrag';
 import { sortTasksBySequence } from './transformData';
-import { buildTaskTree, collectSubtreeIds, getVisibleTasks } from './tree';
+import { buildTaskTree, collectSubtreeIds, getVisibleTasks } from 'core/tree';
 
 const task = (id: string, parentId: string | null, sequence: string): Task => ({
   id,

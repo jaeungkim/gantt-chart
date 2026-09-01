@@ -1,7 +1,7 @@
 import { NODE_HEIGHT, TREE_INDENT } from "constants/gantt";
 import { Task } from "types/task";
 import { sortTasksBySequence } from "./transformData";
-import { buildTaskTree, collectSubtreeIds, TaskTree } from "./tree";
+import { buildTaskTree, collectSubtreeIds, TaskTree } from "core/tree";
 
 /**
  * Row reordering

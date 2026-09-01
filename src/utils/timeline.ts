@@ -15,11 +15,11 @@ import {
   GanttVisibleRange,
 } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
-import dayjs, { startOfQuarter, startOfWeek } from "utils/dayjs";
+import dayjs, { startOfQuarter, startOfWeek } from "core/dates";
 import { resolveFormatters, resolveLabelUnit } from "utils/i18n";
 import { NO_RANGE_EXTENSION } from "utils/viewport";
 import { transformTasks } from "./transformData";
-import { buildTaskTree, rollUpTasks } from "./tree";
+import { buildTaskTree, rollUpTasks } from "core/tree";
 
 export interface TimelineData {
   bottomCells: GanttBottomRowCell[];
@@ -526,11 +526,18 @@ function findDateRangeFromTasks(
   let maxTime = -Infinity;
 
   for (const task of tasks) {
-    const start = dayjs(task.startDate).valueOf();
-    const end = dayjs(task.endDate).valueOf();
+    // Baselines count too - one that sits outside the live bar would otherwise be clipped
+    const starts = [task.startDate, task.baselineStart];
+    const ends = [task.endDate, task.baselineEnd];
 
-    if (!Number.isNaN(start)) minTime = Math.min(minTime, start);
-    if (!Number.isNaN(end)) maxTime = Math.max(maxTime, end);
+    for (const value of starts) {
+      const time = value ? dayjs(value).valueOf() : NaN;
+      if (!Number.isNaN(time)) minTime = Math.min(minTime, time);
+    }
+    for (const value of ends) {
+      const time = value ? dayjs(value).valueOf() : NaN;
+      if (!Number.isNaN(time)) maxTime = Math.max(maxTime, time);
+    }
   }
 
   return {
@@ -598,7 +605,7 @@ function createBottomRowCells(
 
 /**
  * First moment of the group a cell belongs to
- * 'quarter' and 'week' are not dayjs units of their own - see utils/dayjs
+ * 'quarter' and 'week' are not dayjs units of their own - see core/dates
  */
 function groupStartDate(
   date: Dayjs,

@@ -14,6 +14,7 @@ import {
   GanttDragMode,
   GanttDragOffset,
   GanttScaleKey,
+  GanttScheduling,
 } from "types/gantt";
 import {
   GanttInteractionConfig,
@@ -21,7 +22,8 @@ import {
   Task,
   TaskTransformed,
 } from "types/task";
-import dayjs from "utils/dayjs";
+import dayjs from "core/dates";
+import { scheduleTasks } from "core";
 import {
   buildTaskChange,
   mutationKey,
@@ -34,7 +36,7 @@ import {
   pxBetweenDates,
   shiftByDragSteps,
 } from "utils/timeline";
-import { collectSubtreeIds } from "utils/tree";
+import { collectSubtreeIds } from "core/tree";
 import { edgeScrollVelocity } from "utils/viewport";
 
 export type DragMode = GanttDragMode;
@@ -44,6 +46,80 @@ export interface GanttBarDragOptions {
   onBeforeTaskChange?: GanttBeforeChangeHandler;
   /** Scroll the timeline when the drag reaches a viewport edge (default true) */
   autoScroll?: boolean;
+}
+
+/** The dates the drag is proposing for the tasks it moves directly */
+type DraggedDates = Map<string, { start: Dayjs; end: Dayjs }>;
+
+/** The task array with the dragged tasks' proposed dates written in */
+export function applyDraggedDates(rawTasks: Task[], dragged: DraggedDates): Task[] {
+  return rawTasks.map((t) => {
+    const next = dragged.get(t.id);
+    return next
+      ? {
+          ...t,
+          startDate: next.start.toISOString(),
+          endDate: next.end.toISOString(),
+        }
+      : t;
+  });
+}
+
+/**
+ * Runs the scheduling engine for the tasks the drag is moving.
+ * The dragged tasks are the seeds, so only what they reach is rescheduled and the bar
+ * under the pointer stays exactly where the pointer put it.
+ */
+export function reschedule(
+  rawTasks: Task[],
+  dragged: DraggedDates,
+  scheduling: GanttScheduling
+) {
+  return scheduleTasks(applyDraggedDates(rawTasks, dragged), {
+    policy: scheduling.policy,
+    calendar: scheduling.calendar,
+    hierarchy: scheduling.hierarchy,
+    seeds: [...dragged.keys()],
+    onCycle: scheduling.onCycle,
+  });
+}
+
+/**
+ * Live offsets for the successors this frame moved.
+ *
+ * The engine speaks in dates and the preview layer in pixels, so each successor's date
+ * delta goes through the same px-per-drag-step ratio the dragged bar itself uses. Their
+ * duration never changes, so the width offset is always zero.
+ */
+function previewOffsets(
+  rawTasks: Task[],
+  dragged: DraggedDates,
+  scaleKey: GanttScaleKey,
+  scheduling: GanttScheduling
+): { offsets: Record<string, GanttDragOffset>; ids: string[] } {
+  const result = reschedule(rawTasks, dragged, scheduling);
+  if (!result.movedIds.length) return { offsets: {}, ids: [] };
+
+  const before = new Map(rawTasks.map((t) => [t.id, t]));
+  const after = new Map(result.tasks.map((t) => [t.id, t]));
+  const offsets: Record<string, GanttDragOffset> = {};
+
+  for (const id of result.movedIds) {
+    const original = before.get(id);
+    const moved = after.get(id);
+    if (!original || !moved) continue;
+
+    const offsetStartDate = dayjs(moved.startDate);
+
+    offsets[id] = {
+      offsetX: pxBetweenDates(dayjs(original.startDate), offsetStartDate, scaleKey),
+      offsetWidth: 0,
+      offsetStartDate,
+      offsetEndDate: dayjs(moved.endDate),
+    };
+  }
+
+  return { offsets, ids: result.movedIds };
 }
 
 interface DragContext {
@@ -66,6 +142,10 @@ interface DragContext {
   taskIds: string[];
   /** Dates the moving tasks had when the drag started */
   initialDates: Map<string, { start: Dayjs; end: Dayjs }>;
+  /** Successors the last preview frame moved - cleared when they stop moving */
+  previewIds: string[];
+  /** Extra days the working-day calendar snapped the last frame by (0 when it is off) */
+  snapDays: number;
   /** Claimed on the first movement - null while the gesture has not moved the bar yet */
   gateToken: number | null;
   /** The dragged bar's own bounds - null when it has none. Used by the resize modes. */
@@ -105,7 +185,8 @@ function toDragBounds(
 export function useGanttBarDrag(
   task: TaskTransformed,
   options: GanttBarDragOptions = {},
-  interaction?: GanttInteractionConfig
+  interaction?: GanttInteractionConfig,
+  scheduling?: GanttScheduling
 ) {
   const storeApi = useGanttStoreApi();
   const dragContextRef = useRef<DragContext | null>(null);
@@ -256,6 +337,8 @@ export function useGanttBarDrag(
       taskId: task.id,
       taskIds,
       initialDates,
+      previewIds: [],
+      snapDays: 0,
       gateToken: null,
       bounds,
       boundedMembers,
@@ -344,6 +427,43 @@ export function useGanttBarDrag(
           return;
       }
 
+      // With the working-day calendar on, a drop lands on a working day: the edge that
+      // moved snaps forward and everything moving with it follows by the same days.
+      // Done before the bounds clamp below, so a hard min/max always has the last word -
+      // a bar pinned to its bound may sit on a non-working day, the bound may not move.
+      let snapDays = 0;
+      if (scheduling?.calendar.skipsNonWorkingDays) {
+        const anchor = ctx.mode === "right" ? newEndDate : newStartDate;
+        const snapped = scheduling.calendar.snapForward(anchor);
+        snapDays = snapped.diff(anchor, "day");
+
+        // A left-edge resize must not snap past the bar's own end
+        if (ctx.mode === "left" && snapped.valueOf() >= newEndDate.valueOf()) {
+          snapDays = 0;
+        }
+      }
+      ctx.snapDays = snapDays;
+
+      const snapPx = snapDays
+        ? pxBetweenDates(
+            newStartDate,
+            newStartDate.add(snapDays, "day"),
+            ctx.scaleKey
+          )
+        : 0;
+
+      if (snapDays) {
+        if (ctx.mode !== "right") {
+          newStartDate = newStartDate.add(snapDays, "day");
+          offsetX += snapPx;
+        }
+        if (ctx.mode !== "left") {
+          newEndDate = newEndDate.add(snapDays, "day");
+        }
+        if (ctx.mode === "left") offsetWidth -= snapPx;
+        if (ctx.mode === "right") offsetWidth += snapPx;
+      }
+
       // Snap to the allowed window. Offsets are then measured from the clamped
       // dates rather than the raw step count, so the bar stops on the bound
       // instead of overshooting it.
@@ -396,26 +516,39 @@ export function useGanttBarDrag(
       const memberShift =
         ctx.moveDeltaMs !== null
           ? (date: Dayjs) => date.add(ctx.moveDeltaMs as number, "millisecond")
-          : shift;
-      const memberPx = ctx.moveDeltaMs !== null ? offsetX : draggedPx;
+          : (date: Dayjs) => shift(date).add(snapDays, "day");
+      const memberPx =
+        ctx.moveDeltaMs !== null ? offsetX : draggedPx + snapPx;
 
       const offsets: Record<string, GanttDragOffset> = {};
+      const draggedDates: DraggedDates = new Map();
       for (const id of ctx.taskIds) {
         const initial = ctx.initialDates.get(id);
-        offsets[id] =
-          id === ctx.taskId || !initial
-            ? {
-                offsetX,
-                offsetWidth,
-                offsetStartDate: newStartDate,
-                offsetEndDate: newEndDate,
-              }
-            : {
-                offsetX: memberPx,
-                offsetWidth: 0,
-                offsetStartDate: memberShift(initial.start),
-                offsetEndDate: memberShift(initial.end),
-              };
+        const isDraggedBar = id === ctx.taskId || !initial;
+        const start = isDraggedBar ? newStartDate : memberShift(initial.start);
+        const end = isDraggedBar ? newEndDate : memberShift(initial.end);
+
+        offsets[id] = {
+          offsetX: isDraggedBar ? offsetX : memberPx,
+          offsetWidth: isDraggedBar ? offsetWidth : 0,
+          offsetStartDate: start,
+          offsetEndDate: end,
+        };
+        draggedDates.set(id, { start, end });
+      }
+
+      // Preview the successors this move pushes around, and drop the ones it no longer does
+      if (scheduling && scheduling.policy !== "off") {
+        const preview = previewOffsets(
+          storeApi.getState().rawTasks,
+          draggedDates,
+          ctx.scaleKey,
+          scheduling
+        );
+        const stale = ctx.previewIds.filter((id) => !(id in preview.offsets));
+        ctx.previewIds = preview.ids;
+        if (stale.length) storeApi.getState().clearDragOffsets(stale);
+        Object.assign(offsets, preview.offsets);
       }
 
       storeApi.getState().setDragOffsets(offsets);
@@ -508,7 +641,7 @@ export function useGanttBarDrag(
       dragContextRef.current = null;
       dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);
-      storeApi.getState().clearDragOffsets(ctx.taskIds);
+      storeApi.getState().clearDragOffsets([...ctx.taskIds, ...ctx.previewIds]);
     };
 
     // When the browser cancels the gesture (scroll takeover, multi-touch, etc.) revert instead of committing
@@ -542,11 +675,9 @@ export function useGanttBarDrag(
       const shiftDate = (date: string) =>
         ctx.moveDeltaMs !== null
           ? dayjs(date).add(ctx.moveDeltaMs, "millisecond").toISOString()
-          : shiftByDragSteps(
-              dayjs(date),
-              ctx.dragSteps,
-              ctx.scaleKey
-            ).toISOString();
+          : shiftByDragSteps(dayjs(date), ctx.dragSteps, ctx.scaleKey)
+              .add(ctx.snapDays, "day")
+              .toISOString();
 
       // A clamped resize commits the clamped dates, so a bar dropped against a
       // bound reports exactly the bound to onTasksChange
@@ -555,7 +686,7 @@ export function useGanttBarDrag(
 
       // However many tasks moved, there is one updated array - onTasksChange fires once
       const movedIds = new Set(ctx.taskIds);
-      const updatedTasks = currentRawTasks.map((t) => {
+      const draggedTasks = currentRawTasks.map((t) => {
         if (!movedIds.has(t.id)) return t;
 
         switch (ctx.mode) {
@@ -583,10 +714,28 @@ export function useGanttBarDrag(
         }
       });
 
+      // The engine runs at drop as well as during the preview, so the payload the host
+      // is asked to approve describes the whole cascade, not just the bar that moved
+      const draggedDates: DraggedDates = new Map(
+        draggedTasks
+          .filter((t) => movedIds.has(t.id))
+          .map((t) => [
+            t.id,
+            { start: dayjs(t.startDate), end: dayjs(t.endDate) },
+          ])
+      );
+      const cascading = scheduling !== undefined && scheduling.policy !== "off";
+      const dropCascade = cascading
+        ? reschedule(draggedTasks, draggedDates, scheduling)
+        : null;
+      const updatedTasks = dropCascade ? dropCascade.tasks : draggedTasks;
+
       const change = buildTaskChange({
         type: ctx.mode === "bar" ? "move" : "resize",
         taskId: ctx.taskId,
-        changedIds: ctx.taskIds,
+        changedIds: dropCascade
+          ? [...new Set([...ctx.taskIds, ...dropCascade.movedIds])]
+          : ctx.taskIds,
         previous: currentRawTasks,
         next: updatedTasks,
         edge:
@@ -596,10 +745,17 @@ export function useGanttBarDrag(
       // Written against the tasks as they are at commit time, not against the snapshot
       // taken at drop - another bar may have committed while a veto was in flight
       const commit = () => {
-        const edited = new Map(change.changedTasks.map((t) => [t.id, t]));
-        const merged = storeApi
-          .getState()
-          .rawTasks.map((t) => edited.get(t.id) ?? t);
+        const live = storeApi.getState().rawTasks;
+        // With the engine on, the cascade is recomputed from the live predecessors
+        // rather than replayed: replaying the drop-time result would overwrite an edit
+        // that landed while the veto was in flight. The gesture's own dates are absolute,
+        // so they still land exactly where the user dropped them.
+        const merged = cascading
+          ? reschedule(live, draggedDates, scheduling).tasks
+          : (() => {
+              const edited = new Map(change.changedTasks.map((t) => [t.id, t]));
+              return live.map((t) => edited.get(t.id) ?? t);
+            })();
 
         // The undo step is recorded here, not at drop: commitTasks diffs against the
         // same rawTasks the merge above just read, so undo writes back the values that
@@ -610,14 +766,16 @@ export function useGanttBarDrag(
       };
 
       // Nothing was written, so dropping the drag offsets puts the bar back where it
-      // started - the reverting flag is only there to make that a transition
+      // started - the reverting flag is only there to make that a transition. The
+      // cascade lived in those offsets too, so its ids revert with the dragged ones.
+      const revertIds = [...new Set([...ctx.taskIds, ...ctx.previewIds])];
       const rollback = () => {
         undoAutoScroll(ctx);
         const state = storeApi.getState();
-        state.beginRevert(ctx.taskIds);
-        state.clearDragOffsets(ctx.taskIds);
+        state.beginRevert(revertIds);
+        state.clearDragOffsets(revertIds);
         setTimeout(
-          () => storeApi.getState().endRevert(ctx.taskIds),
+          () => storeApi.getState().endRevert(revertIds),
           REVERT_DURATION_MS
         );
       };

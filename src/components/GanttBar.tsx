@@ -14,7 +14,11 @@ import {
 import { useGanttProgressDrag } from "hooks/useGanttProgressDrag";
 import { CSSProperties, useRef, useState, useCallback, useMemo } from "react";
 import { useGanttStore } from "stores/context";
-import { GanttBarOptions, GanttTooltipReason } from "types/gantt";
+import {
+  GanttBarOptions,
+  GanttScheduling,
+  GanttTooltipReason,
+} from "types/gantt";
 import {
   GanttInteractionConfig,
   isMilestoneTask,
@@ -22,7 +26,7 @@ import {
   resolveTaskInteraction,
   TaskTransformed,
 } from "types/task";
-import dayjs from "utils/dayjs";
+import dayjs from "core/dates";
 import { LinkAnchor } from "utils/dependency";
 import { resolveFormatters } from "utils/i18n";
 
@@ -30,6 +34,7 @@ interface GanttBarProps {
   currentTask: TaskTransformed;
   options?: GanttBarOptions;
   interaction?: GanttInteractionConfig;
+  scheduling?: GanttScheduling;
   /** Scroll the timeline when the drag reaches a viewport edge (default true) */
   autoScrollOnDrag?: boolean;
   onDependencyCreate?: (change: GanttDependencyChange) => boolean | void;
@@ -48,6 +53,7 @@ export default function GanttBar({
   currentTask,
   options = NO_OPTIONS,
   interaction,
+  scheduling,
   autoScrollOnDrag = true,
   onDependencyCreate,
 }: GanttBarProps) {
@@ -65,7 +71,8 @@ export default function GanttBar({
   const { onPointerDown, dragMode, consumeDragClick } = useGanttBarDrag(
     currentTask,
     { onTasksChange, onBeforeTaskChange, autoScroll: autoScrollOnDrag },
-    interaction
+    interaction,
+    scheduling
   );
   const { canMove, canResize, canChangeProgress, canCreateLink } =
     resolveTaskInteraction(currentTask, interaction);
@@ -345,8 +352,8 @@ export default function GanttBar({
         ref={barRef}
         id={`task-${currentTask.id}`}
         data-task-id={currentTask.id}
-        className={`gantt-milestone${
-          isDragging ? " dragging" : ""
+        className={`gantt-milestone${isDragging ? " dragging" : ""}${
+          currentTask.critical ? " critical" : ""
         }${linkTargetClass}${suffix}`}
         onPointerDown={onPointerDown}
         onClick={handleClick}
@@ -376,6 +383,8 @@ export default function GanttBar({
         labelOutside ? " compact" : ""
       }${currentTask.isSummary ? " summary" : ""}${
         canResize ? "" : " no-resize"
+      }${
+        currentTask.critical ? " critical" : ""
       }${linkTargetClass}${suffix}`}
       onPointerDown={onPointerDown}
       onClick={handleClick}

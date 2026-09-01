@@ -1,6 +1,6 @@
 import { Dayjs } from "dayjs";
 import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
-import dayjs from "utils/dayjs";
+import dayjs from "core/dates";
 import { calculateDateOffsetPx } from "utils/timeline";
 
 /** Date range the export is clipped to */

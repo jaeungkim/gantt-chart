@@ -9,7 +9,7 @@ import {
   RowDropTarget,
 } from "utils/rowDrag";
 import { sortTasksBySequence } from "utils/transformData";
-import { buildTaskTree, collectSubtreeIds, TaskTree } from "utils/tree";
+import { buildTaskTree, collectSubtreeIds, TaskTree } from "core/tree";
 
 /** Pointer travel before a press on a row counts as a drag rather than a click (px) */
 const DRAG_THRESHOLD = 3;
