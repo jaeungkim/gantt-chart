@@ -27,7 +27,8 @@ Currently, this project is built specifically for React due to my development ba
   - Move entire task bars
   - Resize from left/right edges
   - Snap to configured intervals
-- 🧲 Smart dependency arrows (FS, SS, FF, SF)
+- 🧲 Smart dependency arrows (FS, SS, FF, SF), drawn between bars by dragging and removed by selecting
+- ✏️ Draw a new task on empty row space, snapped to the current scale
 - ◆ Milestones and per-task progress
 - 🗓️ Weekend and holiday shading
 - ⚡ Virtualized rendering for performance
@@ -115,6 +116,13 @@ export default function App() {
 | `collapsedIds` | `string[]` | - | Ids of collapsed parents (controlled) |
 | `defaultCollapsedIds` | `string[]` | - | Initial collapsed ids (uncontrolled seed) |
 | `onCollapsedChange` | `(ids: string[]) => void` | - | Fires whenever a row is expanded or collapsed |
+| `readOnly` | `boolean` | `false` | Blocks every editing gesture. A task's own `readOnly` and the `allow*` flags win over it |
+| `allowLinkCreate` | `boolean` | `true` | Show the connector dots and accept dependency drags ([editing dependencies](#editing-dependencies)) |
+| `allowLinkDelete` | `boolean` | `true` | Let arrows be selected and removed |
+| `allowTaskCreate` | `boolean` | `true` | Let a task be drawn on empty row space ([drawing a task](#drawing-a-task)) |
+| `onDependencyCreate` | `(change: GanttDependencyChange) => boolean \| void` | - | Fires before a drawn link is applied — return `false` to reject it |
+| `onDependencyDelete` | `(change: GanttDependencyChange) => boolean \| void` | - | Fires before an arrow is removed — return `false` to keep it |
+| `onTaskCreate` | `(draft: GanttTaskDraft) => void` | - | Fires with the range drawn on empty row space. Required for the gesture to do anything |
 
 ## Task List and Hierarchy
 
@@ -183,6 +191,106 @@ With `hierarchy` on, `parentId` becomes the source of truth:
 Collapse state is controlled with `collapsedIds` and uncontrolled with `defaultCollapsedIds`;
 `onCollapsedChange` fires either way, so a host can persist it wherever it likes.
 
+## Editing dependencies
+
+Hovering a bar reveals a connector dot at each end. Dragging from one dot to another bar
+draws the link; a dashed rubber band follows the pointer and the bar under it is outlined.
+
+**The direction of the gesture is the direction of the dependency**: the bar the drag starts
+on becomes the predecessor, the bar it is dropped on the successor (the one whose
+`dependencies` array gains the entry). Which end each side is connected at decides the type:
+
+| Drag starts at | Dropped on the target's | Type |
+|---|---|---|
+| the predecessor's **end** | **start** half | `FS` |
+| the predecessor's **start** | **start** half | `SS` |
+| the predecessor's **end** | **end** half | `FF` |
+| the predecessor's **start** | **end** half | `SF` |
+
+Self-links, links that already exist and links that would close a cycle (direct or through
+any chain) are rejected **during** the drag: the rubber band and the target turn red and name
+the reason, and releasing there commits nothing. `Escape` cancels the drag.
+
+Clicking an arrow selects it. `Delete` / `Backspace` removes it, as does the ✕ that appears on
+the selected arrow; `Escape` or a click elsewhere deselects. Keystrokes are ignored while the
+focus is in an input, textarea, select or contenteditable, so the host's own forms keep their
+keys.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  onDependencyCreate={({ predecessorId, successorId, type }) => {
+    if (type === 'SF') return false;      // reject: nothing is applied
+    void api.link(predecessorId, successorId, type);
+  }}
+  onDependencyDelete={({ predecessorId, successorId }) =>
+    window.confirm(`Unlink ${predecessorId} → ${successorId}?`)
+  }
+/>;
+```
+
+Both callbacks run **before** anything changes and cancel the edit by returning `false`.
+Accepted edits arrive as a whole new array through `onTasksChange`, exactly once per gesture.
+
+```ts
+interface GanttDependencyChange {
+  predecessorId: string;  // the bar the drag started on
+  successorId: string;    // the bar it landed on - its dependencies array changes
+  type: DependencyType;
+}
+```
+
+## Drawing a task
+
+With `onTaskCreate` given, dragging horizontally across the empty part of a row draws a ghost
+bar snapped to the current scale's ticks (days on the month scale, months on the year scale,
+and so on) and hands the range to the host on release:
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTaskCreate={({ startDate, endDate, rowTaskId }) => {
+    const name = window.prompt('Task name');
+    if (!name) return;                    // veto: nothing is added
+    setTasks((current) => [
+      ...current,
+      { id: crypto.randomUUID(), name, startDate, endDate, parentId: null, sequence: `${current.length + 1}` },
+    ]);
+  }}
+/>;
+```
+
+**The chart never adds the task itself** - it only proposes one, and the row appears when the
+host passes the new `tasks` array back in. A drag shorter than 4px counts as a click and
+proposes nothing.
+
+```ts
+interface GanttTaskDraft {
+  startDate: string;         // UTC ISO, snapped to the current scale
+  endDate: string;
+  rowTaskId: string | null;  // the task whose row was drawn on - useful for parentId/sequence
+}
+```
+
+## Read-only and per-task flags
+
+`readOnly` freezes the whole chart; every `allow*` flag beats it, and a task's own field beats
+both. The order, most specific first, is
+`task.allowX` > `task.readOnly` > `chart.allowX` > `chart.readOnly` > allowed:
+
+```tsx
+// Frozen chart, except that one task's arrows may still be removed
+<ReactGanttChart
+  readOnly
+  tasks={[{ ...task, allowLinkDelete: true }]}
+  onTasksChange={setTasks}
+/>;
+```
+
+`readOnly` also takes the affordances away, not just the effect: no connector dots appear, and
+arrows stop being clickable.
+
 ## Imperative API
 
 Pass a ref to scroll the chart programmatically:
@@ -216,7 +324,10 @@ interface Task {
   sequence: string;
   type?: 'task' | 'milestone';   // milestones render as a diamond at startDate
   progress?: number;             // 0-100, draws a fill inside the bar
-  dependencies?: TaskDependency[];
+  dependencies?: TaskDependency[];  // this task's predecessors
+  readOnly?: boolean;               // freeze this task's gestures
+  allowLinkCreate?: boolean;        // beats readOnly, on the task and on the chart
+  allowLinkDelete?: boolean;
 }
 
 interface TaskDependency {
