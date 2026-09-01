@@ -1,86 +1,11 @@
-import { MILESTONE_HALF_DIAGONAL, NODE_HEIGHT } from "constants/gantt";
+import { NODE_HEIGHT } from "constants/gantt";
+import { useId } from "react";
 import { useGanttStore } from "stores/store";
-import { isMilestoneTask, RenderedDependency, TaskTransformed } from "types/task";
-import { getSmartGanttPath } from "utils/arrowPath";
+import { TaskTransformed } from "types/task";
+import { buildDependencies, getSmartGanttPath } from "utils/arrowPath";
 
 interface Props {
   transformedTasks: TaskTransformed[];
-}
-
-// Helper function to calculate arrow coordinates
-function calculateArrowCoords(
-  sourceTask: TaskTransformed,
-  targetTask: TaskTransformed,
-  sourceOffset: { offsetX: number; offsetWidth: number },
-  depType: string
-) {
-  const rowHeight = NODE_HEIGHT;
-  const sourceIndex = sourceTask.order - 1;
-  const targetIndex = targetTask.order - 1;
-
-  // 바 중앙 높이에서 연결 (전통적인 Gantt 차트 스타일)
-  const barCenterY = rowHeight / 2;
-  const fromY = targetIndex * rowHeight + barCenterY;
-  const toY = sourceIndex * rowHeight + barCenterY;
-
-  // 마일스톤은 다이아몬드 꼭짓점에 화살표 연결
-  const targetHalf = isMilestoneTask(targetTask) ? MILESTONE_HALF_DIAGONAL : 0;
-  const sourceHalf = isMilestoneTask(sourceTask) ? MILESTONE_HALF_DIAGONAL : 0;
-
-  const leftX = targetTask.barLeft - targetHalf;
-  const rightX = targetTask.barLeft + (targetHalf || targetTask.barWidth);
-
-  const currentLeftX = sourceTask.barLeft + sourceOffset.offsetX - sourceHalf;
-  const currentRightX = sourceHalf
-    ? sourceTask.barLeft + sourceOffset.offsetX + sourceHalf
-    : sourceTask.barLeft +
-      sourceOffset.offsetX +
-      sourceTask.barWidth +
-      sourceOffset.offsetWidth;
-
-  // 의존성 타입에 따른 X 좌표 설정
-  // FS: 선행 태스크 우측 → 후행 태스크 좌측
-  // SS: 선행 태스크 좌측 → 후행 태스크 좌측
-  // FF: 선행 태스크 우측 → 후행 태스크 우측
-  // SF: 선행 태스크 좌측 → 후행 태스크 우측
-  const coordinateMap = {
-    FS: [rightX, currentLeftX] as const,
-    SS: [leftX, currentLeftX] as const,
-    FF: [rightX, currentRightX] as const,
-    SF: [leftX, currentRightX] as const,
-  };
-
-  const [fromX, toX] = coordinateMap[depType as keyof typeof coordinateMap];
-
-  return { fromX, fromY, toX, toY };
-}
-
-// 의존성 배열 빌드
-function buildDependencies(
-  transformedTasks: TaskTransformed[],
-  liveOffsets: Record<string, { offsetX: number; offsetWidth: number }>
-): RenderedDependency[] {
-  const dependencies: RenderedDependency[] = [];
-
-  for (const currentTask of transformedTasks) {
-    const offset = liveOffsets[currentTask.id] ?? { offsetX: 0, offsetWidth: 0 };
-
-    for (const dep of currentTask.dependencies ?? []) {
-      const targetTask = transformedTasks.find((t) => t.id === dep.targetId);
-      if (!targetTask) continue;
-
-      const { fromX, fromY, toX, toY } = calculateArrowCoords(
-        currentTask,
-        targetTask,
-        offset,
-        dep.type
-      );
-
-      dependencies.push({ ...dep, fromX, fromY, toX, toY });
-    }
-  }
-
-  return dependencies;
 }
 
 export default function GanttDependencyArrows({
@@ -88,6 +13,11 @@ export default function GanttDependencyArrows({
 }: Props) {
   const liveOffsets = useGanttStore((store) => store.dragOffsets);
   const dependencies = buildDependencies(transformedTasks, liveOffsets);
+
+  // marker id는 문서 전역이라 인스턴스마다 고유해야 차트를 여러 개 띄워도 안 섞인다
+  // useId 값에는 url(#...) 참조에 부적합한 문자가 섞이므로 영숫자만 남긴다
+  const instanceId = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const arrowheadId = `gantt-arrowhead-${instanceId}`;
 
   return (
     <svg
@@ -98,7 +28,7 @@ export default function GanttDependencyArrows({
     >
       <defs>
         <marker
-          id="arrowhead"
+          id={arrowheadId}
           markerWidth="5"
           markerHeight="5"
           refX="4.5"
@@ -123,7 +53,7 @@ export default function GanttDependencyArrows({
             dep.toX,
             dep.toY
           )}
-          markerEnd="url(#arrowhead)"
+          markerEnd={`url(#${arrowheadId})`}
           fill="none"
         />
       ))}

@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import dayjs from 'utils/dayjs';
-import { DATE_FORMATS, GANTT_SCALE_CONFIG } from 'constants/gantt';
-import { normalizeProgress, type Task } from 'types/task';
-import { getSmartGanttPath } from './arrowPath';
+import {
+  DATE_FORMATS,
+  GANTT_SCALE_CONFIG,
+  MILESTONE_HALF_DIAGONAL,
+  NODE_HEIGHT,
+} from 'constants/gantt';
+import { normalizeProgress, type Task, type TaskTransformed } from 'types/task';
+import { buildDependencies, getSmartGanttPath } from './arrowPath';
 import { mergeHeaderGroups } from './headerUtils';
 import {
   calculateDateOffsetPx,
@@ -211,6 +216,80 @@ describe('getSmartGanttPath', () => {
   it('falls back for off-screen rows and unknown dependency types', () => {
     expect(getSmartGanttPath('FS', 10, 5, 110, -3)).toBe('M 10 5 h 50');
     expect(getSmartGanttPath('XX', 0, 0, 10, 20)).toBe('M 0 0 L 10 20');
+  });
+});
+
+describe('buildDependencies', () => {
+  // A(order 1) is the predecessor, B(order 2) owns the FS dependency on A.
+  const bar = (
+    id: string,
+    order: number,
+    barLeft: number,
+    extra: Partial<TaskTransformed> = {},
+  ): TaskTransformed => ({
+    ...task(id, `${order}`),
+    barLeft,
+    barWidth: 64,
+    depth: 0,
+    order,
+    originalOrder: order,
+    ...extra,
+  });
+  const chain = (extra: Partial<TaskTransformed> = {}) => [
+    bar('a', 1, 100, extra),
+    bar('b', 2, 300, { dependencies: [{ targetId: 'a', type: 'FS' }] }),
+  ];
+  const center = NODE_HEIGHT / 2;
+
+  it('anchors an FS arrow from the predecessor end to the successor start', () => {
+    expect(buildDependencies(chain(), {})).toEqual([
+      { targetId: 'a', type: 'FS', fromX: 164, fromY: center, toX: 300, toY: NODE_HEIGHT + center },
+    ]);
+  });
+
+  it('follows the live offset of whichever end is being dragged', () => {
+    // 선행(A)을 드래그하면 화살표 시작점이 따라와야 한다 (#66)
+    expect(
+      buildDependencies(chain(), { a: { offsetX: 32, offsetWidth: 0 } })[0],
+    ).toMatchObject({ fromX: 196, toX: 300 });
+    // 선행의 우측 리사이즈도 마찬가지
+    expect(
+      buildDependencies(chain(), { a: { offsetX: 0, offsetWidth: 32 } })[0],
+    ).toMatchObject({ fromX: 196, toX: 300 });
+    // 후행(B)을 드래그하면 도착점만 움직인다
+    expect(
+      buildDependencies(chain(), { b: { offsetX: -32, offsetWidth: 0 } })[0],
+    ).toMatchObject({ fromX: 164, toX: 268 });
+  });
+
+  it('anchors milestones at the diamond vertices, offset included', () => {
+    const [dep] = buildDependencies(chain({ type: 'milestone', barWidth: 1 }), {
+      a: { offsetX: 32, offsetWidth: 0 },
+    });
+    expect(dep.fromX).toBe(132 + MILESTONE_HALF_DIAGONAL);
+  });
+
+  it('skips an unrecognized dependency type instead of throwing, warning once', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // consumer가 넘기는 JSON에는 타입 밖의 값이 올 수 있다
+    const unknownDep = [
+      { targetId: 'a', type: 'fs' },
+    ] as unknown as TaskTransformed['dependencies'];
+    const tasks = [
+      bar('a', 1, 100),
+      bar('b', 2, 300, { dependencies: unknownDep }),
+      bar('c', 3, 500, { dependencies: unknownDep }),
+    ];
+
+    expect(buildDependencies(tasks, {})).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it('skips dependencies pointing at a task that is not in the chart', () => {
+    expect(
+      buildDependencies([bar('b', 1, 300, { dependencies: [{ targetId: 'gone', type: 'FS' }] })], {}),
+    ).toEqual([]);
   });
 });
 
