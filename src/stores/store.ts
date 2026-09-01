@@ -2,6 +2,7 @@ import { GANTT_SCALE_CONFIG } from "constants/gantt";
 import {
   GanttBottomRowCell,
   GanttDragOffset,
+  GanttLocaleOptions,
   GanttScaleKey,
 } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
@@ -39,9 +40,12 @@ export interface GanttState {
   currentTask: TaskTransformed | null;
   dragOffsets: Record<string, GanttDragOffset>;
   transformedTasks: TaskTransformed[];
+  /** Locale and label formats - undefined means the built-in English labels */
+  localeOptions: GanttLocaleOptions | undefined;
 
   // Actions
   setSelectedScale: (scale: GanttScaleKey) => void;
+  setLocaleOptions: (options: GanttLocaleOptions | undefined) => void;
   setCurrentTask: (task: TaskTransformed | null) => void;
   setRawTasks: (rawTasks: Task[]) => void;
   setBottomRowCells: (cells: GanttBottomRowCell[]) => void;
@@ -74,8 +78,11 @@ export function createGanttStore(
     selectedScale: "month",
     currentTask: null,
     dragOffsets: {},
+    localeOptions: undefined,
 
     setCurrentTask: (task) => set({ currentTask: task }),
+
+    setLocaleOptions: (options) => set({ localeOptions: options }),
 
     // Session persistence happens only here - with the persist middleware, every store
     // update would write to sessionStorage synchronously, drag frames included

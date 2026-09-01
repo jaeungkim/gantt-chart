@@ -4,12 +4,15 @@ import {
   GanttBottomRowCell,
   GanttDragBounds,
   GanttDragMode,
+  GanttLabelUnit,
+  GanttLocaleOptions,
   GanttScaleKey,
   GanttTopHeaderGroup,
   GanttVisibleRange,
 } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
-import dayjs from "utils/dayjs";
+import dayjs, { startOfQuarter, startOfWeek } from "utils/dayjs";
+import { resolveFormatters, resolveLabelUnit } from "utils/i18n";
 import { transformTasks } from "./transformData";
 import { buildTaskTree, rollUpTasks } from "./tree";
 
@@ -385,15 +388,30 @@ function createBottomRowCells(
 }
 
 /**
+ * First moment of the group a cell belongs to
+ * 'quarter' and 'week' are not dayjs units of their own - see utils/dayjs
+ */
+function groupStartDate(
+  date: Dayjs,
+  labelUnit: GanttLabelUnit,
+  firstDayOfWeek?: number
+): Dayjs {
+  if (labelUnit === "quarter") return startOfQuarter(date);
+  if (labelUnit === "week") return startOfWeek(date, firstDayOfWeek);
+  return date.startOf(labelUnit);
+}
+
+/**
  * Builds the top header groups from the bottom cells
  * Used by the header component
  */
 export function createTopHeaderGroups(
   bottomCells: GanttBottomRowCell[],
-  selectedScale: GanttScaleKey
+  selectedScale: GanttScaleKey,
+  localeOptions?: GanttLocaleOptions
 ): GanttTopHeaderGroup[] {
-  const config = GANTT_SCALE_CONFIG[selectedScale];
-  const { labelUnit, formatHeaderLabel } = config;
+  const labelUnit = resolveLabelUnit(selectedScale, localeOptions);
+  const { header } = resolveFormatters(selectedScale, localeOptions);
 
   if (bottomCells.length === 0) return [];
 
@@ -401,9 +419,13 @@ export function createTopHeaderGroups(
   let currentGroup: GanttTopHeaderGroup | null = null;
 
   for (const cell of bottomCells) {
-    const start = cell.startDate.startOf(labelUnit);
+    const start = groupStartDate(
+      cell.startDate,
+      labelUnit,
+      localeOptions?.firstDayOfWeek
+    );
     const key = start.valueOf();
-    const label = formatHeaderLabel?.(start) ?? start.format();
+    const label = header(start);
 
     if (currentGroup && currentGroup.startDate.valueOf() === key) {
       currentGroup.widthPx += cell.widthPx;
