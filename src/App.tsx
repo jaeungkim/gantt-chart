@@ -12,13 +12,16 @@ import type { Task } from "types/task";
 import { schedulingTasks, sourceTasks } from "../db";
 
 // Dev playground only (not part of the published package) - append ?locale=ko-KR to
-// preview the localized labels, ?readOnly=1 to freeze every gesture, and ?veto=1 to
-// have the host reject what the link and draw gestures propose
+// preview the localized labels, ?readOnly=1 to freeze every gesture, ?veto=1 to have
+// the host reject what the link and draw gestures propose, ?groupBy=1 for swimlanes
+// and ?lanes=1 to put three tasks on one row
 const params = new URLSearchParams(window.location.search);
 const locale = params.get("locale") ?? undefined;
 const weekStart = params.get("firstDayOfWeek");
 const readOnly = params.get("readOnly") === "1";
 const veto = params.get("veto") === "1";
+const grouped = params.get("groupBy") !== null;
+const lanes = params.get("lanes") !== null;
 // ?veto=reject turns every change down half a second after the drop (?veto=3000 for a
 // slower answer), ?renderBar=1 swaps in a custom bar - both there to exercise the drag
 // paths by hand
@@ -37,6 +40,18 @@ const markers: GanttMarker[] = [
 const rangeBands: GanttRangeBand[] = [
   { id: "sprint-1", startDate: day(-2), endDate: day(5), label: "Sprint 1" },
 ];
+
+const status = (task: Task) =>
+  task.progress === 100
+    ? "Done"
+    : (task.progress ?? 0) > 0
+      ? "In progress"
+      : "Not started";
+
+// Two tasks that overlap plus one that does not, so the packing is visible
+const withLanes: Task[] = sourceTasks.map((task, index) =>
+  index < 3 ? { ...task, lane: "Shared" } : task
+);
 
 /** Dev playground - not part of the published bundle */
 const POLICIES: SchedulingPolicy[] = ["off", "shift-on-overlap", "maintain-gap"];
@@ -84,7 +99,9 @@ function App() {
 
   const switchDataset = (next: "scheduling" | "full") => {
     setDataset(next);
-    setTasks(next === "scheduling" ? schedulingTasks : sourceTasks);
+    setTasks(
+      next === "scheduling" ? schedulingTasks : lanes ? withLanes : sourceTasks
+    );
   };
 
   return (
@@ -210,6 +227,7 @@ function App() {
           locale={locale}
           firstDayOfWeek={weekStart === null ? undefined : Number(weekStart)}
           hierarchy={dataset === "full"}
+          groupBy={grouped ? status : undefined}
           allowRowReorder
           schedulingPolicy={policy}
           onSchedulingCycle={setCycle}

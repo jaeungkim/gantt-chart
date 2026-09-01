@@ -30,6 +30,8 @@ Currently, this project is built specifically for React due to my development ba
 - ↩️ Undo/redo — one step per gesture, keyboard shortcuts and an imperative API
 - 👆 Touch support — long-press to lift a bar, swipe to scroll
 - 🧲 Smart dependency arrows (FS, SS, FF, SF) with signed lag/lead, drawn between bars by dragging and removed by selecting
+- 🏊 Grouping into swimlanes by any field, and several tasks per row through lanes
+- ⌨️ Full keyboard operation - move, resize and delete without a pointer - on an ARIA `treegrid`
 - ⚙️ Auto-scheduling: a drag propagates to successors, with cycle detection
 - 🗓️ Working-day calendar: durations, lag and snapping skip weekends and holidays
 - 🔺 Critical path and slack (CPM forward + backward pass)
@@ -162,6 +164,8 @@ export default function App() {
 | `onDependencyCreate` | `(change: GanttDependencyChange) => boolean \| void` | - | Fires before a drawn link is applied — return `false` to reject it |
 | `onDependencyDelete` | `(change: GanttDependencyChange) => boolean \| void` | - | Fires before an arrow is removed — return `false` to keep it |
 | `onTaskCreate` | `(draft: GanttTaskDraft) => void` | - | Fires with the range drawn on empty row space. Required for the gesture to do anything |
+| `groupBy` | `string \| (task) => string` | - | Group rows into swimlanes by a task field or an accessor ([grouping](#grouping-and-swimlanes)) |
+| `ungroupedLabel` | `string` | `"Ungrouped"` | Header label for tasks whose group value is missing |
 | `schedulingPolicy` | `"off" \| "shift-on-overlap" \| "maintain-gap"` | `"off"` | How a drag propagates to the dragged task's successors |
 | `onSchedulingCycle` | `(taskIds: string[]) => void` | - | Called with the ids caught in a dependency cycle |
 | `workingCalendar` | `boolean` | `false` | Route date arithmetic through a working-day calendar |
@@ -234,6 +238,122 @@ With `hierarchy` on, `parentId` becomes the source of truth:
 
 Collapse state is controlled with `collapsedIds` and uncontrolled with `defaultCollapsedIds`;
 `onCollapsedChange` fires either way, so a host can persist it wherever it likes.
+
+## Grouping and Swimlanes
+
+`groupBy` puts every row into a group and draws a header row in front of each one. It takes
+a task field name or an accessor, and the value it returns is the header label.
+
+```tsx
+// by a field on the task
+<ReactGanttChart tasks={tasks} showTaskList groupBy="assignee" />
+
+// or by anything you can compute
+<ReactGanttChart
+  tasks={tasks}
+  showTaskList
+  groupBy={(task) => (task.progress === 100 ? 'Done' : 'In progress')}
+/>
+```
+
+- Groups appear in **first-appearance order** - the order their first task has in the
+  `sequence` sort. There is no separate ordering prop and no group with nothing in it.
+- A task whose group value is empty, `null` or `undefined` lands in one **`Ungrouped`**
+  bucket; rename it with `ungroupedLabel`.
+- **Group headers collapse like any other row**, through the same `collapsedIds` /
+  `defaultCollapsedIds` / `onCollapsedChange` triple, under the id `` `group:<value>` ``.
+
+### Several tasks on one row
+
+Give tasks the same `lane` and they share a row:
+
+```tsx
+const tasks = [
+  { id: '1', name: 'Design',   lane: 'Ana', startDate: '2026-03-02T00:00:00Z', endDate: '2026-03-06T00:00:00Z', /* ... */ },
+  { id: '2', name: 'Handover', lane: 'Ana', startDate: '2026-03-09T00:00:00Z', endDate: '2026-03-11T00:00:00Z', /* ... */ },
+  { id: '3', name: 'Review',   lane: 'Ana', startDate: '2026-03-04T00:00:00Z', endDate: '2026-03-05T00:00:00Z', /* ... */ },
+];
+```
+
+Tasks 1 and 2 do not overlap, so they are drawn side by side on one row. Task 3 overlaps
+task 1, so it **stacks onto a second row** rather than being drawn on top of it - lanes are
+packed greedily, in start-date order, into as few rows as the overlaps allow. A task that
+starts exactly when the previous one ends still shares the row. Lanes are packed inside
+their group, so two tasks with the same lane in different groups never merge.
+
+The task list shows the row's first task with a `+N` badge for the rest.
+
+### How grouping composes with hierarchy
+
+With both `groupBy` and `hierarchy` on, **grouping decides the top level and the `parentId`
+nesting is kept inside each group**:
+
+- A task's group is read off its **root ancestor**, never off the task itself, so a subtree
+  is never split across two groups even when a child's own field says otherwise.
+- Inside a group the tree is unchanged: indentation, summary bars, subtree drag and
+  progress roll-up all behave exactly as they do without grouping.
+- Levels shift down by one - the group header is `aria-level` 1, a root task is 2, its child
+  is 3, and so on.
+- Summary roll-up happens **before** grouping, so a summary's dates are its children's dates
+  regardless of how the rows are then grouped.
+
+## Keyboard and Screen Readers
+
+The chart is a single ARIA `treegrid`: the task list holds the rows and each row *owns* its
+bars in the timeline (`aria-owns`), so the two panes read as one widget rather than two
+unrelated lists. **Tab enters and leaves the whole chart once** - inside it, the arrow keys
+move a roving tabindex from cell to cell.
+
+Every pointer gesture has a keyboard equivalent, so nothing on the chart depends on being
+able to drag (WCAG 2.1 *2.5.7 Dragging Movements*).
+
+| Key | Action |
+|-----|--------|
+| <kbd>Tab</kbd> | Enter or leave the chart - one stop, wherever the focus was left |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | Previous / next row, keeping the column |
+| <kbd>←</kbd> / <kbd>→</kbd> | Previous / next cell - across the task list columns and on to the bars |
+| <kbd>→</kbd> on the first cell | Expand a collapsed row or group |
+| <kbd>←</kbd> on the first cell | Collapse an expanded row or group |
+| <kbd>Home</kbd> / <kbd>End</kbd> | First / last cell of the row |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Home</kbd> / <kbd>End</kbd> | First / last row of the chart |
+| <kbd>Enter</kbd> / <kbd>Space</kbd> | Expand or collapse an expandable row, otherwise announce the focused task |
+| <kbd>Delete</kbd> / <kbd>Backspace</kbd> | Delete the focused task and its subtree |
+| <kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd> | **Move** the bar one drag step earlier / later |
+| <kbd>Shift</kbd> + <kbd>←</kbd> / <kbd>→</kbd> | **Resize** the end date by one drag step |
+| <kbd>Shift</kbd> + <kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd> | **Resize** the start date by one drag step |
+| <kbd>+</kbd> / <kbd>-</kbd> | Progress up / down by 5 points |
+
+One drag step is the scale's own snap unit - a day on the month scale, six hours on the week
+scale, fifteen minutes on the hour scale - so a keyboard edit lands on exactly the same date
+a drag of the same distance would.
+
+Every edit goes through the same permission check as a drag: **a read-only chart cannot be
+edited from the keyboard either**, milestones and summary rows still refuse to resize, drag
+bounds still clamp, and a summary still carries its subtree and commits one `onTasksChange`.
+A refused key press is announced rather than silently ignored.
+
+### ARIA structure
+
+```
+treegrid  "Gantt chart"                aria-rowcount
+├─ row                                 the column header row
+│  └─ columnheader ...                 one per column, plus a hidden "Timeline"
+└─ rowgroup
+   └─ row       aria-level             1 for a group header or a root task
+                aria-posinset/setsize  position among the rows sharing its parent
+                aria-expanded          only on a summary row or a group header
+                aria-owns              the row's bars, over in the timeline
+      ├─ gridcell  ...                 one per task list column
+      └─ gridcell  "Design phase, Mar 3 to Mar 14, 40% complete"
+```
+
+Bars carry the dates and the percentage in their label because a screen reader user never
+sees the date header above them; milestones read as `"Launch, milestone, Mar 3"` and summary
+rows as `"Phase 1, summary, ..."`. Date changes made from the keyboard are announced through
+a polite live region, and animations are dropped under `prefers-reduced-motion`.
+
+Without the task list pane the timeline rows become the treegrid's rows, and everything
+above holds unchanged.
 
 ## Interaction Control
 
@@ -1009,6 +1129,7 @@ interface Task {
   progress?: number;             // 0-100, draws a fill inside the bar
   color?: string;                // any CSS color; the fill and hover shade derive from it
   className?: string;            // added to this task's bar and its task-list row
+  lane?: string;                 // share a row with the other tasks in this lane
   dependencies?: TaskDependency[];
 
   // Per-task interaction overrides - each one wins over the chart-level prop
@@ -1269,6 +1390,8 @@ The stylesheet loads no remote fonts; it uses the system font stack unless you o
 - [x] Touch gestures ([touch](#touch))
 - [x] Custom bar colors
 - [x] Keyboard-accessible scale selector
+- [x] Keyboard navigation and ARIA treegrid ([keyboard map](#keyboard-and-screen-readers))
+- [x] Grouping and swimlanes ([`groupBy`](#grouping-and-swimlanes))
 - [x] Auto-scheduling, working-day calendar, critical path, baselines ([scheduling](#scheduling))
 - [ ] Per-task and per-resource calendars
 

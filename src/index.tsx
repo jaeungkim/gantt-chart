@@ -32,9 +32,9 @@ export type {
   GanttColumn,
   GanttDateRange,
   GanttFormatOverrides,
+  GanttGroupBy,
   GanttMarker,
   GanttRangeBand,
-
   GanttReorderChange,
   GanttScaleFormat,
   GanttScaleKey,
@@ -50,6 +50,7 @@ export type {
   GanttHeaderCellRenderProps,
   GanttHeaderCellRenderer,
 } from './types/gantt';
+export type { GanttRow, GanttRowGroup } from './utils/grouping';
 
 // Headless scheduling core - no React, no DOM. Usable on a server or in a worker.
 export {

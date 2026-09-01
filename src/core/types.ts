@@ -43,6 +43,14 @@ export interface Task {
   color?: string;
   /** Extra class name put on this task's bar and its task-list row */
   className?: string;
+  /**
+   * Swimlane this task shares a row with
+   *
+   * Tasks with the same lane (inside the same group) are drawn side by side on one
+   * row; overlapping ones stack onto extra rows automatically. Omitted, the task
+   * gets a row of its own as before.
+   */
+  lane?: string;
   dependencies?: TaskDependency[];
   /** Blocks every gesture on this task - overrides the chart's `readOnly` prop */
   readOnly?: boolean;

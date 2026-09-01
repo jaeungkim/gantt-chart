@@ -2,8 +2,6 @@ import { VirtualItem } from "@tanstack/react-virtual";
 import {
   DEFAULT_COLUMN_WIDTH,
   HEADER_HEIGHT,
-  MAX_GRID_WIDTH,
-  MIN_GRID_WIDTH,
   NODE_HEIGHT,
   TREE_INDENT,
 } from "constants/gantt";
@@ -16,19 +14,22 @@ import {
   Task,
   TaskTransformed,
 } from "types/task";
+import { GanttFocus, rowAriaProps } from "utils/a11y";
+import { GanttRow } from "utils/grouping";
 
 interface GanttTaskGridProps {
-  /** The rows on screen (collapsed subtrees are already filtered out) */
-  tasks: TaskTransformed[];
+  /** The rows on screen (collapsed subtrees and groups are already filtered out) */
+  rows: GanttRow[];
   columns: GanttColumn[];
   /** The timeline's own virtualization result - leaves no room for the rows to drift apart */
   virtualItems: VirtualItem[];
   totalHeight: number;
   width: number;
-  onWidthChange: (width: number) => void;
   hierarchy: boolean;
   collapsedIds: Set<string>;
-  onToggleCollapse: (taskId: string) => void;
+  onToggleCollapse: (rowId: string) => void;
+  /** Which cell currently holds the chart's single tab stop */
+  focus: GanttFocus;
   /** Whether rows can be dragged to reorder and re-parent */
   allowRowReorder: boolean;
   /** The same guards the bars use - a row is draggable only where the task can move */
@@ -63,17 +64,21 @@ function cellStyle(column: GanttColumn, index: number) {
  * A sticky column inside the timeline's own scroll container, so vertical scrolling is
  * locked to the rows by construction.
  * (Syncing two panes through scroll events drifts the moment virtualization kicks in)
+ *
+ * These rows are the treegrid's `row` elements: each one owns its bars in the
+ * timeline through `aria-owns`, which is what makes the two panes read as a
+ * single widget rather than two unrelated lists.
  */
 export default function GanttTaskGrid({
-  tasks,
+  rows,
   columns,
   virtualItems,
   totalHeight,
   width,
-  onWidthChange,
   hierarchy,
   collapsedIds,
   onToggleCollapse,
+  focus,
   allowRowReorder,
   interaction,
   onReorder,
@@ -83,67 +88,49 @@ export default function GanttTaskGrid({
   onRowDoubleClick,
 }: GanttTaskGridProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
+  // Row ids are task ids only while every row is one task: a group header is not a task
+  // and a lane row carries several, so reordering has nothing single to move
+  const reorderable = rows.every((row) => !row.group && row.tasks.length === 1);
   const { onRowPointerDown, dragState } = useGanttRowDrag({
-    rows: tasks,
+    rows,
     bodyRef,
-    enabled: allowRowReorder,
+    enabled: allowRowReorder && reorderable,
     onReorder,
     onTasksChange,
   });
   const dropTarget = dragState?.target ?? null;
-
-  const clampWidth = (next: number) =>
-    Math.min(MAX_GRID_WIDTH, Math.max(MIN_GRID_WIDTH, next));
-
-  const onSplitterPointerDown: React.PointerEventHandler<HTMLDivElement> = (
-    e
-  ) => {
-    if (!e.isPrimary || e.button !== 0) return;
-
-    const startX = e.clientX;
-    const startWidth = width;
-    e.currentTarget.setPointerCapture(e.pointerId);
-
-    const handlePointerMove = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== e.pointerId) return;
-      onWidthChange(clampWidth(startWidth + moveEvent.clientX - startX));
-    };
-
-    const handlePointerUp = (upEvent: PointerEvent) => {
-      if (upEvent.pointerId !== e.pointerId) return;
-      document.removeEventListener("pointermove", handlePointerMove);
-      document.removeEventListener("pointerup", handlePointerUp);
-      document.removeEventListener("pointercancel", handlePointerUp);
-    };
-
-    document.addEventListener("pointermove", handlePointerMove);
-    document.addEventListener("pointerup", handlePointerUp);
-    document.addEventListener("pointercancel", handlePointerUp);
-  };
-
-  const onSplitterKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    e.preventDefault();
-    onWidthChange(clampWidth(width + (e.key === "ArrowLeft" ? -16 : 16)));
-  };
 
   const gridClassName = ["gantt-grid", dragState ? "row-dragging" : ""]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className={gridClassName} style={{ width: `${width}px` }}>
+    <div
+      className={gridClassName}
+      style={{ width: `${width}px` }}
+      role="presentation"
+    >
       {/* Header - has to be exactly as tall as the timeline header or the rows shift */}
-      <div className="gantt-grid-header" style={{ height: `${HEADER_HEIGHT}px` }}>
+      <div
+        className="gantt-grid-header"
+        style={{ height: `${HEADER_HEIGHT}px` }}
+        role="row"
+        aria-rowindex={1}
+      >
         {columns.map((column, index) => (
           <div
             key={column.key}
             className="gantt-grid-header-cell"
             style={cellStyle(column, index)}
+            role="columnheader"
           >
             {column.header}
           </div>
         ))}
+        {/* The timeline's date header is decorative, so the bar column is named here */}
+        <span className="gantt-sr-only" role="columnheader">
+          Timeline
+        </span>
       </div>
 
       {/* Rows - straight from the timeline's own virtualItems */}
@@ -151,29 +138,86 @@ export default function GanttTaskGrid({
         ref={bodyRef}
         className="gantt-grid-body"
         style={{ height: `${totalHeight}px` }}
+        role="rowgroup"
       >
         {virtualItems.map((virtualRow) => {
-          const task = tasks[virtualRow.index];
+          const row = rows[virtualRow.index];
+          if (!row) return null;
+
+          const task = row.tasks[0];
+          const expandable = !!row.group || (hierarchy && !!task?.isSummary);
+          const collapsed = collapsedIds.has(row.id);
+          const focused = focus.row === virtualRow.index;
+          const aria = rowAriaProps(row, virtualRow.index, {
+            headerOffset: 1,
+            expandable,
+            expanded: !collapsed,
+            ownedIds: row.tasks.map((member) => `task-${member.id}`),
+          });
+
+          const rowStyle = {
+            height: `${virtualRow.size}px`,
+            transform: `translateY(${virtualRow.start}px)`,
+          };
+
+          if (row.group) {
+            return (
+              <div
+                key={`grid-row-${row.id}`}
+                className="gantt-grid-row group"
+                style={rowStyle}
+                {...aria}
+              >
+                <div
+                  className="gantt-grid-cell"
+                  style={{ flex: "1 1 100%", minWidth: 0 }}
+                  role="gridcell"
+                  tabIndex={focused && focus.col === 0 ? 0 : -1}
+                  data-gantt-cell={`${virtualRow.index}:0`}
+                >
+                  <button
+                    type="button"
+                    className={`gantt-grid-expander${collapsed ? "" : " open"}`}
+                    onClick={() => onToggleCollapse(row.id)}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  >
+                    <svg viewBox="0 0 12 12" aria-hidden="true">
+                      <path d="M4 2.5 L8 6 L4 9.5" />
+                    </svg>
+                  </button>
+                  <span className="gantt-grid-cell-text">
+                    {row.group.label}
+                  </span>
+                  <span className="gantt-grid-group-count">
+                    {row.group.count}
+                  </span>
+                </div>
+              </div>
+            );
+          }
+
           if (!task) return null;
 
-          const expandable = hierarchy && task.isSummary;
-          const collapsed = collapsedIds.has(task.id);
           const isDropParent =
-            dropTarget?.mode === "into" && dropTarget.rowIndex === virtualRow.index;
+            dropTarget?.mode === "into" &&
+            dropTarget.rowIndex === virtualRow.index;
           // A row drag is a move, so it answers to the same guards a bar move does
           const draggable =
-            allowRowReorder && resolveTaskInteraction(task, interaction).canMove;
+            allowRowReorder &&
+            reorderable &&
+            resolveTaskInteraction(task, interaction).canMove;
 
           return (
             <div
-              key={`grid-row-${task.id}`}
-              data-row-id={task.id}
+              key={`grid-row-${row.id}`}
+              data-row-id={row.id}
               onPointerDown={draggable ? onRowPointerDown : undefined}
               className={[
                 "gantt-grid-row",
                 task.isSummary ? "summary" : "",
                 draggable ? "draggable" : "",
-                dragState?.draggedId === task.id ? "dragging" : "",
+                dragState?.draggedId === row.id ? "dragging" : "",
                 isDropParent ? "drop-into" : "",
                 isDropParent && !dropTarget.valid ? "invalid" : "",
                 task.id === selectedTaskId ? "selected" : "",
@@ -181,14 +225,12 @@ export default function GanttTaskGrid({
               ]
                 .filter(Boolean)
                 .join(" ")}
-              style={{
-                height: `${virtualRow.size}px`,
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
+              style={rowStyle}
               onClick={onRowClick && ((e) => onRowClick(task, e))}
               onDoubleClick={
                 onRowDoubleClick && ((e) => onRowDoubleClick(task, e))
               }
+              {...aria}
             >
               {columns.map((column, index) => (
                 <div
@@ -196,11 +238,14 @@ export default function GanttTaskGrid({
                   className="gantt-grid-cell"
                   style={cellStyle(column, index)}
                   title={index === 0 ? task.name : undefined}
+                  role="gridcell"
+                  tabIndex={focused && focus.col === index ? 0 : -1}
+                  data-gantt-cell={`${virtualRow.index}:${index}`}
                 >
                   {index === 0 && (
                     <span
                       className="gantt-grid-indent"
-                      style={{ width: `${task.depth * TREE_INDENT}px` }}
+                      style={{ width: `${row.depth * TREE_INDENT}px` }}
                     />
                   )}
                   {index === 0 &&
@@ -213,10 +258,12 @@ export default function GanttTaskGrid({
                         onClick={(e) => {
                           // Expanding a row is not selecting it
                           e.stopPropagation();
-                          onToggleCollapse(task.id);
+                          onToggleCollapse(row.id);
                         }}
-                        aria-expanded={!collapsed}
-                        aria-label={`${collapsed ? "Expand" : "Collapse"} ${task.name}`}
+                        // The row carries aria-expanded, so the toggle is not a
+                        // second tab stop and not a second thing to announce
+                        tabIndex={-1}
+                        aria-hidden="true"
                       >
                         <svg viewBox="0 0 12 12" aria-hidden="true">
                           <path d="M4 2.5 L8 6 L4 9.5" />
@@ -229,6 +276,11 @@ export default function GanttTaskGrid({
                   <span className="gantt-grid-cell-text">
                     {renderCell(column, task)}
                   </span>
+                  {index === 0 && row.tasks.length > 1 && (
+                    <span className="gantt-grid-group-count">
+                      +{row.tasks.length - 1}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -248,20 +300,6 @@ export default function GanttTaskGrid({
           />
         )}
       </div>
-
-      {/* Resize splitter */}
-      <div
-        className="gantt-grid-splitter"
-        onPointerDown={onSplitterPointerDown}
-        onKeyDown={onSplitterKeyDown}
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize task list"
-        aria-valuenow={width}
-        aria-valuemin={MIN_GRID_WIDTH}
-        aria-valuemax={MAX_GRID_WIDTH}
-        tabIndex={0}
-      />
     </div>
   );
 }

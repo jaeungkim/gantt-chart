@@ -8,7 +8,6 @@ import { NODE_HEIGHT } from "constants/gantt";
 import { RefObject, useEffect, useMemo } from "react";
 import { useGanttStore } from "stores/context";
 import { GanttBottomRowCell } from "types/gantt";
-import { TaskTransformed } from "types/task";
 
 /**
  * Range extractor that renders everything, viewport or not
@@ -32,7 +31,8 @@ interface UseGanttColumnVirtualizationResult {
 
 interface UseGanttVirtualizationParams
   extends UseGanttColumnVirtualizationParams {
-  transformedTasks: TaskTransformed[];
+  /** Number of rows on screen - not the task count, since a lane can share one row */
+  rowCount: number;
 }
 
 interface UseGanttVirtualizationResult
@@ -104,7 +104,7 @@ export function useGanttColumnVirtualization({
  * Sets up row and column virtualization and provides the visibility check
  */
 export function useGanttVirtualization({
-  transformedTasks,
+  rowCount,
   bottomRowCells,
   scrollRef,
 }: UseGanttVirtualizationParams): UseGanttVirtualizationResult {
@@ -112,7 +112,7 @@ export function useGanttVirtualization({
 
   // Row virtualization setup
   const rowVirtualizer = useVirtualizer({
-    count: transformedTasks.length,
+    count: rowCount,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => NODE_HEIGHT,
     overscan: 5,

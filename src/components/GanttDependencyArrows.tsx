@@ -21,6 +21,8 @@ import { LINK_REJECTION_LABEL, removeDependency } from "utils/dependency";
 
 interface Props {
   transformedTasks: TaskTransformed[];
+  /** Row count of the chart - a lane row can carry several tasks, so it is not the task count */
+  rowCount: number;
   /** Link keys on the critical path (from computeCriticalPath) - undefined when it is off */
   criticalLinkIds?: Set<string>;
   interaction?: GanttInteractionConfig;
@@ -47,6 +49,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 export default function GanttDependencyArrows({
   transformedTasks,
+  rowCount,
   criticalLinkIds,
   interaction,
   onTasksChange,
@@ -68,7 +71,7 @@ export default function GanttDependencyArrows({
   }, []);
 
   const { rowVirtualizer, isBarVisible } = useGanttVirtualization({
-    transformedTasks,
+    rowCount,
     bottomRowCells,
     scrollRef,
   });
@@ -168,7 +171,7 @@ export default function GanttDependencyArrows({
       ref={attachSvg}
       className={`gantt-dependency-arrows${linkDraft ? " linking" : ""}`}
       style={{
-        height: `${transformedTasks.length * NODE_HEIGHT}px`,
+        height: `${rowCount * NODE_HEIGHT}px`,
       }}
     >
       <defs>

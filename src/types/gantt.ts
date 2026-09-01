@@ -133,6 +133,17 @@ export interface GanttColumn {
   render?: (task: TaskTransformed) => ReactNode;
 }
 
+/**
+ * How rows are grouped into swimlanes
+ *
+ * A string reads that field off the task; a function returns the group value
+ * itself, which doubles as the header label. Anything empty, null or undefined
+ * lands in the "Ungrouped" bucket.
+ */
+export type GanttGroupBy =
+  | string
+  | ((task: TaskTransformed) => string | null | undefined);
+
 /** Anything the marker/band props accept as a date */
 export type GanttDateInput = string | Date | Dayjs;
 
