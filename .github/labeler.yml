@@ -1,0 +1,14 @@
+# actions/labeler config. One criterion per label. Labels must already exist in the repo.
+enhancement:
+  - head-branch: ['^feat/', '^feature/']
+
+bug:
+  - head-branch: ['^fix/', '^hotfix/']
+
+skip-changelog:
+  - head-branch: ['^release/', '^chore/', '^ci/']
+
+# Markdown-only PRs
+documentation:
+  - changed-files:
+      - all-globs-to-all-files: '**/*.md'

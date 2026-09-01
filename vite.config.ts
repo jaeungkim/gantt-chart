@@ -11,15 +11,16 @@ export default defineConfig({
     tsconfigPaths(),
     dts({
       include: ['src'],
-      exclude: ['src/main.tsx', 'src/App.tsx', 'db.ts'],
+      exclude: ['src/main.tsx', 'src/App.tsx', 'db.ts', 'src/**/*.test.ts'],
       rollupTypes: true,
     }),
   ],
   build: {
+    copyPublicDir: false, // public/ is for the dev app only; keep it out of dist/ and the npm tarball
     lib: {
       entry: 'src/index.tsx',
       name: '@jaeungkim/gantt-chart',
-      fileName: (format) => `index.${format}.js`,
+      fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
       formats: ['es', 'cjs'],
     },
     rollupOptions: {

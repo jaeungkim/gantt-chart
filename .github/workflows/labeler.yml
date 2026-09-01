@@ -1,0 +1,15 @@
+# Auto-labels PRs from branch prefix / changed files (.github/labeler.yml).
+# Labels pick the section in auto-generated release notes (.github/release.yml).
+name: Labeler
+
+on:
+  - pull_request_target
+
+jobs:
+  labeler:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/labeler@v7
