@@ -17,4 +17,18 @@ export type {
   TaskType,
   TaskTransformed,
 } from './types/task';
-export type { GanttColumn, GanttScaleKey, GanttTheme } from './types/gantt';
+export type {
+  GanttColumn,
+  GanttScaleKey,
+  GanttTheme,
+  GanttChangeType,
+  GanttTaskChange,
+  GanttBeforeChangeHandler,
+  GanttBarRenderProps,
+  GanttBarRenderer,
+  GanttTooltipReason,
+  GanttTooltipRenderProps,
+  GanttTooltipRenderer,
+  GanttHeaderCellRenderProps,
+  GanttHeaderCellRenderer,
+} from './types/gantt';

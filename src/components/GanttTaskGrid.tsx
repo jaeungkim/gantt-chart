@@ -22,6 +22,10 @@ interface GanttTaskGridProps {
   hierarchy: boolean;
   collapsedIds: Set<string>;
   onToggleCollapse: (taskId: string) => void;
+  /** The selected row, highlighted in step with its bar */
+  selectedTaskId?: string | null;
+  onRowClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
+  onRowDoubleClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
 }
 
 /** Without a render, task[key] is shown as-is */
@@ -57,6 +61,9 @@ export default function GanttTaskGrid({
   hierarchy,
   collapsedIds,
   onToggleCollapse,
+  selectedTaskId,
+  onRowClick,
+  onRowDoubleClick,
 }: GanttTaskGridProps) {
   const clampWidth = (next: number) =>
     Math.min(MAX_GRID_WIDTH, Math.max(MIN_GRID_WIDTH, next));
@@ -120,11 +127,17 @@ export default function GanttTaskGrid({
           return (
             <div
               key={`grid-row-${task.id}`}
-              className={`gantt-grid-row${task.isSummary ? " summary" : ""}`}
+              className={`gantt-grid-row${task.isSummary ? " summary" : ""}${
+                task.id === selectedTaskId ? " selected" : ""
+              }${task.className ? ` ${task.className}` : ""}`}
               style={{
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
               }}
+              onClick={onRowClick && ((e) => onRowClick(task, e))}
+              onDoubleClick={
+                onRowDoubleClick && ((e) => onRowDoubleClick(task, e))
+              }
             >
               {columns.map((column, index) => (
                 <div
@@ -146,7 +159,11 @@ export default function GanttTaskGrid({
                         className={`gantt-grid-expander${
                           collapsed ? "" : " open"
                         }`}
-                        onClick={() => onToggleCollapse(task.id)}
+                        onClick={(e) => {
+                          // Expanding a row is not selecting it
+                          e.stopPropagation();
+                          onToggleCollapse(task.id);
+                        }}
                         aria-expanded={!collapsed}
                         aria-label={`${collapsed ? "Expand" : "Collapse"} ${task.name}`}
                       >

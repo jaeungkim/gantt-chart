@@ -9,28 +9,60 @@ import {
 } from "constants/gantt";
 import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
 import { useGanttProgressDrag } from "hooks/useGanttProgressDrag";
-import { useRef, useState, useCallback } from "react";
+import { CSSProperties, useRef, useState, useCallback } from "react";
 import { useGanttStore } from "stores/context";
-import { isMilestoneTask, Task, TaskTransformed } from "types/task";
+import { GanttBarOptions, GanttTooltipReason } from "types/gantt";
+import { isMilestoneTask, resolveTaskColors, TaskTransformed } from "types/task";
+import dayjs from "utils/dayjs";
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
-  onTasksChange?: (updatedTasks: Task[]) => void;
+  options?: GanttBarOptions;
+}
+
+/** No options at all is the plain chart - one shared object keeps the default identity stable */
+const NO_OPTIONS: GanttBarOptions = {};
+
+/** Human duration for the default hover tooltip */
+function formatDuration(durationMs: number): string {
+  const hours = Math.max(0, Math.round(durationMs / 3_600_000));
+  return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
 }
 
 export default function GanttBar({
   currentTask,
-  onTasksChange,
+  options = NO_OPTIONS,
 }: GanttBarProps) {
+  const {
+    onTasksChange,
+    onBeforeTaskChange,
+    onTaskClick,
+    onTaskDoubleClick,
+    renderBar,
+    renderTooltip,
+    showTooltip = true,
+  } = options;
+
   const barRef = useRef<HTMLDivElement>(null);
-  const { onPointerDown, dragMode } = useGanttBarDrag(currentTask, onTasksChange);
+  const { onPointerDown, dragMode, consumeDragClick } = useGanttBarDrag(
+    currentTask,
+    { onTasksChange, onBeforeTaskChange }
+  );
   const [cursor, setCursor] = useState<"grab" | "ew-resize">("grab");
+  const [hovered, setHovered] = useState(false);
 
   // Read the drag offset
   const liveOffset = useGanttStore((store) => store.dragOffsets[currentTask.id]);
   const isDragging = useGanttStore((store) => store.currentTask?.id === currentTask.id);
   const selectedScale = useGanttStore((store) => store.selectedScale);
-  
+  const isSelected = useGanttStore(
+    (store) => store.selectedTaskId === currentTask.id
+  );
+  // Set while a vetoed change animates back to where the gesture started
+  const isReverting = useGanttStore((store) =>
+    store.revertingIds.includes(currentTask.id)
+  );
+
   const offsetX = liveOffset?.offsetX ?? 0;
   const offsetWidth = liveOffset?.offsetWidth ?? 0;
 
@@ -47,7 +79,10 @@ export default function GanttBar({
 
   // Progress (milestones have none)
   const { onProgressPointerDown, progress, isDraggingProgress } =
-    useGanttProgressDrag(currentTask, barRef, onTasksChange);
+    useGanttProgressDrag(currentTask, barRef, {
+      onTasksChange,
+      onBeforeTaskChange,
+    });
   const showProgress = !isMilestone && progress !== null;
   // A summary row's progress is rolled up from its children, so it is not draggable
   const showProgressHandle = showProgress && !currentTask.isSummary;
@@ -80,6 +115,16 @@ export default function GanttBar({
     [isMilestone, currentTask.isSummary]
   );
 
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // The click that closes a drag is the end of that gesture, not a selection
+    if (consumeDragClick()) return;
+    onTaskClick?.(currentTask, e);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    onTaskDoubleClick?.(currentTask, e);
+  };
+
   // Build the tooltip text (shown differently per mode)
   const format = DATE_FORMATS[selectedScale];
   const getTooltipText = (mode: DragMode | null) => {
@@ -101,19 +146,147 @@ export default function GanttBar({
     }
   };
 
+  // What the tooltip is for, most specific first - a gesture in progress beats a hover
+  const tooltipReason: GanttTooltipReason | null = !showTooltip
+    ? null
+    : isDraggingProgress
+      ? "progress"
+      : isDragging && liveOffset
+        ? dragMode === "left" || dragMode === "right"
+          ? "resize"
+          : "move"
+        : hovered
+          ? "hover"
+          : null;
+
+  const renderTooltipNode = () => {
+    if (!tooltipReason) return null;
+
+    const isGesture = tooltipReason !== "hover";
+    const startDate =
+      isGesture && liveOffset
+        ? liveOffset.offsetStartDate
+        : dayjs(currentTask.startDate);
+    const endDate = isMilestone
+      ? startDate
+      : isGesture && liveOffset
+        ? liveOffset.offsetEndDate
+        : dayjs(currentTask.endDate);
+
+    if (renderTooltip) {
+      return renderTooltip({
+        task: currentTask,
+        reason: tooltipReason,
+        startDate,
+        endDate,
+        durationMs: endDate.valueOf() - startDate.valueOf(),
+        progress,
+        scale: selectedScale,
+      });
+    }
+
+    // Gesture tooltips are a single live line; the hover one is the task's summary
+    if (tooltipReason === "progress") {
+      return (
+        <div className="gantt-bar-tooltip" role="status" aria-live="polite">
+          {progress}%
+        </div>
+      );
+    }
+
+    if (isGesture) {
+      return (
+        <div className="gantt-bar-tooltip" role="status" aria-live="polite">
+          {getTooltipText(dragMode)}
+        </div>
+      );
+    }
+
+    return (
+      <div className="gantt-bar-tooltip gantt-bar-tooltip-detail" role="tooltip">
+        <span className="gantt-tooltip-name">{currentTask.name}</span>
+        <span className="gantt-tooltip-meta">
+          {isMilestone
+            ? startDate.format(format)
+            : `${startDate.format(format)} → ${endDate.format(format)}`}
+        </span>
+        {!isMilestone && (
+          <span className="gantt-tooltip-meta">
+            {formatDuration(endDate.valueOf() - startDate.valueOf())}
+            {progress !== null ? ` · ${progress}%` : ""}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  const colorVars = resolveTaskColors(currentTask.color) as CSSProperties;
+
+  const barStyle: CSSProperties = isMilestone
+    ? {
+        transform: `translateX(${finalLeft - MILESTONE_HALF_DIAGONAL}px)`,
+        height: NODE_HEIGHT / 2,
+        cursor: isDragging ? "grabbing" : "grab",
+        ...colorVars,
+      }
+    : {
+        transform: `translateX(${finalLeft}px)`,
+        width: finalWidth,
+        height: NODE_HEIGHT / 2,
+        cursor: isDragging ? "grabbing" : cursor,
+        ...colorVars,
+      };
+
+  // A replacement owns the whole node, tooltip included - it gets the layout it needs plus
+  // the handlers, so drag, click and double-click keep working when they are spread on
+  if (renderBar) {
+    return (
+      <>
+        {renderBar({
+          task: currentTask,
+          left: finalLeft,
+          width: finalWidth,
+          height: NODE_HEIGHT / 2,
+          progress,
+          scale: selectedScale,
+          isMilestone,
+          isSummary: Boolean(currentTask.isSummary),
+          isDragging,
+          isSelected,
+          barProps: {
+            style: barStyle,
+            onPointerDown,
+            onClick: handleClick,
+            onDoubleClick: handleDoubleClick,
+          },
+        })}
+      </>
+    );
+  }
+
+  // Appended after the existing classes so a plain task still reads exactly as before
+  const extraClasses = [
+    isSelected ? "selected" : "",
+    isReverting ? "reverting" : "",
+    currentTask.className ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const suffix = extraClasses ? ` ${extraClasses}` : "";
+
   // Milestone: a diamond at the single startDate point, with a label to its right
   if (isMilestone) {
     return (
       <div
         ref={barRef}
         id={`task-${currentTask.id}`}
-        className={`gantt-milestone${isDragging ? " dragging" : ""}`}
+        className={`gantt-milestone${isDragging ? " dragging" : ""}${suffix}`}
         onPointerDown={onPointerDown}
-        style={{
-          transform: `translateX(${finalLeft - MILESTONE_HALF_DIAGONAL}px)`,
-          height: NODE_HEIGHT / 2,
-          cursor: isDragging ? "grabbing" : "grab",
-        }}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={barStyle}
         role="button"
         tabIndex={0}
         aria-label={`Milestone: ${currentTask.name}`}
@@ -121,12 +294,7 @@ export default function GanttBar({
         <div className="gantt-milestone-diamond" />
         <span className="gantt-milestone-name">{currentTask.name}</span>
 
-        {/* Tooltip while dragging */}
-        {isDragging && liveOffset && (
-          <div className="gantt-bar-tooltip" role="status" aria-live="polite">
-            {getTooltipText(dragMode)}
-          </div>
-        )}
+        {renderTooltipNode()}
       </div>
     );
   }
@@ -137,16 +305,17 @@ export default function GanttBar({
       id={`task-${currentTask.id}`}
       className={`gantt-task-bar${isDragging ? " dragging" : ""}${
         labelOutside ? " compact" : ""
-      }${currentTask.isSummary ? " summary" : ""}`}
+      }${currentTask.isSummary ? " summary" : ""}${suffix}`}
       onPointerDown={onPointerDown}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onMouseMove={handleMouseMove}
-      onMouseLeave={() => setCursor("grab")}
-      style={{
-        transform: `translateX(${finalLeft}px)`,
-        width: finalWidth,
-        height: NODE_HEIGHT / 2,
-        cursor: isDragging ? "grabbing" : cursor,
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => {
+        setCursor("grab");
+        setHovered(false);
       }}
+      style={barStyle}
       role="button"
       tabIndex={0}
       aria-label={
@@ -186,19 +355,7 @@ export default function GanttBar({
         {currentTask.name}
       </span>
 
-      {/* Tooltip while dragging */}
-      {isDragging && liveOffset && (
-        <div className="gantt-bar-tooltip" role="status" aria-live="polite">
-          {getTooltipText(dragMode)}
-        </div>
-      )}
-
-      {/* Tooltip while dragging progress */}
-      {isDraggingProgress && (
-        <div className="gantt-bar-tooltip" role="status" aria-live="polite">
-          {progress}%
-        </div>
-      )}
+      {renderTooltipNode()}
     </div>
   );
 }

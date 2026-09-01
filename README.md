@@ -27,11 +27,14 @@ Currently, this project is built specifically for React due to my development ba
   - Snap to configured intervals
 - 🧲 Smart dependency arrows (FS, SS, FF, SF)
 - ◆ Milestones and per-task progress
+- 🖱️ Click / double-click / select events with a visible selection highlight
+- ↩️ Cancellable before-events: veto a move, resize or progress change and the bar rolls back
+- 🎨 Per-task color and class name, plus `renderBar` / `renderTooltip` / `renderHeaderCell` overrides
 - 🗓️ Weekend and holiday shading
 - ⚡ Virtualized rendering for performance
 - 🌙 Light/Dark/System theme support
 - 📍 Today marker indicator
-- 💬 Drag tooltip showing date changes
+- 💬 Hover and drag tooltips
 - 📦 Lightweight with minimal dependencies
 
 ## 📺 [Demo](https://jaeungkim.com/gantt-chart)
@@ -110,6 +113,15 @@ export default function App() {
 | `collapsedIds` | `string[]` | - | Ids of collapsed parents (controlled) |
 | `defaultCollapsedIds` | `string[]` | - | Initial collapsed ids (uncontrolled seed) |
 | `onCollapsedChange` | `(ids: string[]) => void` | - | Fires whenever a row is expanded or collapsed |
+| `onTaskClick` | `(task, event) => void` | - | A bar or task-list row was clicked. Not fired for the click that ends a drag |
+| `onTaskDoubleClick` | `(task, event) => void` | - | A bar or row was double-clicked |
+| `onTaskSelect` | `(task \| null) => void` | - | The selection changed; `null` when the empty timeline is clicked. Passing it turns selection on |
+| `selectable` | `boolean` | `onTaskSelect !== undefined` | Selection highlight without a callback (`true`), or off entirely (`false`) |
+| `onBeforeTaskChange` | `(change) => boolean \| void \| Promise<boolean \| void>` | - | Runs before a move, resize or progress change is written. `false`, a promise resolving to `false`, or a rejection rolls the bar back |
+| `renderBar` | `(props) => ReactNode` | - | Replaces the bar node entirely |
+| `renderTooltip` | `(props) => ReactNode` | - | Replaces the tooltip node entirely, for hover and drag alike |
+| `renderHeaderCell` | `(props) => ReactNode` | - | Replaces a timeline header cell entirely; both header rows go through it |
+| `showTooltip` | `boolean` | `true` | `false` suppresses the hover and drag tooltips |
 
 ## Task List and Hierarchy
 
@@ -178,6 +190,161 @@ With `hierarchy` on, `parentId` becomes the source of truth:
 Collapse state is controlled with `collapsedIds` and uncontrolled with `defaultCollapsedIds`;
 `onCollapsedChange` fires either way, so a host can persist it wherever it likes.
 
+## Events and Selection
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTaskClick={(task, event) => console.log('clicked', task.id, event.shiftKey)}
+  onTaskDoubleClick={(task) => openEditor(task.id)}
+  onTaskSelect={(task) => setSelectedId(task?.id ?? null)}
+/>
+```
+
+Both panes fire the same events: a click on a bar and a click on its task-list row are the
+same event, and the selected row is highlighted in both places at once.
+
+- Passing `onTaskSelect` turns selection on. Pass `selectable` explicitly for the highlight
+  without a callback (`selectable`) or to turn it off (`selectable={false}`).
+- `onTaskSelect` fires only when the selection actually changes; clicking the empty timeline
+  clears it and reports `null`.
+- The click that ends a drag is swallowed, so dragging a bar never registers as a click.
+- A double click is still two clicks in the DOM: `onTaskClick` fires twice and
+  `onTaskDoubleClick` once. Key off the double click, not off a click count.
+
+## Cancellable Changes and Optimistic Updates
+
+`onBeforeTaskChange` runs after the gesture ends and before anything is written. It is the
+persistence hook: `await` your API, and answer.
+
+| The handler returns | What happens |
+|---------------------|--------------|
+| nothing, or `true` | The change is committed and `onTasksChange` fires |
+| `false` | The change is dropped and the bar animates back |
+| a promise resolving to anything but `false` | Committed once it settles |
+| a promise resolving to `false` | Rolled back once it settles |
+| a rejected promise, or a synchronous throw | Rolled back - the failed-server case |
+
+While the promise is pending the bar **stays where the user dropped it** — nothing is
+disabled, nothing is frozen, and the user can keep working. If they start another gesture on
+that same bar before the answer arrives, the late answer is dropped: the newer gesture owns
+the bar and gets its own decision. Moves and resizes share one lane per task; a progress edit
+runs in its own, so a pending date change and a progress change never cancel each other.
+
+```tsx
+function Schedule() {
+  const [tasks, setTasks] = useState(initialTasks);
+
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      // The bar is already where the user dropped it while this runs
+      onBeforeTaskChange={async (change) => {
+        try {
+          const response = await fetch('/api/tasks/bulk', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(
+              change.changedTasks.map((task) => ({
+                id: task.id,
+                startDate: task.startDate,
+                endDate: task.endDate,
+                progress: task.progress,
+              })),
+            ),
+          });
+
+          // A 409 from the server rolls the bar back to where the drag started
+          if (!response.ok) return false;
+        } catch (error) {
+          // Network failure - same thing, and the bar never lies about what was saved
+          toast.error('Could not save the change');
+          return false;
+        }
+      }}
+      // Only reached once the change is accepted
+      onTasksChange={setTasks}
+    />
+  );
+}
+```
+
+The payload:
+
+```ts
+interface GanttTaskChange {
+  type: 'move' | 'resize' | 'progress';
+  task: Task;             // the bar the user grabbed, in its new shape
+  changedTasks: Task[];   // every task this gesture rewrites (a summary drag carries its subtree)
+  previousTasks: Task[];  // the same tasks before the gesture, index for index
+  tasks: Task[];          // the full array onTasksChange would receive
+  edge?: 'start' | 'end'; // resize only
+}
+```
+
+Dragging a summary bar moves its whole subtree, so `changedTasks` holds every descendant —
+one handler call, one veto decision, one `onTasksChange` for the lot.
+
+## Custom Rendering
+
+### Per-task color and class
+
+```tsx
+const tasks: Task[] = [
+  { id: '1', name: 'Design', color: '#7c3aed', className: 'is-critical', /* ... */ },
+];
+```
+
+`color` takes any CSS color. The progress fill and the hover shade are derived from it, so
+one value colors the whole bar; without it the `--gantt-*` theme tokens decide as before.
+`className` lands on the bar and on the task's row in the list pane.
+
+### Render props
+
+Each of these replaces the default node completely.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  // Spread barProps to keep positioning, dragging, clicks and double clicks working
+  renderBar={({ task, width, progress, isSelected, barProps }) => (
+    <div {...barProps} className={`my-bar${isSelected ? ' is-selected' : ''}`}>
+      <span style={{ width: `${progress ?? 0}%` }} className="my-fill" />
+      {width > 80 ? task.name : null}
+    </div>
+  )}
+  // reason is 'hover' while pointing at a bar, or the gesture in progress
+  renderTooltip={({ task, reason, startDate, endDate, durationMs }) =>
+    reason === 'hover' ? (
+      <div className="my-tip">
+        {task.name} · {Math.round(durationMs / 86_400_000)}d
+      </div>
+    ) : (
+      <div className="my-tip">
+        {startDate.format('MMM D')} → {endDate.format('MMM D')}
+      </div>
+    )
+  }
+  // row is 'top' for the merged group labels, 'bottom' for the time ticks
+  renderHeaderCell={({ row, label, date, cellProps }) => (
+    <div {...cellProps} title={date.toISOString()}>
+      {row === 'top' ? label.toUpperCase() : label}
+    </div>
+  )}
+/>
+```
+
+- `renderBar` receives `task`, `left`, `width`, `height`, `progress`, `scale`, `isMilestone`,
+  `isSummary`, `isDragging`, `isSelected` and `barProps`. It owns the whole bar, tooltip
+  included — render a `.gantt-bar-tooltip` child yourself if you want one.
+- `renderTooltip` receives `task`, `reason`, `startDate`, `endDate`, `durationMs`, `progress`
+  and `scale`. The dates are the live values while a gesture is running.
+- `renderHeaderCell` receives `row`, `date`, `label`, `width`, `scale` and `cellProps`.
+  Spreading `cellProps` keeps the header layout intact.
+
+A hover tooltip (name, dates, duration, progress) is on by default. `showTooltip={false}`
+turns off both it and the drag tooltip.
+
 ## Imperative API
 
 Pass a ref to scroll the chart programmatically:
@@ -211,6 +378,8 @@ interface Task {
   sequence: string;
   type?: 'task' | 'milestone';   // milestones render as a diamond at startDate
   progress?: number;             // 0-100, draws a fill inside the bar
+  color?: string;                // any CSS color; the fill and hover shade derive from it
+  className?: string;            // added to this task's bar and its task-list row
   dependencies?: TaskDependency[];
 }
 
@@ -284,7 +453,7 @@ The stylesheet loads no remote fonts; it uses the system font stack unless you o
 - [x] Collapsible parent-child rows
 - [ ] Inline editing for task names
 - [ ] Export to PNG/SVG
-- [ ] Custom bar colors
+- [x] Custom bar colors
 
 ## 🤝 Contributing
 

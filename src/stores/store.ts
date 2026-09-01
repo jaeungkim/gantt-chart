@@ -5,6 +5,7 @@ import {
   GanttScaleKey,
 } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
+import { createMutationGate, MutationGate } from "utils/mutation";
 import { createStore } from "zustand";
 
 /** Default key the scale selection is persisted under for the session */
@@ -39,10 +40,19 @@ export interface GanttState {
   currentTask: TaskTransformed | null;
   dragOffsets: Record<string, GanttDragOffset>;
   transformedTasks: TaskTransformed[];
+  /** The selected row, or null - drives the highlight on the bar and on its grid row */
+  selectedTaskId: string | null;
+  /** Ids whose bar is animating back after a vetoed change */
+  revertingIds: string[];
+  /** Guards before-change handlers that are still in flight (created once, never replaced) */
+  mutationGate: MutationGate;
 
   // Actions
   setSelectedScale: (scale: GanttScaleKey) => void;
   setCurrentTask: (task: TaskTransformed | null) => void;
+  setSelectedTaskId: (taskId: string | null) => void;
+  beginRevert: (ids: string[]) => void;
+  endRevert: (ids: string[]) => void;
   setRawTasks: (rawTasks: Task[]) => void;
   setBottomRowCells: (cells: GanttBottomRowCell[]) => void;
   setTransformedTasks: (tasks: TaskTransformed[]) => void;
@@ -74,8 +84,33 @@ export function createGanttStore(
     selectedScale: "month",
     currentTask: null,
     dragOffsets: {},
+    selectedTaskId: null,
+    revertingIds: [],
+    mutationGate: createMutationGate(),
 
     setCurrentTask: (task) => set({ currentTask: task }),
+
+    setSelectedTaskId: (taskId) => {
+      if (get().selectedTaskId === taskId) return;
+      set({ selectedTaskId: taskId });
+    },
+
+    beginRevert: (ids) =>
+      set((state) => {
+        const next = ids.filter((id) => !state.revertingIds.includes(id));
+        return next.length
+          ? { revertingIds: [...state.revertingIds, ...next] }
+          : state;
+      }),
+
+    endRevert: (ids) =>
+      set((state) => {
+        const remove = new Set(ids);
+        const next = state.revertingIds.filter((id) => !remove.has(id));
+        return next.length === state.revertingIds.length
+          ? state
+          : { revertingIds: next };
+      }),
 
     // Session persistence happens only here - with the persist middleware, every store
     // update would write to sessionStorage synchronously, drag frames included

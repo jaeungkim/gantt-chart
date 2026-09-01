@@ -19,7 +19,7 @@ import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { GanttHandle, useGanttScrollApi } from "hooks/useGanttScrollApi";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
 import { useResolvedTheme } from "hooks/useResolvedTheme";
-import { GanttStoreContext } from "stores/context";
+import { GanttStoreContext, useGanttStoreApi } from "stores/context";
 import {
   createGanttStore,
   DEFAULT_SCALE_STORAGE_KEY,
@@ -31,12 +31,16 @@ import {
   NODE_HEIGHT,
 } from "constants/gantt";
 import {
+  GanttBarRenderer,
+  GanttBeforeChangeHandler,
   GanttBottomRowCell,
   GanttColumn,
+  GanttHeaderCellRenderer,
   GanttScaleKey,
   GanttTheme,
+  GanttTooltipRenderer,
 } from "types/gantt";
-import { Task } from "types/task";
+import { Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 import {
   calculateDateOffsetPx,
@@ -135,6 +139,41 @@ export interface GanttProps {
   defaultCollapsedIds?: string[];
   /** Called whenever the collapsed state changes - in controlled and uncontrolled mode alike */
   onCollapsedChange?: (collapsedIds: string[]) => void;
+  /** Fires when a bar or a task-list row is clicked (not after a drag) */
+  onTaskClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
+  /** Fires on a double click. The two clicks that make it up still fire `onTaskClick` */
+  onTaskDoubleClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
+  /**
+   * Fires when the selection changes - null when the empty timeline is clicked
+   *
+   * Passing it turns selection on: the selected bar and its task-list row are highlighted.
+   */
+  onTaskSelect?: (task: TaskTransformed | null) => void;
+  /**
+   * Whether clicking selects a row
+   *
+   * Omitted, selection is on only when `onTaskSelect` is given - pass `true` for the
+   * highlight without a callback, `false` to turn it off entirely.
+   */
+  selectable?: boolean;
+  /**
+   * Runs before a move, resize or progress change is written, and can cancel it
+   *
+   * Returning `false`, a promise resolving to `false`, or a rejected promise rolls the bar
+   * back to where the gesture started. Anything else commits and `onTasksChange` follows.
+   * While the promise is pending the bar stays where it was dropped, so a server round trip
+   * never blocks the UI - and if the user starts another gesture on that bar in the
+   * meantime, the late answer is dropped rather than fighting the newer one.
+   */
+  onBeforeTaskChange?: GanttBeforeChangeHandler;
+  /** Replaces the default bar node entirely - gets the task, its layout, and the handlers to spread */
+  renderBar?: GanttBarRenderer;
+  /** Replaces the default tooltip node entirely - used for hover and for drag alike */
+  renderTooltip?: GanttTooltipRenderer;
+  /** Replaces a timeline header cell entirely - both header rows go through it */
+  renderHeaderCell?: GanttHeaderCellRenderer;
+  /** Hover and drag tooltips (default true) - `false` suppresses both */
+  showTooltip?: boolean;
 }
 
 /**
@@ -178,14 +217,25 @@ function GanttChart({
   collapsedIds,
   defaultCollapsedIds,
   onCollapsedChange,
+  onTaskClick,
+  onTaskDoubleClick,
+  onTaskSelect,
+  selectable,
+  onBeforeTaskChange,
+  renderBar,
+  renderTooltip,
+  renderHeaderCell,
+  showTooltip,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
+  const storeApi = useGanttStoreApi();
   // Store state and actions
   const {
     rawTasks,
     transformedTasks,
     bottomRowCells,
     selectedScale,
+    selectedTaskId,
     setRawTasks,
     setTransformedTasks,
     setBottomRowCells,
@@ -231,6 +281,61 @@ function GanttChart({
       onCollapsedChange?.(next);
     },
     [collapsed, collapsedIds, onCollapsedChange]
+  );
+
+  // ===== Selection =====
+  // Like showTaskList/columns: without an explicit flag, the callback turns the feature on
+  const selectionEnabled = selectable ?? onTaskSelect !== undefined;
+
+  // One place for both panes, so a bar and its row can never disagree about what is selected
+  const selectTask = useCallback(
+    (task: TaskTransformed | null) => {
+      if (!selectionEnabled) return;
+
+      const nextId = task?.id ?? null;
+      if (storeApi.getState().selectedTaskId === nextId) return;
+
+      storeApi.getState().setSelectedTaskId(nextId);
+      onTaskSelect?.(task);
+    },
+    [selectionEnabled, onTaskSelect, storeApi]
+  );
+
+  const handleTaskClick = useCallback(
+    (task: TaskTransformed, event: React.MouseEvent) => {
+      onTaskClick?.(task, event);
+      selectTask(task);
+    },
+    [onTaskClick, selectTask]
+  );
+
+  const handleTaskDoubleClick = useCallback(
+    (task: TaskTransformed, event: React.MouseEvent) => {
+      onTaskDoubleClick?.(task, event);
+    },
+    [onTaskDoubleClick]
+  );
+
+  // Everything the bars need from props, in one object so the row map stays readable
+  const barOptions = useMemo(
+    () => ({
+      onTasksChange,
+      onBeforeTaskChange,
+      onTaskClick: handleTaskClick,
+      onTaskDoubleClick: handleTaskDoubleClick,
+      renderBar,
+      renderTooltip,
+      showTooltip,
+    }),
+    [
+      onTasksChange,
+      onBeforeTaskChange,
+      handleTaskClick,
+      handleTaskDoubleClick,
+      renderBar,
+      renderTooltip,
+      showTooltip,
+    ]
   );
 
   // Rows left after hiding collapsed subtrees - the grid and the timeline read the same
@@ -446,6 +551,9 @@ function GanttChart({
                 hierarchy={hierarchy}
                 collapsedIds={collapsedSet}
                 onToggleCollapse={handleToggleCollapse}
+                selectedTaskId={selectedTaskId}
+                onRowClick={handleTaskClick}
+                onRowDoubleClick={handleTaskDoubleClick}
               />
             )}
 
@@ -460,6 +568,7 @@ function GanttChart({
                   selectedScale={selectedScale}
                   width={totalWidth}
                   scrollRef={scrollRef}
+                  renderHeaderCell={renderHeaderCell}
                 />
               </div>
 
@@ -469,6 +578,10 @@ function GanttChart({
                 style={{
                   height: `${rowVirtualizer.getTotalSize()}px`,
                   width: `${totalWidth}px`,
+                }}
+                // Empty timeline clears the selection; a click on a bar has a different target
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) selectTask(null);
                 }}
               >
                 {/* Non-working-day shading */}
@@ -542,10 +655,7 @@ function GanttChart({
                         alignItems: "center",
                       }}
                     >
-                      <GanttBar
-                        currentTask={task}
-                        onTasksChange={onTasksChange}
-                      />
+                      <GanttBar currentTask={task} options={barOptions} />
                     </div>
                   );
                 })}

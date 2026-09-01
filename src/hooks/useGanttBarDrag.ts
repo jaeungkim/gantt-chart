@@ -6,13 +6,27 @@ import {
 import { Dayjs } from "dayjs";
 import { useRef } from "react";
 import { useGanttStore, useGanttStoreApi } from "stores/context";
-import { GanttDragOffset, GanttScaleKey } from "types/gantt";
+import {
+  GanttBeforeChangeHandler,
+  GanttDragOffset,
+  GanttScaleKey,
+} from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
+import {
+  buildTaskChange,
+  mutationKey,
+  REVERT_DURATION_MS,
+} from "utils/mutation";
 import { shiftByDragSteps } from "utils/timeline";
 import { collectSubtreeIds } from "utils/tree";
 
 export type DragMode = "bar" | "left" | "right";
+
+export interface GanttBarDragOptions {
+  onTasksChange?: (updatedTasks: Task[]) => void;
+  onBeforeTaskChange?: GanttBeforeChangeHandler;
+}
 
 interface DragContext {
   mode: DragMode;
@@ -30,6 +44,8 @@ interface DragContext {
   taskIds: string[];
   /** Dates the moving tasks had when the drag started */
   initialDates: Map<string, { start: Dayjs; end: Dayjs }>;
+  /** Claimed on the first movement - null while the gesture has not moved the bar yet */
+  gateToken: number | null;
 }
 
 /**
@@ -37,13 +53,15 @@ interface DragContext {
  */
 export function useGanttBarDrag(
   task: TaskTransformed,
-  onTasksChange?: (updatedTasks: Task[]) => void
+  options: GanttBarDragOptions = {}
 ) {
   const storeApi = useGanttStoreApi();
   const dragContextRef = useRef<DragContext | null>(null);
   const dragModeRef = useRef<DragMode | null>(null);
-  const onTasksChangeRef = useRef(onTasksChange);
-  onTasksChangeRef.current = onTasksChange;
+  // The pointerup that ends a drag is followed by a click - this tells the two apart
+  const movedRef = useRef(false);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   const selectedScale = useGanttStore((s) => s.selectedScale);
   const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
@@ -74,6 +92,7 @@ export function useGanttBarDrag(
 
     const mode = detectDragMode(e);
     dragModeRef.current = mode;
+    movedRef.current = false;
 
     // Dragging a summary bar moves its whole subtree by the same delta
     const rawTasks = storeApi.getState().rawTasks;
@@ -108,6 +127,7 @@ export function useGanttBarDrag(
       taskId: task.id,
       taskIds,
       initialDates,
+      gateToken: null,
     };
 
     storeApi.getState().setCurrentTask(task);
@@ -131,6 +151,15 @@ export function useGanttBarDrag(
 
       if (steps === ctx.dragSteps) return;
       ctx.dragSteps = steps;
+      movedRef.current = true;
+
+      // The lane is claimed the moment the bar actually moves, so a veto still awaiting an
+      // answer for an earlier gesture on this bar knows it has been superseded
+      if (ctx.gateToken === null) {
+        ctx.gateToken = storeApi
+          .getState()
+          .mutationGate.begin(mutationKey("move", ctx.taskId));
+      }
 
       const draggedPx = steps * ctx.basePxPerDragStep;
       const shift = (date: Dayjs) => shiftByDragSteps(date, steps, ctx.scaleKey);
@@ -228,7 +257,7 @@ export function useGanttBarDrag(
       }
 
       const currentRawTasks = storeApi.getState().rawTasks;
-      const commit = (date: string) =>
+      const shiftDate = (date: string) =>
         shiftByDragSteps(dayjs(date), ctx.dragSteps, ctx.scaleKey).toISOString();
 
       // However many tasks moved, there is one updated array - onTasksChange fires once
@@ -240,20 +269,20 @@ export function useGanttBarDrag(
           case "bar":
             return {
               ...t,
-              startDate: commit(t.startDate),
-              endDate: commit(t.endDate),
+              startDate: shiftDate(t.startDate),
+              endDate: shiftDate(t.endDate),
             };
 
           case "left":
             return {
               ...t,
-              startDate: commit(t.startDate),
+              startDate: shiftDate(t.startDate),
             };
 
           case "right":
             return {
               ...t,
-              endDate: commit(t.endDate),
+              endDate: shiftDate(t.endDate),
             };
 
           default:
@@ -261,15 +290,67 @@ export function useGanttBarDrag(
         }
       });
 
-      storeApi.getState().setRawTasks(updatedTasks);
-      onTasksChangeRef.current?.(updatedTasks);
+      const change = buildTaskChange({
+        type: ctx.mode === "bar" ? "move" : "resize",
+        taskId: ctx.taskId,
+        changedIds: ctx.taskIds,
+        previous: currentRawTasks,
+        next: updatedTasks,
+        edge:
+          ctx.mode === "left" ? "start" : ctx.mode === "right" ? "end" : undefined,
+      });
+
+      // Written against the tasks as they are at commit time, not against the snapshot
+      // taken at drop - another bar may have committed while a veto was in flight
+      const commit = () => {
+        const edited = new Map(change.changedTasks.map((t) => [t.id, t]));
+        const merged = storeApi
+          .getState()
+          .rawTasks.map((t) => edited.get(t.id) ?? t);
+
+        storeApi.getState().setRawTasks(merged);
+        optionsRef.current.onTasksChange?.(merged);
+      };
+
+      // Nothing was written, so dropping the drag offsets puts the bar back where it
+      // started - the reverting flag is only there to make that a transition
+      const rollback = () => {
+        const state = storeApi.getState();
+        state.beginRevert(ctx.taskIds);
+        state.clearDragOffsets(ctx.taskIds);
+        setTimeout(
+          () => storeApi.getState().endRevert(ctx.taskIds),
+          REVERT_DURATION_MS
+        );
+      };
 
       // dragOffset is deliberately not cleared here - clearing it before the new
       // transformedTasks are computed makes the bar flick back to its old position for
       // one frame. Gantt's timeline recomputation effect clears it along with the new positions.
+      // While a before-handler is pending it is what holds the bar at the dropped position.
       dragContextRef.current = null;
       dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);
+
+      const onBeforeTaskChange = optionsRef.current.onBeforeTaskChange;
+      if (!onBeforeTaskChange || ctx.gateToken === null) {
+        commit();
+        return;
+      }
+
+      void storeApi
+        .getState()
+        .mutationGate.settle(
+          mutationKey("move", ctx.taskId),
+          ctx.gateToken,
+          onBeforeTaskChange,
+          change
+        )
+        .then((outcome) => {
+          if (outcome === "commit") commit();
+          else if (outcome === "rollback") rollback();
+          // 'stale' - a newer gesture owns this bar, so this answer is dropped
+        });
     };
 
     document.addEventListener("pointermove", handlePointerMove);
@@ -277,8 +358,21 @@ export function useGanttBarDrag(
     document.addEventListener("pointercancel", handlePointerCancel);
   };
 
-  return { 
-    onPointerDown, 
-    dragMode: dragModeRef.current 
+  /**
+   * Reports whether the click now arriving is the tail of a drag, and clears the flag
+   *
+   * The browser fires a click after the pointerup that ended a gesture; that click is the
+   * end of the drag, not a selection.
+   */
+  const consumeDragClick = (): boolean => {
+    if (!movedRef.current) return false;
+    movedRef.current = false;
+    return true;
+  };
+
+  return {
+    onPointerDown,
+    dragMode: dragModeRef.current,
+    consumeDragClick,
   };
 }
