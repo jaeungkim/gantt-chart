@@ -1,20 +1,17 @@
-import { MILESTONE_HALF_DIAGONAL, NODE_HEIGHT } from "constants/gantt";
+import {
+  DATE_FORMATS,
+  EDGE_THRESHOLD,
+  MILESTONE_HALF_DIAGONAL,
+  MIN_BAR_WIDTH,
+  MIN_LABEL_INSIDE_WIDTH,
+  MIN_RESIZABLE_WIDTH,
+  NODE_HEIGHT,
+} from "constants/gantt";
 import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
+import { useGanttProgressDrag } from "hooks/useGanttProgressDrag";
 import { useRef, useState, useCallback } from "react";
 import { useGanttStore } from "stores/store";
-import { GanttScaleKey } from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
-
-// 엣지 감지 영역 (px)
-const EDGE_THRESHOLD = 8;
-
-// 스케일별 날짜 포맷
-const DATE_FORMATS: Record<GanttScaleKey, string> = {
-  day: "MMM D, h A",
-  week: "MMM D",
-  month: "MMM D",
-  year: "MMM YYYY",
-};
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
@@ -38,10 +35,20 @@ export default function GanttBar({
   const offsetWidth = liveOffset?.offsetWidth ?? 0;
 
   // 최종 위치 및 크기 계산
+  // 짧은 태스크도 잡을 수 있도록 최소 너비 보장, 좁으면 라벨을 바 밖으로
   const finalLeft = currentTask.barLeft + offsetX;
-  const finalWidth = currentTask.barWidth + offsetWidth;
+  const finalWidth = Math.max(
+    currentTask.barWidth + offsetWidth,
+    MIN_BAR_WIDTH
+  );
+  const labelOutside = finalWidth < MIN_LABEL_INSIDE_WIDTH;
 
   const isMilestone = isMilestoneTask(currentTask);
+
+  // 진행률 (마일스톤은 진행률 없음)
+  const { onProgressPointerDown, progress, isDraggingProgress } =
+    useGanttProgressDrag(currentTask, barRef, onTasksChange);
+  const showProgress = !isMilestone && progress !== null;
 
   // 마우스 위치에 따른 커서 변경 (마일스톤은 리사이즈 없음)
   const handleMouseMove = useCallback(
@@ -52,6 +59,11 @@ export default function GanttBar({
       if (!bar) return;
 
       const rect = bar.getBoundingClientRect();
+      if (rect.width < MIN_RESIZABLE_WIDTH) {
+        setCursor("grab");
+        return;
+      }
+
       const relativeX = e.clientX - rect.left;
 
       if (
@@ -121,7 +133,9 @@ export default function GanttBar({
     <div
       ref={barRef}
       id={`task-${currentTask.id}`}
-      className={`gantt-task-bar${isDragging ? " dragging" : ""}`}
+      className={`gantt-task-bar${isDragging ? " dragging" : ""}${
+        labelOutside ? " compact" : ""
+      }`}
       onPointerDown={onPointerDown}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => setCursor("grab")}
@@ -133,14 +147,52 @@ export default function GanttBar({
       }}
       role="button"
       tabIndex={0}
-      aria-label={`태스크: ${currentTask.name}`}
+      aria-label={
+        showProgress
+          ? `태스크: ${currentTask.name}, ${progress}% 완료`
+          : `태스크: ${currentTask.name}`
+      }
     >
-      <span className="gantt-task-name">{currentTask.name}</span>
-      
+      {/* 진행률 채움 + 핸들 */}
+      {showProgress && (
+        <>
+          <div
+            className="gantt-progress-fill"
+            style={{ width: `${progress}%` }}
+          />
+          <div
+            className={`gantt-progress-handle${
+              isDraggingProgress ? " dragging" : ""
+            }`}
+            style={{ left: `${progress}%` }}
+            onPointerDown={onProgressPointerDown}
+            role="slider"
+            tabIndex={-1}
+            aria-label={`${currentTask.name} 진행률`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress}
+          />
+        </>
+      )}
+
+      <span
+        className={`gantt-task-name${labelOutside ? " outside" : ""}`}
+      >
+        {currentTask.name}
+      </span>
+
       {/* 드래그 중 툴팁 */}
       {isDragging && liveOffset && (
         <div className="gantt-bar-tooltip" role="status" aria-live="polite">
           {getTooltipText(dragMode)}
+        </div>
+      )}
+
+      {/* 진행률 드래그 중 툴팁 */}
+      {isDraggingProgress && (
+        <div className="gantt-bar-tooltip" role="status" aria-live="polite">
+          {progress}%
         </div>
       )}
     </div>

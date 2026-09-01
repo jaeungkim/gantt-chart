@@ -1,23 +1,38 @@
 import GanttBar from "components/GanttBar";
 import GanttChartHeader from "components/GanttChartHeader";
 import GanttDependencyArrows from "components/GanttDependencyArrows";
+import GanttDragGuides from "components/GanttDragGuides";
 import ScaleSelector from "components/ScaleSelector";
 import { useEffect, useMemo, useRef } from "react";
+import { Dayjs } from "dayjs";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
 import { useResolvedTheme } from "hooks/useResolvedTheme";
+import { readPersistedScale } from "stores/store";
 import { GanttScaleKey, GanttTheme } from "types/gantt";
 import { Task } from "types/task";
 import dayjs from "utils/dayjs";
-import { calculateDateOffsetPx, computeTimelineData } from "utils/timeline";
+import {
+  calculateDateOffsetPx,
+  computeNonWorkingRanges,
+  computeTimelineData,
+} from "utils/timeline";
 
 /** Gantt 컴포넌트 기본값 */
 const DEFAULT_HEIGHT = 600;
 const DEFAULT_WIDTH = "100%";
 const DEFAULT_SCALE: GanttScaleKey = "month";
+/** 기본 tasks - 매 렌더 새 배열이 생기지 않도록 모듈 스코프에 고정 */
+const EMPTY_TASKS: Task[] = [];
 
 export interface GanttProps {
-  /** 태스크 데이터 배열 */
+  /**
+   * 태스크 데이터 배열
+   *
+   * 내용이 실제로 바뀔 때만 차트에 반영된다. 부모가 같은 데이터를 새 배열로
+   * 다시 넘기는 경우(인라인 리터럴, 비메모 map 등)에는 무시되므로 드래그로
+   * 방금 편집한 결과가 되돌아가지 않는다. 빈 배열을 넘기면 차트가 비워진다.
+   */
   tasks?: Task[];
   /** 태스크 변경 시 호출되는 콜백 */
   onTasksChange?: (updatedTasks: Task[]) => void;
@@ -27,10 +42,22 @@ export interface GanttProps {
   width?: number | string;
   /** 테마 설정 - 'light', 'dark', 또는 'system' */
   theme?: GanttTheme;
-  /** 기본 스케일 설정 */
+  /**
+   * 초기 스케일 설정
+   *
+   * 세션에 저장된 사용자 선택(sessionStorage)이 없을 때만 적용되는 시드 값이다.
+   * 사용자가 스케일을 바꾸면 그 선택이 저장되어 리마운트 시 우선하며,
+   * 마운트 이후의 prop 변경은 무시된다 (`default*` prop 관례).
+   */
   defaultScale?: GanttScaleKey;
   /** 추가 CSS 클래스명 */
   className?: string;
+  /** 주말/휴일 음영 표시 여부 (기본 true) */
+  showNonWorkingDays?: boolean;
+  /** 휴일 목록 (ISO 날짜 문자열, 예: '2026-01-01') */
+  holidays?: string[];
+  /** 비근무일 판별 커스텀 함수 - 지정 시 기본 주말/휴일 판별을 대체 */
+  isNonWorkingDay?: (date: Dayjs) => boolean;
 }
 
 /**
@@ -38,13 +65,16 @@ export interface GanttProps {
  * 가상화를 사용하여 대량의 태스크를 효율적으로 렌더링
  */
 function Gantt({
-  tasks = [],
+  tasks = EMPTY_TASKS,
   onTasksChange,
   height = DEFAULT_HEIGHT,
   width = DEFAULT_WIDTH,
   theme,
   defaultScale = DEFAULT_SCALE,
   className,
+  showNonWorkingDays = true,
+  holidays,
+  isNonWorkingDay,
 }: GanttProps) {
   // 스토어 상태 및 액션
   const {
@@ -56,6 +86,7 @@ function Gantt({
     setTransformedTasks,
     setBottomRowCells,
     setSelectedScale,
+    clearAllDragOffsets,
     getTotalWidth,
   } = useGanttSelectors();
 
@@ -75,25 +106,32 @@ function Gantt({
     className ? `gantt-container ${className}` : "gantt-container"
   );
 
-  // 초기 스케일 설정
+  // 초기 스케일 설정 - 세션에 저장된 사용자 선택이 있으면 그 값이 defaultScale보다 우선
+  // (마운트 시 1회만. defaultScale은 시드일 뿐이라 이후 변경은 무시한다)
   useEffect(() => {
-    if (defaultScale && defaultScale !== selectedScale) {
-      setSelectedScale(defaultScale);
-    }
+    setSelectedScale(readPersistedScale() ?? defaultScale);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 프롭으로 받아 마지막으로 반영한 태스크 데이터의 스냅샷
+  const syncedTasksRef = useRef<string | null>(null);
+
   // 태스크 데이터 동기화
+  // 배열 identity가 아니라 내용이 바뀌었을 때만 스토어를 덮어쓴다.
+  // 부모가 같은 데이터를 새 배열로 다시 넘기는 리렌더는 무시되므로 드래그 편집이
+  // 되돌아가지 않고, 데이터가 실제로 달라지면(빈 배열 포함) 프롭이 이긴다.
+  // (비교는 직렬화 1회 - tasks 배열 identity가 바뀔 때만 돈다. 태스크 수가
+  //  아주 많아 이 비용이 문제가 되면 부모에서 tasks를 memo 하면 된다)
   useEffect(() => {
-    if (tasks.length > 0) {
-      setRawTasks(tasks);
-    }
+    const snapshot = JSON.stringify(tasks);
+    if (snapshot === syncedTasksRef.current) return;
+
+    syncedTasksRef.current = snapshot;
+    setRawTasks(tasks);
   }, [tasks, setRawTasks]);
 
-  // 타임라인 구조 설정
+  // 타임라인 구조 설정 (태스크가 비면 빈 타임라인으로 정리)
   useEffect(() => {
-    if (!rawTasks.length) return;
-
     const { bottomCells, transformedTasks: transformed } = computeTimelineData(
       rawTasks,
       selectedScale
@@ -101,7 +139,15 @@ function Gantt({
 
     setBottomRowCells(bottomCells);
     setTransformedTasks(transformed);
-  }, [rawTasks, selectedScale, setBottomRowCells, setTransformedTasks]);
+    // 새 위치가 준비된 시점에 드래그 오프셋 정리 - 드롭 시 한 프레임 깜빡임 방지
+    clearAllDragOffsets();
+  }, [
+    rawTasks,
+    selectedScale,
+    setBottomRowCells,
+    setTransformedTasks,
+    clearAllDragOffsets,
+  ]);
 
   // 스케일 변경 핸들러
   const handleScaleChange = (scale: GanttScaleKey) => {
@@ -113,6 +159,30 @@ function Gantt({
     () => calculateDateOffsetPx(dayjs(), bottomRowCells, selectedScale),
     [bottomRowCells, selectedScale]
   );
+  // 비근무일 음영 범위 계산
+  const nonWorkingRanges = useMemo(() => {
+    if (!showNonWorkingDays) return [];
+
+    const holidaySet = new Set(holidays);
+    const isOffDay =
+      isNonWorkingDay ??
+      ((date: Dayjs) => {
+        const dayOfWeek = date.day();
+        return (
+          dayOfWeek === 0 ||
+          dayOfWeek === 6 ||
+          holidaySet.has(date.format("YYYY-MM-DD"))
+        );
+      });
+
+    return computeNonWorkingRanges(bottomRowCells, selectedScale, isOffDay);
+  }, [
+    showNonWorkingDays,
+    holidays,
+    isNonWorkingDay,
+    bottomRowCells,
+    selectedScale,
+  ]);
 
   // 전체 너비 계산
   const totalWidth = getTotalWidth();
@@ -140,6 +210,9 @@ function Gantt({
       {/* 메인 차트 영역 */}
       <div className="gantt-main">
         <div ref={scrollRef} className="gantt-scroll-container">
+          {/* 드래그 가이드 (헤더 포함 전체 관통) */}
+          <GanttDragGuides width={totalWidth} />
+
           {/* 헤더 */}
           <div className="gantt-header-wrapper" style={{ width: `${totalWidth}px` }}>
             <GanttChartHeader
@@ -158,6 +231,22 @@ function Gantt({
               width: `${totalWidth}px`,
             }}
           >
+            {/* 비근무일 음영 */}
+            {nonWorkingRanges.length > 0 && (
+              <div className="gantt-non-working-layer" aria-hidden="true">
+                {nonWorkingRanges.map((range) => (
+                  <div
+                    key={range.left}
+                    className="gantt-non-working-range"
+                    style={{
+                      left: `${range.left}px`,
+                      width: `${range.width}px`,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
             {/* 태스크 행 (배경) */}
             <div className="gantt-rows">
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {

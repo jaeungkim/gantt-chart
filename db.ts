@@ -27,6 +27,7 @@ export const sourceTasks: Task[] = [
     endDate: formatISO(setTime(addDays(baseDate, 0), 11)),
     parentId: null,
     sequence: '1',
+    progress: 100,
     dependencies: [],
   },
   {
@@ -36,6 +37,7 @@ export const sourceTasks: Task[] = [
     endDate: formatISO(setTime(addDays(baseDate, 4), 17)),
     parentId: null,
     sequence: '2',
+    progress: 100,
     dependencies: [{ targetId: '1', type: 'FS' }],
   },
   {
@@ -45,6 +47,7 @@ export const sourceTasks: Task[] = [
     endDate: formatISO(setTime(addDays(baseDate, 3), 17)),
     parentId: null,
     sequence: '2.1',
+    progress: 80,
     dependencies: [{ targetId: '2', type: 'SS' }],
   },
   {
@@ -54,6 +57,7 @@ export const sourceTasks: Task[] = [
     endDate: formatISO(setTime(addDays(baseDate, 7), 17)),
     parentId: null,
     sequence: '3',
+    progress: 60,
     dependencies: [{ targetId: '3', type: 'FS' }],
   },
   {
@@ -73,6 +77,7 @@ export const sourceTasks: Task[] = [
     endDate: formatISO(setTime(addDays(baseDate, 10), 17)),
     parentId: null,
     sequence: '4',
+    progress: 45,
     dependencies: [{ targetId: '4', type: 'FS' }],
   },
   {
@@ -82,6 +87,7 @@ export const sourceTasks: Task[] = [
     endDate: formatISO(setTime(addDays(baseDate, 11), 17)),
     parentId: null,
     sequence: '5',
+    progress: 30,
     dependencies: [{ targetId: '4', type: 'FS' }],
   },
   {
@@ -91,6 +97,7 @@ export const sourceTasks: Task[] = [
     endDate: formatISO(setTime(addDays(baseDate, 17), 17)),
     parentId: '5',
     sequence: '4.1',
+    progress: 15,
     dependencies: [{ targetId: '5', type: 'FS' }],
   },
   {
@@ -100,6 +107,7 @@ export const sourceTasks: Task[] = [
     endDate: formatISO(setTime(addDays(baseDate, 17), 17)),
     parentId: '6',
     sequence: '5.1',
+    progress: 5,
     dependencies: [{ targetId: '6', type: 'FS' }],
   },
   {

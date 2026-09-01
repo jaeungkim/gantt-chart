@@ -29,3 +29,10 @@ jobs:
       - run: pnpm type-check
       - run: pnpm test
       - run: pnpm build
+      # SSR safety: importing and server-rendering the built package in plain Node
+      # (no DOM globals) must not touch window/document/sessionStorage.
+      - name: SSR import smoke test
+        run: |
+          node --input-type=module -e "const m = await import('@jaeungkim/gantt-chart'); if (typeof m.ReactGanttChart !== 'function') throw new Error('missing ReactGanttChart export'); console.log('SSR import OK (esm)');"
+          node --input-type=commonjs -e "const m = require('@jaeungkim/gantt-chart'); if (typeof m.ReactGanttChart !== 'function') throw new Error('missing ReactGanttChart export'); console.log('SSR import OK (cjs)');"
+          node --input-type=module -e "const { createElement } = await import('react'); const { renderToString } = await import('react-dom/server'); const { ReactGanttChart } = await import('@jaeungkim/gantt-chart'); const html = renderToString(createElement(ReactGanttChart, { tasks: [{ id: '1', name: 'A', startDate: '2025-01-01', endDate: '2025-01-05', parentId: null, sequence: '1' }] })); if (!html.includes('gantt-container')) throw new Error('SSR render produced no chart markup'); console.log('SSR render OK');"

@@ -1,4 +1,8 @@
-import { GANTT_SCALE_CONFIG } from "constants/gantt";
+import {
+  EDGE_THRESHOLD,
+  GANTT_SCALE_CONFIG,
+  MIN_RESIZABLE_WIDTH,
+} from "constants/gantt";
 import { useRef } from "react";
 import { useGanttStore } from "stores/store";
 import { GanttDragOffset } from "types/gantt";
@@ -9,6 +13,7 @@ export type DragMode = "bar" | "left" | "right";
 
 interface DragContext {
   mode: DragMode;
+  pointerId: number;
   initialClientX: number;
   initialStartDate: dayjs.Dayjs;
   initialEndDate: dayjs.Dayjs;
@@ -29,9 +34,6 @@ const TIME_UNIT_MULTIPLIERS = {
   month: 60 * 24 * 30,
 } as const;
 
-// 엣지 감지 영역 (px)
-const EDGE_THRESHOLD = 10;
-
 /**
  * Gantt 바 드래그 기능을 제공하는 훅
  */
@@ -48,11 +50,14 @@ export function useGanttBarDrag(
   const scaleConfig = GANTT_SCALE_CONFIG[selectedScale];
   const { basePxPerDragStep, dragStepAmount, dragStepUnit } = scaleConfig;
 
-  // 드래그 모드 감지 (마일스톤은 리사이즈 불가 - 항상 이동)
+  // 드래그 모드 감지
+  // 마일스톤과 좁은 바는 리사이즈 불가 - 엣지 영역이 바 전체를 덮어 이동이 막히는 것을 방지
   const detectDragMode = (e: React.PointerEvent<HTMLDivElement>): DragMode => {
     if (isMilestoneTask(task)) return "bar";
 
     const rect = e.currentTarget.getBoundingClientRect();
+    if (rect.width < MIN_RESIZABLE_WIDTH) return "bar";
+
     const relativeX = e.clientX - rect.left;
 
     if (relativeX <= EDGE_THRESHOLD) return "left";
@@ -61,11 +66,17 @@ export function useGanttBarDrag(
   };
 
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
+    // 주 포인터의 왼쪽 버튼만 드래그 시작 (우클릭/보조 터치는 무시)
+    if (!e.isPrimary || e.button !== 0) return;
+    // 이미 드래그 중이면 두 번째 포인터를 무시
+    if (dragContextRef.current) return;
+
     const mode = detectDragMode(e);
     dragModeRef.current = mode;
 
     dragContextRef.current = {
       mode,
+      pointerId: e.pointerId,
       initialClientX: e.clientX,
       initialStartDate: dayjs(task.startDate),
       initialEndDate: dayjs(task.endDate),
@@ -82,11 +93,20 @@ export function useGanttBarDrag(
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       const ctx = dragContextRef.current;
-      if (!ctx) return;
+      if (!ctx || moveEvent.pointerId !== ctx.pointerId) return;
 
       const deltaX = moveEvent.clientX - ctx.initialClientX;
-      const steps = Math.round(deltaX / ctx.basePxPerDragStep);
-      
+      const rawSteps = Math.round(deltaX / ctx.basePxPerDragStep);
+
+      // 최소 한 스텝 너비는 남기도록 스텝 자체를 클램프
+      // (미리보기만 막고 커밋은 그대로 두면 end < start 로 커밋된다)
+      const maxShrinkSteps = Math.floor(
+        (ctx.initialBarWidth - ctx.basePxPerDragStep) / ctx.basePxPerDragStep
+      );
+      let steps = rawSteps;
+      if (ctx.mode === "left") steps = Math.min(rawSteps, maxShrinkSteps);
+      if (ctx.mode === "right") steps = Math.max(rawSteps, -maxShrinkSteps);
+
       if (steps === ctx.dragSteps) return;
       ctx.dragSteps = steps;
 
@@ -112,10 +132,6 @@ export function useGanttBarDrag(
           newEndDate = ctx.initialEndDate;
           offsetX = draggedPx;
           offsetWidth = -draggedPx;
-          
-          if (ctx.initialBarWidth + offsetWidth < ctx.basePxPerDragStep) {
-            return;
-          }
           break;
 
         case "right":
@@ -123,10 +139,6 @@ export function useGanttBarDrag(
           newEndDate = ctx.initialEndDate.add(totalMinutes, "minute");
           offsetX = 0;
           offsetWidth = draggedPx;
-          
-          if (ctx.initialBarWidth + offsetWidth < ctx.basePxPerDragStep) {
-            return;
-          }
           break;
 
         default:
@@ -143,21 +155,41 @@ export function useGanttBarDrag(
       useGanttStore.getState().setDragOffset(ctx.taskId, offset);
     };
 
-    const handlePointerUp = () => {
+    const detachListeners = () => {
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerup", handlePointerUp);
-      document.removeEventListener("pointercancel", handlePointerUp);
+      document.removeEventListener("pointercancel", handlePointerCancel);
+    };
 
+    const endDrag = (taskId: string) => {
+      dragContextRef.current = null;
+      dragModeRef.current = null;
+      useGanttStore.getState().setCurrentTask(null);
+      useGanttStore.getState().clearDragOffset(taskId);
+    };
+
+    // 브라우저가 제스처를 취소한 경우(스크롤 인계, 멀티터치 등)는 커밋하지 않고 되돌린다
+    const handlePointerCancel = (cancelEvent: PointerEvent) => {
       const ctx = dragContextRef.current;
+      if (ctx && cancelEvent.pointerId !== ctx.pointerId) return;
+
+      detachListeners();
+      if (ctx) endDrag(ctx.taskId);
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      const pending = dragContextRef.current;
+      if (pending && upEvent.pointerId !== pending.pointerId) return;
+
+      detachListeners();
+
+      const ctx = pending;
       if (!ctx) {
         return;
       }
 
       if (ctx.dragSteps === 0) {
-        dragContextRef.current = null;
-        dragModeRef.current = null;
-        useGanttStore.getState().setCurrentTask(null);
-        useGanttStore.getState().clearDragOffset(ctx.taskId);
+        endDrag(ctx.taskId);
         return;
       }
 
@@ -196,15 +228,17 @@ export function useGanttBarDrag(
       useGanttStore.getState().setRawTasks(updatedTasks);
       onTasksChangeRef.current?.(updatedTasks);
 
+      // dragOffset은 여기서 지우지 않는다 - 새 transformedTasks가 계산되기 전에
+      // 지우면 바가 한 프레임 동안 원위치로 돌아갔다 오는 깜빡임이 생긴다.
+      // Gantt의 타임라인 재계산 이펙트가 새 위치와 함께 한 번에 정리한다.
       dragContextRef.current = null;
       dragModeRef.current = null;
       useGanttStore.getState().setCurrentTask(null);
-      useGanttStore.getState().clearDragOffset(ctx.taskId);
     };
 
     document.addEventListener("pointermove", handlePointerMove);
     document.addEventListener("pointerup", handlePointerUp);
-    document.addEventListener("pointercancel", handlePointerUp);
+    document.addEventListener("pointercancel", handlePointerCancel);
   };
 
   return { 

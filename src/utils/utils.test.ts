@@ -1,11 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import dayjs from 'utils/dayjs';
-import type { Task } from 'types/task';
-import { getSmartGanttPath } from './arrowPath';
-import { processHeaderGroups } from './headerUtils';
+import {
+  DATE_FORMATS,
+  GANTT_SCALE_CONFIG,
+  MILESTONE_HALF_DIAGONAL,
+  NODE_HEIGHT,
+} from 'constants/gantt';
+import { normalizeProgress, type Task, type TaskTransformed } from 'types/task';
+import { buildDependencies, getSmartGanttPath } from './arrowPath';
+import { mergeHeaderGroups } from './headerUtils';
 import {
   calculateDateOffsetPx,
   calculateDateOffsets,
+  computeNonWorkingRanges,
   computeTimelineData,
   createTopHeaderGroups,
 } from './timeline';
@@ -48,6 +55,16 @@ describe('transformTasks', () => {
     );
     expect(m.barLeft).toBe(32);
     expect(m.barWidth).toBe(1);
+  });
+});
+
+describe('normalizeProgress', () => {
+  it('clamps to 0-100 and rejects missing or NaN values', () => {
+    expect(normalizeProgress(42)).toBe(42);
+    expect(normalizeProgress(-10)).toBe(0);
+    expect(normalizeProgress(150)).toBe(100);
+    expect(normalizeProgress(undefined)).toBeNull();
+    expect(normalizeProgress(Number.NaN)).toBeNull();
   });
 });
 
@@ -95,6 +112,65 @@ describe('calculateDateOffsetPx', () => {
   });
 });
 
+describe('computeNonWorkingRanges', () => {
+  // 2025-01-01 is a Wednesday; Jan 4 (Sat) and Jan 5 (Sun) are the weekend.
+  const week = ticks(
+    '2025-01-01',
+    '2025-01-02',
+    '2025-01-03',
+    '2025-01-04',
+    '2025-01-05',
+    '2025-01-06',
+    '2025-01-07',
+  );
+  const isWeekend = (d: ReturnType<typeof dayjs>) => d.day() === 0 || d.day() === 6;
+
+  it('merges adjacent weekend ticks into one range', () => {
+    expect(computeNonWorkingRanges(week, 'month', isWeekend)).toEqual([
+      { left: 96, width: 64 },
+    ]);
+  });
+
+  it('keeps non-adjacent ranges separate', () => {
+    const withHoliday = (d: ReturnType<typeof dayjs>) =>
+      isWeekend(d) || d.format('YYYY-MM-DD') === '2025-01-07';
+    expect(computeNonWorkingRanges(week, 'month', withHoliday)).toEqual([
+      { left: 96, width: 64 },
+      { left: 192, width: 32 },
+    ]);
+  });
+
+  it('returns nothing for scales coarser than a day', () => {
+    expect(computeNonWorkingRanges(week, 'year', isWeekend)).toEqual([]);
+    expect(computeNonWorkingRanges([], 'month', isWeekend)).toEqual([]);
+  });
+});
+
+describe('GANTT_SCALE_CONFIG labels', () => {
+  const afternoon = dayjs('2025-09-01T15:00');
+
+  it('labels day ticks in 24-hour time so AM and PM differ', () => {
+    expect(GANTT_SCALE_CONFIG.day.formatTickLabel?.(dayjs('2025-09-01T09:00'))).toBe('09');
+    expect(GANTT_SCALE_CONFIG.day.formatTickLabel?.(afternoon)).toBe('15');
+    expect(GANTT_SCALE_CONFIG.day.formatTickLabel?.(dayjs('2025-09-01T00:00'))).toBe('00');
+  });
+
+  it('labels year-scale month ticks with the month, not the day of month', () => {
+    expect(GANTT_SCALE_CONFIG.year.formatTickLabel?.(afternoon)).toBe('Sep');
+    expect(GANTT_SCALE_CONFIG.week.formatTickLabel?.(afternoon)).toBe('1');
+    expect(GANTT_SCALE_CONFIG.month.formatTickLabel?.(afternoon)).toBe('1');
+  });
+
+  it('shows the year in every header label and drag tooltip format', () => {
+    expect(GANTT_SCALE_CONFIG.day.formatHeaderLabel?.(afternoon)).toBe('Sep 1, 2025');
+    expect(GANTT_SCALE_CONFIG.week.formatHeaderLabel?.(afternoon)).toBe('Sep 2025');
+    expect(GANTT_SCALE_CONFIG.month.formatHeaderLabel?.(afternoon)).toBe('Sep 2025');
+    expect(GANTT_SCALE_CONFIG.year.formatHeaderLabel?.(afternoon)).toBe('2025');
+    expect(afternoon.format(DATE_FORMATS.day)).toBe('Sep 1, 2025 15:00');
+    expect(afternoon.format(DATE_FORMATS.week)).toBe('Sep 1, 2025');
+  });
+});
+
 describe('createTopHeaderGroups', () => {
   it('groups daily ticks into month headers', () => {
     expect(
@@ -105,14 +181,23 @@ describe('createTopHeaderGroups', () => {
     ]);
     expect(createTopHeaderGroups([], 'month')).toEqual([]);
   });
+
+  it('groups monthly ticks into year headers at year scale', () => {
+    expect(
+      createTopHeaderGroups(ticks('2025-11-01', '2025-12-01', '2026-01-01'), 'year'),
+    ).toMatchObject([
+      { label: '2025', widthPx: 64 },
+      { label: '2026', widthPx: 32 },
+    ]);
+  });
 });
 
-describe('processHeaderGroups', () => {
-  it('merges adjacent equal labels without mutating input, then assigns left offsets', () => {
+describe('mergeHeaderGroups', () => {
+  it('merges adjacent equal labels without mutating input', () => {
     const input = [group('Jan', 10), group('Jan', 20), group('Feb', 5)];
-    expect(processHeaderGroups(input)).toMatchObject([
-      { label: 'Jan', widthPx: 30, left: 0 },
-      { label: 'Feb', widthPx: 5, left: 30 },
+    expect(mergeHeaderGroups(input)).toMatchObject([
+      { label: 'Jan', widthPx: 30 },
+      { label: 'Feb', widthPx: 5 },
     ]);
     expect(input[0].widthPx).toBe(10);
   });
@@ -131,6 +216,80 @@ describe('getSmartGanttPath', () => {
   it('falls back for off-screen rows and unknown dependency types', () => {
     expect(getSmartGanttPath('FS', 10, 5, 110, -3)).toBe('M 10 5 h 50');
     expect(getSmartGanttPath('XX', 0, 0, 10, 20)).toBe('M 0 0 L 10 20');
+  });
+});
+
+describe('buildDependencies', () => {
+  // A(order 1) is the predecessor, B(order 2) owns the FS dependency on A.
+  const bar = (
+    id: string,
+    order: number,
+    barLeft: number,
+    extra: Partial<TaskTransformed> = {},
+  ): TaskTransformed => ({
+    ...task(id, `${order}`),
+    barLeft,
+    barWidth: 64,
+    depth: 0,
+    order,
+    originalOrder: order,
+    ...extra,
+  });
+  const chain = (extra: Partial<TaskTransformed> = {}) => [
+    bar('a', 1, 100, extra),
+    bar('b', 2, 300, { dependencies: [{ targetId: 'a', type: 'FS' }] }),
+  ];
+  const center = NODE_HEIGHT / 2;
+
+  it('anchors an FS arrow from the predecessor end to the successor start', () => {
+    expect(buildDependencies(chain(), {})).toEqual([
+      { targetId: 'a', type: 'FS', fromX: 164, fromY: center, toX: 300, toY: NODE_HEIGHT + center },
+    ]);
+  });
+
+  it('follows the live offset of whichever end is being dragged', () => {
+    // 선행(A)을 드래그하면 화살표 시작점이 따라와야 한다 (#66)
+    expect(
+      buildDependencies(chain(), { a: { offsetX: 32, offsetWidth: 0 } })[0],
+    ).toMatchObject({ fromX: 196, toX: 300 });
+    // 선행의 우측 리사이즈도 마찬가지
+    expect(
+      buildDependencies(chain(), { a: { offsetX: 0, offsetWidth: 32 } })[0],
+    ).toMatchObject({ fromX: 196, toX: 300 });
+    // 후행(B)을 드래그하면 도착점만 움직인다
+    expect(
+      buildDependencies(chain(), { b: { offsetX: -32, offsetWidth: 0 } })[0],
+    ).toMatchObject({ fromX: 164, toX: 268 });
+  });
+
+  it('anchors milestones at the diamond vertices, offset included', () => {
+    const [dep] = buildDependencies(chain({ type: 'milestone', barWidth: 1 }), {
+      a: { offsetX: 32, offsetWidth: 0 },
+    });
+    expect(dep.fromX).toBe(132 + MILESTONE_HALF_DIAGONAL);
+  });
+
+  it('skips an unrecognized dependency type instead of throwing, warning once', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // consumer가 넘기는 JSON에는 타입 밖의 값이 올 수 있다
+    const unknownDep = [
+      { targetId: 'a', type: 'fs' },
+    ] as unknown as TaskTransformed['dependencies'];
+    const tasks = [
+      bar('a', 1, 100),
+      bar('b', 2, 300, { dependencies: unknownDep }),
+      bar('c', 3, 500, { dependencies: unknownDep }),
+    ];
+
+    expect(buildDependencies(tasks, {})).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it('skips dependencies pointing at a task that is not in the chart', () => {
+    expect(
+      buildDependencies([bar('b', 1, 300, { dependencies: [{ targetId: 'gone', type: 'FS' }] })], {}),
+    ).toEqual([]);
   });
 });
 
