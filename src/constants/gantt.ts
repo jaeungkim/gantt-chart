@@ -1,5 +1,5 @@
 import { GanttColumn, GanttScaleConfig, GanttScaleKey } from 'types/gantt';
-import dayjs from 'utils/dayjs';
+import dayjs from 'core/dates';
 
 export const NODE_HEIGHT = 38;
 /** Full timeline header height (44 top group + 28 bottom cell + 1 border) - the grid header matches it */

@@ -37,14 +37,14 @@ import {
   GanttTheme,
 } from "types/gantt";
 import { Task } from "types/task";
-import dayjs from "utils/dayjs";
+import dayjs from "core/dates";
 import {
   calculateDateOffsetPx,
   computeNonWorkingRanges,
   computeTimelineData,
   originShiftPx,
 } from "utils/timeline";
-import { getVisibleTasks } from "utils/tree";
+import { getVisibleTasks } from "core/tree";
 
 /** Gantt component defaults */
 const DEFAULT_HEIGHT = 600;

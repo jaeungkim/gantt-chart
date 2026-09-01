@@ -8,9 +8,9 @@ import { useRef } from "react";
 import { useGanttStore, useGanttStoreApi } from "stores/context";
 import { GanttDragOffset, GanttScaleKey } from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
-import dayjs from "utils/dayjs";
+import dayjs from "core/dates";
 import { shiftByDragSteps } from "utils/timeline";
-import { collectSubtreeIds } from "utils/tree";
+import { collectSubtreeIds } from "core/tree";
 
 export type DragMode = "bar" | "left" | "right";
 

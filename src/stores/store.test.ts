@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import dayjs from 'utils/dayjs';
+import dayjs from 'core/dates';
 // This import is itself the SSR-safety regression test - touching sessionStorage at
 // module scope would make loading the file fail outright in a Node environment (no jsdom).
 import { createGanttStore, readPersistedScale } from './store';

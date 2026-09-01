@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import dayjs from 'utils/dayjs';
-import type { Task } from 'types/task';
+import dayjs from './dates';
+import type { Task } from './types';
 import {
   buildTaskTree,
   collectSubtreeIds,

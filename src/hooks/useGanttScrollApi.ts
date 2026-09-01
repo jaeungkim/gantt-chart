@@ -2,7 +2,7 @@ import { Dayjs } from "dayjs";
 import { RefObject, useCallback, useMemo } from "react";
 import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
 import { TaskTransformed } from "types/task";
-import dayjs from "utils/dayjs";
+import dayjs from "core/dates";
 import { calculateDateOffsetPx } from "utils/timeline";
 
 /** Options for the scrollTo* methods */

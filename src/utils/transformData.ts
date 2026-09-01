@@ -1,8 +1,8 @@
 import { GanttBottomRowCell, GanttScaleKey } from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
-import dayjs from "utils/dayjs";
+import dayjs from "core/dates";
 import { calculateDateOffsets } from "./timeline";
-import { TaskTree } from "./tree";
+import { TaskTree } from "core/tree";
 
 // Helper function to parse sequence numbers
 function parseSequence(sequence: string): number[] {

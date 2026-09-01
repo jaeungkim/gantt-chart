@@ -6,9 +6,9 @@ import {
   GanttTopHeaderGroup,
 } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
-import dayjs from "utils/dayjs";
+import dayjs from "core/dates";
 import { transformTasks } from "./transformData";
-import { buildTaskTree, rollUpTasks } from "./tree";
+import { buildTaskTree, rollUpTasks } from "core/tree";
 
 export interface TimelineData {
   bottomCells: GanttBottomRowCell[];

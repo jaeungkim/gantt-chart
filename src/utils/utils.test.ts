@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import dayjs from 'utils/dayjs';
+import dayjs from 'core/dates';
 import {
   DATE_FORMATS,
   GANTT_SCALE_CONFIG,
