@@ -54,6 +54,7 @@ function App() {
       firstDayOfWeek={weekStart === null ? undefined : Number(weekStart)}
       showTaskList
       hierarchy
+      allowRowReorder
     />
   );
 }

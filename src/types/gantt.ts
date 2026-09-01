@@ -1,6 +1,6 @@
 import { Dayjs } from 'dayjs';
 import type { ReactNode } from 'react';
-import type { TaskTransformed } from './task';
+import type { Task, TaskTransformed } from './task';
 
 /** Theme type - 'light', 'dark', or 'system' (follows the OS setting) */
 export type GanttTheme = 'light' | 'dark' | 'system';
@@ -21,6 +21,21 @@ export type GanttLabelUnit =
   | 'month'
   | 'quarter'
   | 'year';
+
+/** What a bar drag is doing - moving the whole bar, or resizing one edge */
+export type GanttDragMode = 'bar' | 'left' | 'right';
+
+/** Window a bar may be dragged within - either end may be left open */
+export interface GanttDragBounds {
+  min?: Dayjs;
+  max?: Dayjs;
+}
+
+/** Fixed timeline window, replacing the auto-fit to the task dates */
+export interface GanttVisibleRange {
+  start?: Dayjs;
+  end?: Dayjs;
+}
 
 export interface GanttScaleConfig {
   labelUnit: GanttLabelUnit;
@@ -97,6 +112,27 @@ export interface GanttColumn {
   width?: number;
   /** Cell renderer - without it, task[key] is shown as a string */
   render?: (task: TaskTransformed) => ReactNode;
+}
+
+/**
+ * What a row drag committed - everything needed to persist the move
+ *
+ * Returning `false` from the callback cancels the drop: nothing is written to the chart and
+ * `onTasksChange` does not fire.
+ */
+export interface GanttReorderChange {
+  /** The moved task, already carrying its new parentId and sequence */
+  task: Task;
+  /** The new parent (null = root) */
+  parentId: string | null;
+  /** The parent the task had in the incoming data, untouched by normalization */
+  previousParentId: string | null;
+  /** Zero-based position among the new parent's children */
+  index: number;
+  /** The moved task's new dotted sequence */
+  sequence: string;
+  /** The whole updated array - the same one onTasksChange receives */
+  tasks: Task[];
 }
 
 export interface GanttDragOffset {

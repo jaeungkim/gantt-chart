@@ -69,6 +69,15 @@ export interface GanttState {
   currentTask: TaskTransformed | null;
   dragOffsets: Record<string, GanttDragOffset>;
   transformedTasks: TaskTransformed[];
+  /**
+   * While true, virtualization is bypassed and every row, bar, arrow and header
+   * cell is rendered at once.
+   *
+   * Only `exportToPng` turns this on, for the frames it takes to capture the
+   * chart - a capture of the virtualized DOM would be a picture of the visible
+   * slice with blank space around it.
+   */
+  exportMode: boolean;
   /** Locale and label formats - undefined means the built-in English labels */
   localeOptions: GanttLocaleOptions | undefined;
   /** Dependency drag in progress - null when none is running */
@@ -78,6 +87,7 @@ export interface GanttState {
 
   // Actions
   setSelectedScale: (scale: GanttScaleKey) => void;
+  setExportMode: (exportMode: boolean) => void;
   setLocaleOptions: (options: GanttLocaleOptions | undefined) => void;
   setCurrentTask: (task: TaskTransformed | null) => void;
   setRawTasks: (rawTasks: Task[]) => void;
@@ -113,11 +123,14 @@ export function createGanttStore(
     selectedScale: "month",
     currentTask: null,
     dragOffsets: {},
+    exportMode: false,
     localeOptions: undefined,
     linkDraft: null,
     selectedDependency: null,
 
     setCurrentTask: (task) => set({ currentTask: task }),
+
+    setExportMode: (exportMode) => set({ exportMode }),
 
     setLinkDraft: (draft) => set({ linkDraft: draft }),
 

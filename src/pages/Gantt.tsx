@@ -19,6 +19,7 @@ import {
   GanttTaskDraft,
   useGanttDrawCreate,
 } from "hooks/useGanttDrawCreate";
+import { useGanttExportApi } from "hooks/useGanttExportApi";
 import { GanttDependencyChange } from "hooks/useGanttLinkDrag";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { GanttHandle, useGanttScrollApi } from "hooks/useGanttScrollApi";
@@ -39,6 +40,7 @@ import {
   GanttBottomRowCell,
   GanttColumn,
   GanttFormatOverrides,
+  GanttReorderChange,
   GanttScaleKey,
   GanttTheme,
 } from "types/gantt";
@@ -111,6 +113,22 @@ export interface GanttProps {
    * do not touch the scroll position.
    */
   initialScrollTo?: "today" | string;
+  /** Blocks moving, resizing and progress dragging on every task */
+  readOnly?: boolean;
+  /** Allows/blocks moving bars (default true) - beats `readOnly` */
+  allowMove?: boolean;
+  /** Allows/blocks resizing bars (default true) - beats `readOnly` */
+  allowResize?: boolean;
+  /** Allows/blocks dragging the progress handle (default true) - beats `readOnly` */
+  allowProgressChange?: boolean;
+  /** Earliest date any bar may be dragged to (ISO string) - a task's own `minDate` wins */
+  minDate?: string;
+  /** Latest date any bar may be dragged to (ISO string) - a task's own `maxDate` wins */
+  maxDate?: string;
+  /** Pins the timeline to start here (ISO string) instead of fitting to the tasks */
+  visibleStart?: string;
+  /** Pins the timeline to end here (ISO string) instead of fitting to the tasks */
+  visibleEnd?: string;
   /**
    * BCP 47 locale tag for every date label, e.g. `"ko-KR"`
    *
@@ -164,8 +182,6 @@ export interface GanttProps {
   defaultCollapsedIds?: string[];
   /** Called whenever the collapsed state changes - in controlled and uncontrolled mode alike */
   onCollapsedChange?: (collapsedIds: string[]) => void;
-  /** Blocks every editing gesture - a task's own `readOnly` and the allow flags below win over it */
-  readOnly?: boolean;
   /** Allows/blocks drawing dependencies between bars (default true) - beats `readOnly` */
   allowLinkCreate?: boolean;
   /** Allows/blocks selecting and deleting dependency arrows (default true) - beats `readOnly` */
@@ -188,6 +204,26 @@ export interface GanttProps {
    * the new `tasks` array back in.
    */
   onTaskCreate?: (draft: GanttTaskDraft) => void;
+  /**
+   * Whether a task list row can be dragged to reorder and re-parent (default false)
+   *
+   * Vertical drag moves the row among its siblings; horizontal offset indents or outdents it
+   * the way an outliner does, and dropping onto the middle of a row makes that row the parent.
+   * A drop that would put a row inside its own subtree is marked invalid during the drag and
+   * does nothing on release.
+   *
+   * Follows the same guards as a bar move: a row is draggable only where
+   * `resolveTaskInteraction` says the task can move, so `readOnly` (or `allowMove: false`, on
+   * the chart or on the task) blocks it.
+   */
+  allowRowReorder?: boolean;
+  /**
+   * Called when a row drag is released on a legal target, before anything is committed
+   *
+   * Returning `false` cancels the drop - the chart stays as it was and `onTasksChange` does
+   * not fire. Otherwise the chart updates and `onTasksChange` fires once with the same array.
+   */
+  onReorder?: (change: GanttReorderChange) => void | boolean;
 }
 
 /**
@@ -225,6 +261,14 @@ function GanttChart({
   isNonWorkingDay,
   storageKey = DEFAULT_SCALE_STORAGE_KEY,
   initialScrollTo,
+  readOnly,
+  allowMove,
+  allowResize,
+  allowProgressChange,
+  minDate,
+  maxDate,
+  visibleStart,
+  visibleEnd,
   locale,
   formats,
   firstDayOfWeek,
@@ -234,13 +278,14 @@ function GanttChart({
   collapsedIds,
   defaultCollapsedIds,
   onCollapsedChange,
-  readOnly,
   allowLinkCreate,
   allowLinkDelete,
   allowTaskCreate,
   onDependencyCreate,
   onDependencyDelete,
   onTaskCreate,
+  allowRowReorder = false,
+  onReorder,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -278,10 +323,31 @@ function GanttChart({
   // Scroll container ref
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // What the editing gestures are allowed to do (a task's own flags win over these)
+  // Interaction settings, passed down to every bar as one object
+  // (a task's own flags win over these - see resolveTaskInteraction)
   const interaction = useMemo<GanttInteractionConfig>(
-    () => ({ readOnly, allowLinkCreate, allowLinkDelete, allowTaskCreate }),
-    [readOnly, allowLinkCreate, allowLinkDelete, allowTaskCreate]
+    () => ({
+      readOnly,
+      allowMove,
+      allowResize,
+      allowProgressChange,
+      allowLinkCreate,
+      allowLinkDelete,
+      allowTaskCreate,
+      minDate,
+      maxDate,
+    }),
+    [
+      readOnly,
+      allowMove,
+      allowResize,
+      allowProgressChange,
+      allowLinkCreate,
+      allowLinkDelete,
+      allowTaskCreate,
+      minDate,
+      maxDate,
+    ]
   );
 
   // ===== Task list pane =====
@@ -382,6 +448,18 @@ function GanttChart({
     setRawTasks(tasks);
   }, [tasks, setRawTasks]);
 
+  // Fixed timeline window - undefined on both ends means auto-fit to the tasks
+  const visibleRange = useMemo(
+    () =>
+      visibleStart || visibleEnd
+        ? {
+            start: visibleStart ? dayjs(visibleStart) : undefined,
+            end: visibleEnd ? dayjs(visibleEnd) : undefined,
+          }
+        : undefined,
+    [visibleStart, visibleEnd]
+  );
+
   // Cells of the previous timeline - used to compute how far the origin moved and compensate the scroll
   const prevCellsRef = useRef<GanttBottomRowCell[]>([]);
   const pendingScrollShiftRef = useRef(0);
@@ -391,6 +469,7 @@ function GanttChart({
     const { bottomCells, transformedTasks: transformed } = computeTimelineData(
       rawTasks,
       selectedScale,
+      visibleRange,
       hierarchy
     );
 
@@ -416,6 +495,7 @@ function GanttChart({
   }, [
     rawTasks,
     selectedScale,
+    visibleRange,
     hierarchy,
     setBottomRowCells,
     setTransformedTasks,
@@ -467,7 +547,10 @@ function GanttChart({
     selectedScale,
   ]);
 
-  // Imperative scroll API
+  // Total width
+  const totalWidth = getTotalWidth();
+
+  // Imperative API - scrolling plus PNG export
   const scrollApi = useGanttScrollApi({
     scrollRef,
     bottomRowCells,
@@ -476,7 +559,18 @@ function GanttChart({
     rowHeight: NODE_HEIGHT,
     viewportInsetPx: gridInset,
   });
-  useImperativeHandle(forwardedRef, () => scrollApi, [scrollApi]);
+  const exportApi = useGanttExportApi({
+    scrollRef,
+    bottomRowCells,
+    selectedScale,
+    taskCount: transformedTasks.length,
+    totalWidth,
+  });
+  useImperativeHandle(
+    forwardedRef,
+    () => ({ ...scrollApi, ...exportApi }),
+    [scrollApi, exportApi]
+  );
 
   // initialScrollTo is applied once, when the timeline first becomes ready
   const didInitialScrollRef = useRef(false);
@@ -488,9 +582,6 @@ function GanttChart({
     const target = initialScrollTo === "today" ? dayjs() : initialScrollTo;
     scrollApi.scrollToDate(target, { smooth: false });
   }, [initialScrollTo, bottomRowCells, scrollApi]);
-
-  // Total width
-  const totalWidth = getTotalWidth();
 
   // Computed styles
   const containerStyle = {
@@ -545,6 +636,10 @@ function GanttChart({
                 hierarchy={hierarchy}
                 collapsedIds={collapsedSet}
                 onToggleCollapse={handleToggleCollapse}
+                allowRowReorder={allowRowReorder}
+                interaction={interaction}
+                onReorder={onReorder}
+                onTasksChange={onTasksChange}
               />
             )}
 

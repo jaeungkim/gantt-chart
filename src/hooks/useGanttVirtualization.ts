@@ -1,8 +1,24 @@
-import { useVirtualizer, Virtualizer } from "@tanstack/react-virtual";
+import {
+  defaultRangeExtractor,
+  Range,
+  useVirtualizer,
+  Virtualizer,
+} from "@tanstack/react-virtual";
 import { NODE_HEIGHT } from "constants/gantt";
 import { RefObject, useEffect, useMemo } from "react";
+import { useGanttStore } from "stores/context";
 import { GanttBottomRowCell } from "types/gantt";
 import { TaskTransformed } from "types/task";
+
+/**
+ * Range extractor that renders everything, viewport or not
+ *
+ * Used while `exportMode` is on so the PNG capture sees the whole chart instead
+ * of the slice that happens to be on screen. Kept at module scope so its
+ * identity is stable - the virtualizer memoizes on the extractor reference.
+ */
+const fullRangeExtractor = (range: Range): number[] =>
+  Array.from({ length: range.count }, (_, index) => index);
 
 interface UseGanttColumnVirtualizationParams {
   bottomRowCells: GanttBottomRowCell[];
@@ -35,6 +51,8 @@ export function useGanttColumnVirtualization({
   bottomRowCells,
   scrollRef,
 }: UseGanttColumnVirtualizationParams): UseGanttColumnVirtualizationResult {
+  const exportMode = useGanttStore((store) => store.exportMode);
+
   // The functions TanStack Virtual returns cannot be memoized, so the React Compiler
   // skips this hook - the row virtualization below already carries the same warning,
   // so this only silences the duplicate
@@ -45,6 +63,7 @@ export function useGanttColumnVirtualization({
     getScrollElement: () => scrollRef.current,
     estimateSize: (index) => bottomRowCells[index]?.widthPx ?? 32,
     overscan: 5,
+    rangeExtractor: exportMode ? fullRangeExtractor : defaultRangeExtractor,
   });
 
   // Compute the visible area
@@ -89,12 +108,15 @@ export function useGanttVirtualization({
   bottomRowCells,
   scrollRef,
 }: UseGanttVirtualizationParams): UseGanttVirtualizationResult {
+  const exportMode = useGanttStore((store) => store.exportMode);
+
   // Row virtualization setup
   const rowVirtualizer = useVirtualizer({
     count: transformedTasks.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => NODE_HEIGHT,
     overscan: 5,
+    rangeExtractor: exportMode ? fullRangeExtractor : defaultRangeExtractor,
   });
 
   const column = useGanttColumnVirtualization({ bottomRowCells, scrollRef });

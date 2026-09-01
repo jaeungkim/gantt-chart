@@ -22,19 +22,25 @@ Currently, this project is built specifically for React due to my development ba
 - 🌏 Any locale through `Intl` (no locale packages), with per-scale label overrides
 - 📋 Task list pane with configurable columns, a draggable splitter, and a collapse toggle
 - 🌳 Arbitrary-depth tree from `parentId`: expand/collapse, summary bars, subtree drag
-- 📆 Multiple timeline scales: Day, Week, Month, Year
 - 🔄 Drag-and-drop support:
   - Move entire task bars
   - Resize from left/right edges
   - Snap to configured intervals
+  - Reorder and re-parent rows, with indent/outdent on horizontal offset
 - 🧲 Smart dependency arrows (FS, SS, FF, SF), drawn between bars by dragging and removed by selecting
 - ✏️ Draw a new task on empty row space, snapped to the current scale
 - ◆ Milestones and per-task progress
+- 🖱️ Click / double-click / select events with a visible selection highlight
+- ↩️ Cancellable before-events: veto a move, resize or progress change and the bar rolls back
+- 🎨 Per-task color and class name, plus `renderBar` / `renderTooltip` / `renderHeaderCell` overrides
+- 🔒 Read-only mode, per-capability and per-task
+- 🚧 Drag bounds and a fixed visible range
 - 🗓️ Weekend and holiday shading
 - ⚡ Virtualized rendering for performance
 - 🌙 Light/Dark/System theme support
 - 📍 Today marker indicator
-- 💬 Drag tooltip showing date changes
+- 💬 Hover and drag tooltips
+- 🖼️ Client-side PNG export of the whole chart, no extra dependency
 - 📦 Lightweight with minimal dependencies
 
 ## 📺 [Demo](https://jaeungkim.com/gantt-chart)
@@ -116,7 +122,25 @@ export default function App() {
 | `collapsedIds` | `string[]` | - | Ids of collapsed parents (controlled) |
 | `defaultCollapsedIds` | `string[]` | - | Initial collapsed ids (uncontrolled seed) |
 | `onCollapsedChange` | `(ids: string[]) => void` | - | Fires whenever a row is expanded or collapsed |
+| `onTaskClick` | `(task, event) => void` | - | A bar or task-list row was clicked. Not fired for the click that ends a drag |
+| `onTaskDoubleClick` | `(task, event) => void` | - | A bar or row was double-clicked |
+| `onTaskSelect` | `(task \| null) => void` | - | The selection changed; `null` when the empty timeline is clicked. Passing it turns selection on |
+| `selectable` | `boolean` | `onTaskSelect !== undefined` | Selection highlight without a callback (`true`), or off entirely (`false`) |
+| `onBeforeTaskChange` | `(change) => boolean \| void \| Promise<boolean \| void>` | - | Runs before a move, resize or progress change is written. `false`, a promise resolving to `false`, or a rejection rolls the bar back |
+| `renderBar` | `(props) => ReactNode` | - | Replaces the bar node entirely |
+| `renderTooltip` | `(props) => ReactNode` | - | Replaces the tooltip node entirely, for hover and drag alike |
+| `renderHeaderCell` | `(props) => ReactNode` | - | Replaces a timeline header cell entirely; both header rows go through it |
+| `showTooltip` | `boolean` | `true` | `false` suppresses the hover and drag tooltips |
 | `readOnly` | `boolean` | `false` | Blocks every editing gesture. A task's own `readOnly` and the `allow*` flags win over it |
+| `allowMove` | `boolean` | `true` | Allows/blocks moving bars. Beats `readOnly` |
+| `allowResize` | `boolean` | `true` | Allows/blocks resizing bars. Beats `readOnly` |
+| `allowProgressChange` | `boolean` | `true` | Allows/blocks dragging the progress handle. Beats `readOnly` |
+| `minDate` | `string` | - | Earliest date any bar may be dragged to (UTC ISO string) |
+| `maxDate` | `string` | - | Latest date any bar may be dragged to (UTC ISO string) |
+| `visibleStart` | `string` | - | Pins the timeline start (UTC ISO string) instead of fitting to the tasks |
+| `visibleEnd` | `string` | - | Pins the timeline end (UTC ISO string) instead of fitting to the tasks |
+| `allowRowReorder` | `boolean` | `false` | Let a task list row be dragged to reorder siblings and re-parent. Follows `readOnly` / `allowMove` |
+| `onReorder` | `(change: GanttReorderChange) => void \| boolean` | - | Fires on a row drop, before anything is committed. Return `false` to cancel |
 | `allowLinkCreate` | `boolean` | `true` | Show the connector dots and accept dependency drags ([editing dependencies](#editing-dependencies)) |
 | `allowLinkDelete` | `boolean` | `true` | Let arrows be selected and removed |
 | `allowTaskCreate` | `boolean` | `true` | Let a task be drawn on empty row space ([drawing a task](#drawing-a-task)) |
@@ -191,6 +215,296 @@ With `hierarchy` on, `parentId` becomes the source of truth:
 Collapse state is controlled with `collapsedIds` and uncontrolled with `defaultCollapsedIds`;
 `onCollapsedChange` fires either way, so a host can persist it wherever it likes.
 
+## Interaction Control
+
+### Read-only and per-task capabilities
+
+Every interaction prop has a matching optional field on `Task`, and the task's own
+field wins. Resolution runs most specific first:
+
+`task.allowX` > `task.readOnly` > `allowX` prop > `readOnly` prop > allowed
+
+A blocked gesture renders no affordance at all - no grab or resize cursor, no resize
+grips, no progress handle, no connector dots, and arrows that cannot be clicked - rather
+than failing on interaction.
+
+`allowLinkCreate` and `allowLinkDelete` resolve the same way and also exist on `Task`;
+`allowTaskCreate` is chart-wide only, because that gesture starts on a row rather than on
+a task. These decide what the user
+can *start*; [`onBeforeTaskChange`](#cancellable-changes-and-optimistic-updates) decides what
+survives once a gesture has finished.
+
+Two structural rules are not flags and cannot be turned back on, because the gesture
+would have nowhere to write to: milestones are never resizable, and summary rows are
+never resizable and have no draggable progress (both are derived from their children).
+Summary rows can still be *moved*, carrying their whole subtree.
+
+```tsx
+// A fully frozen chart
+<ReactGanttChart tasks={tasks} readOnly />
+
+// Frozen except progress, which stays draggable everywhere
+<ReactGanttChart tasks={tasks} readOnly allowProgressChange />
+
+// Editable chart with a few exceptions and a drag window
+<ReactGanttChart
+  tasks={[
+    { ...baseline, readOnly: true },                    // this one is frozen
+    { ...review, allowResize: false },                  // movable, not resizable
+    { ...launch, minDate: '2026-03-01T00:00:00Z' },     // cannot slip earlier than March
+  ]}
+  minDate="2026-01-01T00:00:00Z"
+  maxDate="2026-12-31T00:00:00Z"
+/>
+```
+
+### Drag bounds
+
+Dragging against a bound snaps to it: the bar stops on the bound and the date passed
+to `onTasksChange` is the bound itself. A move keeps its bar length while snapping;
+a resize is still never allowed to invert the bar, so the non-inversion guard wins if a
+task's window has already been passed.
+
+With `hierarchy` on, a subtree drag has to move as one delta or the group tears apart,
+so **the subtree moves by the smallest amount any member's bounds allow** - a bound on a
+descendant constrains the whole drag, and no bar can be pushed out of its window by
+grabbing its parent. A bar already outside its own window simply refuses to move further
+rather than dragging the group backwards.
+
+## Fixed Visible Range
+
+`visibleStart` / `visibleEnd` pin the rendered timeline instead of auto-fitting to the
+task dates plus a buffer. Either end can be pinned on its own, and the other keeps
+auto-fitting.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  visibleStart="2026-01-01T00:00:00Z"
+  visibleEnd="2026-04-01T00:00:00Z"
+/>
+```
+
+## Row Reordering
+
+`allowRowReorder` makes the task list rows draggable:
+
+```tsx
+import { ReactGanttChart, type GanttReorderChange } from '@jaeungkim/gantt-chart';
+
+<ReactGanttChart
+  tasks={tasks}
+  showTaskList
+  hierarchy
+  allowRowReorder
+  onReorder={(change: GanttReorderChange) => {
+    // Persist the move; return false here to reject it and leave the chart alone
+    void api.moveTask(change.task.id, change.parentId, change.index);
+  }}
+  onTasksChange={setTasks}
+/>;
+```
+
+- **Vertical drag reorders**, and an insertion line shows where the row would land.
+- **Horizontal offset indents and outdents**, the way an outliner does: one `16px` step to
+  the right nests the row under the row above, a step to the left lifts it out. It cannot go
+  deeper than one level under the row above, nor shallower than the row below.
+- **Dropping on the middle of a row re-parents into it** — that row is highlighted and the
+  dragged row is appended to its children, whether it is expanded or collapsed.
+- **A row can never become its own descendant.** Such a drop is drawn in the warning colour
+  during the drag and does nothing on release; no callback fires.
+- **A row follows the same guards a bar move does.** `readOnly`, or `allowMove: false` on
+  the chart or on the task, makes that row undraggable ([Interaction Control](#interaction-control)).
+- **`onReorder` runs before anything is committed.** Return `false` and the chart stays as it
+  was and `onTasksChange` never fires. Otherwise the chart updates and `onTasksChange` fires
+  exactly once, with the same array `change.tasks` carries.
+
+```ts
+interface GanttReorderChange {
+  task: Task;                      // the moved task, with its new parentId and sequence
+  parentId: string | null;         // the new parent (null = root)
+  previousParentId: string | null; // the parent the incoming data had
+  index: number;                   // zero-based position among the new parent's children
+  sequence: string;                // the moved task's new dotted sequence
+  tasks: Task[];                   // the whole updated array
+}
+```
+
+### `sequence` after a reorder
+
+Row order comes from `sequence` and nesting from `parentId`, so a move that only rewrote
+`parentId` would be undone by the next sort. **A reorder therefore renumbers `sequence` across
+the whole array from the resulting tree** — `1`, `1.1`, `1.2`, `2`, … — which makes `sequence`
+a derived value (position among siblings, prefixed by the parent's) that cannot disagree with
+`parentId` again. Two consequences worth knowing:
+
+- Rows other than the dragged one get new `sequence` values. Persist the array
+  `onTasksChange` hands you, not just the moved task.
+- If the incoming data already had `sequence` and `parentId` disagreeing, the first reorder
+  reconciles them, so unrelated rows may visibly snap into their true tree order.
+
+`parentId` is only ever written on the moved task. A row whose parent link is an orphan or a
+cycle keeps that link untouched and is numbered as the root the chart already renders it as.
+
+## Events and Selection
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTaskClick={(task, event) => console.log('clicked', task.id, event.shiftKey)}
+  onTaskDoubleClick={(task) => openEditor(task.id)}
+  onTaskSelect={(task) => setSelectedId(task?.id ?? null)}
+/>
+```
+
+Both panes fire the same events: a click on a bar and a click on its task-list row are the
+same event, and the selected row is highlighted in both places at once.
+
+- Passing `onTaskSelect` turns selection on. Pass `selectable` explicitly for the highlight
+  without a callback (`selectable`) or to turn it off (`selectable={false}`).
+- `onTaskSelect` fires only when the selection actually changes; clicking the empty timeline
+  clears it and reports `null`.
+- The click that ends a drag is swallowed, so dragging a bar never registers as a click.
+- A double click is still two clicks in the DOM: `onTaskClick` fires twice and
+  `onTaskDoubleClick` once. Key off the double click, not off a click count.
+
+## Cancellable Changes and Optimistic Updates
+
+`onBeforeTaskChange` runs after the gesture ends and before anything is written. It is the
+persistence hook: `await` your API, and answer.
+
+| The handler returns | What happens |
+|---------------------|--------------|
+| nothing, or `true` | The change is committed and `onTasksChange` fires |
+| `false` | The change is dropped and the bar animates back |
+| a promise resolving to anything but `false` | Committed once it settles |
+| a promise resolving to `false` | Rolled back once it settles |
+| a rejected promise, or a synchronous throw | Rolled back - the failed-server case |
+
+While the promise is pending the bar **stays where the user dropped it** — nothing is
+disabled, nothing is frozen, and the user can keep working. If they start another gesture on
+that same bar before the answer arrives, the late answer is dropped: the newer gesture owns
+the bar and gets its own decision. Moves and resizes share one lane per task; a progress edit
+runs in its own, so a pending date change and a progress change never cancel each other.
+
+```tsx
+function Schedule() {
+  const [tasks, setTasks] = useState(initialTasks);
+
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      // The bar is already where the user dropped it while this runs
+      onBeforeTaskChange={async (change) => {
+        try {
+          const response = await fetch('/api/tasks/bulk', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(
+              change.changedTasks.map((task) => ({
+                id: task.id,
+                startDate: task.startDate,
+                endDate: task.endDate,
+                progress: task.progress,
+              })),
+            ),
+          });
+
+          // A 409 from the server rolls the bar back to where the drag started
+          if (!response.ok) return false;
+        } catch (error) {
+          // Network failure - same thing, and the bar never lies about what was saved
+          toast.error('Could not save the change');
+          return false;
+        }
+      }}
+      // Only reached once the change is accepted
+      onTasksChange={setTasks}
+    />
+  );
+}
+```
+
+The payload:
+
+```ts
+interface GanttTaskChange {
+  type: 'move' | 'resize' | 'progress';
+  task: Task;             // the bar the user grabbed, in its new shape
+  changedTasks: Task[];   // every task this gesture rewrites (a summary drag carries its subtree)
+  previousTasks: Task[];  // the same tasks before the gesture, index for index
+  tasks: Task[];          // the full array onTasksChange would receive
+  edge?: 'start' | 'end'; // resize only
+}
+```
+
+Dragging a summary bar moves its whole subtree, so `changedTasks` holds every descendant —
+one handler call, one veto decision, one `onTasksChange` for the lot.
+
+`onBeforeTaskChange` covers the timeline gestures: move, resize and progress. Dropping a
+task-list row has its own veto, [`onReorder`](#row-reordering), which is synchronous — the
+row is only committed once it returns.
+
+## Custom Rendering
+
+### Per-task color and class
+
+```tsx
+const tasks: Task[] = [
+  { id: '1', name: 'Design', color: '#7c3aed', className: 'is-critical', /* ... */ },
+];
+```
+
+`color` takes any CSS color. The progress fill and the hover shade are derived from it, so
+one value colors the whole bar; without it the `--gantt-*` theme tokens decide as before.
+`className` lands on the bar and on the task's row in the list pane.
+
+### Render props
+
+Each of these replaces the default node completely.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  // Spread barProps to keep positioning, dragging, clicks and double clicks working
+  renderBar={({ task, width, progress, isSelected, barProps }) => (
+    <div {...barProps} className={`my-bar${isSelected ? ' is-selected' : ''}`}>
+      <span style={{ width: `${progress ?? 0}%` }} className="my-fill" />
+      {width > 80 ? task.name : null}
+    </div>
+  )}
+  // reason is 'hover' while pointing at a bar, or the gesture in progress
+  renderTooltip={({ task, reason, startDate, endDate, durationMs }) =>
+    reason === 'hover' ? (
+      <div className="my-tip">
+        {task.name} · {Math.round(durationMs / 86_400_000)}d
+      </div>
+    ) : (
+      <div className="my-tip">
+        {startDate.format('MMM D')} → {endDate.format('MMM D')}
+      </div>
+    )
+  }
+  // row is 'top' for the merged group labels, 'bottom' for the time ticks
+  renderHeaderCell={({ row, label, date, cellProps }) => (
+    <div {...cellProps} title={date.toISOString()}>
+      {row === 'top' ? label.toUpperCase() : label}
+    </div>
+  )}
+/>
+```
+
+- `renderBar` receives `task`, `left`, `width`, `height`, `progress`, `scale`, `isMilestone`,
+  `isSummary`, `isDragging`, `isSelected` and `barProps`. It owns the whole bar, tooltip
+  included — render a `.gantt-bar-tooltip` child yourself if you want one.
+- `renderTooltip` receives `task`, `reason`, `startDate`, `endDate`, `durationMs`, `progress`
+  and `scale`. The dates are the live values while a gesture is running.
+- `renderHeaderCell` receives `row`, `date`, `label`, `width`, `scale` and `cellProps`.
+  Spreading `cellProps` keeps the header layout intact.
+
+A hover tooltip (name, dates, duration, progress) is on by default. `showTooltip={false}`
+turns off both it and the drag tooltip.
+
 ## Editing dependencies
 
 Hovering a bar reveals a connector dot at each end. Dragging from one dot to another bar
@@ -263,7 +577,7 @@ and so on) and hands the range to the host on release:
 
 **The chart never adds the task itself** - it only proposes one, and the row appears when the
 host passes the new `tasks` array back in. A drag shorter than 4px counts as a click and
-proposes nothing.
+proposes nothing, and a chart with no tasks has no rows to draw on.
 
 ```ts
 interface GanttTaskDraft {
@@ -273,27 +587,9 @@ interface GanttTaskDraft {
 }
 ```
 
-## Read-only and per-task flags
-
-`readOnly` freezes the whole chart; every `allow*` flag beats it, and a task's own field beats
-both. The order, most specific first, is
-`task.allowX` > `task.readOnly` > `chart.allowX` > `chart.readOnly` > allowed:
-
-```tsx
-// Frozen chart, except that one task's arrows may still be removed
-<ReactGanttChart
-  readOnly
-  tasks={[{ ...task, allowLinkDelete: true }]}
-  onTasksChange={setTasks}
-/>;
-```
-
-`readOnly` also takes the affordances away, not just the effect: no connector dots appear, and
-arrows stop being clickable.
-
 ## Imperative API
 
-Pass a ref to scroll the chart programmatically:
+Pass a ref to scroll the chart programmatically, or to export it as a PNG:
 
 ```tsx
 import { useRef } from 'react';
@@ -310,6 +606,89 @@ ref.current?.scrollToTask('task-42', { smooth: false, align: 'start' });
 
 Dates outside the rendered timeline and unknown task ids are ignored rather than throwing, so calls during data loading are safe. `scrollToTask` only moves vertically when the row is off-screen.
 
+### PNG export
+
+`exportToPng` renders the **whole** chart — every row, arrow and header cell, not only what happens
+to be on screen — and resolves with a `Blob`. Nothing is downloaded for you; what to do with the
+blob is your call.
+
+```tsx
+const blob = await ref.current!.exportToPng();
+
+// Save it
+const url = URL.createObjectURL(blob);
+const link = document.createElement('a');
+link.href = url;
+link.download = 'gantt.png';
+link.click();
+URL.revokeObjectURL(url);
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pixelRatio` | `number` | `2` | Output density. Reduced automatically when the canvas would exceed the browser's limits. |
+| `background` | `string` | resolved theme background | Any CSS colour. The default is what keeps a dark-theme export dark instead of transparent. |
+| `range` | `{ from, to }` | whole timeline | Clips the export horizontally. Dates outside the timeline are clamped to its edges. |
+
+```tsx
+const q3 = await ref.current!.exportToPng({
+  range: { from: '2026-07-01', to: '2026-09-30' },
+  pixelRatio: 3,
+  background: '#ffffff',
+});
+```
+
+The promise rejects with a readable `Error` when no chart is mounted, when the chart has no timeline
+yet, when the requested range misses the timeline entirely, or when the canvas comes back tainted.
+
+#### PDF
+
+There is no PDF export and no PDF dependency here — a PNG is a few lines away from a PDF with
+[jsPDF](https://github.com/parallax/jsPDF), which many apps already ship:
+
+```ts
+import { jsPDF } from 'jspdf';
+
+const blob = await ref.current!.exportToPng();
+const { width, height } = await createImageBitmap(blob);
+const dataUrl = await new Promise<string>((resolve) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result as string);
+  reader.readAsDataURL(blob);
+});
+
+const pdf = new jsPDF({
+  orientation: width > height ? 'landscape' : 'portrait',
+  unit: 'px',
+  format: [width, height],
+});
+pdf.addImage(dataUrl, 'PNG', 0, 0, width, height);
+pdf.save('gantt.pdf');
+```
+
+#### How it works, and what it cannot do
+
+The chart is DOM, not canvas. The export clones the chart's subtree, inlines the computed styles it
+actually uses, hands the clone to the browser through `<svg><foreignObject>`, and draws the result
+into a `<canvas>`. No extra dependency, nothing fetched over the network. The trade-offs are real
+and worth knowing:
+
+- **Virtualization is switched off for the capture.** For a handful of frames the chart renders every
+  row and header cell, so a very large chart costs noticeably more memory while the export runs.
+  Scroll position and the live DOM are restored afterwards, including when the capture throws.
+- **CSS pseudo-elements are not captured.** Nothing visible in a resting chart uses them (the bar's
+  resize grips only fade in on hover), but a custom stylesheet drawing with `::before`/`::after`
+  will lose that decoration.
+- **Only fonts already available to the browser render.** `foreignObject` rasterization cannot fetch
+  a webfont, so overriding `--gantt-font-sans` with a downloaded font falls back to a system font in
+  the export. The bundled stylesheet loads no remote fonts, which is also what keeps the canvas
+  untainted.
+- **Very large charts are downscaled, not cropped.** A canvas is capped at roughly 16384px per side;
+  `pixelRatio` is lowered to fit. Use `range` for a full-density export of one slice.
+- **Chromium is what this is verified on.** `foreignObject` rasterization is the least uniform corner
+  of the platform — Safari has a history of tainting the canvas for SVG images, in which case the
+  promise rejects with a clear error rather than handing back a broken PNG.
+
 ## Task Format
 
 All dates must be in **UTC ISO string format**: `"2024-06-01T09:00:00Z"`
@@ -324,10 +703,19 @@ interface Task {
   sequence: string;
   type?: 'task' | 'milestone';   // milestones render as a diamond at startDate
   progress?: number;             // 0-100, draws a fill inside the bar
-  dependencies?: TaskDependency[];  // this task's predecessors
-  readOnly?: boolean;               // freeze this task's gestures
-  allowLinkCreate?: boolean;        // beats readOnly, on the task and on the chart
+  color?: string;                // any CSS color; the fill and hover shade derive from it
+  className?: string;            // added to this task's bar and its task-list row
+  dependencies?: TaskDependency[];
+
+  // Per-task interaction overrides - each one wins over the chart-level prop
+  readOnly?: boolean;
+  allowMove?: boolean;
+  allowResize?: boolean;
+  allowProgressChange?: boolean;
+  allowLinkCreate?: boolean;
   allowLinkDelete?: boolean;
+  minDate?: string;              // UTC ISO string
+  maxDate?: string;              // UTC ISO string
 }
 
 interface TaskDependency {
@@ -478,8 +866,9 @@ The stylesheet loads no remote fonts; it uses the system font stack unless you o
 - [ ] Right sidebar for task details
 - [x] Collapsible parent-child rows
 - [ ] Inline editing for task names
-- [ ] Export to PNG/SVG
-- [ ] Custom bar colors
+- [x] Export to PNG ([`exportToPng`](#png-export)) — SVG still open
+- [x] Custom bar colors
+- [x] Keyboard-accessible scale selector
 
 ## 🤝 Contributing
 
