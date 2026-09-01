@@ -8,16 +8,30 @@ export { default as ReactGanttChart } from './pages/Gantt';
 export type { GanttProps } from './pages/Gantt';
 export type {
   GanttHandle,
+  GanttScrollApi,
   GanttScrollOptions,
 } from './hooks/useGanttScrollApi';
+export type { GanttExportApi } from './hooks/useGanttExportApi';
+export type {
+  GanttExportOptions,
+  GanttExportRange,
+} from './utils/pngExport';
 export type {
   Task,
   TaskDependency,
   DependencyType,
   TaskType,
   TaskTransformed,
+  GanttInteractionConfig,
 } from './types/task';
-export type { GanttColumn, GanttScaleKey, GanttTheme } from './types/gantt';
+export type {
+  GanttColumn,
+  GanttFormatOverrides,
+  GanttReorderChange,
+  GanttScaleFormat,
+  GanttScaleKey,
+  GanttTheme,
+} from './types/gantt';
 
 // Headless scheduling core - no React, no DOM. Usable on a server or in a worker.
 export {

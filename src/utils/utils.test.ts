@@ -212,6 +212,21 @@ describe('GANTT_SCALE_CONFIG labels', () => {
     expect(GANTT_SCALE_CONFIG.month.formatTickLabel?.(afternoon)).toBe('1');
   });
 
+  it('spells the minutes out on hour ticks, where drag steps are quarter-hours', () => {
+    expect(GANTT_SCALE_CONFIG.hour.formatTickLabel?.(afternoon)).toBe('15:00');
+    expect(GANTT_SCALE_CONFIG.hour.formatTickLabel?.(dayjs('2025-09-01T00:00'))).toBe('00:00');
+    expect(GANTT_SCALE_CONFIG.hour.formatHeaderLabel?.(afternoon)).toBe('Sep 1, 2025');
+  });
+
+  it('labels quarter ticks with the month and the group with the quarter', () => {
+    expect(GANTT_SCALE_CONFIG.quarter.formatTickLabel?.(afternoon)).toBe('Sep');
+    expect(
+      ['2025-01-01', '2025-04-01', '2025-07-01', '2025-10-01'].map((d) =>
+        GANTT_SCALE_CONFIG.quarter.formatHeaderLabel?.(dayjs(d)),
+      ),
+    ).toEqual(['Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025']);
+  });
+
   it('shows the year in every header label and drag tooltip format', () => {
     expect(GANTT_SCALE_CONFIG.day.formatHeaderLabel?.(afternoon)).toBe('Sep 1, 2025');
     expect(GANTT_SCALE_CONFIG.week.formatHeaderLabel?.(afternoon)).toBe('Sep 2025');
@@ -219,6 +234,19 @@ describe('GANTT_SCALE_CONFIG labels', () => {
     expect(GANTT_SCALE_CONFIG.year.formatHeaderLabel?.(afternoon)).toBe('2025');
     expect(afternoon.format(DATE_FORMATS.day)).toBe('Sep 1, 2025 15:00 UTC');
     expect(afternoon.format(DATE_FORMATS.week)).toBe('Sep 1, 2025');
+    expect(afternoon.format(DATE_FORMATS.hour)).toBe('Sep 1, 2025 15:00 UTC');
+    expect(afternoon.format(DATE_FORMATS.quarter)).toBe('Sep 2025');
+  });
+
+  it('lists the scales finest first, so the selector reads as a zoom ladder', () => {
+    expect(Object.keys(GANTT_SCALE_CONFIG)).toEqual([
+      'hour',
+      'day',
+      'week',
+      'month',
+      'quarter',
+      'year',
+    ]);
   });
 });
 
@@ -239,6 +267,31 @@ describe('createTopHeaderGroups', () => {
     ).toMatchObject([
       { label: '2025', widthPx: 64 },
       { label: '2026', widthPx: 32 },
+    ]);
+  });
+
+  it('groups hourly ticks into day headers at hour scale', () => {
+    expect(
+      createTopHeaderGroups(
+        ticks('2025-09-01T22:00', '2025-09-01T23:00', '2025-09-02T00:00'),
+        'hour',
+      ),
+    ).toMatchObject([
+      { label: 'Sep 1, 2025', widthPx: 64 },
+      { label: 'Sep 2, 2025', widthPx: 32 },
+    ]);
+  });
+
+  it('groups monthly ticks into quarter headers at quarter scale', () => {
+    expect(
+      createTopHeaderGroups(
+        ticks('2025-02-01', '2025-03-01', '2025-04-01', '2025-07-01'),
+        'quarter',
+      ),
+    ).toMatchObject([
+      { label: 'Q1 2025', widthPx: 64 },
+      { label: 'Q2 2025', widthPx: 32 },
+      { label: 'Q3 2025', widthPx: 32 },
     ]);
   });
 });
@@ -404,6 +457,36 @@ describe('computeTimelineData', () => {
     expect(bottomCells).toHaveLength(12); // 2025-01-05 .. 2025-01-16
     expect(transformedTasks[0]).toMatchObject({ barLeft: 160, barWidth: 64 }); // 5*32, 2*32
     expect(computeTimelineData([], 'month')).toEqual({ bottomCells: [], transformedTasks: [] });
+  });
+
+  it('builds 120px hourly cells at hour scale', () => {
+    const { bottomCells, transformedTasks } = computeTimelineData(
+      [task('a', '1', '2025-01-10T09:00', '2025-01-10T12:00')],
+      'hour',
+    );
+
+    // 09:00 - 5h .. 12:00 + 5h, one cell an hour
+    expect(bottomCells).toHaveLength(13);
+    expect(bottomCells[0].startDate.toISOString()).toBe('2025-01-10T04:00:00.000Z');
+    expect(new Set(bottomCells.map((c) => c.widthPx))).toEqual(new Set([120]));
+    expect(transformedTasks[0]).toMatchObject({ barLeft: 600, barWidth: 360 }); // 5h, 3h
+  });
+
+  it('builds month cells sized by real month length at quarter scale', () => {
+    const { bottomCells, transformedTasks } = computeTimelineData(
+      [task('a', '1', '2025-02-10', '2025-03-10')],
+      'quarter',
+    );
+
+    // 2024-09 .. 2025-08, one cell a month, 8px a day
+    expect(bottomCells).toHaveLength(12);
+    expect(bottomCells[0].startDate.toISOString()).toBe('2024-09-01T00:00:00.000Z');
+    expect(
+      new Map(bottomCells.map((c) => [c.startDate.format('YYYY-MM'), c.widthPx])).get(
+        '2025-02',
+      ),
+    ).toBe(28 * 8);
+    expect(transformedTasks[0]).toMatchObject({ barLeft: 1296, barWidth: 224 }); // 28 days
   });
 });
 

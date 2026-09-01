@@ -16,6 +16,7 @@ import {
   useState,
 } from "react";
 import { Dayjs } from "dayjs";
+import { useGanttExportApi } from "hooks/useGanttExportApi";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { GanttHandle, useGanttScrollApi } from "hooks/useGanttScrollApi";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
@@ -34,11 +35,18 @@ import {
 import {
   GanttBottomRowCell,
   GanttColumn,
+  GanttFormatOverrides,
+  GanttReorderChange,
   GanttScaleKey,
   GanttScheduling,
   GanttTheme,
 } from "types/gantt";
-import { isMilestoneTask, Task, TaskTransformed } from "types/task";
+import {
+  GanttInteractionConfig,
+  isMilestoneTask,
+  Task,
+  TaskTransformed,
+} from "types/task";
 import dayjs from "core/dates";
 import {
   CALENDAR_DAYS,
@@ -113,6 +121,45 @@ export interface GanttProps {
    * do not touch the scroll position.
    */
   initialScrollTo?: "today" | string;
+  /** Blocks moving, resizing and progress dragging on every task */
+  readOnly?: boolean;
+  /** Allows/blocks moving bars (default true) - beats `readOnly` */
+  allowMove?: boolean;
+  /** Allows/blocks resizing bars (default true) - beats `readOnly` */
+  allowResize?: boolean;
+  /** Allows/blocks dragging the progress handle (default true) - beats `readOnly` */
+  allowProgressChange?: boolean;
+  /** Earliest date any bar may be dragged to (ISO string) - a task's own `minDate` wins */
+  minDate?: string;
+  /** Latest date any bar may be dragged to (ISO string) - a task's own `maxDate` wins */
+  maxDate?: string;
+  /** Pins the timeline to start here (ISO string) instead of fitting to the tasks */
+  visibleStart?: string;
+  /** Pins the timeline to end here (ISO string) instead of fitting to the tasks */
+  visibleEnd?: string;
+  /**
+   * BCP 47 locale tag for every date label, e.g. `"ko-KR"`
+   *
+   * Month and day names, header labels and drag tooltips are rendered with
+   * `Intl.DateTimeFormat` (no locale packages to install). Left out, the chart keeps
+   * its built-in English labels. An unusable tag falls back to those and warns once.
+   */
+  locale?: string;
+  /**
+   * Per-scale label overrides - `{ quarter: { header: (d) => ... } }`
+   *
+   * Each scale takes `tick` (bottom row), `header` (top row) and `tooltip` (drag
+   * tooltip and guides); whatever is left out keeps the locale's label. Overrides win
+   * over `locale`. The `Dayjs` handed in is in UTC mode.
+   */
+  formats?: GanttFormatOverrides;
+  /**
+   * First day of the week, 0 = Sunday .. 6 = Saturday
+   *
+   * Set it to group the week scale's top header by week starting on that day, instead
+   * of by month. Left out, week grouping is off and the header is unchanged.
+   */
+  firstDayOfWeek?: number;
   /**
    * Whether to show the task list pane on the left
    *
@@ -188,6 +235,26 @@ export interface GanttProps {
    * element is positioned by the row, not by the renderer.
    */
   renderBaseline?: (task: TaskTransformed) => ReactNode;
+  /**
+   * Whether a task list row can be dragged to reorder and re-parent (default false)
+   *
+   * Vertical drag moves the row among its siblings; horizontal offset indents or outdents it
+   * the way an outliner does, and dropping onto the middle of a row makes that row the parent.
+   * A drop that would put a row inside its own subtree is marked invalid during the drag and
+   * does nothing on release.
+   *
+   * Follows the same guards as a bar move: a row is draggable only where
+   * `resolveTaskInteraction` says the task can move, so `readOnly` (or `allowMove: false`, on
+   * the chart or on the task) blocks it.
+   */
+  allowRowReorder?: boolean;
+  /**
+   * Called when a row drag is released on a legal target, before anything is committed
+   *
+   * Returning `false` cancels the drop - the chart stays as it was and `onTasksChange` does
+   * not fire. Otherwise the chart updates and `onTasksChange` fires once with the same array.
+   */
+  onReorder?: (change: GanttReorderChange) => void | boolean;
 }
 
 /**
@@ -225,6 +292,17 @@ function GanttChart({
   isNonWorkingDay,
   storageKey = DEFAULT_SCALE_STORAGE_KEY,
   initialScrollTo,
+  readOnly,
+  allowMove,
+  allowResize,
+  allowProgressChange,
+  minDate,
+  maxDate,
+  visibleStart,
+  visibleEnd,
+  locale,
+  formats,
+  firstDayOfWeek,
   showTaskList,
   columns,
   hierarchy = false,
@@ -236,6 +314,8 @@ function GanttChart({
   workingCalendar = false,
   criticalPath = false,
   renderBaseline,
+  allowRowReorder = false,
+  onReorder,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -248,9 +328,27 @@ function GanttChart({
     setTransformedTasks,
     setBottomRowCells,
     setSelectedScale,
+    setLocaleOptions,
     clearAllDragOffsets,
     getTotalWidth,
   } = useGanttSelectors();
+
+  // Label configuration - undefined while nothing is set, so the built-in labels are
+  // used without building a single Intl formatter
+  const localeOptions = useMemo(
+    () =>
+      locale === undefined &&
+      formats === undefined &&
+      firstDayOfWeek === undefined
+        ? undefined
+        : { locale, formats, firstDayOfWeek },
+    [locale, formats, firstDayOfWeek]
+  );
+
+  // Layout effect, not a plain effect - the labels are in place before the first paint
+  useLayoutEffect(() => {
+    setLocaleOptions(localeOptions);
+  }, [localeOptions, setLocaleOptions]);
 
   // Scroll container ref
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -393,6 +491,31 @@ function GanttChart({
     setRawTasks(tasks);
   }, [tasks, setRawTasks]);
 
+  // Interaction settings, passed down to every bar as one object
+  const interaction = useMemo<GanttInteractionConfig>(
+    () => ({
+      readOnly,
+      allowMove,
+      allowResize,
+      allowProgressChange,
+      minDate,
+      maxDate,
+    }),
+    [readOnly, allowMove, allowResize, allowProgressChange, minDate, maxDate]
+  );
+
+  // Fixed timeline window - undefined on both ends means auto-fit to the tasks
+  const visibleRange = useMemo(
+    () =>
+      visibleStart || visibleEnd
+        ? {
+            start: visibleStart ? dayjs(visibleStart) : undefined,
+            end: visibleEnd ? dayjs(visibleEnd) : undefined,
+          }
+        : undefined,
+    [visibleStart, visibleEnd]
+  );
+
   // Cells of the previous timeline - used to compute how far the origin moved and compensate the scroll
   const prevCellsRef = useRef<GanttBottomRowCell[]>([]);
   const pendingScrollShiftRef = useRef(0);
@@ -402,6 +525,7 @@ function GanttChart({
     const { bottomCells, transformedTasks: transformed } = computeTimelineData(
       rawTasks,
       selectedScale,
+      visibleRange,
       hierarchy
     );
 
@@ -427,6 +551,7 @@ function GanttChart({
   }, [
     rawTasks,
     selectedScale,
+    visibleRange,
     hierarchy,
     setBottomRowCells,
     setTransformedTasks,
@@ -460,7 +585,10 @@ function GanttChart({
   }, [showNonWorkingDays, isOffDay, bottomRowCells, selectedScale]);
 
 
-  // Imperative scroll API
+  // Total width
+  const totalWidth = getTotalWidth();
+
+  // Imperative API - scrolling plus PNG export
   const scrollApi = useGanttScrollApi({
     scrollRef,
     bottomRowCells,
@@ -469,7 +597,18 @@ function GanttChart({
     rowHeight: NODE_HEIGHT,
     viewportInsetPx: gridInset,
   });
-  useImperativeHandle(forwardedRef, () => scrollApi, [scrollApi]);
+  const exportApi = useGanttExportApi({
+    scrollRef,
+    bottomRowCells,
+    selectedScale,
+    taskCount: transformedTasks.length,
+    totalWidth,
+  });
+  useImperativeHandle(
+    forwardedRef,
+    () => ({ ...scrollApi, ...exportApi }),
+    [scrollApi, exportApi]
+  );
 
   // initialScrollTo is applied once, when the timeline first becomes ready
   const didInitialScrollRef = useRef(false);
@@ -481,9 +620,6 @@ function GanttChart({
     const target = initialScrollTo === "today" ? dayjs() : initialScrollTo;
     scrollApi.scrollToDate(target, { smooth: false });
   }, [initialScrollTo, bottomRowCells, scrollApi]);
-
-  // Total width
-  const totalWidth = getTotalWidth();
 
   // Computed styles
   const containerStyle = {
@@ -538,6 +674,10 @@ function GanttChart({
                 hierarchy={hierarchy}
                 collapsedIds={collapsedSet}
                 onToggleCollapse={handleToggleCollapse}
+                allowRowReorder={allowRowReorder}
+                interaction={interaction}
+                onReorder={onReorder}
+                onTasksChange={onTasksChange}
               />
             )}
 
@@ -658,6 +798,7 @@ function GanttChart({
                       <GanttBar
                         currentTask={task}
                         onTasksChange={onTasksChange}
+                        interaction={interaction}
                         scheduling={scheduling}
                       />
                     </div>

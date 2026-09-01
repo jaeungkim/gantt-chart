@@ -35,6 +35,18 @@ export interface Task {
   /** Progress 0-100 (%) - omitted means no progress display */
   progress?: number;
   dependencies?: TaskDependency[];
+  /** Blocks every gesture on this task - overrides the chart's `readOnly` prop */
+  readOnly?: boolean;
+  /** Allows/blocks moving this task - overrides both `readOnly` settings */
+  allowMove?: boolean;
+  /** Allows/blocks resizing this task - overrides both `readOnly` settings */
+  allowResize?: boolean;
+  /** Allows/blocks dragging this task's progress handle - overrides both `readOnly` settings */
+  allowProgressChange?: boolean;
+  /** Earliest date this task may be dragged to (ISO string) - overrides the chart's `minDate` */
+  minDate?: string;
+  /** Latest date this task may be dragged to (ISO string) - overrides the chart's `maxDate` */
+  maxDate?: string;
   /** The scheduling engine never moves this task; it still constrains its successors */
   manuallyScheduled?: boolean;
   /** Planned start snapshot - drawn as a thin bar under the live one (UTC ISO string) */

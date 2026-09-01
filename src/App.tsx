@@ -5,6 +5,11 @@ import type { GanttColumn } from "types/gantt";
 import type { Task } from "types/task";
 import { schedulingTasks, sourceTasks } from "../db";
 
+// Append ?locale=ko-KR or ?firstDayOfWeek=1 to preview the localized labels
+const params = new URLSearchParams(window.location.search);
+const locale = params.get("locale") ?? undefined;
+const weekStart = params.get("firstDayOfWeek");
+
 /** Dev playground - not part of the published bundle */
 const POLICIES: SchedulingPolicy[] = ["off", "shift-on-overlap", "maintain-gap"];
 
@@ -122,6 +127,10 @@ function App() {
           showTaskList
           columns={columns}
           defaultScale="month"
+          locale={locale}
+          firstDayOfWeek={weekStart === null ? undefined : Number(weekStart)}
+          hierarchy={dataset === "full"}
+          allowRowReorder
           schedulingPolicy={policy}
           onSchedulingCycle={setCycle}
           workingCalendar={workingCalendar}

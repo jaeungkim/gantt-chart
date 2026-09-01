@@ -1,6 +1,7 @@
 import localDayjs from 'dayjs';
 import { describe, expect, it } from 'vitest';
 import { GANTT_SCALE_CONFIG } from 'constants/gantt';
+import type { GanttScaleKey } from 'types/gantt';
 import type { Task } from 'types/task';
 import dayjs from 'core/dates';
 import { computeTimelineData, shiftByDragSteps } from './timeline';
@@ -29,7 +30,7 @@ const task = (startDate: string, endDate: string): Task => ({
   sequence: '1',
 });
 
-const widths = (t: Task, scale: 'day' | 'week' | 'month' | 'year') =>
+const widths = (t: Task, scale: GanttScaleKey) =>
   computeTimelineData([t], scale).bottomCells.map((c) => c.widthPx);
 
 // America/New_York: 2025-03-09 is 23 hours (spring DST), 2025-11-02 is 25 hours (fall DST)
@@ -42,6 +43,13 @@ describe('timeline cells across DST boundaries (#28)', () => {
     withTimeZone('America/New_York', () => {
       expect(new Set(widths(SPRING_FORWARD, 'month'))).toEqual(new Set([32]));
       expect(new Set(widths(SPRING_FORWARD, 'week'))).toEqual(new Set([216]));
+    });
+  });
+
+  it('keeps hour cell widths uniform through a spring DST day', () => {
+    // The grid is UTC, so every hour cell is 60 minutes even where the local day is 23 hours
+    withTimeZone('America/New_York', () => {
+      expect(new Set(widths(SPRING_FORWARD, 'hour'))).toEqual(new Set([120]));
     });
   });
 
@@ -111,9 +119,11 @@ describe('shiftByDragSteps (#28)', () => {
 
   it('takes the drag step for each scale straight from the config', () => {
     const base = dayjs('2025-01-01T00:00:00Z');
+    expect(shiftByDragSteps(base, 3, 'hour').toISOString()).toBe('2025-01-01T00:45:00.000Z');
     expect(shiftByDragSteps(base, 3, 'day').toISOString()).toBe('2025-01-01T03:00:00.000Z');
     expect(shiftByDragSteps(base, 3, 'week').toISOString()).toBe('2025-01-01T18:00:00.000Z');
     expect(shiftByDragSteps(base, 3, 'month').toISOString()).toBe('2025-01-04T00:00:00.000Z');
+    expect(shiftByDragSteps(base, 3, 'quarter').toISOString()).toBe('2025-01-10T00:00:00.000Z');
     expect(shiftByDragSteps(base, 3, 'year').toISOString()).toBe('2025-01-22T00:00:00.000Z');
     // Converting a month-scale step into a fixed 30 days would not match the real month length
     expect(shiftByDragSteps(dayjs('2025-01-31T00:00:00Z'), 30, 'month').toISOString()).toBe(
