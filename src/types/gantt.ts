@@ -1,6 +1,6 @@
 import { Dayjs } from 'dayjs';
 import type { ReactNode } from 'react';
-import type { TaskTransformed } from './task';
+import type { Task, TaskTransformed } from './task';
 
 /** Theme type - 'light', 'dark', or 'system' (follows the OS setting) */
 export type GanttTheme = 'light' | 'dark' | 'system';
@@ -46,6 +46,27 @@ export interface GanttColumn {
   width?: number;
   /** Cell renderer - without it, task[key] is shown as a string */
   render?: (task: TaskTransformed) => ReactNode;
+}
+
+/**
+ * What a row drag committed - everything needed to persist the move
+ *
+ * Returning `false` from the callback cancels the drop: nothing is written to the chart and
+ * `onTasksChange` does not fire.
+ */
+export interface GanttReorderChange {
+  /** The moved task, already carrying its new parentId and sequence */
+  task: Task;
+  /** The new parent (null = root) */
+  parentId: string | null;
+  /** The parent the task had in the incoming data, untouched by normalization */
+  previousParentId: string | null;
+  /** Zero-based position among the new parent's children */
+  index: number;
+  /** The moved task's new dotted sequence */
+  sequence: string;
+  /** The whole updated array - the same one onTasksChange receives */
+  tasks: Task[];
 }
 
 export interface GanttDragOffset {

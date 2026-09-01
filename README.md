@@ -25,6 +25,7 @@ Currently, this project is built specifically for React due to my development ba
   - Move entire task bars
   - Resize from left/right edges
   - Snap to configured intervals
+  - Reorder and re-parent rows, with indent/outdent on horizontal offset
 - 🧲 Smart dependency arrows (FS, SS, FF, SF)
 - ◆ Milestones and per-task progress
 - 🗓️ Weekend and holiday shading
@@ -110,6 +111,8 @@ export default function App() {
 | `collapsedIds` | `string[]` | - | Ids of collapsed parents (controlled) |
 | `defaultCollapsedIds` | `string[]` | - | Initial collapsed ids (uncontrolled seed) |
 | `onCollapsedChange` | `(ids: string[]) => void` | - | Fires whenever a row is expanded or collapsed |
+| `allowRowReorder` | `boolean` | `false` | Let a task list row be dragged to reorder siblings and re-parent |
+| `onReorder` | `(change: GanttReorderChange) => void \| boolean` | - | Fires on a row drop, before anything is committed. Return `false` to cancel |
 
 ## Task List and Hierarchy
 
@@ -177,6 +180,65 @@ With `hierarchy` on, `parentId` becomes the source of truth:
 
 Collapse state is controlled with `collapsedIds` and uncontrolled with `defaultCollapsedIds`;
 `onCollapsedChange` fires either way, so a host can persist it wherever it likes.
+
+## Row Reordering
+
+`allowRowReorder` makes the task list rows draggable:
+
+```tsx
+import { ReactGanttChart, type GanttReorderChange } from '@jaeungkim/gantt-chart';
+
+<ReactGanttChart
+  tasks={tasks}
+  showTaskList
+  hierarchy
+  allowRowReorder
+  onReorder={(change: GanttReorderChange) => {
+    // Persist the move; return false here to reject it and leave the chart alone
+    void api.moveTask(change.task.id, change.parentId, change.index);
+  }}
+  onTasksChange={setTasks}
+/>;
+```
+
+- **Vertical drag reorders**, and an insertion line shows where the row would land.
+- **Horizontal offset indents and outdents**, the way an outliner does: one `16px` step to
+  the right nests the row under the row above, a step to the left lifts it out. It cannot go
+  deeper than one level under the row above, nor shallower than the row below.
+- **Dropping on the middle of a row re-parents into it** — that row is highlighted and the
+  dragged row is appended to its children, whether it is expanded or collapsed.
+- **A row can never become its own descendant.** Such a drop is drawn in the warning colour
+  during the drag and does nothing on release; no callback fires.
+- **`onReorder` runs before anything is committed.** Return `false` and the chart stays as it
+  was and `onTasksChange` never fires. Otherwise the chart updates and `onTasksChange` fires
+  exactly once, with the same array `change.tasks` carries.
+
+```ts
+interface GanttReorderChange {
+  task: Task;                      // the moved task, with its new parentId and sequence
+  parentId: string | null;         // the new parent (null = root)
+  previousParentId: string | null; // the parent the incoming data had
+  index: number;                   // zero-based position among the new parent's children
+  sequence: string;                // the moved task's new dotted sequence
+  tasks: Task[];                   // the whole updated array
+}
+```
+
+### `sequence` after a reorder
+
+Row order comes from `sequence` and nesting from `parentId`, so a move that only rewrote
+`parentId` would be undone by the next sort. **A reorder therefore renumbers `sequence` across
+the whole array from the resulting tree** — `1`, `1.1`, `1.2`, `2`, … — which makes `sequence`
+a derived value (position among siblings, prefixed by the parent's) that cannot disagree with
+`parentId` again. Two consequences worth knowing:
+
+- Rows other than the dragged one get new `sequence` values. Persist the array
+  `onTasksChange` hands you, not just the moved task.
+- If the incoming data already had `sequence` and `parentId` disagreeing, the first reorder
+  reconciles them, so unrelated rows may visibly snap into their true tree order.
+
+`parentId` is only ever written on the moved task. A row whose parent link is an orphan or a
+cycle keeps that link untouched and is numbered as the root the chart already renders it as.
 
 ## Imperative API
 

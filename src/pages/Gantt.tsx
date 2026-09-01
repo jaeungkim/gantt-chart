@@ -33,6 +33,7 @@ import {
 import {
   GanttBottomRowCell,
   GanttColumn,
+  GanttReorderChange,
   GanttScaleKey,
   GanttTheme,
 } from "types/gantt";
@@ -135,6 +136,22 @@ export interface GanttProps {
   defaultCollapsedIds?: string[];
   /** Called whenever the collapsed state changes - in controlled and uncontrolled mode alike */
   onCollapsedChange?: (collapsedIds: string[]) => void;
+  /**
+   * Whether a task list row can be dragged to reorder and re-parent (default false)
+   *
+   * Vertical drag moves the row among its siblings; horizontal offset indents or outdents it
+   * the way an outliner does, and dropping onto the middle of a row makes that row the parent.
+   * A drop that would put a row inside its own subtree is marked invalid during the drag and
+   * does nothing on release.
+   */
+  allowRowReorder?: boolean;
+  /**
+   * Called when a row drag is released on a legal target, before anything is committed
+   *
+   * Returning `false` cancels the drop - the chart stays as it was and `onTasksChange` does
+   * not fire. Otherwise the chart updates and `onTasksChange` fires once with the same array.
+   */
+  onReorder?: (change: GanttReorderChange) => void | boolean;
 }
 
 /**
@@ -178,6 +195,8 @@ function GanttChart({
   collapsedIds,
   defaultCollapsedIds,
   onCollapsedChange,
+  allowRowReorder = false,
+  onReorder,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -209,6 +228,11 @@ function GanttChart({
     )
   );
   const gridVisible = gridEnabled && !gridCollapsed;
+  // SEAM: the shared interaction guards (readOnly / allowMove, resolved by
+  // resolveTaskInteraction) are not on main yet. When they land this single expression is
+  // where they plug in - the grid only ever receives one boolean, so there is no second
+  // mechanism to keep in sync.
+  const rowReorderEnabled = allowRowReorder;
   // How much of the timeline the sticky pane covers - scroll math treats the viewport as
   // that much narrower
   const gridInset = gridVisible ? gridWidth : 0;
@@ -446,6 +470,9 @@ function GanttChart({
                 hierarchy={hierarchy}
                 collapsedIds={collapsedSet}
                 onToggleCollapse={handleToggleCollapse}
+                allowRowReorder={rowReorderEnabled}
+                onReorder={onReorder}
+                onTasksChange={onTasksChange}
               />
             )}
 

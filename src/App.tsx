@@ -9,6 +9,7 @@ function App() {
       width="100%"
       showTaskList
       hierarchy
+      allowRowReorder
     />
   );
 }

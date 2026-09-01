@@ -4,11 +4,13 @@ import {
   HEADER_HEIGHT,
   MAX_GRID_WIDTH,
   MIN_GRID_WIDTH,
+  NODE_HEIGHT,
   TREE_INDENT,
 } from "constants/gantt";
-import { ReactNode } from "react";
-import { GanttColumn } from "types/gantt";
-import { TaskTransformed } from "types/task";
+import { useGanttRowDrag } from "hooks/useGanttRowDrag";
+import { ReactNode, useRef } from "react";
+import { GanttColumn, GanttReorderChange } from "types/gantt";
+import { Task, TaskTransformed } from "types/task";
 
 interface GanttTaskGridProps {
   /** The rows on screen (collapsed subtrees are already filtered out) */
@@ -22,6 +24,10 @@ interface GanttTaskGridProps {
   hierarchy: boolean;
   collapsedIds: Set<string>;
   onToggleCollapse: (taskId: string) => void;
+  /** Whether rows can be dragged to reorder and re-parent */
+  allowRowReorder: boolean;
+  onReorder?: (change: GanttReorderChange) => void | boolean;
+  onTasksChange?: (updatedTasks: Task[]) => void;
 }
 
 /** Without a render, task[key] is shown as-is */
@@ -57,7 +63,20 @@ export default function GanttTaskGrid({
   hierarchy,
   collapsedIds,
   onToggleCollapse,
+  allowRowReorder,
+  onReorder,
+  onTasksChange,
 }: GanttTaskGridProps) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const { onRowPointerDown, dragState } = useGanttRowDrag({
+    rows: tasks,
+    bodyRef,
+    enabled: allowRowReorder,
+    onReorder,
+    onTasksChange,
+  });
+  const dropTarget = dragState?.target ?? null;
+
   const clampWidth = (next: number) =>
     Math.min(MAX_GRID_WIDTH, Math.max(MIN_GRID_WIDTH, next));
 
@@ -93,8 +112,16 @@ export default function GanttTaskGrid({
     onWidthChange(clampWidth(width + (e.key === "ArrowLeft" ? -16 : 16)));
   };
 
+  const gridClassName = [
+    "gantt-grid",
+    allowRowReorder ? "reorderable" : "",
+    dragState ? "row-dragging" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className="gantt-grid" style={{ width: `${width}px` }}>
+    <div className={gridClassName} style={{ width: `${width}px` }}>
       {/* Header - has to be exactly as tall as the timeline header or the rows shift */}
       <div className="gantt-grid-header" style={{ height: `${HEADER_HEIGHT}px` }}>
         {columns.map((column, index) => (
@@ -109,18 +136,34 @@ export default function GanttTaskGrid({
       </div>
 
       {/* Rows - straight from the timeline's own virtualItems */}
-      <div className="gantt-grid-body" style={{ height: `${totalHeight}px` }}>
+      <div
+        ref={bodyRef}
+        className="gantt-grid-body"
+        style={{ height: `${totalHeight}px` }}
+      >
         {virtualItems.map((virtualRow) => {
           const task = tasks[virtualRow.index];
           if (!task) return null;
 
           const expandable = hierarchy && task.isSummary;
           const collapsed = collapsedIds.has(task.id);
+          const isDropParent =
+            dropTarget?.mode === "into" && dropTarget.rowIndex === virtualRow.index;
 
           return (
             <div
               key={`grid-row-${task.id}`}
-              className={`gantt-grid-row${task.isSummary ? " summary" : ""}`}
+              data-row-id={task.id}
+              onPointerDown={onRowPointerDown}
+              className={[
+                "gantt-grid-row",
+                task.isSummary ? "summary" : "",
+                dragState?.draggedId === task.id ? "dragging" : "",
+                isDropParent ? "drop-into" : "",
+                isDropParent && !dropTarget.valid ? "invalid" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               style={{
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
@@ -166,6 +209,19 @@ export default function GanttTaskGrid({
             </div>
           );
         })}
+
+        {/* Insertion line - sits at the top edge of the target row, indented to the
+            level the row would land at */}
+        {dropTarget?.mode === "line" && (
+          <div
+            className={`gantt-grid-drop-line${dropTarget.valid ? "" : " invalid"}`}
+            style={{
+              top: `${dropTarget.rowIndex * NODE_HEIGHT}px`,
+              marginLeft: `${dropTarget.depth * TREE_INDENT}px`,
+            }}
+            aria-hidden="true"
+          />
+        )}
       </div>
 
       {/* Resize splitter */}

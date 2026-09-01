@@ -328,6 +328,60 @@
   font-weight: 600;
 }
 
+/* ===== ROW DRAG (reorder / re-parent) ===== */
+.gantt-grid.reorderable .gantt-grid-row {
+  cursor: grab;
+}
+
+.gantt-grid.row-dragging,
+.gantt-grid.row-dragging .gantt-grid-row {
+  cursor: grabbing;
+}
+
+.gantt-grid-row.dragging {
+  opacity: 0.45;
+}
+
+/* Drop-into - this row becomes the new parent */
+.gantt-grid-row.drop-into {
+  background: color-mix(in srgb, var(--gantt-accent) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--gantt-accent);
+}
+
+/* An illegal drop is shown, not hidden - the release then does nothing */
+.gantt-grid-row.drop-into.invalid,
+.gantt-grid.row-dragging .gantt-grid-row.drop-into.invalid {
+  background: color-mix(in srgb, var(--gantt-today-marker) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--gantt-today-marker);
+  cursor: no-drop;
+}
+
+/* Insertion line between two rows - its left edge marks the indent level it would land at */
+.gantt-grid-drop-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--gantt-accent);
+  pointer-events: none;
+}
+
+.gantt-grid-drop-line::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.gantt-grid-drop-line.invalid {
+  background: var(--gantt-today-marker);
+}
+
 .gantt-grid-cell {
   display: flex;
   align-items: center;
