@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
 import { useResolvedTheme } from "hooks/useResolvedTheme";
+import { readPersistedScale } from "stores/store";
 import { GanttScaleKey, GanttTheme } from "types/gantt";
 import { Task } from "types/task";
 import dayjs from "utils/dayjs";
@@ -16,9 +17,17 @@ import { calculateDateOffsetPx, computeTimelineData } from "utils/timeline";
 const DEFAULT_HEIGHT = 600;
 const DEFAULT_WIDTH = "100%";
 const DEFAULT_SCALE: GanttScaleKey = "month";
+/** 기본 tasks - 매 렌더 새 배열이 생기지 않도록 모듈 스코프에 고정 */
+const EMPTY_TASKS: Task[] = [];
 
 export interface GanttProps {
-  /** 태스크 데이터 배열 */
+  /**
+   * 태스크 데이터 배열
+   *
+   * 내용이 실제로 바뀔 때만 차트에 반영된다. 부모가 같은 데이터를 새 배열로
+   * 다시 넘기는 경우(인라인 리터럴, 비메모 map 등)에는 무시되므로 드래그로
+   * 방금 편집한 결과가 되돌아가지 않는다. 빈 배열을 넘기면 차트가 비워진다.
+   */
   tasks?: Task[];
   /** 태스크 변경 시 호출되는 콜백 */
   onTasksChange?: (updatedTasks: Task[]) => void;
@@ -28,7 +37,13 @@ export interface GanttProps {
   width?: number | string;
   /** 테마 설정 - 'light', 'dark', 또는 'system' */
   theme?: GanttTheme;
-  /** 기본 스케일 설정 */
+  /**
+   * 초기 스케일 설정
+   *
+   * 세션에 저장된 사용자 선택(sessionStorage)이 없을 때만 적용되는 시드 값이다.
+   * 사용자가 스케일을 바꾸면 그 선택이 저장되어 리마운트 시 우선하며,
+   * 마운트 이후의 prop 변경은 무시된다 (`default*` prop 관례).
+   */
   defaultScale?: GanttScaleKey;
   /** 추가 CSS 클래스명 */
   className?: string;
@@ -39,7 +54,7 @@ export interface GanttProps {
  * 가상화를 사용하여 대량의 태스크를 효율적으로 렌더링
  */
 function Gantt({
-  tasks = [],
+  tasks = EMPTY_TASKS,
   onTasksChange,
   height = DEFAULT_HEIGHT,
   width = DEFAULT_WIDTH,
@@ -77,25 +92,32 @@ function Gantt({
     className ? `gantt-container ${className}` : "gantt-container"
   );
 
-  // 초기 스케일 설정
+  // 초기 스케일 설정 - 세션에 저장된 사용자 선택이 있으면 그 값이 defaultScale보다 우선
+  // (마운트 시 1회만. defaultScale은 시드일 뿐이라 이후 변경은 무시한다)
   useEffect(() => {
-    if (defaultScale && defaultScale !== selectedScale) {
-      setSelectedScale(defaultScale);
-    }
+    setSelectedScale(readPersistedScale() ?? defaultScale);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 프롭으로 받아 마지막으로 반영한 태스크 데이터의 스냅샷
+  const syncedTasksRef = useRef<string | null>(null);
+
   // 태스크 데이터 동기화
+  // 배열 identity가 아니라 내용이 바뀌었을 때만 스토어를 덮어쓴다.
+  // 부모가 같은 데이터를 새 배열로 다시 넘기는 리렌더는 무시되므로 드래그 편집이
+  // 되돌아가지 않고, 데이터가 실제로 달라지면(빈 배열 포함) 프롭이 이긴다.
+  // (비교는 직렬화 1회 - tasks 배열 identity가 바뀔 때만 돈다. 태스크 수가
+  //  아주 많아 이 비용이 문제가 되면 부모에서 tasks를 memo 하면 된다)
   useEffect(() => {
-    if (tasks.length > 0) {
-      setRawTasks(tasks);
-    }
+    const snapshot = JSON.stringify(tasks);
+    if (snapshot === syncedTasksRef.current) return;
+
+    syncedTasksRef.current = snapshot;
+    setRawTasks(tasks);
   }, [tasks, setRawTasks]);
 
-  // 타임라인 구조 설정
+  // 타임라인 구조 설정 (태스크가 비면 빈 타임라인으로 정리)
   useEffect(() => {
-    if (!rawTasks.length) return;
-
     const { bottomCells, transformedTasks: transformed } = computeTimelineData(
       rawTasks,
       selectedScale
