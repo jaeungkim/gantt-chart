@@ -2,13 +2,14 @@ import GanttBar from "components/GanttBar";
 import GanttChartHeader from "components/GanttChartHeader";
 import GanttDependencyArrows from "components/GanttDependencyArrows";
 import ScaleSelector from "components/ScaleSelector";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
 import { useResolvedTheme } from "hooks/useResolvedTheme";
 import { GanttScaleKey, GanttTheme } from "types/gantt";
 import { Task } from "types/task";
-import { computeTimelineData } from "utils/timeline";
+import dayjs from "utils/dayjs";
+import { calculateDateOffsetPx, computeTimelineData } from "utils/timeline";
 
 /** Gantt 컴포넌트 기본값 */
 const DEFAULT_HEIGHT = 600;
@@ -107,6 +108,12 @@ function Gantt({
     setSelectedScale(scale);
   };
 
+  // 오늘 마커 오프셋 (타임라인 범위 밖이면 null)
+  const todayOffsetPx = useMemo(
+    () => calculateDateOffsetPx(dayjs(), bottomRowCells, selectedScale),
+    [bottomRowCells, selectedScale]
+  );
+
   // 전체 너비 계산
   const totalWidth = getTotalWidth();
 
@@ -167,6 +174,15 @@ function Gantt({
                 );
               })}
             </div>
+
+            {/* 오늘 마커 */}
+            {todayOffsetPx !== null && (
+              <div
+                className="gantt-today-marker"
+                style={{ left: `${todayOffsetPx}px` }}
+                aria-hidden="true"
+              />
+            )}
 
             {/* 의존성 화살표 */}
             <GanttDependencyArrows transformedTasks={transformedTasks} />

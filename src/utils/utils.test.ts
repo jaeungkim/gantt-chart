@@ -3,7 +3,12 @@ import dayjs from 'utils/dayjs';
 import type { Task } from 'types/task';
 import { getSmartGanttPath } from './arrowPath';
 import { processHeaderGroups } from './headerUtils';
-import { calculateDateOffsets, computeTimelineData, createTopHeaderGroups } from './timeline';
+import {
+  calculateDateOffsetPx,
+  calculateDateOffsets,
+  computeTimelineData,
+  createTopHeaderGroups,
+} from './timeline';
 import { transformTasks } from './transformData';
 
 // month scale: tickUnit day, unitPerTick 1, basePxPerDragStep 32 -> every tick is exactly 32px.
@@ -61,6 +66,22 @@ describe('calculateDateOffsets', () => {
       barMarginLeftAmount: 0,
       barWidthSize: 0,
     });
+  });
+});
+
+describe('calculateDateOffsetPx', () => {
+  const t = ticks('2025-01-01', '2025-01-02', '2025-01-03');
+
+  it('offsets whole and partial ticks', () => {
+    expect(calculateDateOffsetPx(dayjs('2025-01-01'), t, 'month')).toBe(0);
+    expect(calculateDateOffsetPx(dayjs('2025-01-02'), t, 'month')).toBe(32);
+    expect(calculateDateOffsetPx(dayjs('2025-01-02T12:00'), t, 'month')).toBe(48);
+  });
+
+  it('returns null outside the timeline range and for no ticks', () => {
+    expect(calculateDateOffsetPx(dayjs('2024-12-31'), t, 'month')).toBeNull();
+    expect(calculateDateOffsetPx(dayjs('2025-01-04'), t, 'month')).toBeNull();
+    expect(calculateDateOffsetPx(dayjs(), [], 'month')).toBeNull();
   });
 });
 
