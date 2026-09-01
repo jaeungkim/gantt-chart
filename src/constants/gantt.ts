@@ -2,22 +2,22 @@ import { GanttScaleConfig, GanttScaleKey } from 'types/gantt';
 
 export const NODE_HEIGHT = 38;
 export const TIMELINE_SHIFT_BUFFER = 5;
-/** 바가 좁아도 최소한 이 너비로 렌더링 (px) - 짧은 태스크도 잡을 수 있게 */
+/** Bars render at least this wide, however narrow they are (px) - keeps short tasks grabbable */
 export const MIN_BAR_WIDTH = 14;
-/** 이 너비 미만이면 태스크명을 바 바깥에 표시 (px) */
+/** Below this width the task name is shown outside the bar (px) */
 export const MIN_LABEL_INSIDE_WIDTH = 56;
-/** 리사이즈 엣지 감지 영역 (px) */
+/** Size of the resize edge hit area (px) */
 export const EDGE_THRESHOLD = 8;
-/** 바 너비가 이 값 미만이면 엣지 리사이즈 없이 전체를 이동 핸들로 사용 (px) */
+/** Below this bar width there is no edge resizing and the whole bar is the move handle (px) */
 export const MIN_RESIZABLE_WIDTH = EDGE_THRESHOLD * 3;
-/** 마일스톤 다이아몬드 한 변 길이 (px, 45도 회전 전) */
+/** Side length of the milestone diamond (px, before the 45-degree rotation) */
 export const MILESTONE_SIZE = 16;
-/** 다이아몬드 중심에서 꼭짓점까지의 가로 거리 (px) */
+/** Horizontal distance from the diamond's center to its vertex (px) */
 export const MILESTONE_HALF_DIAGONAL = Math.round((MILESTONE_SIZE * Math.SQRT2) / 2);
 
 /**
- * 스케일별 날짜 표시 포맷 (툴팁, 드래그 가이드 공용) - 연도 포함, 24시간제
- * 차트는 UTC로 그리므로 시각이 보이는 day 스케일에만 존을 표기한다
+ * Date display format per scale (shared by the tooltip and the drag guides) - year included, 24-hour clock
+ * The chart is drawn in UTC, so the zone is spelled out only on the day scale, where the time is visible
  */
 export const DATE_FORMATS: Record<GanttScaleKey, string> = {
   day: 'MMM D, YYYY HH:mm [UTC]',
@@ -34,7 +34,7 @@ export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
     dragStepUnit: 'hour',
     dragStepAmount: 1,
     basePxPerDragStep: 32,
-    // 12시간제는 오전/오후 구분이 없어 하루에 같은 라벨이 두 번 나옴 - 24시간제 사용
+    // A 12-hour clock has no AM/PM marker here, so the same label would appear twice a day - use 24-hour
     formatTickLabel: (d) => d.format('HH'),
     formatHeaderLabel: (d) => d.format('MMM D, YYYY'),
   },
@@ -59,7 +59,7 @@ export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
     formatHeaderLabel: (d) => d.format('MMM YYYY'),
   },
   year: {
-    // 틱이 월 단위라 상단은 연도, 하단은 월 - 하단에 일(D)을 쓰면 항상 '1'만 나옴
+    // Ticks are months, so the top row is the year and the bottom the month - a day (D) on the bottom would always print '1'
     labelUnit: 'year',
     tickUnit: 'month',
     unitPerTick: 1,

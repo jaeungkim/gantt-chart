@@ -2,27 +2,27 @@
 /* Minimal & Clean Design */
 
 /* ===== DESIGN TOKENS =====
-   모든 토큰은 --gantt-* 접두사 + .gantt-container 스코프.
-   :root에 두면 호스트 앱의 --background/--border 등과 충돌한다.
-   폰트는 번들에 포함하지 않는다 - 호스트가 --gantt-font-sans를 덮어쓰면 된다. */
+   Every token is prefixed --gantt-* and scoped to .gantt-container.
+   On :root they would collide with the host app's --background/--border and friends.
+   Fonts are not bundled - the host can override --gantt-font-sans. */
 .gantt-container {
-  /* 타이포그래피 */
+  /* Typography */
   --gantt-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Geist",
     system-ui, sans-serif;
 
-  /* 배경 */
+  /* Background */
   --gantt-background: #fafafa;
   --gantt-foreground: #18181b;
 
-  /* 뮤트 */
+  /* Muted */
   --gantt-muted: #f4f4f5;
   --gantt-muted-foreground: #71717a;
 
-  /* 보더 */
+  /* Border */
   --gantt-border: #e4e4e7;
   --gantt-border-subtle: rgba(0, 0, 0, 0.04);
 
-  /* 태스크 바 */
+  /* Task bar */
   --gantt-bar-bg: #e4e4e7;
   --gantt-bar-bg-hover: #d4d4d8;
   --gantt-bar-text: #18181b;
@@ -30,33 +30,33 @@
   --gantt-bar-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
   --gantt-bar-shadow-drag: 0 8px 24px rgba(0, 0, 0, 0.15);
 
-  /* 의존성 화살표 */
+  /* Dependency arrows */
   --gantt-arrow: #a1a1aa;
 
-  /* 액센트 */
+  /* Accent */
   --gantt-accent: #3b82f6;
 
-  /* 오늘 마커 */
+  /* Today marker */
   --gantt-today-marker: #f43f5e;
 
-  /* 마일스톤 */
+  /* Milestone */
   --gantt-milestone-bg: #52525b;
   --gantt-milestone-bg-hover: #3f3f46;
 
-  /* 진행률 */
+  /* Progress */
   --gantt-progress-bg: #a1a1aa;
   --gantt-progress-handle: #52525b;
 
-  /* 비근무일 음영 */
+  /* Non-working-day shading */
   --gantt-non-working-bg: rgba(0, 0, 0, 0.035);
 
-  /* 트랜지션 */
+  /* Transitions */
   --gantt-duration-fast: 150ms;
   --gantt-transition-fast: 150ms ease;
   --gantt-transition-normal: 200ms ease;
 }
 
-/* 다크 테마 */
+/* Dark theme */
 .gantt-container.dark,
 .gantt-container[data-theme="dark"] {
   --gantt-background: #09090b;
@@ -88,7 +88,7 @@
   --gantt-non-working-bg: rgba(255, 255, 255, 0.03);
 }
 
-/* 테마 prop이 없을 때는 OS 설정을 따른다 (명시적 light 지정은 유지) */
+/* With no theme prop, follow the OS setting (an explicit light choice is kept) */
 @media (prefers-color-scheme: dark) {
   .gantt-container:not(.light):not([data-theme="light"]) {
     --gantt-background: #09090b;
@@ -121,9 +121,9 @@
   }
 }
 
-/* 컨테이너 안에서만 border-box를 강제한다.
-   호스트 앱의 리셋 유무와 무관하게 레이아웃 계산이 같아야 하고,
-   전역 리셋을 내보내면 호스트 스타일을 침범한다. */
+/* border-box is forced only inside the container.
+   Layout math has to come out the same whether or not the host app ships a reset,
+   and exporting a global reset would trample the host's styles. */
 .gantt-container,
 .gantt-container *,
 .gantt-container *::before,
@@ -248,7 +248,7 @@
   white-space: nowrap;
 }
 
-/* 표준 속성 우선 (Chrome 121+, Firefox). 지원하지 않는 브라우저만 아래 webkit 규칙 사용 */
+/* Prefer the standard properties (Chrome 121+, Firefox). Only browsers without support fall back to the webkit rules below */
 .gantt-scroll-container {
   scrollbar-width: thin;
   scrollbar-color: var(--gantt-border) transparent;
@@ -319,7 +319,7 @@
   color: var(--gantt-foreground);
 }
 
-/* 그룹 자체가 아닌 라벨만 고정 - 다음 그룹이 들어오면 밀려나며 가리지 않음 */
+/* Pin the label, not the group itself - it slides out of the way when the next group arrives instead of covering it */
 .gantt-top-group-label {
   position: sticky;
   left: var(--top-group-inset);
@@ -368,14 +368,14 @@
   background: var(--gantt-non-working-bg);
 }
 
-/* ===== TASK ROWS (배경 전용) ===== */
+/* ===== TASK ROWS (background only) ===== */
 .gantt-rows {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  /* 배경 레이어 - 화살표/바와 같은 레이어에서 DOM 순서상 가장 먼저 그려진다 */
+  /* Background layer - on the same layer as the arrows and bars, painted first by DOM order */
   z-index: 0;
   pointer-events: none;
 }
@@ -411,8 +411,9 @@
   left: 0;
   width: 100%;
   pointer-events: none;
-  /* 바 wrapper는 transform 때문에 자체 stacking context라 바의 z-index가 밖으로 안 나온다.
-     화살표를 같은 auto/0 레이어에 두면 DOM 순서상 뒤에 오는 바가 위에 그려진다. */
+  /* The bar wrapper is its own stacking context because of the transform, so a bar's
+     z-index does not reach outside it. Keeping the arrows on the same auto/0 layer means
+     bars later in DOM order are painted on top. */
   z-index: 0;
 }
 
@@ -439,7 +440,7 @@
   user-select: none;
   cursor: grab;
   box-shadow: var(--gantt-bar-shadow);
-  /* transform 제외 - 드래그 시 inline style로 제어됨 */
+  /* transform is excluded - it is driven by inline style while dragging */
   transition: background var(--gantt-transition-fast),
     box-shadow var(--gantt-transition-normal);
 }
@@ -488,7 +489,7 @@
   opacity: 0.7;
 }
 
-/* 좁은 바: 리사이즈 핸들 숨김 (전체가 이동 핸들) */
+/* Narrow bars: hide the resize handles (the whole bar is the move handle) */
 .gantt-task-bar.compact::before,
 .gantt-task-bar.compact::after,
 .gantt-task-bar.compact:hover::before,
@@ -544,7 +545,7 @@
   pointer-events: none;
 }
 
-/* 바가 좁을 때 라벨을 바 오른쪽 바깥에 표시 */
+/* When the bar is narrow, show the label outside its right edge */
 .gantt-task-name.outside {
   position: absolute;
   left: 100%;
@@ -603,8 +604,8 @@
 }
 
 /* ===== BAR TOOLTIP ===== */
-/* 바 아래에 표시한다 - 위에 두면 최상단 행에서 sticky 헤더에 가려진다
-   (툴팁은 두 겹의 transform 스태킹 컨텍스트 안이라 z-index로는 헤더를 넘지 못한다) */
+/* Shown below the bar - above it, the sticky header would cover it on the topmost row
+   (the tooltip sits inside two nested transform stacking contexts, so no z-index lifts it over the header) */
 .gantt-bar-tooltip {
   position: absolute;
   top: calc(100% + 8px);
@@ -621,7 +622,7 @@
   white-space: nowrap;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   pointer-events: none;
-  /* 지속시간 토큰만 사용 - transition 토큰은 easing을 포함해 shorthand가 무효가 된다 */
+  /* Duration token only - the transition tokens carry easing, which would invalidate this shorthand */
   animation: tooltipFadeIn var(--gantt-duration-fast) ease-out;
 }
 

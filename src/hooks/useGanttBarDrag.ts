@@ -22,13 +22,13 @@ interface DragContext {
   initialBarWidth: number;
   dragSteps: number;
   basePxPerDragStep: number;
-  // 드래그 도중 스케일이 바뀌어도 시작 시점의 스텝 단위로 계산한다
+  // Keep computing in the step unit from when the drag started, even if the scale changes mid-drag
   scaleKey: GanttScaleKey;
   taskId: string;
 }
 
 /**
- * Gantt 바 드래그 기능을 제공하는 훅
+ * Hook providing the Gantt bar drag behavior
  */
 export function useGanttBarDrag(
   task: TaskTransformed,
@@ -43,8 +43,9 @@ export function useGanttBarDrag(
   const selectedScale = useGanttStore((s) => s.selectedScale);
   const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
 
-  // 드래그 모드 감지
-  // 마일스톤과 좁은 바는 리사이즈 불가 - 엣지 영역이 바 전체를 덮어 이동이 막히는 것을 방지
+  // Detect the drag mode
+  // Milestones and narrow bars cannot be resized - keeps the edge zones from covering the
+  // whole bar and blocking the move
   const detectDragMode = (e: React.PointerEvent<HTMLDivElement>): DragMode => {
     if (isMilestoneTask(task)) return "bar";
 
@@ -59,9 +60,9 @@ export function useGanttBarDrag(
   };
 
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
-    // 주 포인터의 왼쪽 버튼만 드래그 시작 (우클릭/보조 터치는 무시)
+    // Only the primary pointer's left button starts a drag (right-click and secondary touches are ignored)
     if (!e.isPrimary || e.button !== 0) return;
-    // 이미 드래그 중이면 두 번째 포인터를 무시
+    // Ignore a second pointer while a drag is already running
     if (dragContextRef.current) return;
 
     const mode = detectDragMode(e);
@@ -90,8 +91,8 @@ export function useGanttBarDrag(
       const deltaX = moveEvent.clientX - ctx.initialClientX;
       const rawSteps = Math.round(deltaX / ctx.basePxPerDragStep);
 
-      // 최소 한 스텝 너비는 남기도록 스텝 자체를 클램프
-      // (미리보기만 막고 커밋은 그대로 두면 end < start 로 커밋된다)
+      // Clamp the step count itself so at least one step of width is left
+      // (clamping only the preview and leaving the commit alone commits end < start)
       const maxShrinkSteps = Math.floor(
         (ctx.initialBarWidth - ctx.basePxPerDragStep) / ctx.basePxPerDragStep
       );
@@ -159,7 +160,7 @@ export function useGanttBarDrag(
       storeApi.getState().clearDragOffset(taskId);
     };
 
-    // 브라우저가 제스처를 취소한 경우(스크롤 인계, 멀티터치 등)는 커밋하지 않고 되돌린다
+    // When the browser cancels the gesture (scroll takeover, multi-touch, etc.) revert instead of committing
     const handlePointerCancel = (cancelEvent: PointerEvent) => {
       const ctx = dragContextRef.current;
       if (ctx && cancelEvent.pointerId !== ctx.pointerId) return;
@@ -219,9 +220,9 @@ export function useGanttBarDrag(
       storeApi.getState().setRawTasks(updatedTasks);
       onTasksChangeRef.current?.(updatedTasks);
 
-      // dragOffset은 여기서 지우지 않는다 - 새 transformedTasks가 계산되기 전에
-      // 지우면 바가 한 프레임 동안 원위치로 돌아갔다 오는 깜빡임이 생긴다.
-      // Gantt의 타임라인 재계산 이펙트가 새 위치와 함께 한 번에 정리한다.
+      // dragOffset is deliberately not cleared here - clearing it before the new
+      // transformedTasks are computed makes the bar flick back to its old position for
+      // one frame. Gantt's timeline recomputation effect clears it along with the new positions.
       dragContextRef.current = null;
       dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);

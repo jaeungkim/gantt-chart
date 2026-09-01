@@ -26,7 +26,7 @@ export default function GanttBar({
   const { onPointerDown, dragMode } = useGanttBarDrag(currentTask, onTasksChange);
   const [cursor, setCursor] = useState<"grab" | "ew-resize">("grab");
 
-  // 드래그 오프셋 가져오기
+  // Read the drag offset
   const liveOffset = useGanttStore((store) => store.dragOffsets[currentTask.id]);
   const isDragging = useGanttStore((store) => store.currentTask?.id === currentTask.id);
   const selectedScale = useGanttStore((store) => store.selectedScale);
@@ -34,8 +34,8 @@ export default function GanttBar({
   const offsetX = liveOffset?.offsetX ?? 0;
   const offsetWidth = liveOffset?.offsetWidth ?? 0;
 
-  // 최종 위치 및 크기 계산
-  // 짧은 태스크도 잡을 수 있도록 최소 너비 보장, 좁으면 라벨을 바 밖으로
+  // Final position and size
+  // Guarantee a minimum width so short tasks stay grabbable; move the label outside when narrow
   const finalLeft = currentTask.barLeft + offsetX;
   const finalWidth = Math.max(
     currentTask.barWidth + offsetWidth,
@@ -45,12 +45,12 @@ export default function GanttBar({
 
   const isMilestone = isMilestoneTask(currentTask);
 
-  // 진행률 (마일스톤은 진행률 없음)
+  // Progress (milestones have none)
   const { onProgressPointerDown, progress, isDraggingProgress } =
     useGanttProgressDrag(currentTask, barRef, onTasksChange);
   const showProgress = !isMilestone && progress !== null;
 
-  // 마우스 위치에 따른 커서 변경 (마일스톤은 리사이즈 없음)
+  // Change the cursor based on the mouse position (milestones cannot be resized)
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (isMilestone) return;
@@ -78,7 +78,7 @@ export default function GanttBar({
     [isMilestone]
   );
 
-  // 툴팁 텍스트 생성 (모드에 따라 다르게 표시)
+  // Build the tooltip text (shown differently per mode)
   const format = DATE_FORMATS[selectedScale];
   const getTooltipText = (mode: DragMode | null) => {
     if (!liveOffset) return "";
@@ -99,7 +99,7 @@ export default function GanttBar({
     }
   };
 
-  // 마일스톤: startDate 한 점에 다이아몬드 + 우측 라벨
+  // Milestone: a diamond at the single startDate point, with a label to its right
   if (isMilestone) {
     return (
       <div
@@ -114,12 +114,12 @@ export default function GanttBar({
         }}
         role="button"
         tabIndex={0}
-        aria-label={`마일스톤: ${currentTask.name}`}
+        aria-label={`Milestone: ${currentTask.name}`}
       >
         <div className="gantt-milestone-diamond" />
         <span className="gantt-milestone-name">{currentTask.name}</span>
 
-        {/* 드래그 중 툴팁 */}
+        {/* Tooltip while dragging */}
         {isDragging && liveOffset && (
           <div className="gantt-bar-tooltip" role="status" aria-live="polite">
             {getTooltipText(dragMode)}
@@ -149,11 +149,11 @@ export default function GanttBar({
       tabIndex={0}
       aria-label={
         showProgress
-          ? `태스크: ${currentTask.name}, ${progress}% 완료`
-          : `태스크: ${currentTask.name}`
+          ? `Task: ${currentTask.name}, ${progress}% complete`
+          : `Task: ${currentTask.name}`
       }
     >
-      {/* 진행률 채움 + 핸들 */}
+      {/* Progress fill + handle */}
       {showProgress && (
         <>
           <div
@@ -168,7 +168,7 @@ export default function GanttBar({
             onPointerDown={onProgressPointerDown}
             role="slider"
             tabIndex={-1}
-            aria-label={`${currentTask.name} 진행률`}
+            aria-label={`${currentTask.name} progress`}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={progress}
@@ -182,14 +182,14 @@ export default function GanttBar({
         {currentTask.name}
       </span>
 
-      {/* 드래그 중 툴팁 */}
+      {/* Tooltip while dragging */}
       {isDragging && liveOffset && (
         <div className="gantt-bar-tooltip" role="status" aria-live="polite">
           {getTooltipText(dragMode)}
         </div>
       )}
 
-      {/* 진행률 드래그 중 툴팁 */}
+      {/* Tooltip while dragging progress */}
       {isDraggingProgress && (
         <div className="gantt-bar-tooltip" role="status" aria-live="polite">
           {progress}%

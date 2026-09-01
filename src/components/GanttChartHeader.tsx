@@ -9,13 +9,13 @@ interface GanttChartHeaderProps {
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
   width: number;
-  /** 하단 시간 셀 가상화용 스크롤 컨테이너 (상단 그룹 라벨 고정은 CSS sticky로 처리) */
+  /** Scroll container used to virtualize the bottom time cells (pinning the top group labels is done with CSS sticky) */
   scrollRef: React.RefObject<HTMLDivElement | null>;
 }
 
 /**
- * Gantt 차트 헤더 컴포넌트
- * 상단 그룹 라벨과 하단 시간 셀을 표시
+ * Gantt chart header component
+ * Renders the top group labels and the bottom time cells
  */
 function GanttChartHeader({
   bottomRowCells,
@@ -25,8 +25,8 @@ function GanttChartHeader({
 }: GanttChartHeaderProps) {
   const config = GANTT_SCALE_CONFIG[selectedScale];
 
-  // 하단 셀은 열 가상화 - day 스케일의 긴 범위는 셀이 수천 개다
-  // (상단 그룹은 병합된 소수의 라벨이라 그대로 그린다)
+  // The bottom cells are column-virtualized - a long range at day scale runs to thousands of cells
+  // (the top groups are a handful of merged labels, so they are rendered as-is)
   const { columnVirtualizer } = useGanttColumnVirtualization({
     bottomRowCells,
     scrollRef,
@@ -34,7 +34,7 @@ function GanttChartHeader({
   const virtualCells = columnVirtualizer.getVirtualItems();
   const leadingPx = virtualCells[0]?.start ?? 0;
 
-  // 헤더 그룹 생성 및 병합 (memoized)
+  // Build and merge the header groups (memoized)
   const topGroups = useMemo(
     () =>
       mergeHeaderGroups(createTopHeaderGroups(bottomRowCells, selectedScale)),
@@ -44,7 +44,7 @@ function GanttChartHeader({
   return (
     <header className="gantt-header" style={{ width: `${width}px` }}>
       <div className="gantt-header-content">
-        {/* 상단 헤더 그룹 */}
+        {/* Top header groups */}
         <div className="gantt-top-header">
           <div className="gantt-top-groups">
             {topGroups.map((group, idx) => (
@@ -59,9 +59,9 @@ function GanttChartHeader({
           </div>
         </div>
 
-        {/* 하단 시간 셀 (가시 영역만) */}
+        {/* Bottom time cells (visible area only) */}
         <div className="gantt-bottom-row">
-          {/* 건너뛴 앞쪽 셀들의 폭 - flex 흐름을 그대로 두려고 스페이서로 민다 */}
+          {/* Width of the skipped leading cells - pushed out with a spacer to leave the flex flow intact */}
           <div style={{ width: `${leadingPx}px` }} aria-hidden="true" />
           {virtualCells.map((virtualCell) => {
             const cell = bottomRowCells[virtualCell.index];

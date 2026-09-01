@@ -25,17 +25,19 @@ interface UseGanttVirtualizationResult
 }
 
 /**
- * 열(column) 가상화
+ * Column virtualization
  *
- * 헤더의 하단 시간 셀 렌더와 가로 가시성 판정을 같은 창(window)으로 맞추기 위해
- * 따로 떼어 두었다 - 헤더와 바가 서로 다른 기준으로 잘리면 안 된다.
+ * Split out so that rendering the header's bottom time cells and judging horizontal
+ * visibility use the same window - the header and the bars must not be culled by
+ * different criteria.
  */
 export function useGanttColumnVirtualization({
   bottomRowCells,
   scrollRef,
 }: UseGanttColumnVirtualizationParams): UseGanttColumnVirtualizationResult {
-  // TanStack Virtual이 돌려주는 함수는 메모이즈할 수 없어 React Compiler가
-  // 이 훅을 건너뛴다 - 아래 행 가상화에 같은 경고가 이미 남아 있어 중복만 끈다
+  // The functions TanStack Virtual returns cannot be memoized, so the React Compiler
+  // skips this hook - the row virtualization below already carries the same warning,
+  // so this only silences the duplicate
   // eslint-disable-next-line react-hooks/incompatible-library
   const columnVirtualizer = useVirtualizer({
     horizontal: true,
@@ -45,7 +47,7 @@ export function useGanttColumnVirtualization({
     overscan: 5,
   });
 
-  // 가시 영역 계산
+  // Compute the visible area
   const virtualItems = columnVirtualizer.getVirtualItems();
   const visibleStartPx = virtualItems[0]?.start ?? 0;
   const lastVirtualItem = virtualItems[virtualItems.length - 1];
@@ -53,7 +55,7 @@ export function useGanttColumnVirtualization({
     ? lastVirtualItem.start + lastVirtualItem.size
     : 0;
 
-  // 바 가시성 체크 함수
+  // Bar visibility check
   const isBarVisible = useMemo(() => {
     return (barLeft: number, barWidth: number): boolean => {
       const barRight = barLeft + barWidth;
@@ -61,7 +63,7 @@ export function useGanttColumnVirtualization({
     };
   }, [visibleStartPx, visibleEndPx]);
 
-  // 셀 변경 시 열 가상화 측정 업데이트
+  // Update the column virtualizer's measurements when the cells change
   useEffect(() => {
     if (!bottomRowCells.length) return;
 
@@ -79,15 +81,15 @@ export function useGanttColumnVirtualization({
 }
 
 /**
- * Gantt 차트의 가상화 로직을 관리하는 훅
- * 행(row)과 열(column) 가상화를 설정하고 가시성 체크 함수 제공
+ * Hook managing the Gantt chart's virtualization
+ * Sets up row and column virtualization and provides the visibility check
  */
 export function useGanttVirtualization({
   transformedTasks,
   bottomRowCells,
   scrollRef,
 }: UseGanttVirtualizationParams): UseGanttVirtualizationResult {
-  // 행 가상화 설정
+  // Row virtualization setup
   const rowVirtualizer = useVirtualizer({
     count: transformedTasks.length,
     getScrollElement: () => scrollRef.current,

@@ -21,8 +21,9 @@ export default function GanttDependencyArrows({
   const liveOffsets = useGanttStore((store) => store.dragOffsets);
   const bottomRowCells = useGanttStore((store) => store.bottomRowCells);
 
-  // 스크롤 컨테이너는 SVG의 조상이라 마운트 시 직접 찾는다.
-  // 바 컬링과 같은 가상화 창을 써야 화살표만 먼저 잘리는 일이 없다.
+  // The scroll container is an ancestor of the SVG, so it is looked up on mount.
+  // Using the same virtualization window as the bar culling keeps arrows from being
+  // culled ahead of the bars.
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const attachSvg = useCallback((svg: SVGSVGElement | null) => {
     scrollRef.current =
@@ -35,14 +36,14 @@ export default function GanttDependencyArrows({
     scrollRef,
   });
 
-  // 태스크 인덱스는 데이터가 바뀔 때만 다시 만든다 (드래그 프레임마다가 아니라)
+  // The task index is rebuilt only when the data changes (not on every drag frame)
   const taskById = useMemo(
     () => buildTaskIndex(transformedTasks),
     [transformedTasks]
   );
 
-  // 화면 밖 화살표는 만들지 않는다 - 행은 이미 가상화되어 있어서
-  // 대량 데이터에서는 화살표가 실질적인 한계였다
+  // Arrows outside the viewport are never built - the rows are already virtualized, so on
+  // large data sets the arrows were the real limit
   const visibleRows = rowVirtualizer.getVirtualItems();
   const lastRow = visibleRows[visibleRows.length - 1];
   const viewport: ArrowViewport = {
@@ -55,8 +56,10 @@ export default function GanttDependencyArrows({
     isArrowVisible(dep, viewport)
   );
 
-  // marker id는 문서 전역이라 인스턴스마다 고유해야 차트를 여러 개 띄워도 안 섞인다
-  // useId 값에는 url(#...) 참조에 부적합한 문자가 섞이므로 영숫자만 남긴다
+  // Marker ids are document-global, so each instance needs its own or several charts on a
+  // page would mix them up
+  // useId values contain characters that are invalid in a url(#...) reference, so only
+  // alphanumerics are kept
   const instanceId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const arrowheadId = `gantt-arrowhead-${instanceId}`;
 

@@ -1,6 +1,6 @@
 import { Dayjs } from 'dayjs';
 
-/** 테마 타입 - 'light', 'dark', 또는 'system' (시스템 설정 따름) */
+/** Theme type - 'light', 'dark', or 'system' (follows the OS setting) */
 export type GanttTheme = 'light' | 'dark' | 'system';
 
 export type GanttScaleKey = 'day' | 'week' | 'month' | 'year';

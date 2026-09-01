@@ -262,15 +262,15 @@ describe('buildDependencies', () => {
   });
 
   it('follows the live offset of whichever end is being dragged', () => {
-    // 선행(A)을 드래그하면 화살표 시작점이 따라와야 한다 (#66)
+    // Dragging the predecessor (A) has to bring the arrow's start point along (#66)
     expect(
       buildDependencies(chain(), { a: { offsetX: 32, offsetWidth: 0 } })[0],
     ).toMatchObject({ fromX: 196, toX: 300 });
-    // 선행의 우측 리사이즈도 마찬가지
+    // Same for resizing the predecessor's right edge
     expect(
       buildDependencies(chain(), { a: { offsetX: 0, offsetWidth: 32 } })[0],
     ).toMatchObject({ fromX: 196, toX: 300 });
-    // 후행(B)을 드래그하면 도착점만 움직인다
+    // Dragging the successor (B) moves only the end point
     expect(
       buildDependencies(chain(), { b: { offsetX: -32, offsetWidth: 0 } })[0],
     ).toMatchObject({ fromX: 164, toX: 268 });
@@ -285,7 +285,7 @@ describe('buildDependencies', () => {
 
   it('skips an unrecognized dependency type instead of throwing, warning once', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    // consumer가 넘기는 JSON에는 타입 밖의 값이 올 수 있다
+    // Consumer-supplied JSON can carry values outside the type
     const unknownDep = [
       { targetId: 'a', type: 'fs' },
     ] as unknown as TaskTransformed['dependencies'];
@@ -313,7 +313,7 @@ describe('buildDependencies', () => {
 });
 
 describe('isArrowVisible', () => {
-  // 가로 100~500, 세로 100~300 이 보이는 상황
+  // Visible area: 100-500 horizontally, 100-300 vertically
   const viewport: ArrowViewport = {
     topPx: 100,
     bottomPx: 300,
@@ -338,14 +338,14 @@ describe('isArrowVisible', () => {
   });
 
   it('keeps an arrow whose ends straddle the viewport on either axis', () => {
-    // 위/아래 끝이 모두 화면 밖이지만 선이 화면을 세로로 관통한다
+    // Both the top and bottom ends are off-screen, but the line crosses the viewport vertically
     expect(isArrowVisible(arrow(200, 0, 300, 500), viewport)).toBe(true);
-    // 좌/우도 마찬가지
+    // Same on the left/right axis
     expect(isArrowVisible(arrow(0, 150, 900, 250), viewport)).toBe(true);
   });
 
   it('allows for the elbow overshooting the endpoints', () => {
-    // 꺾인 경로가 끝점 바깥으로 조금 나가므로 경계 근처는 살려 둔다
+    // The elbowed path runs a little past the endpoints, so arrows near the boundary are kept
     expect(isArrowVisible(arrow(80, 150, 90, 250), viewport)).toBe(true);
     expect(isArrowVisible(arrow(200, 60, 300, 80), viewport)).toBe(true);
   });

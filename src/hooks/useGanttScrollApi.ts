@@ -5,23 +5,23 @@ import { TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
 import { calculateDateOffsetPx } from "utils/timeline";
 
-/** scrollToX 옵션 */
+/** Options for the scrollTo* methods */
 export interface GanttScrollOptions {
-  /** 부드럽게 이동할지 여부 (기본 true) */
+  /** Whether to animate the scroll (default true) */
   smooth?: boolean;
-  /** 뷰포트 안에서 대상이 놓일 위치 (기본 'center') */
+  /** Where the target lands inside the viewport (default 'center') */
   align?: "start" | "center";
 }
 
-/** ref로 노출되는 명령형 API */
+/** Imperative API exposed through the ref */
 export interface GanttHandle {
-  /** 특정 날짜로 가로 스크롤 */
+  /** Scroll horizontally to a given date */
   scrollToDate: (date: string | Date | Dayjs, options?: GanttScrollOptions) => void;
-  /** 오늘로 가로 스크롤 */
+  /** Scroll horizontally to today */
   scrollToToday: (options?: GanttScrollOptions) => void;
-  /** 특정 태스크로 가로/세로 스크롤 */
+  /** Scroll horizontally and vertically to a given task */
   scrollToTask: (taskId: string, options?: GanttScrollOptions) => void;
-  /** 스크롤 컨테이너 DOM 노드 (없으면 null) */
+  /** The scroll container DOM node (null when unavailable) */
   getScrollElement: () => HTMLDivElement | null;
 }
 
@@ -34,10 +34,10 @@ interface UseGanttScrollApiParams {
 }
 
 /**
- * 명령형 스크롤 API
+ * Imperative scroll API
  *
- * 타임라인 밖의 날짜나 없는 태스크 id는 조용히 무시한다 - 데이터 로딩 중
- * 호출하는 흔한 경우에 예외를 던지지 않기 위해서다.
+ * Dates outside the timeline and unknown task ids are ignored silently - so that
+ * the common case of calling while data is still loading does not throw.
  */
 export function useGanttScrollApi({
   scrollRef,
@@ -86,7 +86,7 @@ export function useGanttScrollApi({
       const el = scrollRef.current;
       if (!el) return;
 
-      // 세로: 해당 행이 뷰포트 밖일 때만 움직인다 (보이는 행을 굳이 재배치하지 않음)
+      // Vertical: move only when that row is outside the viewport (a visible row is left where it is)
       const rowTop = index * rowHeight;
       const outOfView =
         rowTop < el.scrollTop ||

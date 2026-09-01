@@ -7,9 +7,9 @@ export interface Task {
   endDate: string;
   parentId: string | null;
   sequence: string;
-  /** 태스크 종류 - 'milestone'은 startDate 기준 다이아몬드로 렌더링 (기본 'task') */
+  /** Task kind - 'milestone' renders as a diamond at startDate (default 'task') */
   type?: TaskType;
-  /** 진행률 0-100 (%) - 생략 시 진행률 표시 없음 */
+  /** Progress 0-100 (%) - omitted means no progress display */
   progress?: number;
   dependencies?: TaskDependency[];
 }
@@ -18,7 +18,7 @@ export function isMilestoneTask(task: Pick<Task, 'type'>): boolean {
   return task.type === 'milestone';
 }
 
-/** 진행률을 0-100 범위로 정규화, 값이 없거나 유효하지 않으면 null */
+/** Normalizes progress into the 0-100 range; null when the value is missing or invalid */
 export function normalizeProgress(progress: number | undefined): number | null {
   if (typeof progress !== 'number' || Number.isNaN(progress)) return null;
   return Math.min(100, Math.max(0, progress));

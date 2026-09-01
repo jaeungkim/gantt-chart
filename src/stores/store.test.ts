@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import dayjs from 'utils/dayjs';
-// 이 import 자체가 SSR 안전성 회귀 테스트다 - 모듈 스코프에서 sessionStorage를
-// 건드리면 노드 환경(jsdom 없음)에서 파일 로드가 곧바로 실패한다.
+// This import is itself the SSR-safety regression test - touching sessionStorage at
+// module scope would make loading the file fail outright in a Node environment (no jsdom).
 import { createGanttStore, readPersistedScale } from './store';
 
-// 노드 환경에는 sessionStorage가 없으므로 최소 스텁을 심고 쓰기 횟수를 센다
+// Node has no sessionStorage, so a minimal stub is installed and the writes are counted
 const writes: Array<[string, string]> = [];
 const stubSessionStorage = () => {
   const data = new Map<string, string>();
@@ -23,7 +23,7 @@ const stubSessionStorage = () => {
   return data;
 };
 
-// 인스턴스마다 새 스토어 - 테스트끼리 상태를 공유하지 않는다
+// A fresh store per instance - tests do not share state
 let store: ReturnType<typeof createGanttStore>;
 
 beforeEach(() => {
@@ -139,7 +139,7 @@ describe('per-instance isolation', () => {
     expect(b.getState().rawTasks).toEqual([]);
     expect(b.getState().dragOffsets).toEqual({});
 
-    // 스케일 저장도 인스턴스별 키로 분리된다
+    // Scale persistence is separated by the per-instance key too
     b.getState().setSelectedScale('day');
     expect(readPersistedScale('gantt-scale-a')).toBe('week');
     expect(readPersistedScale('gantt-scale-b')).toBe('day');

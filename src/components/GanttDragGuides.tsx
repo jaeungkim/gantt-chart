@@ -7,8 +7,8 @@ interface GanttDragGuidesProps {
 }
 
 /**
- * 드래그 중 시작/종료 지점을 헤더까지 관통하는 세로 가이드로 표시
- * 각 가이드 상단에 현재 날짜 라벨을 붙여 헤더에서 시점을 바로 읽을 수 있게 한다
+ * Shows the start/end points during a drag as vertical guides running up through the header
+ * Each guide carries the current date label at its top, so the moment can be read straight off the header
  */
 export default function GanttDragGuides({ width }: GanttDragGuidesProps) {
   const currentTask = useGanttStore((store) => store.currentTask);

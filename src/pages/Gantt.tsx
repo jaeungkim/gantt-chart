@@ -34,67 +34,71 @@ import {
   originShiftPx,
 } from "utils/timeline";
 
-/** Gantt 컴포넌트 기본값 */
+/** Gantt component defaults */
 const DEFAULT_HEIGHT = 600;
 const DEFAULT_WIDTH = "100%";
 const DEFAULT_SCALE: GanttScaleKey = "month";
-/** 기본 tasks - 매 렌더 새 배열이 생기지 않도록 모듈 스코프에 고정 */
+/** Default tasks - kept at module scope so a new array is not created on every render */
 const EMPTY_TASKS: Task[] = [];
 
 export interface GanttProps {
   /**
-   * 태스크 데이터 배열
+   * Task data array
    *
-   * 내용이 실제로 바뀔 때만 차트에 반영된다. 부모가 같은 데이터를 새 배열로
-   * 다시 넘기는 경우(인라인 리터럴, 비메모 map 등)에는 무시되므로 드래그로
-   * 방금 편집한 결과가 되돌아가지 않는다. 빈 배열을 넘기면 차트가 비워진다.
+   * Only reflected in the chart when the contents actually change. When the
+   * parent passes the same data as a new array (an inline literal, a
+   * non-memoized map, and so on) the update is ignored, so an edit you just
+   * made by dragging is not reverted. Passing an empty array clears the chart.
    */
   tasks?: Task[];
-  /** 태스크 변경 시 호출되는 콜백 */
+  /** Callback invoked when tasks change */
   onTasksChange?: (updatedTasks: Task[]) => void;
-  /** 차트 높이 (px 또는 CSS 값) */
+  /** Chart height (px or a CSS value) */
   height?: number | string;
-  /** 차트 너비 (px 또는 CSS 값) */
+  /** Chart width (px or a CSS value) */
   width?: number | string;
-  /** 테마 설정 - 'light', 'dark', 또는 'system' */
+  /** Theme setting - 'light', 'dark', or 'system' */
   theme?: GanttTheme;
   /**
-   * 초기 스케일 설정
+   * Initial scale
    *
-   * 세션에 저장된 사용자 선택(sessionStorage)이 없을 때만 적용되는 시드 값이다.
-   * 사용자가 스케일을 바꾸면 그 선택이 저장되어 리마운트 시 우선하며,
-   * 마운트 이후의 prop 변경은 무시된다 (`default*` prop 관례).
+   * A seed value that only applies when the session has no user selection
+   * stored (sessionStorage). Once the user changes the scale, that choice is
+   * saved and wins on remount, and prop changes after mount are ignored
+   * (the usual `default*` prop convention).
    */
   defaultScale?: GanttScaleKey;
-  /** 추가 CSS 클래스명 */
+  /** Additional CSS class name */
   className?: string;
-  /** 주말/휴일 음영 표시 여부 (기본 true) */
+  /** Whether to shade weekends/holidays (default true) */
   showNonWorkingDays?: boolean;
-  /** 휴일 목록 (ISO 날짜 문자열, 예: '2026-01-01') */
+  /** Holiday list (ISO date strings, e.g. '2026-01-01') */
   holidays?: string[];
-  /** 비근무일 판별 커스텀 함수 - 지정 시 기본 주말/휴일 판별을 대체 */
+  /** Custom non-working-day predicate - replaces the default weekend/holiday check when given */
   isNonWorkingDay?: (date: Dayjs) => boolean;
   /**
-   * 스케일 선택을 저장할 sessionStorage 키 (기본 `"gantt-scale"`)
+   * sessionStorage key the scale selection is stored under (default `"gantt-scale"`)
    *
-   * 한 페이지에 차트를 두 개 이상 두면 서로 다른 키를 주어야 각자의 스케일을
-   * 따로 기억한다. 같은 키를 공유하면 마지막에 바꾼 값이 양쪽에 적용된다.
+   * With more than one chart on a page, give them different keys so each
+   * remembers its own scale. Sharing one key means the last change made
+   * applies to both.
    */
   storageKey?: string;
   /**
-   * 첫 렌더 후 한 번 스크롤할 위치
+   * Position to scroll to once, after the first render
    *
-   * `"today"`는 오늘로, 날짜 문자열은 그 날짜로 이동한다. 이후의 데이터
-   * 갱신은 스크롤 위치를 건드리지 않는다.
+   * `"today"` moves to today, a date string to that date. Later data updates
+   * do not touch the scroll position.
    */
   initialScrollTo?: "today" | string;
 }
 
 /**
- * Gantt 차트 컴포넌트
+ * Gantt chart component
  *
- * 인스턴스마다 독립된 스토어를 만들어 컨텍스트로 내려준다.
- * (모듈 싱글턴이면 한 페이지의 두 차트가 상태를 공유해 서로를 덮어쓴다)
+ * Creates a store per instance and hands it down through context.
+ * (With a module singleton, two charts on one page would share state and
+ * overwrite each other)
  */
 const Gantt = forwardRef<GanttHandle, GanttProps>(function Gantt(props, ref) {
   const storageKey = props.storageKey ?? DEFAULT_SCALE_STORAGE_KEY;
@@ -108,8 +112,8 @@ const Gantt = forwardRef<GanttHandle, GanttProps>(function Gantt(props, ref) {
 });
 
 /**
- * 실제 차트 렌더링
- * 가상화를 사용하여 대량의 태스크를 효율적으로 렌더링
+ * Renders the actual chart
+ * Uses virtualization to render large numbers of tasks efficiently
  */
 function GanttChart({
   tasks = EMPTY_TASKS,
@@ -126,7 +130,7 @@ function GanttChart({
   initialScrollTo,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
-  // 스토어 상태 및 액션
+  // Store state and actions
   const {
     rawTasks,
     transformedTasks,
@@ -140,38 +144,39 @@ function GanttChart({
     getTotalWidth,
   } = useGanttSelectors();
 
-  // 스크롤 컨테이너 ref
+  // Scroll container ref
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 가상화 훅
+  // Virtualization hook
   const { rowVirtualizer, isBarVisible } = useGanttVirtualization({
     transformedTasks,
     bottomRowCells,
     scrollRef,
   });
 
-  // 테마 훅
+  // Theme hook
   const { containerClassName, dataTheme } = useResolvedTheme(
     theme,
     className ? `gantt-container ${className}` : "gantt-container"
   );
 
-  // 초기 스케일 설정 - 세션에 저장된 사용자 선택이 있으면 그 값이 defaultScale보다 우선
-  // (마운트 시 1회만. defaultScale은 시드일 뿐이라 이후 변경은 무시한다)
+  // Initial scale - a user selection saved in the session wins over defaultScale
+  // (once, on mount. defaultScale is only a seed, so later changes are ignored)
   useEffect(() => {
     setSelectedScale(readPersistedScale(storageKey) ?? defaultScale);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 프롭으로 받아 마지막으로 반영한 태스크 데이터의 스냅샷
+  // Snapshot of the task data last applied from props
   const syncedTasksRef = useRef<string | null>(null);
 
-  // 태스크 데이터 동기화
-  // 배열 identity가 아니라 내용이 바뀌었을 때만 스토어를 덮어쓴다.
-  // 부모가 같은 데이터를 새 배열로 다시 넘기는 리렌더는 무시되므로 드래그 편집이
-  // 되돌아가지 않고, 데이터가 실제로 달라지면(빈 배열 포함) 프롭이 이긴다.
-  // (비교는 직렬화 1회 - tasks 배열 identity가 바뀔 때만 돈다. 태스크 수가
-  //  아주 많아 이 비용이 문제가 되면 부모에서 tasks를 memo 하면 된다)
+  // Sync the task data
+  // Overwrite the store only when the contents changed, not when the array identity did.
+  // A re-render where the parent passes the same data as a new array is ignored, so drag
+  // edits are not reverted; when the data really differs (an empty array included) the
+  // prop wins.
+  // (The comparison is one serialization - it only runs when the tasks array identity
+  //  changes. If there are so many tasks that this cost matters, memoize tasks in the parent)
   useEffect(() => {
     const snapshot = JSON.stringify(tasks);
     if (snapshot === syncedTasksRef.current) return;
@@ -180,21 +185,22 @@ function GanttChart({
     setRawTasks(tasks);
   }, [tasks, setRawTasks]);
 
-  // 직전 타임라인의 셀 - 원점 이동량을 계산해 스크롤을 보정하는 데 쓴다
+  // Cells of the previous timeline - used to compute how far the origin moved and compensate the scroll
   const prevCellsRef = useRef<GanttBottomRowCell[]>([]);
   const pendingScrollShiftRef = useRef(0);
 
-  // 타임라인 구조 설정 (태스크가 비면 빈 타임라인으로 정리)
+  // Build the timeline structure (clears to an empty timeline when there are no tasks)
   useLayoutEffect(() => {
     const { bottomCells, transformedTasks: transformed } = computeTimelineData(
       rawTasks,
       selectedScale
     );
 
-    // 타임라인 시작일이 바뀌면 모든 바가 통째로 밀린다.
-    // (가장 이른 태스크를 드래그하면 min(startDate)가 바뀌어 원점이 이동한다)
-    // 여기서는 보정량만 기록한다 - 콘텐츠가 넓어지기 전에 scrollLeft를 올리면
-    // 브라우저가 그 시점의 최대값으로 잘라버리기 때문에 실제 적용은 아래에서.
+    // When the timeline start date changes, every bar shifts as a whole.
+    // (Dragging the earliest task changes min(startDate), which moves the origin)
+    // Only the compensation amount is recorded here - raising scrollLeft before the
+    // content gets wider makes the browser clamp it to the maximum at that moment,
+    // so the actual adjustment happens below.
     const prevCells = prevCellsRef.current;
     if (prevCells.length && bottomCells.length) {
       pendingScrollShiftRef.current += originShiftPx(
@@ -207,7 +213,7 @@ function GanttChart({
 
     setBottomRowCells(bottomCells);
     setTransformedTasks(transformed);
-    // 새 위치가 준비된 시점에 드래그 오프셋 정리 - 드롭 시 한 프레임 깜빡임 방지
+    // Clear the drag offsets now that the new positions are ready - avoids a one-frame flicker on drop
     clearAllDragOffsets();
   }, [
     rawTasks,
@@ -217,7 +223,7 @@ function GanttChart({
     clearAllDragOffsets,
   ]);
 
-  // 새 타임라인 너비가 DOM에 반영된 뒤에 스크롤 보정을 적용한다
+  // Apply the scroll compensation after the new timeline width has landed in the DOM
   useLayoutEffect(() => {
     const shift = pendingScrollShiftRef.current;
     if (!shift) return;
@@ -227,17 +233,17 @@ function GanttChart({
     if (scrollEl) scrollEl.scrollLeft += shift;
   }, [bottomRowCells]);
 
-  // 스케일 변경 핸들러
+  // Scale change handler
   const handleScaleChange = (scale: GanttScaleKey) => {
     setSelectedScale(scale);
   };
 
-  // 오늘 마커 오프셋 (타임라인 범위 밖이면 null)
+  // Today marker offset (null when today is outside the timeline range)
   const todayOffsetPx = useMemo(
     () => calculateDateOffsetPx(dayjs(), bottomRowCells, selectedScale),
     [bottomRowCells, selectedScale]
   );
-  // 비근무일 음영 범위 계산
+  // Compute the non-working-day shading ranges
   const nonWorkingRanges = useMemo(() => {
     if (!showNonWorkingDays) return [];
 
@@ -262,7 +268,7 @@ function GanttChart({
     selectedScale,
   ]);
 
-  // 명령형 스크롤 API
+  // Imperative scroll API
   const scrollApi = useGanttScrollApi({
     scrollRef,
     bottomRowCells,
@@ -272,7 +278,7 @@ function GanttChart({
   });
   useImperativeHandle(forwardedRef, () => scrollApi, [scrollApi]);
 
-  // initialScrollTo는 타임라인이 처음 준비됐을 때 한 번만 적용한다
+  // initialScrollTo is applied once, when the timeline first becomes ready
   const didInitialScrollRef = useRef(false);
   useEffect(() => {
     if (didInitialScrollRef.current || !initialScrollTo) return;
@@ -283,10 +289,10 @@ function GanttChart({
     scrollApi.scrollToDate(target, { smooth: false });
   }, [initialScrollTo, bottomRowCells, scrollApi]);
 
-  // 전체 너비 계산
+  // Total width
   const totalWidth = getTotalWidth();
 
-  // 스타일 계산
+  // Computed styles
   const containerStyle = {
     height: typeof height === "number" ? `${height}px` : height,
     width: typeof width === "number" ? `${width}px` : width,
@@ -298,7 +304,7 @@ function GanttChart({
       data-theme={dataTheme}
       style={containerStyle}
     >
-      {/* 툴바 */}
+      {/* Toolbar */}
       <div className="gantt-toolbar">
         <ScaleSelector
           selectedScale={selectedScale}
@@ -306,13 +312,13 @@ function GanttChart({
         />
       </div>
 
-      {/* 메인 차트 영역 */}
+      {/* Main chart area */}
       <div className="gantt-main">
         <div ref={scrollRef} className="gantt-scroll-container">
-          {/* 드래그 가이드 (헤더 포함 전체 관통) */}
+          {/* Drag guides (run through everything, header included) */}
           <GanttDragGuides width={totalWidth} />
 
-          {/* 헤더 */}
+          {/* Header */}
           <div className="gantt-header-wrapper" style={{ width: `${totalWidth}px` }}>
             <GanttChartHeader
               bottomRowCells={bottomRowCells}
@@ -322,7 +328,7 @@ function GanttChart({
             />
           </div>
 
-          {/* 콘텐츠 영역 */}
+          {/* Content area */}
           <div
             className="gantt-content"
             style={{
@@ -330,7 +336,7 @@ function GanttChart({
               width: `${totalWidth}px`,
             }}
           >
-            {/* 비근무일 음영 */}
+            {/* Non-working-day shading */}
             {nonWorkingRanges.length > 0 && (
               <div className="gantt-non-working-layer" aria-hidden="true">
                 {nonWorkingRanges.map((range) => (
@@ -346,7 +352,7 @@ function GanttChart({
               </div>
             )}
 
-            {/* 태스크 행 (배경) */}
+            {/* Task rows (background) */}
             <div className="gantt-rows">
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const task = transformedTasks[virtualRow.index];
@@ -355,7 +361,7 @@ function GanttChart({
                     key={`row-${task.id}`}
                     className="gantt-task-row"
                     style={{
-                      // border-box라 1px 보더가 높이 안에 포함된다 - 행 간격과 정확히 일치
+                      // border-box, so the 1px border is inside the height - matches the row spacing exactly
                       height: `${virtualRow.size}px`,
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
@@ -364,7 +370,7 @@ function GanttChart({
               })}
             </div>
 
-            {/* 오늘 마커 */}
+            {/* Today marker */}
             {todayOffsetPx !== null && (
               <div
                 className="gantt-today-marker"
@@ -373,10 +379,10 @@ function GanttChart({
               />
             )}
 
-            {/* 의존성 화살표 */}
+            {/* Dependency arrows */}
             <GanttDependencyArrows transformedTasks={transformedTasks} />
 
-            {/* 태스크 바 */}
+            {/* Task bars */}
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const task = transformedTasks[virtualRow.index];
               const barLeft = task.barLeft ?? 0;
