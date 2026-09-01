@@ -10,20 +10,20 @@ interface ScaleSelectorProps {
 const SCALE_OPTIONS = Object.keys(GANTT_SCALE_CONFIG) as GanttScaleKey[];
 
 /**
- * Gantt 차트 스케일 선택 세그먼트 컨트롤 컴포넌트
- * 드롭다운 대신 pill-style 버튼 그룹 사용
+ * Segmented control for choosing the Gantt chart scale
+ * Uses a pill-style button group instead of a dropdown
  */
 export default function ScaleSelector({
   selectedScale,
   onScaleChange,
 }: ScaleSelectorProps) {
-  // roving tabindex - 탭 대상은 선택된 옵션 하나뿐이므로 방향키로 선택을 옮길 때
-  // 포커스도 함께 옮겨야 다음 키 입력이 새 옵션 기준으로 동작한다
+  // roving tabindex - only the selected option is a tab stop, so moving the selection with
+  // the arrow keys has to move focus too, or the next key press would act on the old option
   const buttonRefs = useRef<Partial<Record<GanttScaleKey, HTMLButtonElement>>>(
     {}
   );
 
-  // 기준 인덱스는 눌린 버튼이 아니라 현재 선택된 옵션에서 가져온다
+  // The reference index comes from the currently selected option, not from the button that was pressed
   const moveSelection = (step: number) => {
     const currentIndex = SCALE_OPTIONS.indexOf(selectedScale);
     const nextIndex =
@@ -48,7 +48,7 @@ export default function ScaleSelector({
     <div
       className="gantt-scale-selector"
       role="group"
-      aria-label="타임라인 스케일 선택"
+      aria-label="Timeline scale"
     >
       <div className="gantt-scale-control">
         {SCALE_OPTIONS.map((scale) => {

@@ -1,10 +1,10 @@
-// 스타일
+// Styles
 import './assets/styles/gantt.css';
 
-// 메인 컴포넌트
+// Main component
 export { default as ReactGanttChart } from './pages/Gantt';
 
-// 타입 내보내기
+// Type exports
 export type { GanttProps } from './pages/Gantt';
 export type {
   GanttHandle,

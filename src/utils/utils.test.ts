@@ -7,7 +7,13 @@ import {
   NODE_HEIGHT,
 } from 'constants/gantt';
 import { normalizeProgress, type Task, type TaskTransformed } from 'types/task';
-import { buildDependencies, getSmartGanttPath } from './arrowPath';
+import {
+  buildDependencies,
+  buildTaskIndex,
+  getSmartGanttPath,
+  isArrowVisible,
+  type ArrowViewport,
+} from './arrowPath';
 import { mergeHeaderGroups } from './headerUtils';
 import {
   calculateDateOffsetPx,
@@ -167,7 +173,7 @@ describe('GANTT_SCALE_CONFIG labels', () => {
     expect(GANTT_SCALE_CONFIG.week.formatHeaderLabel?.(afternoon)).toBe('Sep 2025');
     expect(GANTT_SCALE_CONFIG.month.formatHeaderLabel?.(afternoon)).toBe('Sep 2025');
     expect(GANTT_SCALE_CONFIG.year.formatHeaderLabel?.(afternoon)).toBe('2025');
-    expect(afternoon.format(DATE_FORMATS.day)).toBe('Sep 1, 2025 15:00');
+    expect(afternoon.format(DATE_FORMATS.day)).toBe('Sep 1, 2025 15:00 UTC');
     expect(afternoon.format(DATE_FORMATS.week)).toBe('Sep 1, 2025');
   });
 });
@@ -236,10 +242,11 @@ describe('buildDependencies', () => {
     originalOrder: order,
     ...extra,
   });
-  const chain = (extra: Partial<TaskTransformed> = {}) => [
-    bar('a', 1, 100, extra),
-    bar('b', 2, 300, { dependencies: [{ targetId: 'a', type: 'FS' }] }),
-  ];
+  const chain = (extra: Partial<TaskTransformed> = {}) =>
+    buildTaskIndex([
+      bar('a', 1, 100, extra),
+      bar('b', 2, 300, { dependencies: [{ targetId: 'a', type: 'FS' }] }),
+    ]);
   const center = NODE_HEIGHT / 2;
 
   it('anchors an FS arrow from the predecessor end to the successor start', () => {
@@ -248,16 +255,22 @@ describe('buildDependencies', () => {
     ]);
   });
 
+  it('indexes tasks by id and keeps task order for iteration', () => {
+    const index = buildTaskIndex([bar('a', 1, 100), bar('b', 2, 300)]);
+    expect([...index.keys()]).toEqual(['a', 'b']);
+    expect(index.get('b')?.barLeft).toBe(300);
+  });
+
   it('follows the live offset of whichever end is being dragged', () => {
-    // 선행(A)을 드래그하면 화살표 시작점이 따라와야 한다 (#66)
+    // Dragging the predecessor (A) has to bring the arrow's start point along (#66)
     expect(
       buildDependencies(chain(), { a: { offsetX: 32, offsetWidth: 0 } })[0],
     ).toMatchObject({ fromX: 196, toX: 300 });
-    // 선행의 우측 리사이즈도 마찬가지
+    // Same for resizing the predecessor's right edge
     expect(
       buildDependencies(chain(), { a: { offsetX: 0, offsetWidth: 32 } })[0],
     ).toMatchObject({ fromX: 196, toX: 300 });
-    // 후행(B)을 드래그하면 도착점만 움직인다
+    // Dragging the successor (B) moves only the end point
     expect(
       buildDependencies(chain(), { b: { offsetX: -32, offsetWidth: 0 } })[0],
     ).toMatchObject({ fromX: 164, toX: 268 });
@@ -272,15 +285,15 @@ describe('buildDependencies', () => {
 
   it('skips an unrecognized dependency type instead of throwing, warning once', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    // consumer가 넘기는 JSON에는 타입 밖의 값이 올 수 있다
+    // Consumer-supplied JSON can carry values outside the type
     const unknownDep = [
       { targetId: 'a', type: 'fs' },
     ] as unknown as TaskTransformed['dependencies'];
-    const tasks = [
+    const tasks = buildTaskIndex([
       bar('a', 1, 100),
       bar('b', 2, 300, { dependencies: unknownDep }),
       bar('c', 3, 500, { dependencies: unknownDep }),
-    ];
+    ]);
 
     expect(buildDependencies(tasks, {})).toEqual([]);
     expect(warn).toHaveBeenCalledTimes(1);
@@ -289,8 +302,52 @@ describe('buildDependencies', () => {
 
   it('skips dependencies pointing at a task that is not in the chart', () => {
     expect(
-      buildDependencies([bar('b', 1, 300, { dependencies: [{ targetId: 'gone', type: 'FS' }] })], {}),
+      buildDependencies(
+        buildTaskIndex([
+          bar('b', 1, 300, { dependencies: [{ targetId: 'gone', type: 'FS' }] }),
+        ]),
+        {},
+      ),
     ).toEqual([]);
+  });
+});
+
+describe('isArrowVisible', () => {
+  // Visible area: 100-500 horizontally, 100-300 vertically
+  const viewport: ArrowViewport = {
+    topPx: 100,
+    bottomPx: 300,
+    isBarVisible: (left, width) => left + width >= 100 && left <= 500,
+  };
+  const arrow = (fromX: number, fromY: number, toX: number, toY: number) => ({
+    fromX,
+    fromY,
+    toX,
+    toY,
+  });
+
+  it('keeps arrows that overlap the viewport', () => {
+    expect(isArrowVisible(arrow(200, 150, 300, 250), viewport)).toBe(true);
+  });
+
+  it('drops arrows fully above, below, left of, or right of the viewport', () => {
+    expect(isArrowVisible(arrow(200, 0, 300, 40), viewport)).toBe(false);
+    expect(isArrowVisible(arrow(200, 400, 300, 450), viewport)).toBe(false);
+    expect(isArrowVisible(arrow(0, 150, 40, 250), viewport)).toBe(false);
+    expect(isArrowVisible(arrow(600, 150, 700, 250), viewport)).toBe(false);
+  });
+
+  it('keeps an arrow whose ends straddle the viewport on either axis', () => {
+    // Both the top and bottom ends are off-screen, but the line crosses the viewport vertically
+    expect(isArrowVisible(arrow(200, 0, 300, 500), viewport)).toBe(true);
+    // Same on the left/right axis
+    expect(isArrowVisible(arrow(0, 150, 900, 250), viewport)).toBe(true);
+  });
+
+  it('allows for the elbow overshooting the endpoints', () => {
+    // The elbowed path runs a little past the endpoints, so arrows near the boundary are kept
+    expect(isArrowVisible(arrow(80, 150, 90, 250), viewport)).toBe(true);
+    expect(isArrowVisible(arrow(200, 60, 300, 80), viewport)).toBe(true);
   });
 });
 

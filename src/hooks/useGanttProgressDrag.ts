@@ -3,8 +3,8 @@ import { useGanttStoreApi } from "stores/context";
 import { normalizeProgress, Task, TaskTransformed } from "types/task";
 
 /**
- * 진행률 핸들 드래그 훅
- * 드래그 중에는 로컬 값으로 미리보기, pointerup 시 rawTasks에 커밋
+ * Progress handle drag hook
+ * Previews with a local value while dragging, commits to rawTasks on pointerup
  */
 export function useGanttProgressDrag(
   task: TaskTransformed,
@@ -27,7 +27,7 @@ export function useGanttProgressDrag(
   };
 
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
-    // 바 이동 드래그와 겹치지 않도록 차단
+    // Blocked so it does not overlap with the bar move drag
     e.stopPropagation();
     e.preventDefault();
 

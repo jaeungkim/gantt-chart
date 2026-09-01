@@ -1,8 +1,8 @@
 import { GanttTopHeaderGroup } from 'types/gantt';
 
 /**
- * 동일한 라벨을 가진 연속된 그룹들을 병합
- * 같은 월/년도 등의 연속된 셀들을 하나의 그룹으로 합침
+ * Merges consecutive groups that carry the same label
+ * Consecutive cells in the same month/year and so on become a single group
  */
 export function mergeHeaderGroups(
   groups: GanttTopHeaderGroup[]
@@ -12,10 +12,10 @@ export function mergeHeaderGroups(
   for (const group of groups) {
     const last = merged[merged.length - 1];
     if (last && last.label === group.label) {
-      // 기존 그룹에 너비 추가
+      // Add the width to the existing group
       last.widthPx += group.widthPx;
     } else {
-      // 새 그룹 시작
+      // Start a new group
       merged.push({ ...group });
     }
   }

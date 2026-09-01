@@ -5,7 +5,7 @@ import {
   TaskTransformed,
 } from "types/task";
 
-/** 드래그 중인 태스크의 라이브 오프셋 (드래그 중이 아니면 0) */
+/** Live offset of the task being dragged (0 when it is not being dragged) */
 export interface DragOffset {
   offsetX: number;
   offsetWidth: number;
@@ -301,9 +301,9 @@ export function getSmartGanttPath(
 }
 
 /**
- * 태스크 양 끝의 화살표 앵커 X 좌표.
- * 드래그 중이면 해당 태스크의 라이브 오프셋을 반영하고,
- * 마일스톤은 다이아몬드 좌/우 꼭짓점에 연결한다.
+ * Arrow anchor X coordinates at both ends of a task.
+ * Applies that task's live offset while it is being dragged, and connects
+ * milestones at the left/right vertices of the diamond.
  */
 function anchorX(task: TaskTransformed, offset: DragOffset) {
   const half = isMilestoneTask(task) ? MILESTONE_HALF_DIAGONAL : 0;
@@ -315,13 +315,13 @@ function anchorX(task: TaskTransformed, offset: DragOffset) {
   };
 }
 
-/** 개발 모드에서 타입별로 한 번만 경고 */
+/** Warn once per type, in development mode */
 const warnedDepTypes = new Set<string>();
 
 /**
- * 의존성 하나의 화살표 좌표 계산.
- * targetTask가 선행(predecessor), sourceTask가 의존성을 소유한 후행(successor).
- * 알 수 없는 의존성 타입이면 null (해당 화살표만 건너뜀).
+ * Computes the arrow coordinates for a single dependency.
+ * targetTask is the predecessor, sourceTask the successor that owns the dependency.
+ * Returns null for an unknown dependency type (only that arrow is skipped).
  */
 export function calculateArrowCoords(
   sourceTask: TaskTransformed,
@@ -334,20 +334,20 @@ export function calculateArrowCoords(
   const sourceIndex = sourceTask.order - 1;
   const targetIndex = targetTask.order - 1;
 
-  // 바 중앙 높이에서 연결 (전통적인 Gantt 차트 스타일)
+  // Connect at the vertical center of the bar (classic Gantt chart style)
   const barCenterY = rowHeight / 2;
   const fromY = targetIndex * rowHeight + barCenterY;
   const toY = sourceIndex * rowHeight + barCenterY;
 
-  // 양쪽 끝 모두 자기 자신의 드래그 오프셋을 반영해야 화살표가 바를 따라온다
+  // Both ends have to apply their own drag offset for the arrow to follow the bars
   const from = anchorX(targetTask, targetOffset);
   const to = anchorX(sourceTask, sourceOffset);
 
-  // 의존성 타입에 따른 X 좌표 설정
-  // FS: 선행 태스크 우측 → 후행 태스크 좌측
-  // SS: 선행 태스크 좌측 → 후행 태스크 좌측
-  // FF: 선행 태스크 우측 → 후행 태스크 우측
-  // SF: 선행 태스크 좌측 → 후행 태스크 우측
+  // X coordinates per dependency type
+  // FS: predecessor right → successor left
+  // SS: predecessor left → successor left
+  // FF: predecessor right → successor right
+  // SF: predecessor left → successor right
   const coordinateMap = {
     FS: [from.endX, to.startX] as const,
     SS: [from.startX, to.startX] as const,
@@ -355,7 +355,7 @@ export function calculateArrowCoords(
     SF: [from.startX, to.endX] as const,
   };
 
-  // 태스크는 consumer가 넘기는 JSON이라 런타임에 알 수 없는 타입이 올 수 있다
+  // Tasks come from consumer-supplied JSON, so an unknown type can arrive at runtime
   const coords: readonly [number, number] | undefined =
     coordinateMap[depType as keyof typeof coordinateMap];
 
@@ -374,18 +374,67 @@ export function calculateArrowCoords(
   return { fromX, fromY, toX, toY };
 }
 
-/** 의존성 배열 빌드 */
+/**
+ * Index for looking up tasks by id.
+ *
+ * Built once whenever the task array changes and then reused - scanning the array
+ * for every dependency costs time proportional to the square of the task count,
+ * and that cost would be paid again on every drag frame.
+ */
+export function buildTaskIndex(
+  transformedTasks: TaskTransformed[]
+): Map<string, TaskTransformed> {
+  return new Map(transformedTasks.map((task) => [task.id, task]));
+}
+
+/** Slack allowed when deciding whether a single arrow falls outside the viewport (px) */
+const ARROW_BLEED = 32;
+
+/** Visible area used for arrow culling */
+export interface ArrowViewport {
+  /** Vertical visible range (in row-virtualization terms, px) */
+  topPx: number;
+  bottomPx: number;
+  /** Horizontal visibility - reuses the column virtualization's bar visibility check */
+  isBarVisible: (left: number, width: number) => boolean;
+}
+
+/**
+ * Decides whether an arrow overlaps the visible area.
+ *
+ * It looks at the bounding box of the two endpoints, so a line is still drawn when
+ * both ends are off-screen but it crosses the viewport. The elbowed path runs a
+ * little past the endpoints, hence the slack.
+ */
+export function isArrowVisible(
+  dep: Pick<RenderedDependency, "fromX" | "fromY" | "toX" | "toY">,
+  viewport: ArrowViewport
+): boolean {
+  const top = Math.min(dep.fromY, dep.toY) - ARROW_BLEED;
+  const bottom = Math.max(dep.fromY, dep.toY) + ARROW_BLEED;
+  if (bottom < viewport.topPx || top > viewport.bottomPx) return false;
+
+  const left = Math.min(dep.fromX, dep.toX) - ARROW_BLEED;
+  const right = Math.max(dep.fromX, dep.toX) + ARROW_BLEED;
+  return viewport.isBarVisible(left, right - left);
+}
+
+/**
+ * Builds the dependency array.
+ * The index doubles as the iteration source and the lookup table
+ * (insertion order = task order).
+ */
 export function buildDependencies(
-  transformedTasks: TaskTransformed[],
+  taskById: Map<string, TaskTransformed>,
   liveOffsets: Record<string, DragOffset>
 ): RenderedDependency[] {
   const dependencies: RenderedDependency[] = [];
 
-  for (const currentTask of transformedTasks) {
+  for (const currentTask of taskById.values()) {
     const sourceOffset = liveOffsets[currentTask.id] ?? NO_OFFSET;
 
     for (const dep of currentTask.dependencies ?? []) {
-      const targetTask = transformedTasks.find((t) => t.id === dep.targetId);
+      const targetTask = taskById.get(dep.targetId);
       if (!targetTask) continue;
 
       const coords = calculateArrowCoords(

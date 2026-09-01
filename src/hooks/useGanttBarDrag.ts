@@ -3,11 +3,13 @@ import {
   GANTT_SCALE_CONFIG,
   MIN_RESIZABLE_WIDTH,
 } from "constants/gantt";
+import { Dayjs } from "dayjs";
 import { useRef } from "react";
 import { useGanttStore, useGanttStoreApi } from "stores/context";
-import { GanttDragOffset } from "types/gantt";
+import { GanttDragOffset, GanttScaleKey } from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 import dayjs from "utils/dayjs";
+import { shiftByDragSteps } from "utils/timeline";
 
 export type DragMode = "bar" | "left" | "right";
 
@@ -15,27 +17,18 @@ interface DragContext {
   mode: DragMode;
   pointerId: number;
   initialClientX: number;
-  initialStartDate: dayjs.Dayjs;
-  initialEndDate: dayjs.Dayjs;
+  initialStartDate: Dayjs;
+  initialEndDate: Dayjs;
   initialBarWidth: number;
   dragSteps: number;
   basePxPerDragStep: number;
-  dragStepAmount: number;
-  dragStepUnit: string;
+  // Keep computing in the step unit from when the drag started, even if the scale changes mid-drag
+  scaleKey: GanttScaleKey;
   taskId: string;
 }
 
-// 시간 단위 변환 상수
-const TIME_UNIT_MULTIPLIERS = {
-  minute: 1,
-  hour: 60,
-  day: 60 * 24,
-  week: 60 * 24 * 7,
-  month: 60 * 24 * 30,
-} as const;
-
 /**
- * Gantt 바 드래그 기능을 제공하는 훅
+ * Hook providing the Gantt bar drag behavior
  */
 export function useGanttBarDrag(
   task: TaskTransformed,
@@ -48,11 +41,11 @@ export function useGanttBarDrag(
   onTasksChangeRef.current = onTasksChange;
 
   const selectedScale = useGanttStore((s) => s.selectedScale);
-  const scaleConfig = GANTT_SCALE_CONFIG[selectedScale];
-  const { basePxPerDragStep, dragStepAmount, dragStepUnit } = scaleConfig;
+  const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
 
-  // 드래그 모드 감지
-  // 마일스톤과 좁은 바는 리사이즈 불가 - 엣지 영역이 바 전체를 덮어 이동이 막히는 것을 방지
+  // Detect the drag mode
+  // Milestones and narrow bars cannot be resized - keeps the edge zones from covering the
+  // whole bar and blocking the move
   const detectDragMode = (e: React.PointerEvent<HTMLDivElement>): DragMode => {
     if (isMilestoneTask(task)) return "bar";
 
@@ -67,9 +60,9 @@ export function useGanttBarDrag(
   };
 
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
-    // 주 포인터의 왼쪽 버튼만 드래그 시작 (우클릭/보조 터치는 무시)
+    // Only the primary pointer's left button starts a drag (right-click and secondary touches are ignored)
     if (!e.isPrimary || e.button !== 0) return;
-    // 이미 드래그 중이면 두 번째 포인터를 무시
+    // Ignore a second pointer while a drag is already running
     if (dragContextRef.current) return;
 
     const mode = detectDragMode(e);
@@ -84,8 +77,7 @@ export function useGanttBarDrag(
       initialBarWidth: task.barWidth,
       dragSteps: 0,
       basePxPerDragStep,
-      dragStepAmount,
-      dragStepUnit,
+      scaleKey: selectedScale,
       taskId: task.id,
     };
 
@@ -99,8 +91,8 @@ export function useGanttBarDrag(
       const deltaX = moveEvent.clientX - ctx.initialClientX;
       const rawSteps = Math.round(deltaX / ctx.basePxPerDragStep);
 
-      // 최소 한 스텝 너비는 남기도록 스텝 자체를 클램프
-      // (미리보기만 막고 커밋은 그대로 두면 end < start 로 커밋된다)
+      // Clamp the step count itself so at least one step of width is left
+      // (clamping only the preview and leaving the commit alone commits end < start)
       const maxShrinkSteps = Math.floor(
         (ctx.initialBarWidth - ctx.basePxPerDragStep) / ctx.basePxPerDragStep
       );
@@ -112,24 +104,23 @@ export function useGanttBarDrag(
       ctx.dragSteps = steps;
 
       const draggedPx = steps * ctx.basePxPerDragStep;
-      const minutesPerStep = ctx.dragStepAmount * TIME_UNIT_MULTIPLIERS[ctx.dragStepUnit as keyof typeof TIME_UNIT_MULTIPLIERS];
-      const totalMinutes = steps * minutesPerStep;
+      const shift = (date: Dayjs) => shiftByDragSteps(date, steps, ctx.scaleKey);
 
-      let newStartDate: dayjs.Dayjs;
-      let newEndDate: dayjs.Dayjs;
+      let newStartDate: Dayjs;
+      let newEndDate: Dayjs;
       let offsetX = 0;
       let offsetWidth = 0;
 
       switch (ctx.mode) {
         case "bar":
-          newStartDate = ctx.initialStartDate.add(totalMinutes, "minute");
-          newEndDate = ctx.initialEndDate.add(totalMinutes, "minute");
+          newStartDate = shift(ctx.initialStartDate);
+          newEndDate = shift(ctx.initialEndDate);
           offsetX = draggedPx;
           offsetWidth = 0;
           break;
 
         case "left":
-          newStartDate = ctx.initialStartDate.add(totalMinutes, "minute");
+          newStartDate = shift(ctx.initialStartDate);
           newEndDate = ctx.initialEndDate;
           offsetX = draggedPx;
           offsetWidth = -draggedPx;
@@ -137,7 +128,7 @@ export function useGanttBarDrag(
 
         case "right":
           newStartDate = ctx.initialStartDate;
-          newEndDate = ctx.initialEndDate.add(totalMinutes, "minute");
+          newEndDate = shift(ctx.initialEndDate);
           offsetX = 0;
           offsetWidth = draggedPx;
           break;
@@ -169,7 +160,7 @@ export function useGanttBarDrag(
       storeApi.getState().clearDragOffset(taskId);
     };
 
-    // 브라우저가 제스처를 취소한 경우(스크롤 인계, 멀티터치 등)는 커밋하지 않고 되돌린다
+    // When the browser cancels the gesture (scroll takeover, multi-touch, etc.) revert instead of committing
     const handlePointerCancel = (cancelEvent: PointerEvent) => {
       const ctx = dragContextRef.current;
       if (ctx && cancelEvent.pointerId !== ctx.pointerId) return;
@@ -195,8 +186,8 @@ export function useGanttBarDrag(
       }
 
       const currentRawTasks = storeApi.getState().rawTasks;
-      const minutesPerStep = ctx.dragStepAmount * TIME_UNIT_MULTIPLIERS[ctx.dragStepUnit as keyof typeof TIME_UNIT_MULTIPLIERS];
-      const totalMinutes = ctx.dragSteps * minutesPerStep;
+      const commit = (date: string) =>
+        shiftByDragSteps(dayjs(date), ctx.dragSteps, ctx.scaleKey).toISOString();
 
       const updatedTasks = currentRawTasks.map((t) => {
         if (t.id !== ctx.taskId) return t;
@@ -205,20 +196,20 @@ export function useGanttBarDrag(
           case "bar":
             return {
               ...t,
-              startDate: dayjs(t.startDate).add(totalMinutes, "minute").toISOString(),
-              endDate: dayjs(t.endDate).add(totalMinutes, "minute").toISOString(),
+              startDate: commit(t.startDate),
+              endDate: commit(t.endDate),
             };
 
           case "left":
             return {
               ...t,
-              startDate: dayjs(t.startDate).add(totalMinutes, "minute").toISOString(),
+              startDate: commit(t.startDate),
             };
 
           case "right":
             return {
               ...t,
-              endDate: dayjs(t.endDate).add(totalMinutes, "minute").toISOString(),
+              endDate: commit(t.endDate),
             };
 
           default:
@@ -229,9 +220,9 @@ export function useGanttBarDrag(
       storeApi.getState().setRawTasks(updatedTasks);
       onTasksChangeRef.current?.(updatedTasks);
 
-      // dragOffset은 여기서 지우지 않는다 - 새 transformedTasks가 계산되기 전에
-      // 지우면 바가 한 프레임 동안 원위치로 돌아갔다 오는 깜빡임이 생긴다.
-      // Gantt의 타임라인 재계산 이펙트가 새 위치와 함께 한 번에 정리한다.
+      // dragOffset is deliberately not cleared here - clearing it before the new
+      // transformedTasks are computed makes the bar flick back to its old position for
+      // one frame. Gantt's timeline recomputation effect clears it along with the new positions.
       dragContextRef.current = null;
       dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);

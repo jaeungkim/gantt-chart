@@ -7,15 +7,16 @@ import {
 import { Task, TaskTransformed } from "types/task";
 import { createStore } from "zustand";
 
-/** 스케일 선택을 세션에 보존하는 기본 키 */
+/** Default key the scale selection is persisted under for the session */
 export const DEFAULT_SCALE_STORAGE_KEY = "gantt-scale";
 
 /**
- * 세션에 저장된 스케일을 읽는다 - 저장값이 없거나 세션 저장소에 접근할 수 없으면 null
+ * Reads the scale saved for the session - null when nothing is stored or session
+ * storage cannot be reached
  *
- * 모듈 로드 시점이 아니라 마운트 이후에만 호출해야 한다.
- * (SSR에서 import만으로 sessionStorage를 건드리지 않게, 그리고 첫 렌더를
- *  서버와 동일하게 유지해 하이드레이션 불일치를 만들지 않게)
+ * Must be called only after mount, never at module load time.
+ * (So a bare import does not touch sessionStorage under SSR, and so the first render
+ *  matches the server's and creates no hydration mismatch)
  */
 export function readPersistedScale(
   storageKey: string = DEFAULT_SCALE_STORAGE_KEY
@@ -26,7 +27,7 @@ export function readPersistedScale(
       ? (stored as GanttScaleKey)
       : null;
   } catch {
-    // SSR/프라이빗 모드 등 세션 저장소를 쓸 수 없는 환경
+    // Environments where session storage is unusable - SSR, private mode, and so on
     return null;
   }
 }
@@ -39,7 +40,7 @@ export interface GanttState {
   dragOffsets: Record<string, GanttDragOffset>;
   transformedTasks: TaskTransformed[];
 
-  // 액션
+  // Actions
   setSelectedScale: (scale: GanttScaleKey) => void;
   setCurrentTask: (task: TaskTransformed | null) => void;
   setRawTasks: (rawTasks: Task[]) => void;
@@ -49,7 +50,7 @@ export interface GanttState {
   clearDragOffset: (id: string) => void;
   clearAllDragOffsets: () => void;
 
-  // 계산된 셀렉터
+  // Computed selectors
   getCurrentDragOffset: (taskId: string) => GanttDragOffset | null;
   getTotalWidth: () => number;
 }
@@ -57,10 +58,10 @@ export interface GanttState {
 export type GanttStoreApi = ReturnType<typeof createGanttStore>;
 
 /**
- * Gantt 인스턴스 하나당 스토어 하나를 만든다.
+ * Creates one store per Gantt instance.
  *
- * 모듈 스코프 싱글턴이면 한 페이지의 두 차트가 태스크/스케일/드래그 상태를
- * 공유해 서로를 덮어쓴다.
+ * With a module-scope singleton, two charts on one page would share task, scale
+ * and drag state and overwrite each other.
  */
 export function createGanttStore(
   storageKey: string = DEFAULT_SCALE_STORAGE_KEY
@@ -75,15 +76,15 @@ export function createGanttStore(
 
     setCurrentTask: (task) => set({ currentTask: task }),
 
-    // 세션 저장은 여기서만 - persist 미들웨어를 쓰면 드래그 프레임마다 스토어가
-    // 갱신될 때도 sessionStorage에 동기 쓰기가 발생한다
+    // Session persistence happens only here - with the persist middleware, every store
+    // update would write to sessionStorage synchronously, drag frames included
     setSelectedScale: (scale) => {
       if (get().selectedScale === scale) return;
       set({ selectedScale: scale });
       try {
         sessionStorage.setItem(storageKey, scale);
       } catch {
-        // 세션 저장소를 쓸 수 없는 환경 - 저장만 건너뛴다
+        // Session storage is unusable - only the persisting is skipped
       }
     },
 
@@ -102,8 +103,8 @@ export function createGanttStore(
         return { dragOffsets: rest };
       }),
 
-    // 진행 중인 드래그의 오프셋은 남긴다 - 드롭 직후 곧바로 시작된 드래그가
-    // 타임라인 재계산에 휩쓸려 사라지지 않도록
+    // Keep the offset of a drag that is still in progress - so a drag started right
+    // after a drop is not swept away by the timeline recomputation
     clearAllDragOffsets: () =>
       set((state) => {
         const activeId = state.currentTask?.id;

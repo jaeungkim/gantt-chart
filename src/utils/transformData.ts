@@ -41,7 +41,7 @@ export function transformTasks(
     const order = index + 1;
 
     // Calculate bar position and width
-    // 마일스톤은 startDate 한 점 기준 (endDate 무시)
+    // Milestones are a single point at startDate (endDate is ignored)
     const { barMarginLeftAmount, barWidthSize } = calculateDateOffsets(
       dayjs(task.startDate),
       isMilestoneTask(task) ? dayjs(task.startDate) : dayjs(task.endDate),
