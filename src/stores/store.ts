@@ -23,6 +23,7 @@ interface GanttState {
   setTransformedTasks: (tasks: TaskTransformed[]) => void;
   setDragOffset: (id: string, offset: GanttDragOffset) => void;
   clearDragOffset: (id: string) => void;
+  clearAllDragOffsets: () => void;
 
   // 계산된 셀렉터
   getCurrentDragOffset: (taskId: string) => GanttDragOffset | null;
@@ -54,6 +55,20 @@ export const useGanttStore = create<GanttState>()(
         set((state) => {
           const { [id]: _removed, ...rest } = state.dragOffsets;
           return { dragOffsets: rest };
+        }),
+
+      // 진행 중인 드래그의 오프셋은 남긴다 - 드롭 직후 곧바로 시작된 드래그가
+      // 타임라인 재계산에 휩쓸려 사라지지 않도록
+      clearAllDragOffsets: () =>
+        set((state) => {
+          const activeId = state.currentTask?.id;
+          const keys = Object.keys(state.dragOffsets);
+          if (!keys.length) return state;
+          if (!activeId || !state.dragOffsets[activeId]) {
+            return { dragOffsets: {} };
+          }
+          if (keys.length === 1) return state;
+          return { dragOffsets: { [activeId]: state.dragOffsets[activeId] } };
         }),
 
       getCurrentDragOffset: (taskId: string) => {

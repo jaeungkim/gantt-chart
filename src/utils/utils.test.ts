@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import dayjs from 'utils/dayjs';
-import type { Task } from 'types/task';
+import { normalizeProgress, type Task } from 'types/task';
 import { getSmartGanttPath } from './arrowPath';
 import { processHeaderGroups } from './headerUtils';
 import {
@@ -48,6 +48,16 @@ describe('transformTasks', () => {
     );
     expect(m.barLeft).toBe(32);
     expect(m.barWidth).toBe(1);
+  });
+});
+
+describe('normalizeProgress', () => {
+  it('clamps to 0-100 and rejects missing or NaN values', () => {
+    expect(normalizeProgress(42)).toBe(42);
+    expect(normalizeProgress(-10)).toBe(0);
+    expect(normalizeProgress(150)).toBe(100);
+    expect(normalizeProgress(undefined)).toBeNull();
+    expect(normalizeProgress(Number.NaN)).toBeNull();
   });
 });
 

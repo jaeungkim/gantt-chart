@@ -1,6 +1,7 @@
 import GanttBar from "components/GanttBar";
 import GanttChartHeader from "components/GanttChartHeader";
 import GanttDependencyArrows from "components/GanttDependencyArrows";
+import GanttDragGuides from "components/GanttDragGuides";
 import ScaleSelector from "components/ScaleSelector";
 import { useEffect, useMemo, useRef } from "react";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
@@ -56,6 +57,7 @@ function Gantt({
     setTransformedTasks,
     setBottomRowCells,
     setSelectedScale,
+    clearAllDragOffsets,
     getTotalWidth,
   } = useGanttSelectors();
 
@@ -101,7 +103,15 @@ function Gantt({
 
     setBottomRowCells(bottomCells);
     setTransformedTasks(transformed);
-  }, [rawTasks, selectedScale, setBottomRowCells, setTransformedTasks]);
+    // 새 위치가 준비된 시점에 드래그 오프셋 정리 - 드롭 시 한 프레임 깜빡임 방지
+    clearAllDragOffsets();
+  }, [
+    rawTasks,
+    selectedScale,
+    setBottomRowCells,
+    setTransformedTasks,
+    clearAllDragOffsets,
+  ]);
 
   // 스케일 변경 핸들러
   const handleScaleChange = (scale: GanttScaleKey) => {
@@ -140,6 +150,9 @@ function Gantt({
       {/* 메인 차트 영역 */}
       <div className="gantt-main">
         <div ref={scrollRef} className="gantt-scroll-container">
+          {/* 드래그 가이드 (헤더 포함 전체 관통) */}
+          <GanttDragGuides width={totalWidth} />
+
           {/* 헤더 */}
           <div className="gantt-header-wrapper" style={{ width: `${totalWidth}px` }}>
             <GanttChartHeader
