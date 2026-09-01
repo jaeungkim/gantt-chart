@@ -152,9 +152,44 @@
 }
 
 .gantt-scroll-container {
+  position: relative;
   width: 100%;
   height: 100%;
   overflow: auto;
+}
+
+/* ===== DRAG GUIDES ===== */
+.gantt-drag-guides {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.gantt-drag-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+.gantt-drag-guide-label {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  transform: translateX(-50%);
+  padding: 3px 7px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .gantt-scroll-container::-webkit-scrollbar {

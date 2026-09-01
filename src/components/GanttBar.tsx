@@ -1,4 +1,5 @@
 import {
+  DATE_FORMATS,
   EDGE_THRESHOLD,
   MILESTONE_HALF_DIAGONAL,
   MIN_BAR_WIDTH,
@@ -9,16 +10,7 @@ import {
 import { useGanttBarDrag, DragMode } from "hooks/useGanttBarDrag";
 import { useRef, useState, useCallback } from "react";
 import { useGanttStore } from "stores/store";
-import { GanttScaleKey } from "types/gantt";
 import { isMilestoneTask, Task, TaskTransformed } from "types/task";
-
-// 스케일별 날짜 포맷
-const DATE_FORMATS: Record<GanttScaleKey, string> = {
-  day: "MMM D, h A",
-  week: "MMM D",
-  month: "MMM D",
-  year: "MMM YYYY",
-};
 
 interface GanttBarProps {
   currentTask: TaskTransformed;

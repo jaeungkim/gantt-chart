@@ -1,6 +1,7 @@
 import GanttBar from "components/GanttBar";
 import GanttChartHeader from "components/GanttChartHeader";
 import GanttDependencyArrows from "components/GanttDependencyArrows";
+import GanttDragGuides from "components/GanttDragGuides";
 import ScaleSelector from "components/ScaleSelector";
 import { useEffect, useMemo, useRef } from "react";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
@@ -140,6 +141,9 @@ function Gantt({
       {/* 메인 차트 영역 */}
       <div className="gantt-main">
         <div ref={scrollRef} className="gantt-scroll-container">
+          {/* 드래그 가이드 (헤더 포함 전체 관통) */}
+          <GanttDragGuides width={totalWidth} />
+
           {/* 헤더 */}
           <div className="gantt-header-wrapper" style={{ width: `${totalWidth}px` }}>
             <GanttChartHeader
