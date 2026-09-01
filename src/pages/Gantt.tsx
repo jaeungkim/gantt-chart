@@ -2,6 +2,7 @@ import GanttBar from "components/GanttBar";
 import GanttChartHeader from "components/GanttChartHeader";
 import GanttDependencyArrows from "components/GanttDependencyArrows";
 import GanttDragGuides from "components/GanttDragGuides";
+import { GanttMarkers, GanttRangeBands } from "components/GanttMarkers";
 import GanttTaskGrid from "components/GanttTaskGrid";
 import ScaleSelector from "components/ScaleSelector";
 import {
@@ -15,10 +16,19 @@ import {
   useState,
 } from "react";
 import { Dayjs } from "dayjs";
+import {
+  GanttTaskDraft,
+  useGanttDrawCreate,
+} from "hooks/useGanttDrawCreate";
 import { useGanttExportApi } from "hooks/useGanttExportApi";
 import { useGanttHistoryApi } from "hooks/useGanttHistoryApi";
+import { GanttDependencyChange } from "hooks/useGanttLinkDrag";
 import { useGanttSelectors } from "hooks/useGanttSelectors";
-import { GanttHandle, useGanttScrollApi } from "hooks/useGanttScrollApi";
+import {
+  GanttHandle,
+  GanttZoomAnchor,
+  useGanttScrollApi,
+} from "hooks/useGanttScrollApi";
 import { useGanttVirtualization } from "hooks/useGanttVirtualization";
 import { useResolvedTheme } from "hooks/useResolvedTheme";
 import { GanttStoreContext, useGanttStoreApi } from "stores/context";
@@ -38,22 +48,42 @@ import {
   GanttBeforeChangeHandler,
   GanttBottomRowCell,
   GanttColumn,
+  GanttDateRange,
   GanttFormatOverrides,
   GanttHeaderCellRenderer,
+  GanttMarker,
+  GanttRangeBand,
+  GanttRangeExtension,
   GanttReorderChange,
   GanttScaleKey,
   GanttTheme,
   GanttTooltipRenderer,
 } from "types/gantt";
-import { GanttInteractionConfig, Task, TaskTransformed } from "types/task";
+import {
+  canCreateTasks,
+  GanttInteractionConfig,
+  Task,
+  TaskTransformed,
+} from "types/task";
 import dayjs from "utils/dayjs";
 import {
   calculateDateOffsetPx,
+  computeBandRects,
+  computeMarkerOffsets,
   computeNonWorkingRanges,
   computeTimelineData,
+  dateAtOffsetPx,
   originShiftPx,
+  timelineRange,
 } from "utils/timeline";
 import { getVisibleTasks } from "utils/tree";
+import {
+  accumulateZoom,
+  extendRangeForScroll,
+  INITIAL_ZOOM_ACCUMULATOR,
+  NO_RANGE_EXTENSION,
+  stepScale,
+} from "utils/viewport";
 
 /** Gantt component defaults */
 const DEFAULT_HEIGHT = 600;
@@ -63,6 +93,9 @@ const DEFAULT_SCALE: GanttScaleKey = "month";
 const EMPTY_TASKS: Task[] = [];
 /** Default collapsed list - pinned at module scope for the same reason as tasks */
 const EMPTY_IDS: string[] = [];
+/** Default marker and band lists - same reason again */
+const EMPTY_MARKERS: GanttMarker[] = [];
+const EMPTY_BANDS: GanttRangeBand[] = [];
 
 export interface GanttProps {
   /**
@@ -183,6 +216,28 @@ export interface GanttProps {
   defaultCollapsedIds?: string[];
   /** Called whenever the collapsed state changes - in controlled and uncontrolled mode alike */
   onCollapsedChange?: (collapsedIds: string[]) => void;
+  /** Allows/blocks drawing dependencies between bars (default true) - beats `readOnly` */
+  allowLinkCreate?: boolean;
+  /** Allows/blocks selecting and deleting dependency arrows (default true) - beats `readOnly` */
+  allowLinkDelete?: boolean;
+  /** Allows/blocks drawing a new task on empty row space (default true) - beats `readOnly` */
+  allowTaskCreate?: boolean;
+  /**
+   * Called with the link the user drew, before it is applied
+   *
+   * Return false to reject it. Self-links, duplicates and cycles are rejected by the
+   * chart during the drag and never reach this callback.
+   */
+  onDependencyCreate?: (change: GanttDependencyChange) => boolean | void;
+  /** Called with the arrow the user asked to remove, before it is applied - return false to keep it */
+  onDependencyDelete?: (change: GanttDependencyChange) => boolean | void;
+  /**
+   * Called with the range drawn on empty row space, snapped to the current scale
+   *
+   * The chart adds nothing on its own: the host creates the task (or does not) and passes
+   * the new `tasks` array back in.
+   */
+  onTaskCreate?: (draft: GanttTaskDraft) => void;
   /** Fires when a bar or a task-list row is clicked (not after a drag) */
   onTaskClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
   /** Fires on a double click. The two clicks that make it up still fire `onTaskClick` */
@@ -224,6 +279,34 @@ export interface GanttProps {
    * One completed gesture is one step, however many bars it moved. 0 turns undo off.
    */
   historyLimit?: number;
+  /**
+   * Labelled vertical lines at given dates - deadlines, releases, freezes
+   *
+   * The built-in today line is one of these, so a marker is styled exactly the way it is:
+   * a `color`, a `className`, or the `--gantt-marker` variable.
+   */
+  markers?: GanttMarker[];
+  /** Shaded bands covering a date range - sprints, phases, blackout windows */
+  rangeBands?: GanttRangeBand[];
+  /**
+   * Whether Ctrl/Cmd + wheel steps through the scale ladder (default false)
+   *
+   * The date under the cursor stays put across the change. Plain wheel keeps scrolling
+   * vertically and Shift+wheel horizontally either way.
+   */
+  zoomOnWheel?: boolean;
+  /**
+   * Whether scrolling or dragging past an end grows the rendered range (default false)
+   *
+   * Off, the timeline covers the tasks plus a fixed buffer and stops there. On, it extends
+   * by about a viewport at a time as either end is approached, and what is on screen stays
+   * where it is.
+   */
+  infiniteScroll?: boolean;
+  /** Called whenever the rendered timeline range changes - the hook for lazy-loading tasks */
+  onRangeChange?: (range: GanttDateRange) => void;
+  /** Whether a bar drag reaching a viewport edge scrolls the timeline (default true) */
+  autoScrollOnDrag?: boolean;
   /**
    * Whether a task list row can be dragged to reorder and re-parent (default false)
    *
@@ -299,6 +382,12 @@ function GanttChart({
   defaultCollapsedIds,
   onCollapsedChange,
   historyLimit = DEFAULT_HISTORY_LIMIT,
+  allowLinkCreate,
+  allowLinkDelete,
+  allowTaskCreate,
+  onDependencyCreate,
+  onDependencyDelete,
+  onTaskCreate,
   onTaskClick,
   onTaskDoubleClick,
   onTaskSelect,
@@ -308,6 +397,12 @@ function GanttChart({
   renderTooltip,
   renderHeaderCell,
   showTooltip,
+  markers = EMPTY_MARKERS,
+  rangeBands = EMPTY_BANDS,
+  zoomOnWheel = false,
+  infiniteScroll = false,
+  onRangeChange,
+  autoScrollOnDrag = true,
   allowRowReorder = false,
   onReorder,
   forwardedRef,
@@ -350,6 +445,33 @@ function GanttChart({
   // Scroll container ref
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Interaction settings, passed down to every bar as one object
+  // (a task's own flags win over these - see resolveTaskInteraction)
+  const interaction = useMemo<GanttInteractionConfig>(
+    () => ({
+      readOnly,
+      allowMove,
+      allowResize,
+      allowProgressChange,
+      allowLinkCreate,
+      allowLinkDelete,
+      allowTaskCreate,
+      minDate,
+      maxDate,
+    }),
+    [
+      readOnly,
+      allowMove,
+      allowResize,
+      allowProgressChange,
+      allowLinkCreate,
+      allowLinkDelete,
+      allowTaskCreate,
+      minDate,
+      maxDate,
+    ]
+  );
+
   // ===== Task list pane =====
   // Without an explicit showTaskList, the pane appears only when columns are given
   const gridColumns = columns ?? DEFAULT_COLUMNS;
@@ -365,6 +487,37 @@ function GanttChart({
   // How much of the timeline the sticky pane covers - scroll math treats the viewport as
   // that much narrower
   const gridInset = gridVisible ? gridWidth : 0;
+
+  // ===== Rendered range extension =====
+  // Counted in ticks, so it is only meaningful for the scale it was measured at - tagging
+  // it with that scale drops it on a scale change without an extra render
+  const [extension, setExtension] = useState<{
+    scale: GanttScaleKey;
+    value: GanttRangeExtension;
+  }>({ scale: selectedScale, value: NO_RANGE_EXTENSION });
+  const activeExtension =
+    extension.scale === selectedScale ? extension.value : NO_RANGE_EXTENSION;
+
+  // Total timeline width
+  const totalWidth = getTotalWidth();
+
+  // Values the wheel and scroll listeners need at event time. Written in an effect rather
+  // than during render, and declared before every effect that reads them so they are
+  // already up to date by then.
+  const scaleRef = useRef(selectedScale);
+  const cellsRef = useRef(bottomRowCells);
+  const gridInsetRef = useRef(gridInset);
+  const extensionRef = useRef(activeExtension);
+  const totalWidthRef = useRef(totalWidth);
+  const onRangeChangeRef = useRef(onRangeChange);
+  useLayoutEffect(() => {
+    scaleRef.current = selectedScale;
+    cellsRef.current = bottomRowCells;
+    gridInsetRef.current = gridInset;
+    extensionRef.current = activeExtension;
+    totalWidthRef.current = totalWidth;
+    onRangeChangeRef.current = onRangeChange;
+  });
 
   // ===== Collapsed state (controlled and uncontrolled) =====
   const [uncontrolledCollapsed, setUncontrolledCollapsed] = useState<string[]>(
@@ -453,6 +606,18 @@ function GanttChart({
     return visible.map((task, index) => ({ ...task, order: index + 1 }));
   }, [hierarchy, collapsedSet, transformedTasks]);
 
+  // Drawing a task on empty row space - only wired up when the host can receive it
+  const rowIds = useMemo(
+    () => visibleTasks.map((task) => task.id),
+    [visibleTasks]
+  );
+  const canDrawTasks = onTaskCreate !== undefined && canCreateTasks(interaction);
+  const { onDrawPointerDown, ghost } = useGanttDrawCreate({
+    enabled: canDrawTasks,
+    rowIds,
+    onTaskCreate,
+  });
+
   // Virtualization hook
   const { rowVirtualizer, isBarVisible } = useGanttVirtualization({
     transformedTasks: visibleTasks,
@@ -498,19 +663,6 @@ function GanttChart({
     setHistoryLimit(historyLimit);
   }, [historyLimit, setHistoryLimit]);
 
-  // Interaction settings, passed down to every bar as one object
-  const interaction = useMemo<GanttInteractionConfig>(
-    () => ({
-      readOnly,
-      allowMove,
-      allowResize,
-      allowProgressChange,
-      minDate,
-      maxDate,
-    }),
-    [readOnly, allowMove, allowResize, allowProgressChange, minDate, maxDate]
-  );
-
   // Fixed timeline window - undefined on both ends means auto-fit to the tasks
   const visibleRange = useMemo(
     () =>
@@ -533,7 +685,8 @@ function GanttChart({
       rawTasks,
       selectedScale,
       visibleRange,
-      hierarchy
+      hierarchy,
+      activeExtension
     );
 
     // When the timeline start date changes, every bar shifts as a whole.
@@ -560,30 +713,196 @@ function GanttChart({
     selectedScale,
     visibleRange,
     hierarchy,
+    activeExtension,
     setBottomRowCells,
     setTransformedTasks,
     clearAllDragOffsets,
   ]);
 
+  // Date to put back under the cursor once the new scale's cells exist
+  const pendingAnchorRef = useRef<GanttZoomAnchor | null>(null);
+
   // Apply the scroll compensation after the new timeline width has landed in the DOM
+  // (deliberately keyed on the cells alone - the scale changes one commit earlier, and
+  //  measuring against cells that do not belong to it would land in the wrong place)
   useLayoutEffect(() => {
+    const scrollEl = scrollRef.current;
+    const anchor = pendingAnchorRef.current;
+
+    // A zoom anchor supersedes the origin compensation: both exist to keep the view still
+    // while the timeline is rebuilt, and the anchor is the more specific answer
+    if (anchor) {
+      pendingAnchorRef.current = null;
+      pendingScrollShiftRef.current = 0;
+
+      const px = calculateDateOffsetPx(
+        anchor.date,
+        bottomRowCells,
+        scaleRef.current
+      );
+      if (scrollEl && px !== null) {
+        scrollEl.scrollLeft = Math.max(0, px - anchor.viewportX);
+        return;
+      }
+    }
+
     const shift = pendingScrollShiftRef.current;
     if (!shift) return;
 
     pendingScrollShiftRef.current = 0;
-    const scrollEl = scrollRef.current;
     if (scrollEl) scrollEl.scrollLeft += shift;
   }, [bottomRowCells]);
+
+  /**
+   * Switches scale, keeping `anchor.date` at `anchor.viewportX` px from the timeline's
+   * visible left edge
+   */
+  const zoomTo = useCallback(
+    (scale: GanttScaleKey, anchor: GanttZoomAnchor) => {
+      if (scale === scaleRef.current) {
+        // Same scale - no rebuild is coming, so place the anchor now
+        const scrollEl = scrollRef.current;
+        const px = calculateDateOffsetPx(anchor.date, cellsRef.current, scale);
+        if (scrollEl && px !== null) {
+          scrollEl.scrollLeft = Math.max(0, px - anchor.viewportX);
+        }
+        return;
+      }
+
+      pendingAnchorRef.current = anchor;
+      setSelectedScale(scale);
+    },
+    [setSelectedScale]
+  );
 
   // Scale change handler
   const handleScaleChange = (scale: GanttScaleKey) => {
     setSelectedScale(scale);
   };
 
-  // Today marker offset (null when today is outside the timeline range)
-  const todayOffsetPx = useMemo(
-    () => calculateDateOffsetPx(dayjs(), bottomRowCells, selectedScale),
-    [bottomRowCells, selectedScale]
+  // ===== Ctrl/Cmd + wheel zoom =====
+  useEffect(() => {
+    if (!zoomOnWheel) return;
+
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    const accumulator = { ...INITIAL_ZOOM_ACCUMULATOR };
+
+    const handleWheel = (event: WheelEvent) => {
+      // Plain wheel still scrolls vertically and Shift+wheel horizontally
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+
+      const { state, step } = accumulateZoom(
+        accumulator,
+        event.deltaY,
+        event.timeStamp
+      );
+      Object.assign(accumulator, state);
+      if (!step) return;
+
+      const nextScale = stepScale(scaleRef.current, step);
+      if (nextScale === scaleRef.current) return;
+
+      // Where the cursor is inside the timeline area. A cursor over the pinned task list
+      // clamps to the timeline's own left edge, so zooming there is still anchored to
+      // something the user can see.
+      const rect = scrollEl.getBoundingClientRect();
+      const inset = gridInsetRef.current;
+      const viewportX =
+        Math.min(
+          Math.max(event.clientX - rect.left, inset),
+          scrollEl.clientWidth
+        ) - inset;
+
+      const date = dateAtOffsetPx(
+        scrollEl.scrollLeft + viewportX,
+        cellsRef.current,
+        scaleRef.current
+      );
+      if (!date) return;
+
+      zoomTo(nextScale, { date, viewportX });
+    };
+
+    // Registered by hand and non-passive - preventDefault has to stop the browser's own
+    // ctrl+wheel page zoom, which a passive listener cannot do
+    scrollEl.addEventListener("wheel", handleWheel, { passive: false });
+    return () => scrollEl.removeEventListener("wheel", handleWheel);
+  }, [zoomOnWheel, zoomTo]);
+
+  // ===== Range extension =====
+  // Re-subscribed whenever the cells change, which also re-checks the edges right after a
+  // rebuild - that is what lets a drag keep pushing past the end
+  useEffect(() => {
+    if (!infiniteScroll) return;
+
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    const checkEdges = () => {
+      const cells = cellsRef.current;
+      const totalPx = totalWidthRef.current;
+      if (!cells.length || totalPx <= 0) return;
+
+      const next = extendRangeForScroll({
+        current: extensionRef.current,
+        scrollLeft: scrollEl.scrollLeft,
+        viewportPx: scrollEl.clientWidth - gridInsetRef.current,
+        totalPx,
+        pxPerTick: totalPx / cells.length,
+        // A pinned end is where the host put it - growing it there would be undone on
+        // every recompute and the check would spin
+        canExtend: { before: !visibleStart, after: !visibleEnd },
+      });
+      if (!next) return;
+
+      extensionRef.current = next;
+      setExtension({ scale: scaleRef.current, value: next });
+    };
+
+    checkEdges();
+    scrollEl.addEventListener("scroll", checkEdges, { passive: true });
+    return () => scrollEl.removeEventListener("scroll", checkEdges);
+  }, [infiniteScroll, bottomRowCells, visibleStart, visibleEnd]);
+
+  // ===== Range reporting =====
+  const reportedRangeRef = useRef("");
+  useEffect(() => {
+    const report = onRangeChangeRef.current;
+    if (!report) return;
+
+    const range = timelineRange(bottomRowCells, scaleRef.current);
+    if (!range) return;
+
+    // Fires on a real range change only - a re-render with the same dates is not one
+    const key = `${range.start.valueOf()}:${range.end.valueOf()}`;
+    if (key === reportedRangeRef.current) return;
+
+    reportedRangeRef.current = key;
+    report(range);
+  }, [bottomRowCells]);
+
+  // Today goes through the same marker layer as the host's own markers - one line of
+  // rendering, and a host marker can be styled exactly the way the today line is
+  const positionedMarkers = useMemo(
+    () =>
+      computeMarkerOffsets(
+        [
+          { id: "today", date: dayjs(), className: "gantt-today-marker" },
+          ...markers,
+        ],
+        bottomRowCells,
+        selectedScale,
+        transformedTasks
+      ),
+    [markers, bottomRowCells, selectedScale, transformedTasks]
+  );
+
+  const positionedBands = useMemo(
+    () => computeBandRects(rangeBands, bottomRowCells, selectedScale),
+    [rangeBands, bottomRowCells, selectedScale]
   );
   // Compute the non-working-day shading ranges
   const nonWorkingRanges = useMemo(() => {
@@ -610,9 +929,6 @@ function GanttChart({
     selectedScale,
   ]);
 
-  // Total width
-  const totalWidth = getTotalWidth();
-
   // Imperative API - scrolling, PNG export, undo/redo
   const { historyApi, onKeyDown } = useGanttHistoryApi(onTasksChange);
   const scrollApi = useGanttScrollApi({
@@ -622,6 +938,7 @@ function GanttChart({
     selectedScale,
     rowHeight: NODE_HEIGHT,
     viewportInsetPx: gridInset,
+    zoomTo,
   });
   const exportApi = useGanttExportApi({
     scrollRef,
@@ -745,11 +1062,12 @@ function GanttChart({
 
               {/* Content area */}
               <div
-                className="gantt-content"
+                className={`gantt-content${canDrawTasks ? " drawable" : ""}`}
                 style={{
                   height: `${rowVirtualizer.getTotalSize()}px`,
                   width: `${totalWidth}px`,
                 }}
+                onPointerDown={onDrawPointerDown}
                 // Empty timeline clears the selection; a click on a bar has a different target
                 onClick={(event) => {
                   if (event.target === event.currentTarget) selectTask(null);
@@ -771,6 +1089,9 @@ function GanttChart({
                   </div>
                 )}
 
+                {/* Range bands (background) */}
+                <GanttRangeBands bands={positionedBands} />
+
                 {/* Task rows (background) */}
                 <div className="gantt-rows">
                   {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -791,17 +1112,29 @@ function GanttChart({
                   })}
                 </div>
 
-                {/* Today marker */}
-                {todayOffsetPx !== null && (
+                {/* Date markers (today included) */}
+                <GanttMarkers markers={positionedMarkers} />
+
+                {/* Ghost bar of the task being drawn */}
+                {ghost && (
                   <div
-                    className="gantt-today-marker"
-                    style={{ left: `${todayOffsetPx}px` }}
+                    className="gantt-draw-ghost"
+                    style={{
+                      left: `${ghost.leftPx}px`,
+                      width: `${ghost.widthPx}px`,
+                      transform: `translateY(${ghost.topPx}px)`,
+                    }}
                     aria-hidden="true"
                   />
                 )}
 
                 {/* Dependency arrows */}
-                <GanttDependencyArrows transformedTasks={visibleTasks} />
+                <GanttDependencyArrows
+                  transformedTasks={visibleTasks}
+                  interaction={interaction}
+                  onTasksChange={onTasksChange}
+                  onDependencyDelete={onDependencyDelete}
+                />
 
                 {/* Task bars */}
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -830,6 +1163,8 @@ function GanttChart({
                         currentTask={task}
                         options={barOptions}
                         interaction={interaction}
+                        autoScrollOnDrag={autoScrollOnDrag}
+                        onDependencyCreate={onDependencyCreate}
                       />
                     </div>
                   );

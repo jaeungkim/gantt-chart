@@ -29,6 +29,10 @@ export interface Task {
   allowResize?: boolean;
   /** Allows/blocks dragging this task's progress handle - overrides both `readOnly` settings */
   allowProgressChange?: boolean;
+  /** Allows/blocks starting a dependency drag from this task - overrides both `readOnly` settings */
+  allowLinkCreate?: boolean;
+  /** Allows/blocks deleting a dependency this task owns - overrides both `readOnly` settings */
+  allowLinkDelete?: boolean;
   /** Earliest date this task may be dragged to (ISO string) - overrides the chart's `minDate` */
   minDate?: string;
   /** Latest date this task may be dragged to (ISO string) - overrides the chart's `maxDate` */
@@ -39,13 +43,17 @@ export interface Task {
  * Chart-wide interaction settings
  *
  * Every field is optional, and a task's own field of the same name wins over it.
- * With nothing set, all three gestures are allowed and there are no drag bounds.
+ * With nothing set, every gesture is allowed and there are no drag bounds - except
+ * drawing new tasks, which needs an `onTaskCreate` callback to go anywhere.
  */
 export interface GanttInteractionConfig {
   readOnly?: boolean;
   allowMove?: boolean;
   allowResize?: boolean;
   allowProgressChange?: boolean;
+  allowLinkCreate?: boolean;
+  allowLinkDelete?: boolean;
+  allowTaskCreate?: boolean;
   minDate?: string;
   maxDate?: string;
 }
@@ -54,6 +62,8 @@ export interface ResolvedTaskInteraction {
   canMove: boolean;
   canResize: boolean;
   canChangeProgress: boolean;
+  canCreateLink: boolean;
+  canDeleteLink: boolean;
   minDate?: string;
   maxDate?: string;
 }
@@ -84,6 +94,8 @@ export function resolveTaskInteraction(
     | 'allowMove'
     | 'allowResize'
     | 'allowProgressChange'
+    | 'allowLinkCreate'
+    | 'allowLinkDelete'
     | 'minDate'
     | 'maxDate'
   > & { isSummary?: boolean },
@@ -110,9 +122,21 @@ export function resolveTaskInteraction(
     canChangeProgress:
       !derived &&
       resolve(task.allowProgressChange, config.allowProgressChange),
+    canCreateLink: resolve(task.allowLinkCreate, config.allowLinkCreate),
+    canDeleteLink: resolve(task.allowLinkDelete, config.allowLinkDelete),
     minDate: task.minDate ?? config.minDate,
     maxDate: task.maxDate ?? config.maxDate,
   };
+}
+
+/**
+ * Whether drawing a new task on empty timeline space is allowed
+ * Chart-wide only - the gesture starts on a row, not on a task
+ */
+export function canCreateTasks(
+  config: GanttInteractionConfig = NO_INTERACTION_CONFIG
+): boolean {
+  return config.allowTaskCreate ?? !config.readOnly;
 }
 
 export function isMilestoneTask(task: Pick<Task, 'type'>): boolean {
@@ -179,6 +203,8 @@ export interface TaskTransformed extends Task {
 }
 
 export interface RenderedDependency extends TaskDependency {
+  /** Id of the successor that owns this dependency (`targetId` is the predecessor) */
+  sourceId: string;
   fromX: number;
   fromY: number;
   toX: number;

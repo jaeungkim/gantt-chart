@@ -10,6 +10,7 @@ export type {
   GanttHandle,
   GanttScrollApi,
   GanttScrollOptions,
+  GanttZoomAnchor,
 } from './hooks/useGanttScrollApi';
 export type { GanttExportApi } from './hooks/useGanttExportApi';
 export type { GanttHistoryApi } from './hooks/useGanttHistoryApi';
@@ -25,9 +26,15 @@ export type {
   TaskTransformed,
   GanttInteractionConfig,
 } from './types/task';
+export type { GanttDependencyChange } from './hooks/useGanttLinkDrag';
+export type { GanttTaskDraft } from './hooks/useGanttDrawCreate';
 export type {
   GanttColumn,
+  GanttDateRange,
   GanttFormatOverrides,
+  GanttMarker,
+  GanttRangeBand,
+
   GanttReorderChange,
   GanttScaleFormat,
   GanttScaleKey,

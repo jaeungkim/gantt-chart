@@ -29,7 +29,8 @@ Currently, this project is built specifically for React due to my development ba
   - Reorder and re-parent rows, with indent/outdent on horizontal offset
 - ↩️ Undo/redo — one step per gesture, keyboard shortcuts and an imperative API
 - 👆 Touch support — long-press to lift a bar, swipe to scroll
-- 🧲 Smart dependency arrows (FS, SS, FF, SF)
+- 🧲 Smart dependency arrows (FS, SS, FF, SF), drawn between bars by dragging and removed by selecting
+- ✏️ Draw a new task on empty row space, snapped to the current scale
 - ◆ Milestones and per-task progress
 - 🖱️ Click / double-click / select events with a visible selection highlight
 - ↩️ Cancellable before-events: veto a move, resize or progress change and the bar rolls back
@@ -37,9 +38,11 @@ Currently, this project is built specifically for React due to my development ba
 - 🔒 Read-only mode, per-capability and per-task
 - 🚧 Drag bounds and a fixed visible range
 - 🗓️ Weekend and holiday shading
+- 🔍 Cursor-anchored Ctrl/Cmd + wheel zoom, plus `zoomToFit()`
+- ♾️ Range that extends as you scroll or drag past its end, with an `onRangeChange` hook
 - ⚡ Virtualized rendering for performance
 - 🌙 Light/Dark/System theme support
-- 📍 Today marker indicator
+- 📍 Today marker, custom date markers and shaded range bands
 - 💬 Hover and drag tooltips
 - 🖼️ Client-side PNG export of the whole chart, no extra dependency
 - 📦 Lightweight with minimal dependencies
@@ -132,7 +135,7 @@ export default function App() {
 | `renderTooltip` | `(props) => ReactNode` | - | Replaces the tooltip node entirely, for hover and drag alike |
 | `renderHeaderCell` | `(props) => ReactNode` | - | Replaces a timeline header cell entirely; both header rows go through it |
 | `showTooltip` | `boolean` | `true` | `false` suppresses the hover and drag tooltips |
-| `readOnly` | `boolean` | `false` | Blocks moving, resizing and progress dragging on every task |
+| `readOnly` | `boolean` | `false` | Blocks every editing gesture. A task's own `readOnly` and the `allow*` flags win over it |
 | `allowMove` | `boolean` | `true` | Allows/blocks moving bars. Beats `readOnly` |
 | `allowResize` | `boolean` | `true` | Allows/blocks resizing bars. Beats `readOnly` |
 | `allowProgressChange` | `boolean` | `true` | Allows/blocks dragging the progress handle. Beats `readOnly` |
@@ -143,6 +146,18 @@ export default function App() {
 | `historyLimit` | `number` | `100` | How many undo steps to keep. `0` turns undo off ([undo/redo](#undoredo)) |
 | `allowRowReorder` | `boolean` | `false` | Let a task list row be dragged to reorder siblings and re-parent. Follows `readOnly` / `allowMove` |
 | `onReorder` | `(change: GanttReorderChange) => void \| boolean` | - | Fires on a row drop, before anything is committed. Return `false` to cancel |
+| `markers` | `GanttMarker[]` | - | Labelled vertical lines at given dates ([markers](#markers-and-range-bands)) |
+| `rangeBands` | `GanttRangeBand[]` | - | Shaded bands covering a date range |
+| `zoomOnWheel` | `boolean` | `false` | Ctrl/Cmd + wheel steps through the scale ladder ([zoom](#zooming)) |
+| `infiniteScroll` | `boolean` | `false` | Extend the rendered range when scrolling or dragging past an end |
+| `onRangeChange` | `(range: GanttDateRange) => void` | - | Fires whenever the rendered timeline range changes |
+| `autoScrollOnDrag` | `boolean` | `true` | Scroll the timeline when a bar drag reaches a viewport edge |
+| `allowLinkCreate` | `boolean` | `true` | Show the connector dots and accept dependency drags ([editing dependencies](#editing-dependencies)) |
+| `allowLinkDelete` | `boolean` | `true` | Let arrows be selected and removed |
+| `allowTaskCreate` | `boolean` | `true` | Let a task be drawn on empty row space ([drawing a task](#drawing-a-task)) |
+| `onDependencyCreate` | `(change: GanttDependencyChange) => boolean \| void` | - | Fires before a drawn link is applied — return `false` to reject it |
+| `onDependencyDelete` | `(change: GanttDependencyChange) => boolean \| void` | - | Fires before an arrow is removed — return `false` to keep it |
+| `onTaskCreate` | `(draft: GanttTaskDraft) => void` | - | Fires with the range drawn on empty row space. Required for the gesture to do anything |
 
 ## Task List and Hierarchy
 
@@ -221,7 +236,12 @@ field wins. Resolution runs most specific first:
 `task.allowX` > `task.readOnly` > `allowX` prop > `readOnly` prop > allowed
 
 A blocked gesture renders no affordance at all - no grab or resize cursor, no resize
-grips, no progress handle - rather than failing on interaction. These decide what the user
+grips, no progress handle, no connector dots, and arrows that cannot be clicked - rather
+than failing on interaction.
+
+`allowLinkCreate` and `allowLinkDelete` resolve the same way and also exist on `Task`;
+`allowTaskCreate` is chart-wide only, because that gesture starts on a row rather than on
+a task. These decide what the user
 can *start*; [`onBeforeTaskChange`](#cancellable-changes-and-optimistic-updates) decides what
 survives once a gesture has finished.
 
@@ -288,6 +308,10 @@ Move, resize and progress all work with a finger, without giving up scrolling:
 - **Bigger targets.** The resize edges are 44px wide for touch instead of 8px, and the
   progress handle gets a 44px hit area and is visible without hover. A bar too narrow
   to spare two 44px edges is move-only, the same rule the mouse already follows at 8px.
+- **Drawing a task follows the same rule.** A swipe across empty row space scrolls;
+  resting there for ~400ms starts the draw instead.
+- **Connector dots show on selection.** They are revealed by hover, which a finger does
+  not have — tapping a bar selects it and reveals them too.
 - **A mouse is untouched.** Mouse presses still start a drag immediately with the
   original 8px edges.
 
@@ -528,6 +552,88 @@ Each of these replaces the default node completely.
 A hover tooltip (name, dates, duration, progress) is on by default. `showTooltip={false}`
 turns off both it and the drag tooltip.
 
+## Editing dependencies
+
+Hovering a bar reveals a connector dot at each end. Dragging from one dot to another bar
+draws the link; a dashed rubber band follows the pointer and the bar under it is outlined.
+
+**The direction of the gesture is the direction of the dependency**: the bar the drag starts
+on becomes the predecessor, the bar it is dropped on the successor (the one whose
+`dependencies` array gains the entry). Which end each side is connected at decides the type:
+
+| Drag starts at | Dropped on the target's | Type |
+|---|---|---|
+| the predecessor's **end** | **start** half | `FS` |
+| the predecessor's **start** | **start** half | `SS` |
+| the predecessor's **end** | **end** half | `FF` |
+| the predecessor's **start** | **end** half | `SF` |
+
+Self-links, links that already exist and links that would close a cycle (direct or through
+any chain) are rejected **during** the drag: the rubber band and the target turn red and name
+the reason, and releasing there commits nothing. `Escape` cancels the drag.
+
+Clicking an arrow selects it. `Delete` / `Backspace` removes it, as does the ✕ that appears on
+the selected arrow; `Escape` or a click elsewhere deselects. Keystrokes are ignored while the
+focus is in an input, textarea, select or contenteditable, so the host's own forms keep their
+keys.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  onDependencyCreate={({ predecessorId, successorId, type }) => {
+    if (type === 'SF') return false;      // reject: nothing is applied
+    void api.link(predecessorId, successorId, type);
+  }}
+  onDependencyDelete={({ predecessorId, successorId }) =>
+    window.confirm(`Unlink ${predecessorId} → ${successorId}?`)
+  }
+/>;
+```
+
+Both callbacks run **before** anything changes and cancel the edit by returning `false`.
+Accepted edits arrive as a whole new array through `onTasksChange`, exactly once per gesture.
+
+```ts
+interface GanttDependencyChange {
+  predecessorId: string;  // the bar the drag started on
+  successorId: string;    // the bar it landed on - its dependencies array changes
+  type: DependencyType;
+}
+```
+
+## Drawing a task
+
+With `onTaskCreate` given, dragging horizontally across the empty part of a row draws a ghost
+bar snapped to the current scale's ticks (days on the month scale, months on the year scale,
+and so on) and hands the range to the host on release:
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTaskCreate={({ startDate, endDate, rowTaskId }) => {
+    const name = window.prompt('Task name');
+    if (!name) return;                    // veto: nothing is added
+    setTasks((current) => [
+      ...current,
+      { id: crypto.randomUUID(), name, startDate, endDate, parentId: null, sequence: `${current.length + 1}` },
+    ]);
+  }}
+/>;
+```
+
+**The chart never adds the task itself** - it only proposes one, and the row appears when the
+host passes the new `tasks` array back in. A drag shorter than 4px counts as a click and
+proposes nothing, and a chart with no tasks has no rows to draw on.
+
+```ts
+interface GanttTaskDraft {
+  startDate: string;         // UTC ISO, snapped to the current scale
+  endDate: string;
+  rowTaskId: string | null;  // the task whose row was drawn on - useful for parentId/sequence
+}
+```
+
 ## Imperative API
 
 Pass a ref to scroll the chart programmatically, export it as a PNG, or drive undo/redo:
@@ -543,14 +649,27 @@ const ref = useRef<GanttHandle>(null);
 ref.current?.scrollToToday();
 ref.current?.scrollToDate('2026-09-01');
 ref.current?.scrollToTask('task-42', { smooth: false, align: 'start' });
-
 ref.current?.undo();
 ref.current?.redo();
 ref.current?.canUndo; // boolean
 ref.current?.canRedo; // boolean
+ref.current?.zoomToFit();
+ref.current?.getScrollElement();
 ```
 
-Dates outside the rendered timeline and unknown task ids are ignored rather than throwing, so calls during data loading are safe. `scrollToTask` only moves vertically when the row is off-screen.
+| Method | What it does |
+|--------|--------------|
+| `scrollToDate(date, options?)` | Scroll horizontally to a date |
+| `scrollToToday(options?)` | Scroll horizontally to today |
+| `scrollToTask(taskId, options?)` | Scroll to a task, vertically too when its row is off-screen |
+| `zoomToFit()` | Switch to the finest scale at which the whole project fits the viewport width, and scroll it into view |
+| `getScrollElement()` | The scroll container DOM node, or `null` |
+| `undo()` / `redo()` | Step back/forward through the gesture history ([undo/redo](#undoredo)) |
+| `canUndo` / `canRedo` | Whether a step is available in that direction |
+
+`options` is `{ smooth?: boolean; align?: 'start' \| 'center' }`.
+
+Dates outside the rendered timeline and unknown task ids are ignored rather than throwing, so calls during data loading are safe. `scrollToTask` only moves vertically when the row is off-screen. `zoomToFit` does nothing while there are no tasks.
 
 ### Undo/redo
 
@@ -710,6 +829,8 @@ interface Task {
   allowMove?: boolean;
   allowResize?: boolean;
   allowProgressChange?: boolean;
+  allowLinkCreate?: boolean;
+  allowLinkDelete?: boolean;
   minDate?: string;              // UTC ISO string
   maxDate?: string;              // UTC ISO string
 }
@@ -771,6 +892,94 @@ in `sessionStorage` (see `storageKey`).
 
 The bottom row is column-virtualized, so a long range at hour granularity stays cheap: 150
 days of tasks is 3,762 hour cells, of which about 25 are in the DOM at a time.
+
+## Zooming
+
+`zoomOnWheel` turns Ctrl/Cmd + wheel into a zoom: each gesture moves one step along the
+scale ladder and the date under the cursor stays exactly where it is, so you zoom into what
+you are pointing at rather than into the middle of the chart. Plain wheel still scrolls
+vertically and Shift + wheel horizontally — those are never taken over. One gesture is one
+step, however many events a trackpad pinch fires.
+
+```tsx
+<ReactGanttChart tasks={tasks} zoomOnWheel />
+```
+
+It is off by default because Ctrl + wheel is the browser's own page zoom; turning it on
+takes that over inside the chart. The scale selector stays in sync either way.
+
+`zoomToFit()` on the [imperative handle](#imperative-api) picks the finest scale at which
+the whole project fits the viewport width and scrolls the project into view. With the task
+list pane open, "viewport width" means the timeline area, not the whole container.
+
+## Infinite range
+
+By default the timeline covers the tasks plus a small buffer and stops there. With
+`infiniteScroll`, scrolling — or dragging a bar — towards either end extends the rendered
+range by about a viewport at a time instead of hitting a wall. What you are looking at does
+not move while this happens: when the range grows at the front, the scroll position is
+compensated by exactly the width that was added.
+
+`onRangeChange` fires whenever the rendered range changes — the hook for loading tasks
+lazily for the window that just became reachable. It also fires on the first render and on
+every scale change, so it is a complete picture of what is on screen, not only of
+extensions.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  infiniteScroll
+  onRangeChange={({ start, end }) => loadTasksBetween(start.toDate(), end.toDate())}
+/>
+```
+
+`start` and `end` are UTC `Dayjs` values. Extension is capped at 2000 ticks per side, so a
+runaway scroll cannot grow the timeline without bound.
+
+Dragging a bar towards a viewport edge scrolls the timeline on its own, faster the closer
+the pointer gets, and stops on drop or cancel — including while an
+[`onBeforeTaskChange`](#cancellable-changes-and-optimistic-updates) veto is still pending, where the pointer is
+already up. That one is on by default; pass `autoScrollOnDrag={false}` to turn it off.
+
+A discarded gesture takes its scrolling with it: when a drag is cancelled, or rolled back
+because the before-handler said no, the timeline scrolls back by however far the
+auto-scroll carried it, so the bar sliding home is still the thing you are looking at. The
+undo is relative, so a manual scroll made while the veto was in flight survives it.
+
+## Markers and range bands
+
+`markers` draws labelled vertical lines at given dates and `rangeBands` shades date ranges.
+The built-in today line is one of these markers, so anything below styles it the same way.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  markers={[
+    { id: 'launch', date: '2026-10-01', label: 'Launch', color: '#10b981' },
+    { id: 'due', date: '2026-09-20', label: 'Due', warnOnOverrun: true, taskIds: ['task-42'] },
+  ]}
+  rangeBands={[
+    { id: 'sprint-7', startDate: '2026-09-14', endDate: '2026-09-28', label: 'Sprint 7' },
+  ]}
+/>
+```
+
+| `GanttMarker` | Type | Description |
+|---------------|------|-------------|
+| `date` | `string \| Date \| Dayjs` | Where the line goes |
+| `id` | `string` | React key (default: the date) |
+| `label` | `string` | Text at the top of the line; omitted, the line is bare |
+| `className` | `string` | Extra class on the marker element |
+| `color` | `string` | Any CSS color — wins over the class and the theme default |
+| `warnOnOverrun` | `boolean` | Set `data-warning="true"` once a task ends past the date |
+| `taskIds` | `string[]` | Limits the overrun check to these tasks (default: all of them) |
+
+`GanttRangeBand` takes `startDate`, `endDate`, and the same `id` / `label` / `className` /
+`color`. Markers and bands outside the rendered range are dropped, and a band that only
+overlaps it is clipped.
+
+Colours come from `--gantt-marker`, `--gantt-marker-warning` and `--gantt-band-bg`, so a
+whole palette can be set once in CSS instead of per marker.
 
 ## i18n and date formats
 

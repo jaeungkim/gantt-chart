@@ -17,6 +17,7 @@ import {
   popUndo,
   pushHistory,
 } from "utils/history";
+import { LinkAnchor, LinkRejection } from "utils/dependency";
 import { createMutationGate, MutationGate } from "utils/mutation";
 import { createStore } from "zustand";
 
@@ -45,6 +46,34 @@ export function readPersistedScale(
   }
 }
 
+/**
+ * Live state of a dependency drag
+ *
+ * Coordinates are px in the timeline content's space (the same one bars are positioned
+ * in), so the preview line can be drawn straight into the arrow SVG.
+ */
+export interface GanttLinkDraft {
+  /** Task the drag started on - it becomes the predecessor */
+  fromTaskId: string;
+  fromAnchor: LinkAnchor;
+  fromX: number;
+  fromY: number;
+  /** Current pointer position */
+  toX: number;
+  toY: number;
+  /** Task under the pointer, null over empty space */
+  hoverTaskId: string | null;
+  hoverAnchor: LinkAnchor | null;
+  /** Why the hovered task cannot be linked - null when the drop would be accepted */
+  rejection: LinkRejection | null;
+}
+
+/** Identifies one dependency: the successor that owns it and the predecessor it points at */
+export interface GanttDependencyRef {
+  sourceId: string;
+  targetId: string;
+}
+
 export interface GanttState {
   rawTasks: Task[];
   bottomRowCells: GanttBottomRowCell[];
@@ -67,6 +96,10 @@ export interface GanttState {
   history: HistoryStack;
   /** How many undo steps are kept */
   historyLimit: number;
+  /** Dependency drag in progress - null when none is running */
+  linkDraft: GanttLinkDraft | null;
+  /** Arrow the user clicked, so Delete knows what to remove */
+  selectedDependency: GanttDependencyRef | null;
   /** The selected row, or null - drives the highlight on the bar and on its grid row */
   selectedTaskId: string | null;
   /** Ids whose bar is animating back after a vetoed change */
@@ -106,6 +139,8 @@ export interface GanttState {
   setDragOffsets: (offsets: Record<string, GanttDragOffset>) => void;
   clearDragOffsets: (ids: string[]) => void;
   clearAllDragOffsets: () => void;
+  setLinkDraft: (draft: GanttLinkDraft | null) => void;
+  setSelectedDependency: (dependency: GanttDependencyRef | null) => void;
 
   // Computed selectors
   getCurrentDragOffset: (taskId: string) => GanttDragOffset | null;
@@ -134,6 +169,8 @@ export function createGanttStore(
     localeOptions: undefined,
     history: EMPTY_HISTORY,
     historyLimit: DEFAULT_HISTORY_LIMIT,
+    linkDraft: null,
+    selectedDependency: null,
     selectedTaskId: null,
     revertingIds: [],
     mutationGate: createMutationGate(),
@@ -141,6 +178,16 @@ export function createGanttStore(
     setCurrentTask: (task) => set({ currentTask: task }),
 
     setExportMode: (exportMode) => set({ exportMode }),
+
+    setLinkDraft: (draft) => set({ linkDraft: draft }),
+
+    setSelectedDependency: (dependency) =>
+      set((state) =>
+        state.selectedDependency?.sourceId === dependency?.sourceId &&
+        state.selectedDependency?.targetId === dependency?.targetId
+          ? state
+          : { selectedDependency: dependency }
+      ),
 
     setLocaleOptions: (options) => set({ localeOptions: options }),
 

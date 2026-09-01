@@ -137,6 +137,23 @@ describe('undo history', () => {
     t.id === 'other' ? t : { ...t, startDate: '2026-02-01', endDate: '2026-02-01' }
   );
 
+  // The dependency gestures (drawing a link, deleting an arrow) commit the same way a
+  // drag does, so an edited `dependencies` array is one undo step like any other
+  it('undoes a dependency change committed as one gesture', () => {
+    const linked = subtree.map((t) =>
+      t.id === 'child-2'
+        ? { ...t, dependencies: [{ targetId: 'child-1', type: 'FS' as const }] }
+        : t
+    );
+
+    store.getState().setRawTasks(subtree);
+    store.getState().commitTasks(linked);
+    expect(store.getState().history.past).toHaveLength(1);
+
+    expect(store.getState().undo()).toEqual(subtree);
+    expect(store.getState().redo()).toEqual(linked);
+  });
+
   it('records nothing until a gesture happens', () => {
     store.getState().setRawTasks(subtree);
 
