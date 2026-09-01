@@ -6,6 +6,7 @@ import GanttTaskGrid from "components/GanttTaskGrid";
 import ScaleSelector from "components/ScaleSelector";
 import {
   forwardRef,
+  type ReactNode,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -37,7 +38,7 @@ import {
   GanttScheduling,
   GanttTheme,
 } from "types/gantt";
-import { Task } from "types/task";
+import { isMilestoneTask, Task, TaskTransformed } from "types/task";
 import dayjs from "core/dates";
 import {
   CALENDAR_DAYS,
@@ -180,6 +181,13 @@ export interface GanttProps {
    * `columns` renderer can show them. Tasks at 100% progress are never critical.
    */
   criticalPath?: boolean;
+  /**
+   * Replaces the default baseline bar
+   *
+   * Called only for tasks that carry `baselineStart`. Return whatever you like - the
+   * element is positioned by the row, not by the renderer.
+   */
+  renderBaseline?: (task: TaskTransformed) => ReactNode;
 }
 
 /**
@@ -227,6 +235,7 @@ function GanttChart({
   onSchedulingCycle,
   workingCalendar = false,
   criticalPath = false,
+  renderBaseline,
   forwardedRef,
 }: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
   // Store state and actions
@@ -628,6 +637,24 @@ function GanttChart({
                         alignItems: "center",
                       }}
                     >
+                      {/* Baseline snapshot - drawn by the row, so a drag slides the
+                          live bar across it instead of taking it along */}
+                      {task.baselineLeft !== undefined &&
+                        (renderBaseline?.(task) ?? (
+                          <div
+                            className={`gantt-baseline${
+                              isMilestoneTask(task) ? " milestone" : ""
+                            }`}
+                            style={{
+                              left: `${task.baselineLeft}px`,
+                              width: isMilestoneTask(task)
+                                ? undefined
+                                : `${task.baselineWidth}px`,
+                            }}
+                            aria-hidden="true"
+                          />
+                        ))}
+
                       <GanttBar
                         currentTask={task}
                         onTasksChange={onTasksChange}

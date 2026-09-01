@@ -58,10 +58,24 @@ export function transformTasks(
       selectedScale
     );
 
+    // Baseline snapshot, when the task carries one - a milestone's is a single point
+    const baseline = task.baselineStart
+      ? calculateDateOffsets(
+          dayjs(task.baselineStart),
+          isMilestoneTask(task) || !task.baselineEnd
+            ? dayjs(task.baselineStart)
+            : dayjs(task.baselineEnd),
+          timelineTicks,
+          selectedScale
+        )
+      : null;
+
     return {
       ...task,
       barLeft: barMarginLeftAmount,
       barWidth: barWidthSize,
+      baselineLeft: baseline?.barMarginLeftAmount,
+      baselineWidth: baseline?.barWidthSize,
       depth,
       isSummary,
       order,

@@ -49,6 +49,9 @@
   --gantt-critical-bg-hover: #fca5a5;
   --gantt-critical-text: #7f1d1d;
 
+  /* Baseline (planned vs actual) */
+  --gantt-baseline-bg: #a1a1aa;
+
   /* Progress */
   --gantt-progress-bg: #a1a1aa;
   --gantt-progress-handle: #52525b;
@@ -93,6 +96,9 @@
   --gantt-critical-bg-hover: #991b1b;
   --gantt-critical-text: #fee2e2;
 
+  /* Baseline (planned vs actual) */
+  --gantt-baseline-bg: #71717a;
+
   --gantt-progress-bg: #52525b;
   --gantt-progress-handle: #a1a1aa;
 
@@ -129,6 +135,9 @@
     --gantt-critical-bg: #7f1d1d;
     --gantt-critical-bg-hover: #991b1b;
     --gantt-critical-text: #fee2e2;
+
+    /* Baseline (planned vs actual) */
+    --gantt-baseline-bg: #71717a;
 
     --gantt-progress-bg: #52525b;
     --gantt-progress-handle: #a1a1aa;
@@ -737,6 +746,28 @@
 .gantt-task-bar.summary:hover::before,
 .gantt-task-bar.summary:hover::after {
   opacity: 0;
+}
+
+/* ===== BASELINE ===== */
+/* A thin snapshot bar under the live one. It belongs to the row, not to the bar, so
+   dragging slides the live bar across it and the slip is what you see. */
+.gantt-baseline {
+  position: absolute;
+  bottom: 3px;
+  height: 4px;
+  background: var(--gantt-baseline-bg);
+  border-radius: 2px;
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.gantt-baseline.milestone {
+  width: 8px;
+  height: 8px;
+  bottom: 1px;
+  margin-left: -4px;
+  border-radius: 1px;
+  transform: rotate(45deg);
 }
 
 /* ===== CRITICAL PATH ===== */

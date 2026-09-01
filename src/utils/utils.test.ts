@@ -63,6 +63,50 @@ describe('transformTasks', () => {
     expect(m.barLeft).toBe(32);
     expect(m.barWidth).toBe(1);
   });
+
+  it('leaves the baseline geometry off tasks that carry no baseline', () => {
+    const [t] = transformTasks(
+      [task('a', '1')],
+      ticks('2025-01-01', '2025-01-02', '2025-01-03'),
+      'month',
+    );
+    expect(t.baselineLeft).toBeUndefined();
+    expect(t.baselineWidth).toBeUndefined();
+  });
+
+  it('measures the baseline bar independently of the live one', () => {
+    const [t] = transformTasks(
+      [
+        {
+          ...task('a', '1', '2025-01-02', '2025-01-03'),
+          baselineStart: '2025-01-01',
+          baselineEnd: '2025-01-03',
+        },
+      ],
+      ticks('2025-01-01', '2025-01-02', '2025-01-03'),
+      'month',
+    );
+    expect(t.barLeft).toBe(32);
+    expect(t.baselineLeft).toBe(0);
+    expect(t.baselineWidth).toBe(64);
+  });
+
+  it('gives a milestone baseline a single point', () => {
+    const [t] = transformTasks(
+      [
+        {
+          ...task('m', '1', '2025-01-03', '2025-01-03'),
+          type: 'milestone' as const,
+          baselineStart: '2025-01-02',
+          baselineEnd: '2025-01-03',
+        },
+      ],
+      ticks('2025-01-01', '2025-01-02', '2025-01-03'),
+      'month',
+    );
+    expect(t.baselineLeft).toBe(32);
+    expect(t.baselineWidth).toBe(1);
+  });
 });
 
 describe('normalizeProgress', () => {
@@ -360,6 +404,24 @@ describe('computeTimelineData', () => {
     expect(bottomCells).toHaveLength(12); // 2025-01-05 .. 2025-01-16
     expect(transformedTasks[0]).toMatchObject({ barLeft: 160, barWidth: 64 }); // 5*32, 2*32
     expect(computeTimelineData([], 'month')).toEqual({ bottomCells: [], transformedTasks: [] });
+  });
+});
+
+describe('computeTimelineData with baselines', () => {
+  it('widens the timeline so a baseline outside the live bar is not clipped', () => {
+    const withBaseline = computeTimelineData(
+      [
+        {
+          ...task('a', '1', '2025-03-10', '2025-03-12'),
+          baselineStart: '2025-03-01',
+          baselineEnd: '2025-03-04',
+        },
+      ],
+      'month',
+    );
+    const first = withBaseline.bottomCells[0].startDate;
+    expect(first.valueOf()).toBeLessThanOrEqual(dayjs('2025-03-01').valueOf());
+    expect(withBaseline.transformedTasks[0].baselineLeft).toBeGreaterThanOrEqual(0);
   });
 });
 

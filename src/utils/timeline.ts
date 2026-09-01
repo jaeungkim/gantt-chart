@@ -199,11 +199,18 @@ function findDateRangeFromTasks(
   let maxTime = -Infinity;
 
   for (const task of tasks) {
-    const start = dayjs(task.startDate).valueOf();
-    const end = dayjs(task.endDate).valueOf();
+    // Baselines count too - one that sits outside the live bar would otherwise be clipped
+    const starts = [task.startDate, task.baselineStart];
+    const ends = [task.endDate, task.baselineEnd];
 
-    if (!Number.isNaN(start)) minTime = Math.min(minTime, start);
-    if (!Number.isNaN(end)) maxTime = Math.max(maxTime, end);
+    for (const value of starts) {
+      const time = value ? dayjs(value).valueOf() : NaN;
+      if (!Number.isNaN(time)) minTime = Math.min(minTime, time);
+    }
+    for (const value of ends) {
+      const time = value ? dayjs(value).valueOf() : NaN;
+      if (!Number.isNaN(time)) maxTime = Math.max(maxTime, time);
+    }
   }
 
   return {
