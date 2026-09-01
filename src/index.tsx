@@ -8,7 +8,13 @@ export { default as ReactGanttChart } from './pages/Gantt';
 export type { GanttProps } from './pages/Gantt';
 export type {
   GanttHandle,
+  GanttScrollApi,
   GanttScrollOptions,
 } from './hooks/useGanttScrollApi';
+export type { GanttExportApi } from './hooks/useGanttExportApi';
+export type {
+  GanttExportOptions,
+  GanttExportRange,
+} from './utils/pngExport';
 export type { Task, TaskDependency, DependencyType, TaskType } from './types/task';
 export type { GanttScaleKey, GanttTheme } from './types/gantt';

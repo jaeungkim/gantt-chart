@@ -30,6 +30,7 @@ Currently, this project is built specifically for React due to my development ba
 - 🌙 Light/Dark/System theme support
 - 📍 Today marker indicator
 - 💬 Drag tooltip showing date changes
+- 🖼️ Client-side PNG export of the whole chart, no extra dependency
 - 📦 Lightweight with minimal dependencies
 
 ## 📺 [Demo](https://jaeungkim.com/gantt-chart)
@@ -105,7 +106,7 @@ export default function App() {
 
 ## Imperative API
 
-Pass a ref to scroll the chart programmatically:
+Pass a ref to scroll the chart programmatically, or to export it as a PNG:
 
 ```tsx
 import { useRef } from 'react';
@@ -121,6 +122,89 @@ ref.current?.scrollToTask('task-42', { smooth: false, align: 'start' });
 ```
 
 Dates outside the rendered timeline and unknown task ids are ignored rather than throwing, so calls during data loading are safe. `scrollToTask` only moves vertically when the row is off-screen.
+
+### PNG export
+
+`exportToPng` renders the **whole** chart — every row, arrow and header cell, not only what happens
+to be on screen — and resolves with a `Blob`. Nothing is downloaded for you; what to do with the
+blob is your call.
+
+```tsx
+const blob = await ref.current!.exportToPng();
+
+// Save it
+const url = URL.createObjectURL(blob);
+const link = document.createElement('a');
+link.href = url;
+link.download = 'gantt.png';
+link.click();
+URL.revokeObjectURL(url);
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `pixelRatio` | `number` | `2` | Output density. Reduced automatically when the canvas would exceed the browser's limits. |
+| `background` | `string` | resolved theme background | Any CSS colour. The default is what keeps a dark-theme export dark instead of transparent. |
+| `range` | `{ from, to }` | whole timeline | Clips the export horizontally. Dates outside the timeline are clamped to its edges. |
+
+```tsx
+const q3 = await ref.current!.exportToPng({
+  range: { from: '2026-07-01', to: '2026-09-30' },
+  pixelRatio: 3,
+  background: '#ffffff',
+});
+```
+
+The promise rejects with a readable `Error` when no chart is mounted, when the chart has no timeline
+yet, when the requested range misses the timeline entirely, or when the canvas comes back tainted.
+
+#### PDF
+
+There is no PDF export and no PDF dependency here — a PNG is a few lines away from a PDF with
+[jsPDF](https://github.com/parallax/jsPDF), which many apps already ship:
+
+```ts
+import { jsPDF } from 'jspdf';
+
+const blob = await ref.current!.exportToPng();
+const { width, height } = await createImageBitmap(blob);
+const dataUrl = await new Promise<string>((resolve) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result as string);
+  reader.readAsDataURL(blob);
+});
+
+const pdf = new jsPDF({
+  orientation: width > height ? 'landscape' : 'portrait',
+  unit: 'px',
+  format: [width, height],
+});
+pdf.addImage(dataUrl, 'PNG', 0, 0, width, height);
+pdf.save('gantt.pdf');
+```
+
+#### How it works, and what it cannot do
+
+The chart is DOM, not canvas. The export clones the chart's subtree, inlines the computed styles it
+actually uses, hands the clone to the browser through `<svg><foreignObject>`, and draws the result
+into a `<canvas>`. No extra dependency, nothing fetched over the network. The trade-offs are real
+and worth knowing:
+
+- **Virtualization is switched off for the capture.** For a handful of frames the chart renders every
+  row and header cell, so a very large chart costs noticeably more memory while the export runs.
+  Scroll position and the live DOM are restored afterwards, including when the capture throws.
+- **CSS pseudo-elements are not captured.** Nothing visible in a resting chart uses them (the bar's
+  resize grips only fade in on hover), but a custom stylesheet drawing with `::before`/`::after`
+  will lose that decoration.
+- **Only fonts already available to the browser render.** `foreignObject` rasterization cannot fetch
+  a webfont, so overriding `--gantt-font-sans` with a downloaded font falls back to a system font in
+  the export. The bundled stylesheet loads no remote fonts, which is also what keeps the canvas
+  untainted.
+- **Very large charts are downscaled, not cropped.** A canvas is capped at roughly 16384px per side;
+  `pixelRatio` is lowered to fit. Use `range` for a full-density export of one slice.
+- **Chromium is what this is verified on.** `foreignObject` rasterization is the least uniform corner
+  of the platform — Safari has a history of tainting the canvas for SVG images, in which case the
+  promise rejects with a clear error rather than handing back a broken PNG.
 
 ## Task Format
 
@@ -208,7 +292,7 @@ The stylesheet loads no remote fonts; it uses the system font stack unless you o
 - [ ] Right sidebar for task details
 - [ ] Collapsible parent-child rows
 - [ ] Inline editing for task names
-- [ ] Export to PNG/SVG
+- [x] Export to PNG ([`exportToPng`](#png-export)) — SVG still open
 - [ ] Custom bar colors
 
 ## 🤝 Contributing
