@@ -2,10 +2,10 @@
 import './assets/styles/gantt.css';
 
 // Main component
-export { default as ReactGanttChart } from './pages/Gantt';
+export { default as ReactGanttChart } from './components/Gantt/Gantt';
 
 // Type exports
-export type { GanttProps } from './pages/Gantt';
+export type { GanttProps } from './components/Gantt/GanttProps';
 export type {
   GanttHandle,
   GanttScrollApi,
