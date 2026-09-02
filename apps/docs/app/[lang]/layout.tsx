@@ -1,6 +1,7 @@
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import type { ReactNode } from 'react';
 import { provider } from '@/lib/i18n';
+import { Analytics } from '@vercel/analytics/next';
 
 export default async function LangLayout({
   params,
@@ -15,6 +16,7 @@ export default async function LangLayout({
     <html lang={lang} suppressHydrationWarning>
       <body className="flex min-h-screen flex-col">
         <RootProvider i18n={provider(lang)}>{children}</RootProvider>
+        <Analytics />
       </body>
     </html>
   );
