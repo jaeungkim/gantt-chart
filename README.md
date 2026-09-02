@@ -1,3 +1,5 @@
+[![Banner](https://raw.githubusercontent.com/jaeungkim/gantt-chart/main/public/banner.png)](https://gantt.jaeungkim.com)
+
 # @jaeungkim/gantt-chart
 
 [![npm version](https://img.shields.io/npm/v/@jaeungkim/gantt-chart)](https://www.npmjs.com/package/@jaeungkim/gantt-chart)
@@ -7,8 +9,6 @@
 React Gantt chart with editable bars, dependency arrows, and a headless scheduling core.
 
 **[Quick start](https://gantt.jaeungkim.com/docs/quick-start)** · **[Documentation](https://gantt.jaeungkim.com/docs)** · **[한국어 문서](https://gantt.jaeungkim.com/ko/docs)**
-
-![Gantt chart preview](./public/readmeImg.png)
 
 `@jaeungkim/gantt-chart` ships a ready-to-use React component and the React-free scheduling
 helpers behind it. Use `ReactGanttChart` when you want a production UI out of the box. Use the
