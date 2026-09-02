@@ -15,8 +15,8 @@ description: "React와 DOM 없이 일정 계산하기"
 grep하면 import도 전역도 하나도 안 나와요. 산문 주석 두 군데가 전부예요.
 
 이 경계는 관례가 아니에요. `src/core/**/*.{ts,tsx}`에 걸린 eslint 블록이 `react`, `react-dom`,
-`zustand`, `@tanstack/*`, 그리고 `components/`, `hooks/`, `pages/`, `stores/`, `constants/`,
-`types/`, `utils/`, `assets/` 경로 그룹의 import를 막아요. 두 번째 규칙은 `window`, `document`,
+`zustand`, `@tanstack/*`, 그리고 `components/`, `hooks/`, `stores/`, `constants/`,
+`types/`, `utils/` 경로 그룹의 import를 막아요. 두 번째 규칙은 `window`, `document`,
 `navigator`, `localStorage`, `sessionStorage`, `requestAnimationFrame` 전역을 금지해요. 규칙에
 달린 메시지는 "src/core must stay free of React, the DOM and pixel math - keep render-side code in
 src/utils or src/components"예요.
@@ -29,7 +29,7 @@ import { scheduleTasks, computeCriticalPath, type Task } from '@jaeungkim/gantt-
 
 > [!IMPORTANT]
 > `@jaeungkim/gantt-chart/core` 같은 서브패스는 없어요. `package.json`이 선언하는 건 `.`,
-> `./style.css`, `./package.json` 셋뿐이에요. 번들 하나는 `src/index.tsx`에서 빌드되고, 거기에
+> `./style.css`, `./package.json` 셋뿐이에요. 번들 하나는 `src/index.ts`에서 빌드되고, 거기에
 > React 컴포넌트가 딸려 들어와요. `react`, `react-dom`, `react/jsx-runtime`은 빌드 시점에
 > external로 표시돼요. 그래서 `scheduleTasks`만 import하는 Node 스크립트도 peer dependency
 > (`react`와 `react-dom`, `^18.0.0 || ^19.0.0`)가 설치돼 있고 해석돼야 해요. 소스는 헤드리스예요.

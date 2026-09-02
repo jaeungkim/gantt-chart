@@ -6,7 +6,7 @@ Thanks for helping out. This is a one-person hobby project, so small, focused pu
 
 ```bash
 pnpm install   # pnpm 10 is pinned via "packageManager"; use pnpm, not npm/yarn
-pnpm dev       # Vite playground on :5173 (runs the workspace package in playground/)
+pnpm dev       # Vite playground on :5173 (runs the workspace package in apps/playground/)
 pnpm docs      # the documentation site on :3000 (apps/docs)
 ```
 
@@ -14,8 +14,8 @@ This is a pnpm workspace with three members:
 
 | Path | What it is |
 |---|---|
-| `.` (repo root) | the published library, `@jaeungkim/gantt-chart`. Entry `src/index.tsx`; everything it imports ships. |
-| `playground/` | the dev harness. Private, never published. |
+| `.` (repo root) | the published library, `@jaeungkim/gantt-chart`. Entry `src/index.ts`; everything it imports ships. |
+| `apps/playground/` | the dev harness. Private, never published. |
 | `apps/docs/` | the documentation site at <https://gantt.jaeungkim.com>. Private, never published. |
 
 `apps/docs` consumes the library through `workspace:*`, which resolves to `dist/`, so run
@@ -25,7 +25,7 @@ The playground imports the library by its published name, `@jaeungkim/gantt-char
 way a consumer does. In dev that name is aliased to `src/` so edits hot-reload without a build.
 
 Every switch in the playground's dev console (the gear button bottom-left) is one row in the
-`CONTROLS` array in `playground/src/App.tsx` - add a row, not another block of JSX. Settings
+`CONTROLS` array in `apps/playground/src/App.tsx` - add a row, not another block of JSX. Settings
 mirror into the query string, so a scenario is a shareable link (`?criticalPath=1&policy=shift-on-overlap`).
 
 ## Before you open a PR

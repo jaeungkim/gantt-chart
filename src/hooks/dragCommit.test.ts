@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CALENDAR_DAYS, type Task } from 'core';
+import { CALENDAR_DAYS, type Task } from '../core';
 import dayjs from 'core/dates';
 import type { GanttScheduling } from 'types/gantt';
 import { buildTaskChange } from 'utils/mutation';

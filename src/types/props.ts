@@ -18,7 +18,7 @@ import {
   GanttTooltipRenderer,
 } from "types/gantt";
 import { Task, TaskTransformed } from "types/task";
-import { type SchedulingPolicy } from "core";
+import { type SchedulingPolicy } from "../core";
 
 export interface GanttProps {
   /**

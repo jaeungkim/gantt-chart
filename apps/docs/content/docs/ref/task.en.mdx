@@ -214,7 +214,7 @@ absent even with `criticalPath` on. Slack and criticality: [Scheduling](../sched
 ## Notes
 
 `isMilestoneTask` and `normalizeProgress` are **not exported from the package root**. They exist in
-the source and are re-exported by `src/types/task.ts`, but `src/index.tsx` does not list them, so
+the source and are re-exported by `src/types/task.ts`, but `src/index.ts` does not list them, so
 `import { isMilestoneTask } from '@jaeungkim/gantt-chart'` fails. Write `task.type === 'milestone'`
 and `Math.min(100, Math.max(0, progress))` in the host app instead. `RenderedDependency` is not
 exported either.

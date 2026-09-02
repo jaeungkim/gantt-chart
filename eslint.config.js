@@ -66,7 +66,7 @@ export default tseslint.config(
   {
     // The package barrel deliberately re-exports the headless core's functions alongside
     // the component, so the fast-refresh "components only" rule does not apply to it.
-    files: ["src/index.tsx"],
+    files: ["src/index.ts"],
     rules: { "react-refresh/only-export-components": "off" },
   },
   {
@@ -101,11 +101,11 @@ export default tseslint.config(
                 "constants/*",
                 "types/*",
                 "utils/*",
-                "assets/*",
                 "**/components/*",
                 "**/hooks/*",
                 "**/stores/*",
                 "**/constants/*",
+                "**/types/*",
                 "**/utils/*",
               ],
               message:

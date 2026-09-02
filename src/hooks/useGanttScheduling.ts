@@ -8,7 +8,7 @@ import {
   createWorkingCalendar,
   type CriticalPathResult,
   type SchedulingPolicy,
-} from "core";
+} from "../core";
 
 interface UseGanttSchedulingParams {
   rawTasks: Task[];

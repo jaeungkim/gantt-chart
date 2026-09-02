@@ -1,5 +1,5 @@
 import { MILESTONE_HALF_DIAGONAL, NODE_HEIGHT } from "constants/gantt";
-import { linkKey } from "core";
+import { linkKey } from "../core";
 import {
   isMilestoneTask,
   RenderedDependency,

@@ -16,7 +16,7 @@ export default defineConfig({
   build: {
     copyPublicDir: false, // public/ holds README artwork only; keep it out of dist/ and the npm tarball
     lib: {
-      entry: 'src/index.tsx',
+      entry: 'src/index.ts',
       name: '@jaeungkim/gantt-chart',
       fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
       formats: ['es', 'cjs'],

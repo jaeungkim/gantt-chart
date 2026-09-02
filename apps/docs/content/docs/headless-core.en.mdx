@@ -15,8 +15,8 @@ the `utc` plugin. A grep over the directory for `react`, `window`, `document`, `
 `navigator` and `requestAnimationFrame` finds no import and no global — only two prose comments.
 
 The boundary is not a convention. An eslint block scoped to `src/core/**/*.{ts,tsx}` forbids
-importing `react`, `react-dom`, `zustand`, `@tanstack/*`, and the `components/`, `hooks/`, `pages/`,
-`stores/`, `constants/`, `types/`, `utils/` and `assets/` path groups. A second rule bans the globals
+importing `react`, `react-dom`, `zustand`, `@tanstack/*`, and the `components/`, `hooks/`,
+`stores/`, `constants/`, `types/` and `utils/` path groups. A second rule bans the globals
 `window`, `document`, `navigator`, `localStorage`, `sessionStorage` and `requestAnimationFrame`. The
 rule's own message is "src/core must stay free of React, the DOM and pixel math - keep render-side
 code in src/utils or src/components".
@@ -29,7 +29,7 @@ import { scheduleTasks, computeCriticalPath, type Task } from '@jaeungkim/gantt-
 
 > [!IMPORTANT]
 > There is no `@jaeungkim/gantt-chart/core` subpath. `package.json` declares `.`, `./style.css` and
-> `./package.json`, and nothing else. The single bundle is built from `src/index.tsx`, which pulls in
+> `./package.json`, and nothing else. The single bundle is built from `src/index.ts`, which pulls in
 > the React component. `react`, `react-dom` and `react/jsx-runtime` are marked external at build
 > time, so a Node script that imports `scheduleTasks` still needs the peer dependencies (`react` and
 > `react-dom`, `^18.0.0 || ^19.0.0`) installed and resolvable. The source is headless. The published

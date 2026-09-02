@@ -23,7 +23,7 @@ import {
   TaskTransformed,
 } from "types/task";
 import dayjs from "core/dates";
-import { scheduleTasks } from "core";
+import { scheduleTasks } from "../core";
 import {
   buildTaskChange,
   mutationKey,
