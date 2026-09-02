@@ -26,7 +26,7 @@ interface GanttTaskGridProps {
   totalHeight: number;
   width: number;
   hierarchy: boolean;
-  collapsedIds: Set<string>;
+  collapsedIds: ReadonlySet<string>;
   onToggleCollapse: (rowId: string) => void;
   /** Which cell currently holds the chart's single tab stop */
   focus: GanttFocus;

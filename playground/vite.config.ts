@@ -6,7 +6,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 const resolve = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
 export default defineConfig({
-  // tsconfigPaths resolves the library's own bare imports (`pages/Gantt`, `core`, ...),
+  // tsconfigPaths resolves the library's own bare imports (`components/Gantt/Gantt`, `core`, ...),
   // which come from `baseUrl: "src"` in the root tsconfig.
   plugins: [react(), tsconfigPaths({ projects: [resolve('../tsconfig.json')] })],
   resolve: {
