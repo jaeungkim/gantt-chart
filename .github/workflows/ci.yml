@@ -31,8 +31,8 @@ jobs:
       - run: pnpm build
       # SSR safety: importing and server-rendering the built package in plain Node
       # (no DOM globals) must not touch window/document/sessionStorage.
-      # forwardRef/memo 컴포넌트는 함수가 아니라 객체다 - 존재 여부만 확인하고
-      # 실제 동작은 아래 renderToString이 검증한다
+      # A forwardRef/memo component is an object, not a function, so the first two steps
+      # only assert the export exists; the renderToString step below proves it works.
       - name: SSR import smoke test
         run: |
           node --input-type=module -e "const m = await import('@jaeungkim/gantt-chart'); if (!m.ReactGanttChart) throw new Error('missing ReactGanttChart export'); console.log('SSR import OK (esm)');"
