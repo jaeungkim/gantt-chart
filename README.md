@@ -7,7 +7,7 @@
 A Gantt chart for React: virtualized rows, editable bars, dependency arrows, and a scheduling
 engine that runs without a DOM.
 
-**[Live demo](https://jaeungkim.com/gantt-chart)** · **[Documentation](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/README.md)** · **[한국어 문서](https://github.com/jaeungkim/gantt-chart/blob/main/docs/ko/README.md)**
+**[Live demo](https://jaeungkim.com/gantt-chart)** · **[Documentation](https://gantt.jaeungkim.com/docs)** · **[한국어 문서](https://gantt.jaeungkim.com/ko/docs)**
 
 ## Motivation
 
@@ -68,7 +68,7 @@ export default function App() {
 The chart never stores your data. Every committed gesture ends in one `onTasksChange` call with a
 new array, and it is up to you to keep it.
 
-Full walkthrough: **[Quick start](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/quick-start.md)**.
+Full walkthrough: **[Quick start](https://gantt.jaeungkim.com/docs/quick-start)**.
 
 ## What it does
 
@@ -90,22 +90,22 @@ progress from the keyboard.
 theme prop, per-task colors, and four render props for replacing elements outright.
 
 Each of these, and the honest list of what the library does **not** do, is in
-**[Introduction](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/introduction.md)**.
+**[Introduction](https://gantt.jaeungkim.com/docs/introduction)**.
 
 ## Documentation
 
 | Page | |
 |---|---|
-| [Quick start](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/quick-start.md) | install to a working, editable chart |
-| [Task data](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/task-data.md) | the `Task` shape and how the `tasks` prop is compared |
-| [Editing tasks](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/editing.md) | gestures, permissions, touch |
-| [Dependencies](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/dependencies.md) | the four link types and lag |
-| [Scheduling](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/scheduling.md) | policies, working calendar, critical path, baselines |
-| [Keyboard and screen readers](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/accessibility.md) | the key map, the ARIA tree, and the gaps |
-| [Theming](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/theming.md) | the CSS custom properties |
-| [Props](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/ref/props.md) | every prop, in one table |
+| [Quick start](https://gantt.jaeungkim.com/docs/quick-start) | install to a working, editable chart |
+| [Task data](https://gantt.jaeungkim.com/docs/task-data) | the `Task` shape and how the `tasks` prop is compared |
+| [Editing tasks](https://gantt.jaeungkim.com/docs/editing) | gestures, permissions, touch |
+| [Dependencies](https://gantt.jaeungkim.com/docs/dependencies) | the four link types and lag |
+| [Scheduling](https://gantt.jaeungkim.com/docs/scheduling) | policies, working calendar, critical path, baselines |
+| [Keyboard and screen readers](https://gantt.jaeungkim.com/docs/accessibility) | the key map, the ARIA tree, and the gaps |
+| [Theming](https://gantt.jaeungkim.com/docs/theming) | the CSS custom properties |
+| [Props](https://gantt.jaeungkim.com/docs/ref/props) | every prop, in one table |
 
-All 35 pages: **[English](https://github.com/jaeungkim/gantt-chart/blob/main/docs/en/README.md)** · **[한국어](https://github.com/jaeungkim/gantt-chart/blob/main/docs/ko/README.md)**
+All 35 pages: **[English](https://gantt.jaeungkim.com/docs)** · **[한국어](https://gantt.jaeungkim.com/ko/docs)**
 
 ## Contributing
 

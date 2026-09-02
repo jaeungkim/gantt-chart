@@ -1,0 +1,354 @@
+---
+title: "작업 목록과 계층"
+description: "왼쪽 패널, 컬럼, `parentId` 트리"
+---
+
+막대는 무언가가 언제 일어나는지만 알려줘요. 그게 무엇인지는 알려주지 않고요. 작업 목록은 왼쪽에
+있는 창이에요. 모든 행 옆에 이름을, 그리고 지정한 다른 필드를 함께 놓아요. `parentId`가 눈에 보이는
+곳도 여기예요. `hierarchy`를 켜면 자식이 있는 작업은 요약 행으로 그려지고, 그 날짜는 자기 레코드가
+아니라 자식들에게서 와요.
+
+<GanttDemo preset="hierarchy" />
+
+## 창 켜기
+
+창은 기본적으로 꺼져 있어요. `showTaskList`가 창을 켜요. `showTaskList`를 생략하면 `columns`를
+넘기는 것만으로 창이 켜져요.
+
+| `showTaskList` | `columns` | 창 | 사용되는 열 |
+|---|---|---|---|
+| 생략 | 생략 | 숨김 | — |
+| 생략 | 지정 | 표시 | 지정한 열 |
+| `true` | 생략 | 표시 | 기본 열 세 개 |
+| `true` | 지정 | 표시 | 지정한 열 |
+| `false` | 생략 | 숨김 | — |
+| `false` | 지정 | 숨김 | — |
+
+명시적인 `false`가 `columns`보다 우선해요. 같은 플래그가 툴바의 접기 버튼이 아예 존재하는지까지
+결정해요.
+
+```tsx
+// ProjectChart.tsx
+import { ReactGanttChart } from '@jaeungkim/gantt-chart';
+import type { Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const tasks: Task[] = [
+  { id: 'p1', name: 'Phase 1', parentId: null, sequence: '1',
+    startDate: '2025-03-03', endDate: '2025-03-28' },
+  { id: 't1', name: 'Design', parentId: 'p1', sequence: '1.1',
+    startDate: '2025-03-03', endDate: '2025-03-12', progress: 100 },
+  { id: 't2', name: 'Build', parentId: 'p1', sequence: '1.2',
+    startDate: '2025-03-12', endDate: '2025-03-28', progress: 40 },
+];
+
+export function ProjectChart() {
+  return <ReactGanttChart tasks={tasks} showTaskList height={420} />;
+}
+```
+
+## 기본 열
+
+창을 켜고 `columns`를 주지 않으면 열 세 개가 렌더링돼요.
+
+| # | `key` | 헤더 | 너비 | 셀 |
+|---|---|---|---:|---|
+| 0 | `name` | `Name` | 220 | `task.name` |
+| 1 | `startDate` | `Start` | 110 | `YYYY-MM-DD`로 포맷한 `startDate` |
+| 2 | `endDate` | `End` | 110 | `YYYY-MM-DD`로 포맷한 `endDate` |
+
+세 너비를 더하면 440이고, 이 값이 창의 시작 너비예요.
+
+그 날짜 형식은 두 기본 렌더러 안에 문자열로 박혀 있어요. `locale` prop은 여기까지 닿지 않아요.
+`locale`이 실제로 바꾸는 것은 [로케일과 날짜 형식](i18n)을 보세요. 날짜를 다른 방식으로
+보여주려면 열을 교체하세요.
+
+## 직접 열 정의하기
+
+`columns`는 기본 열을 통째로 대체해요. 병합은 없고, 셋 중 하나만 덮어쓰고 나머지를 유지하는 방법도
+없어요.
+
+각 항목은 `GanttColumn`이에요. `key`, `header` 노드, 픽셀 단위의 선택적 `width`(기본값 120),
+그리고 선택적 `render`로 이뤄져요. 전체 타입은 [GanttColumn](ref/columns)에 있어요.
+
+`render`가 없으면 셀은 `task[key]`를 보여줘요. 조회는 넘긴 `Task`가 아니라 변환된 행에서 일어나요.
+그래서 파생 필드도 렌더러 없이 키로 쓸 수 있어요. `depth`, `order`, `originalOrder`, `isSummary`,
+`barLeft`, `barWidth`가 그런 필드예요. 임계 경로(critical path) 필드인 `earlyStart`,
+`earlyFinish`, `lateStart`, `lateFinish`, `totalSlack`, `freeSlack`, `critical`, `duration`은
+`criticalPath`가 켜져 있을 때만 존재해요. 자세한 내용은 [스케줄링](scheduling)에서 다뤄요.
+
+`null`과 `undefined`는 둘 다 빈 문자열로 렌더링돼요. 나머지 값은 모두 `String()`을 거쳐요. 그래서
+`false`는 `false`로, `0`은 `0`으로, 객체는 `[object Object]`로 찍혀요.
+
+`key`는 헤더 셀과 각 본문 셀의 React key이기도 해요. 두 열이 같은 `key`를 쓰면 중복 키 경고가 나요.
+
+```tsx
+// taskListColumns.tsx
+import type { GanttColumn, TaskTransformed } from '@jaeungkim/gantt-chart';
+
+const dueFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
+
+function renderProgress(task: TaskTransformed) {
+  const percent = Math.min(100, Math.max(0, task.progress ?? 0));
+
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span
+        style={{
+          flex: '0 0 48px',
+          height: 6,
+          borderRadius: 3,
+          background: '#e5e7eb',
+        }}
+      >
+        <span
+          style={{
+            display: 'block',
+            width: `${percent}%`,
+            height: '100%',
+            borderRadius: 3,
+            background: '#2563eb',
+          }}
+        />
+      </span>
+      <span>{percent}%</span>
+    </span>
+  );
+}
+
+export const columns: GanttColumn[] = [
+  { key: 'name', header: 'Task', width: 240 },
+  { key: 'progress', header: 'Done', width: 140, render: renderProgress },
+  {
+    key: 'endDate',
+    header: 'Due',
+    width: 120,
+    render: (task) => dueFormat.format(new Date(task.endDate)),
+  },
+];
+```
+
+## 트리 열
+
+열 인덱스 0이 트리 열이고, 트리 열은 이것 하나뿐이에요. 네 가지가 여기에만 붙고 다른 곳에는 붙지
+않아요.
+
+- `depth * 16` 픽셀만큼의 들여쓰기 여백;
+- 펼칠 수 있는 행에 붙는 확장 버튼, 또는 나머지 모든 행에 붙는 20px 여백;
+- 한 행이 작업을 여러 개 담을 때 나머지 개수를 세는 `+N` 배지. 레인에서 생기는 일이에요.
+  [그룹과 스윔레인](grouping)을 보세요;
+- `task.name`을 담은 네이티브 `title` 툴팁. 렌더러가 셀에 무엇을 넣었든 상관없어요.
+
+너비도 여기서는 다르게 동작해요. 열 0은 `flex: 1 1 <width>px`에 60px 하한으로 배치돼요. 그래서
+스플리터가 더하거나 빼는 만큼을 열 0이 흡수해요. 그 뒤의 모든 열은 `flex: 0 0 <width>px`이고 절대
+늘거나 줄지 않아요. 창을 열 너비의 합보다 넓히면 결국 첫 번째 열만 넓어져요.
+
+그룹 헤더 행은 `columns`를 완전히 무시하고 전체 너비 셀 하나를 렌더링해요.
+[그룹과 스윔레인](grouping)을 보세요.
+
+## 창 크기 조절과 접기
+
+| 컨트롤 | 동작 |
+|---|---|
+| 스플리터 드래그 | 120–800px로 제한, 누른 순간의 너비에 그 뒤 포인터 이동량을 더한 값 |
+| 스플리터 키보드 | `ArrowLeft` / `ArrowRight`로 16px씩, 같은 범위 제한 |
+| 스플리터 시맨틱 | `role="separator"`, `aria-orientation="vertical"`, 레이블 `Resize task list` |
+| 툴바 버튼 | 창을 접고 펴요. `aria-expanded`가 상태를 반영해요 |
+
+스플리터는 일부러 treegrid 바깥에 놓여 있어요. 그래서 그리드는 탭 정지점을 정확히 하나만 갖고,
+스플리터가 별도의 두 번째 정지점이 돼요. 스플리터는 창이 보이는 동안에만 렌더링돼요. 창을 접으면
+핸들도 함께 사라져요.
+
+창 너비와 접힘 상태는 컴포넌트 로컬 상태예요. 둘 중 어느 쪽에도 초기값을 주는 prop이 없고, 값이
+바뀔 때 콜백도 없어요. 리마운트하면 둘 다 살아남지 않아요.
+
+## parentId로 정해지는 깊이
+
+`hierarchy`는 기본값이 `false`예요. 꺼져 있으면 `parentId`는 렌더링에 아무 영향이 없어요. 눈에
+보이는 들여쓰기는 `sequence`의 점 개수에서 나와요.
+
+| | `hierarchy: false` | `hierarchy: true` |
+|---|---|---|
+| 행 순서 | `sequence` | `sequence` — 그대로 |
+| 행 깊이 | `sequence`의 점 개수 | `parentId` 체인을 거슬러 올라간 단계 수 |
+| `isSummary` | 항상 아님 | 자식이 하나 이상인 작업 |
+| 요약 날짜 | 원래 값 그대로 렌더링 | 자식에서 재계산 |
+| 작업 행 접기 | 확장 버튼 없음, 작업 id에 `collapsedIds` 무효 | 동작함 |
+
+행 순서는 두 모드 모두 `sequence`에서 와요. `parentId`는 행을 옮기지 않아요. `sequence`가 어떻게
+정렬되는지는 [작업 데이터](task-data)를 보세요.
+
+## 요약 행의 날짜는 무엇인가
+
+요약의 `startDate`는 자식들 중 가장 이른 `startDate`예요. `endDate`는 그중 가장 늦은 `endDate`고요.
+다만 마일스톤 자식은 양쪽 끝에 모두 자기 `startDate`를 기여해요. 데이터에 있던 부모 자신의 날짜는
+매 렌더마다 조용히 버려져요.
+
+롤업은 가장 깊은 곳부터 실행돼요. 그래서 손자의 이동이 부모를 거쳐 조부모까지 올라가요. 또
+타임라인이 범위를 맞추기 전에, 그리고 그룹핑 전에 실행돼요. 그래서 부모가 밝힌 날짜를 넘어가는
+자식도 타임라인을 넓혀요.
+
+재계산된 값은 완전한 UTC ISO 문자열로 다시 직렬화돼요. `2025-03-04`로 들어온 부모는
+`2025-03-04T00:00:00.000Z`로 돌아와요. `render` 콜백이 렌더링된 날짜를 원본 문자열과 비교한다면 이
+점이 문제가 돼요.
+
+자식이 전부 파싱할 수 없는 날짜를 가진 부모는 자기 날짜를 유지하고, 오류도 나지 않아요.
+
+## 요약 행의 진행률은 무엇인가
+
+부모에 `progress`가 명시돼 있으면 그대로 둬요. 값이 없을 때만 자식들의 기간 가중 평균으로 롤업해요.
+
+| 규칙 | 값 |
+|---|---|
+| 자식 하나의 가중치 | 밀리초 단위 `endDate − startDate`, 최소 0 |
+| `progress`가 없거나 유효하지 않은 자식 | 0%로 계산하되, "보고함"으로는 세지 않음 |
+| 진행률을 보고한 자식이 하나도 없음 | 요약에도 진행률이 없음 |
+| 모든 자식의 기간이 0 | 자식 개수로 나눈 단순 평균 |
+| 0–100 밖의 자식 진행률 | 가중치를 매기기 전에 제한 |
+| 결과 | 정수 퍼센트로 반올림 |
+
+100%인 10일과 0%인 30일을 합치면 25로 롤업돼요.
+
+알아둘 만한 비대칭이 하나 있어요. 마일스톤 자식은 기간에 `startDate`만 기여해요. 그런데 진행률
+가중치로는 원래 `endDate`가 그대로 쓰여요. 먼 미래의 `endDate`가 남은 마일스톤은 평균을
+삼켜버려요. 기간 자체는 여전히 정확하고요.
+
+## 요약 행이 할 수 없는 것
+
+요약 행에서는 크기 조절과 진행률 드래그가 꺼져 있어요. 둘 다 조건 없이 꺼져요. 작업별
+`allowResize: true`나 `allowProgressChange: true`로도 다시 켤 수 없어요. 요약 가드가
+[작업 편집](editing)에서 설명하는 작업별 우선순위 체인 바깥에 있기 때문이에요. 이유는 요약의
+날짜가 다음 렌더에서 자식들로부터 재계산된다는 데 있어요. 편집한 값은 버려져요.
+
+진행률 채우기는 여전히 그려져요. 드래그 핸들만 사라져요.
+
+이동은 영향을 받지 않아요. 요약 막대를 드래그하면 그 하위 트리 전체가 같은 델타만큼 움직여요. 범위는
+구성원 각자의 드래그 가능 구간의 교집합으로 제한돼요. [작업 편집](editing)을 보세요. 스케줄러도
+`hierarchy`가 켜져 있는 동안 요약 행을 고정해요. [스케줄링](scheduling)을 보세요.
+
+요약 행은 그리드 행과 막대 양쪽에 `summary` 클래스를 달아요. 접근성 이름에는 작업 이름과 날짜 범위
+사이에 `summary`라는 단어가 들어가요.
+
+## 행 접기
+
+접힘 상태는 id 목록 하나예요. 제어 모드와 비제어 모드 둘 다 있어요.
+
+| Prop | 모드 | 규칙 |
+|---|---|---|
+| `collapsedIds` | 제어 | 여기 넘긴 배열이 차트가 보여주는 상태이고, 내부 상태는 갱신을 멈춰요 |
+| `defaultCollapsedIds` | 비제어 | 초기 상태에서 한 번만 읽고, 이후 변경은 무시해요 |
+| `onCollapsedChange` | 둘 다 | 토글할 때마다 다음 배열 전체와 함께 실행돼요 |
+
+모드를 가르는 것은 `collapsedIds !== undefined`예요. `null`은 이 prop의 타입에 없고, 기능을 끄는
+수단도 아니에요. 창은 그림을 그릴 때 내부 목록으로 되돌아가지만, 거기에 쓰기를 멈춰요. 그래서
+`onCollapsedChange`는 계속 실행되는데 모든 확장 버튼은 얼어붙어요. 두 prop을 함께 넘기면
+`collapsedIds`가 이기고, `defaultCollapsedIds`는 아무도 읽지 않는 상태만 채워요.
+
+`onCollapsedChange`는 제어 모드와 비제어 모드에서 똑같이 실행돼요. 토글할 때, 오직 토글할 때만요.
+마운트 시점에는 절대 실행되지 않고, `defaultCollapsedIds` 때문에 실행되지도 않아요. 페이로드는 항상
+다음 배열 전체이고 델타가 아니에요. 새로 접힌 id는 끝에 추가되고, 펼친 id는 걸러져요.
+
+> [!WARNING]
+> 제어 모드에서 차트는 스스로 아무것도 접지 않아요. 새로운 `collapsedIds` 배열을 기다려요.
+> `onCollapsedChange`를 처리하지 않고 `collapsedIds`만 넘기면 모든 확장 버튼이 고장 난 것처럼
+> 보여요.
+
+접힌 행은 화면에 남고, 그 자손들이 사라져요. 자식이 없는 id를 접으면 조용히 아무 일도 일어나지
+않고, 그 id는 목록에 그대로 남아요.
+
+토글은 트리 열의 확장 버튼에서 오거나, 첫 셀에서 누른 `ArrowRight` / `ArrowLeft`와 행 어디서든 누른
+`Enter` / `Space`에서 와요. [키보드와 스크린 리더](accessibility)를 보세요.
+
+같은 목록은 그룹 헤더 id도 담아요. 그룹 헤더 id는 문자열 `group:` 뒤에 원본 그룹 키를 붙인
+형태예요. 이 내용은 [그룹과 스윔레인](grouping)이 담당해요. 한 레인에 작업 여러 개를 담은 행은
+`a+b`라는 id를 갖는데, 어떤 작업과도 일치하지 않아요. 그 행에 확장 버튼이 붙을지는 첫 번째 작업
+하나만으로 결정돼요. 그래서 레인을 공유하는 요약은 아무것도 숨기지 못하는 토글을 갖게 돼요.
+
+```tsx
+// ProjectChart.tsx
+import { useState } from 'react';
+import { ReactGanttChart } from '@jaeungkim/gantt-chart';
+import type { Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+import { columns } from './taskListColumns';
+
+const tasks: Task[] = [
+  { id: 'p1', name: 'Phase 1', parentId: null, sequence: '1',
+    startDate: '2025-03-03', endDate: '2025-03-28' },
+  { id: 't1', name: 'Design', parentId: 'p1', sequence: '1.1',
+    startDate: '2025-03-03', endDate: '2025-03-12', progress: 100 },
+  { id: 't2', name: 'Build', parentId: 'p1', sequence: '1.2',
+    startDate: '2025-03-12', endDate: '2025-03-28', progress: 40 },
+];
+
+export function ProjectChart() {
+  const [collapsedIds, setCollapsedIds] = useState<string[]>(['p1']);
+
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      columns={columns}
+      hierarchy
+      collapsedIds={collapsedIds}
+      onCollapsedChange={setCollapsedIds}
+      height={420}
+    />
+  );
+}
+```
+
+## 예외 상황
+
+**배열에 없는 작업을 가리키는 `parentId`.** 연결이 끊기고 그 작업은 루트로 렌더링돼요. 로그도 남지
+않고, 부모 행이 새로 만들어지지도 않아요.
+
+**자기 자신을 가리키는 참조, 또는 `parentId: ''`.** 둘 다 루트예요. 빈 문자열이 루트인 이유는 검사가
+null 검사가 아니라 falsy 검사이기 때문이에요. 그래서 `''`는 "부모 없음"을 뜻하는 정당한 표현이에요.
+
+**`parentId` 순환.** 순환에 속한 모든 작업은 연결이 끊기고 루트가 돼요. 순환에 매달린 작업, 즉 부모가
+순환 안에 있는 작업도 루트가 돼요. 자기 연결만 보면 멀쩡해 보여도 그래요. 스케줄러는 이 복구를
+공유하지 않아요. 스케줄러는 원본 `parentId`로 요약을 고정해요. 그래서 창은 순환의 구성원을 평범한
+루트로 그리는데, 스케줄러 쪽에서는 그것들이 고정돼 있어요.
+
+**`progress`가 명시된 요약.** 값은 살아남아요. `0`도 마찬가지예요. 롤업이 nullish 값만 채우기
+때문이에요. 지나가는 길에 값을 제한하지도 않아요. 그래서 저장된 `250`은 `render`가 보는 배열에서
+`250` 그대로 남고, 막대는 100%로 그려져요. 어느 쪽이든 진행률 핸들은 계속 숨겨져 있어요.
+
+**중복된 `id` 값.** 아무것도 중복을 제거하지 않아요. 중복된 항목은 부모의 자식 목록에 두 번 들어가고,
+롤업에서도 두 번 계산돼요.
+
+깊이 제한은 없어요. 25단계 깊이의 체인은 마지막 행의 깊이가 24가 되고, 들여쓰기는 384px이 돼요.
+
+## 한계
+
+창은 열의 크기 조절, 순서 변경, 숨김, 고정, 정렬, 필터를 하지 않아요. `width`는 렌더 시점에
+고정되고, 드래그할 수 있는 것은 창 자체뿐이에요. 셀은 읽기 전용 노드예요. 셀 편집기도 없고
+`onCellChange`도 없어요. 그리드 행, 그리드 셀, 그룹 헤더를 위한 렌더러도 없어요. 렌더 prop은
+타임라인 쪽만 다루고, 그 내용은 [커스텀 렌더링](custom-rendering)에 있어요. 행은 가상화되지만
+열은 아니에요. 보이는 모든 행마다 모든 열이 렌더링돼요.
+
+창 너비와 접힘 상태에는 prop이 없고 저장되지도 않아요. 시작 너비는 열 너비의 합이고, 마운트 시점에
+한 번만 읽어요. 나중에 `columns`를 바꿔도 창 크기는 달라지지 않아요. 그리고 이 첫 너비는 제한을 받지
+않아요. 그래서 합이 2000인 열들은 2000px 창을 열고, 스플리터가 처음 움직이는 순간 120–800 범위로
+튕겨 들어와요. 레이아웃 상수인 행 높이, 기본 열 너비, 120–800 스플리터 범위, 16px 들여쓰기는
+export되지 않아요. 그래서 호스트 앱은 자기 UI에 맞추려고 그 값들을 import할 수 없어요.
+
+행 순서 변경에는 이 창이 필요해요. 창이 숨겨져 있거나 접혀 있으면 `allowRowReorder`는 아무 일도 하지
+않아요. [행 순서 변경](reordering)을 보세요.
+
+트리는 행을 정렬하지 않고, `sequence`가 `parentId`와 맞는지도 아무도 확인하지 않아요. `sequence`가
+부모보다 위로 정렬되는 자식은 부모 위에 들여쓰기된 채로 렌더링돼요. ARIA 위치는 틀리고 경고도
+없어요. 끊어진 부모 연결은 조용히 복구돼요. 콜백도, 콘솔 메시지도, 행에 붙는 플래그도 없어요.
+
+롤업은 `startDate`, `endDate`, 그리고 비어 있는 `progress`만 다뤄요. `color`, `className`,
+`dependencies`, 베이스라인, `type`은 롤업하지 않아요.
+
+`hierarchy`가 꺼져 있는 동안 `collapsedIds`와 `defaultCollapsedIds`는 작업 id에는 아무 일도 하지
+않아요. 그룹 id는 계속 동작해요.
+
+그래서 호스트 앱이 책임지는 것은 이래요. `sequence`를 `parentId`와 일관되게 유지하기, 제어 방식으로
+접기를 쓰려면 접힌 목록을 상태로 들고 있기, 창 너비와 접힘을 직접 저장하기, 렌더 전에 부모 연결을
+검증하기. 마지막 항목을 위해 `buildTaskTree`가 export돼 있어요. [헤드리스 코어](headless-core)를
+보세요.
+
+다음은 이 트리 위에 헤더 행을 쌓는 [그룹과 스윔레인](grouping)이에요.

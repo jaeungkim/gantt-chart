@@ -1,0 +1,283 @@
+---
+title: "Render prop types"
+description: "`GanttBarRenderer`, `GanttTooltipRenderer`, `GanttHeaderCellRenderer`"
+---
+
+Four props replace a piece of the chart's own markup: `renderBar`, `renderTooltip`,
+`renderHeaderCell` and `renderBaseline`. Their types come from `@jaeungkim/gantt-chart`, except
+`renderBaseline`, which is declared inline on `GanttProps` and has no exported named type.
+Behaviour and worked examples live in [Custom rendering](../custom-rendering).
+
+```ts
+import type {
+  GanttBarRenderer,
+  GanttBarRenderProps,
+  GanttTooltipRenderer,
+  GanttTooltipRenderProps,
+  GanttTooltipReason,
+  GanttHeaderCellRenderer,
+  GanttHeaderCellRenderProps,
+} from '@jaeungkim/gantt-chart';
+```
+
+`TaskTransformed` is documented in [Task](task), `GanttScaleKey` in [Scales](scales).
+`Dayjs` comes from `dayjs`; `ReactNode`, `CSSProperties`, `PointerEventHandler` and
+`MouseEventHandler` come from `react`.
+
+## GanttBarRenderer
+
+```ts
+/** Props handed to a `renderBar` override */
+export interface GanttBarRenderProps {
+  task: TaskTransformed;
+  /** Left offset from the timeline origin in px, live drag offset included */
+  left: number;
+  /** Rendered bar width in px, live drag offset included */
+  width: number;
+  /** Row height available to the bar in px */
+  height: number;
+  /** Progress 0-100, or null when the task has none */
+  progress: number | null;
+  scale: GanttScaleKey;
+  isMilestone: boolean;
+  isSummary: boolean;
+  isDragging: boolean;
+  isSelected: boolean;
+  /**
+   * Spread onto the root node of the replacement
+   *
+   * Carries the positioning style plus the drag, click and double-click handlers, so a
+   * custom bar keeps behaving like the default one.
+   */
+  barProps: {
+    style: CSSProperties;
+    onPointerDown: PointerEventHandler<HTMLDivElement>;
+    onClick: MouseEventHandler<HTMLDivElement>;
+    onDoubleClick: MouseEventHandler<HTMLDivElement>;
+  };
+}
+
+export type GanttBarRenderer = (props: GanttBarRenderProps) => ReactNode;
+```
+
+### Fields
+
+| Field | Type | Value |
+|---|---|---|
+| `task` | `TaskTransformed` | The task in its current shape, drag preview included |
+| `left` | `number` | `task.barLeft` plus the live drag offset, in px from the timeline origin |
+| `width` | `number` | `task.barWidth` plus the live drag offset, floored at **14px** |
+| `height` | `number` | Always **19** — half a 38px row. This is the bar height, not the row height the JSDoc names |
+| `progress` | `number \| null` | The live value while the progress handle is dragged, otherwise the task's clamped `progress`. `null` when the task has none |
+| `scale` | `GanttScaleKey` | The scale currently selected |
+| `isMilestone` | `boolean` | `task.type === 'milestone'` |
+| `isSummary` | `boolean` | `Boolean(task.isSummary)` |
+| `isDragging` | `boolean` | `true` while this bar is the one under an active gesture |
+| `isSelected` | `boolean` | `true` while this task is the selected one |
+| `barProps` | object | See the table below |
+
+### barProps
+
+| Key | Value |
+|---|---|
+| `style` | `transform: translateX(${left}px)`, `width: ${width}px`, `height: 19`, `cursor`, plus the three `--gantt-*-color` custom properties — but only when `task.color` is set; without it no colour keys are added at all. For a milestone the transform is `translateX(${left - 11}px)` and there is no `width` key |
+| `onPointerDown` | Starts a move, a resize, or the 400ms touch long-press that lifts a bar |
+| `onClick` | Fires `onTaskClick`, then applies the selection. Swallows the click that ends a drag |
+| `onDoubleClick` | Fires `onTaskDoubleClick` |
+
+The milestone offset applies to `barProps.style` only — the `left` field stays unshifted, so a
+replacement that positions itself from `left` sits 11px right of where the default diamond sits.
+
+### Constraints
+
+Spread `barProps` on the root node of the replacement. Each key dropped costs the following.
+
+| Dropped | Consequence |
+|---|---|
+| `style` | The bar is not positioned, has no height, no cursor, and loses the per-task colour custom properties |
+| `onPointerDown` | No move, no resize, no touch long-press — the bar cannot be dragged |
+| `onClick` | `onTaskClick` never fires, the bar can never be selected, and the click that ends a drag is no longer swallowed |
+| `onDoubleClick` | `onTaskDoubleClick` never fires |
+
+`barProps` does not carry the rest of the default node. These are lost with any `renderBar`, spread
+or not, and the replacement has to re-add whatever it needs:
+
+- `id="task-<task.id>"` — every task-list row points at it with `aria-owns`, so the treegrid's
+  row-to-bar ownership breaks.
+- `data-task-id`, `data-gantt-cell`, `tabIndex` — keyboard navigation looks bars up by
+  `data-gantt-cell`, so the roving tabindex can no longer reach the bar.
+- `role="gridcell"` and `aria-label` — the screen-reader label is gone.
+- `ref` and `onMouseMove` — the resize-edge cursor is gone.
+- `onMouseEnter` / `onMouseLeave` — hover state never turns on.
+- The class string: `gantt-task-bar`, `dragging`, `compact`, `summary`, `no-resize`, `critical`,
+  `link-target valid|invalid`, `selected`, `reverting`, and the task's own `className`. None of the
+  stylesheet applies, and `task.className` is not re-applied.
+- The children: the progress fill and its handle, the task name, the milestone diamond, the two
+  connector dots (so dependency drawing is unavailable), and the tooltip.
+
+`renderTooltip` is never called while `renderBar` is set. The replacement owns the tooltip too.
+
+## GanttTooltipRenderer
+
+```ts
+/** Why a tooltip is showing */
+export type GanttTooltipReason = 'hover' | 'move' | 'resize' | 'progress';
+
+/** Props handed to a `renderTooltip` override */
+export interface GanttTooltipRenderProps {
+  task: TaskTransformed;
+  reason: GanttTooltipReason;
+  /** Start being previewed - the live drag value while a gesture is running */
+  startDate: Dayjs;
+  /** End being previewed - equal to `startDate` for a milestone */
+  endDate: Dayjs;
+  /** End minus start in milliseconds */
+  durationMs: number;
+  /** Progress 0-100, or null when the task has none */
+  progress: number | null;
+  scale: GanttScaleKey;
+}
+
+export type GanttTooltipRenderer = (
+  props: GanttTooltipRenderProps
+) => ReactNode;
+```
+
+### Fields
+
+| Field | Type | Value |
+|---|---|---|
+| `task` | `TaskTransformed` | The task the tooltip belongs to |
+| `reason` | `GanttTooltipReason` | See the table below |
+| `startDate` | `Dayjs` | The live drag start while a gesture runs, otherwise `dayjs(task.startDate)` |
+| `endDate` | `Dayjs` | The live drag end while a gesture runs, otherwise `dayjs(task.endDate)`. Equal to `startDate` for a milestone |
+| `durationMs` | `number` | `endDate.valueOf() - startDate.valueOf()`, in milliseconds. `0` for a milestone |
+| `progress` | `number \| null` | The live value while the progress handle is dragged, otherwise the task's clamped `progress`. `null` when the task has none |
+| `scale` | `GanttScaleKey` | The scale currently selected |
+
+### reason
+
+Resolved most specific first.
+
+| Value | When |
+|---|---|
+| `progress` | The progress handle is being dragged |
+| `resize` | A bar drag is running in mode `left` or `right` |
+| `move` | A bar drag is running in mode `bar` |
+| `hover` | The mouse is over the bar and nothing is being dragged |
+
+None of the above means the renderer is not called at all. Neither is it called while
+`showTooltip` is `false`.
+
+### Constraints
+
+There is no props bag here, so nothing must be spread.
+
+- `showTooltip` defaults to `true`. Setting it to `false` suppresses the hover tooltip, the drag
+  tooltip and `renderTooltip` alike.
+- The returned node is rendered as the last child of the bar node. Positioning comes from the
+  `.gantt-bar-tooltip` class, so a replacement that does not use that class positions itself.
+- The default markup is `<div class="gantt-bar-tooltip" role="status" aria-live="polite">` during a
+  gesture and `<div class="gantt-bar-tooltip gantt-bar-tooltip-detail" role="tooltip">` on hover. A
+  replacement without those roles loses the live announcement.
+- With `renderBar` set, this renderer is never reached.
+
+## GanttHeaderCellRenderer
+
+```ts
+/** Props handed to a `renderHeaderCell` override */
+export interface GanttHeaderCellRenderProps {
+  /** `'top'` is a merged group label, `'bottom'` a single time tick */
+  row: 'top' | 'bottom';
+  date: Dayjs;
+  /** The label the default header would print */
+  label: string;
+  width: number;
+  scale: GanttScaleKey;
+  /** Spread onto the root node of the replacement to keep the header layout intact */
+  cellProps: { className: string; style: CSSProperties };
+}
+
+export type GanttHeaderCellRenderer = (
+  props: GanttHeaderCellRenderProps
+) => ReactNode;
+```
+
+### Fields
+
+| Field | Type | Value |
+|---|---|---|
+| `row` | `'top' \| 'bottom'` | `'top'` for a merged group label, `'bottom'` for one tick |
+| `date` | `Dayjs` | The cell's UTC start — the merged group's start for `'top'`, the tick's start for `'bottom'` |
+| `label` | `string` | Exactly what the default header would print, locale and `formats` overrides already applied |
+| `width` | `number` | The cell's width in px — the merged group width for `'top'`, the virtualized tick size for `'bottom'` |
+| `scale` | `GanttScaleKey` | The scale currently selected |
+| `cellProps` | object | See the table below |
+
+### cellProps
+
+| `row` | `cellProps.className` | `cellProps.style` |
+|---|---|---|
+| `'top'` | `"gantt-top-group"` | `{ width: '<group width>px' }` |
+| `'bottom'` | `"gantt-bottom-cell"` | `{ width: '<tick width>px' }` |
+
+### Constraints
+
+Spread `cellProps` on the root node of the replacement.
+
+- Both header rows go through the same renderer, so a replacement must branch on `row`.
+- Without `cellProps.style` the cell has no explicit width. Both rows are flex rows, and the bottom
+  row starts with a spacer sized to the virtualized cells skipped on the left, so one auto-sized
+  cell shifts every cell after it and the header stops lining up with the bars.
+- Without `cellProps.className` the cell loses the borders and typography the stylesheet gives it.
+- The result is wrapped in a `Fragment` with a key by the chart, so the renderer supplies no key.
+- The default children are not carried: the top row's `<p class="gantt-top-group-label">{label}</p>`
+  and the bottom cell's tick label text.
+
+## renderBaseline
+
+Declared inline on `GanttProps` — there is no exported renderer type for it, so it cannot be
+imported by name.
+
+```ts
+/**
+ * Replaces the default baseline bar
+ *
+ * Called only for tasks that carry `baselineStart`. Return whatever you like - the
+ * element is positioned by the row, not by the renderer.
+ */
+renderBaseline?: (task: TaskTransformed) => ReactNode;
+```
+
+The default it replaces:
+
+```tsx
+<div
+  className={`gantt-baseline${isMilestoneTask(task) ? " milestone" : ""}`}
+  style={{
+    left: `${task.baselineLeft}px`,
+    width: isMilestoneTask(task) ? undefined : `${task.baselineWidth}px`,
+  }}
+  aria-hidden="true"
+/>
+```
+
+### Constraints
+
+There is no props bag and no `left` / `width` argument, so nothing must be spread — and nothing is
+positioned for you horizontally.
+
+- The renderer runs only when `task.baselineLeft !== undefined`. The JSDoc names `baselineStart`;
+  the code reads the derived geometry field, which today is set only when `baselineStart` is
+  present.
+- Read `task.baselineLeft` and `task.baselineWidth` off the task yourself. Both are
+  `number | undefined` on `TaskTransformed`.
+- The node renders inside the bar's wrapper, which supplies the vertical placement only. Horizontal
+  placement is the renderer's job.
+- Returning `null` or `undefined` renders the **default** baseline element, not nothing. There is
+  no way to hide a baseline through this prop.
+- A bar culled from the viewport takes its baseline with it, so the renderer is not called for
+  off-screen rows.
+
+Baselines themselves are covered in [Scheduling](../scheduling). Every prop named here is
+indexed in [Props](props).
