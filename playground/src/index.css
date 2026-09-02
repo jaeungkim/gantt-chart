@@ -1,0 +1,15 @@
+/* Playground-only styling. The package stylesheet is imported in main.tsx by its
+   published name, the same way a consumer imports it. */
+
+/* Exercised by the "custom bar" toggle, which swaps in a renderBar of our own. */
+.demo-bar {
+  border-radius: 4px;
+  background: #7c3aed;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 0 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

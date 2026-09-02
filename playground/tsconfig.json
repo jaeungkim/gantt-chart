@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    // Mirrors the vite alias: the playground imports the package by its published name,
+    // and in dev that name resolves to source so edits hot-reload. baseUrl matches the
+    // library's own tsconfig so its internal bare imports (`core/tree`, `types/gantt`)
+    // still resolve once those files are pulled in through the alias.
+    "baseUrl": "../src",
+    "paths": {
+      "@jaeungkim/gantt-chart": ["index.tsx"],
+      "*": ["*"]
+    }
+  },
+  "include": ["src/**/*", "vite.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

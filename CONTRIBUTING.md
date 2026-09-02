@@ -6,17 +6,29 @@ Thanks for helping out. This is a one-person hobby project, so small, focused pu
 
 ```bash
 pnpm install   # pnpm 10 is pinned via "packageManager"; use pnpm, not npm/yarn
-pnpm dev       # Vite dev app: index.html -> src/main.tsx -> src/App.tsx, sample data in db.ts
+pnpm dev       # Vite playground on :5173 (runs the workspace package in playground/)
 ```
 
-The published library is `src/index.tsx` and everything it imports. `src/main.tsx`, `src/App.tsx` and `db.ts` are the dev harness and are not shipped.
+This is a pnpm workspace with two members:
+
+| Path | What it is |
+|---|---|
+| `.` (repo root) | the published library, `@jaeungkim/gantt-chart`. Entry `src/index.tsx`; everything it imports ships. |
+| `playground/` | the dev harness. Private, never published. |
+
+The playground imports the library by its published name, `@jaeungkim/gantt-chart`, the same
+way a consumer does. In dev that name is aliased to `src/` so edits hot-reload without a build.
+
+Every switch in the playground toolbar is one row in the `CONTROLS` array in
+`playground/src/App.tsx` - add a row, not another block of JSX. Settings mirror into the query
+string, so a scenario is a shareable link (`?criticalPath=1&policy=shift-on-overlap`).
 
 ## Before you open a PR
 
 ```bash
 pnpm lint
 pnpm type-check
-pnpm test        # vitest, 20 suites across src/utils and src/core (pure functions only)
+pnpm test        # vitest, 20 suites across src/core, src/utils, src/hooks and src/stores (pure functions only)
 pnpm build
 ```
 

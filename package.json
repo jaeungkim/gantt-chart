@@ -43,12 +43,12 @@
     "url": "https://github.com/jaeungkim/gantt-chart/issues"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "pnpm --filter @gantt-chart/playground dev",
     "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
-    "preview": "vite preview",
-    "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
-    "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
-    "type-check": "tsc --noEmit",
+    "preview": "pnpm --filter @gantt-chart/playground preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "type-check": "tsc --noEmit && tsc --noEmit -p playground",
     "test": "vitest run"
   },
   "peerDependencies": {
@@ -66,7 +66,6 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^4.7.0",
-    "agentation": "^3.0.2",
     "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
