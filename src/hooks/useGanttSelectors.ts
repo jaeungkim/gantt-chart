@@ -2,8 +2,11 @@ import { useShallow } from "zustand/react/shallow";
 import { useGanttStore } from "stores/context";
 
 /**
- * Hook selecting the state and actions needed from the Gantt store
- * Uses shallow comparison to avoid unnecessary re-renders
+ * The store state the chart component itself renders with
+ *
+ * Shallow comparison, so a change to anything not listed here does not re-render the
+ * chart. Anything only one feature needs is subscribed to by that feature's own hook
+ * instead of being added here.
  *
  * dragOffsets/currentTask change on every drag frame and are deliberately not
  * subscribed to here. (Components that need them subscribe individually - this keeps
@@ -22,11 +25,8 @@ export function useGanttSelectors() {
       // Actions
       syncTasksFromProps: state.syncTasksFromProps,
       setHistoryLimit: state.setHistoryLimit,
-      setTransformedTasks: state.setTransformedTasks,
-      setBottomRowCells: state.setBottomRowCells,
       setSelectedScale: state.setSelectedScale,
       setLocaleOptions: state.setLocaleOptions,
-      clearAllDragOffsets: state.clearAllDragOffsets,
 
       // Computed values
       getTotalWidth: state.getTotalWidth,

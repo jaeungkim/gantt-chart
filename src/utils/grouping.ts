@@ -62,6 +62,17 @@ export function groupRowId(key: string): string {
   return `${GROUP_ROW_PREFIX}${key}`;
 }
 
+/**
+ * Whether the row carries an expander
+ *
+ * A group header always does; a task row only while `hierarchy` is on and the task
+ * has children. Both the keyboard model and the rendered `aria-expanded` read this,
+ * so the twisty and the key that operates it cannot disagree.
+ */
+export function isRowExpandable(row: GanttRow, hierarchy: boolean): boolean {
+  return !!row.group || (hierarchy && !!row.tasks[0]?.isSummary);
+}
+
 /** A milestone occupies the single startDate point, so its end is its start */
 function endOf(task: TaskTransformed): number {
   return isMilestoneTask(task)
