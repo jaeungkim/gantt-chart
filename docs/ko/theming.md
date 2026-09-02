@@ -1,0 +1,339 @@
+차트를 렌더링하면 위치도 색도 없는 div가 세로로 쌓여요. 스타일시트는 별도 파일이라, 컴포넌트를
+import해도 함께 딸려오지 않아요. 스타일시트를 불러오고 나면 차트는 33개의 CSS 커스텀 속성과
+`theme` prop 하나로 테마가 정해져요.
+
+차트의 색, 그림자, 트랜지션은 거의 전부 `--gantt-*` 변수를 읽어요. 그렇지 않은 네 가지는 한계
+절에 이름을 적어 뒀어요. JS 테마 객체도 없고 `tokens` prop도 없어요. CSS가 메커니즘의 전부예요.
+
+## 스타일시트
+
+패키지는 빌드된 CSS를 자체 서브패스로 내보내요.
+
+```tsx
+// src/main.tsx
+import { ReactGanttChart } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+```
+
+그 서브패스는 `dist/gantt-chart.css`로 이어져요. 패키지 엔트리가 스타일시트를 import하긴 하지만,
+라이브러리 빌드가 이를 인라인하지 않고 별도 파일로 뽑아내요. 그래서 컴포넌트를 import해도 스타일은
+하나도 딸려오지 않아요.
+
+import 없이도 차트는 마운트되고 클릭에도 반응해요. 다만 스타일이 아예 없어요. 토큰 선언도, 색도,
+레이아웃 규칙도 전부 빠져요. 고정 헤더, 막대 지오메트리, 컨테이너의 flex 컬럼, 레이아웃 계산이
+전제하는 `box-sizing: border-box`가 모두 그 파일에 들어 있어요. 그래서 결과는 밋밋한 정도가 아니라
+읽기 어려운 화면이 돼요.
+
+`box-sizing`은 `.gantt-container`와 그 하위 요소로만 한정돼요. 라이브러리는 전역 리셋을 넣지 않아서,
+자체 리셋이 있는 앱에 가져와도 안전해요.
+
+## theme prop
+
+`theme`은 `'light'`, `'dark'`, `'system'` 중 하나를 받아요. 넘기지 않아도 되는 선택 사항이에요.
+
+```tsx
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const tasks: Task[] = [
+  { id: 'spec', name: 'Spec', parentId: null, sequence: '1',
+    startDate: '2026-03-02T00:00:00Z', endDate: '2026-03-06T00:00:00Z' },
+];
+
+export function DarkChart() {
+  return <ReactGanttChart tasks={tasks} theme="dark" height={480} />;
+}
+```
+
+컨테이너 요소에 실제로 붙는 값은 이래요.
+
+| `theme` | 컨테이너 클래스 | `data-theme` |
+|---|---|---|
+| *(생략)* | `gantt-container` | *없음* |
+| `'light'` | `gantt-container light` | `"light"` |
+| `'dark'` | `gantt-container dark` | `"dark"` |
+| `'system'`, OS 라이트 | `gantt-container light` | `"light"` |
+| `'system'`, OS 다크 | `gantt-container dark` | `"dark"` |
+| `'system'`, 서버 렌더와 첫 하이드레이션 렌더 | `gantt-container` | *없음* |
+| `'system'`, `window.matchMedia` 없음 | `gantt-container` | *없음* |
+
+클래스와 속성이 둘 다 쓰이기 때문에, 호스트 앱은 원하는 쪽에 자기 CSS를 걸 수 있어요.
+
+`className`은 테마 클래스보다 앞에 붙어요. `className="my-chart"`와 `theme="dark"`를 주면
+속성 값은 `gantt-container my-chart dark`가 돼요. 호스트 클래스가 맨 뒤에 오는 일은 없으니, 맨
+뒤라고 가정한 선택자는 쓰지 마세요.
+
+### system을 감지하는 방법
+
+`theme="system"`은 `useSyncExternalStore`로 `window.matchMedia('(prefers-color-scheme: dark)')`를
+읽어요. `change` 리스너가 계속 붙어 있어서, OS 외형을 바꾸면 다음 렌더에서 클래스가 교체돼요.
+새로고침은 필요 없어요.
+
+서버 스냅샷은 "unknown"으로 고정돼요. 그래서 서버 렌더와 첫 하이드레이션 렌더에서는 `theme="system"`이
+클래스도 속성도 내보내지 않아요. 하이드레이션 불일치를 피하려고 의도한 동작이에요. 그래도 첫 페인트는
+제대로 보이는데, 스타일시트가 자체 `prefers-color-scheme` 폴백을 갖고 있기 때문이에요. 다만
+`useLayoutEffect`에서 `data-theme`을 읽는 호스트 앱은 그 첫 패스에서 `undefined`를 받아요.
+
+미디어 쿼리는 `theme` 값이 무엇이든 구독돼요. `'light'`와 `'dark'`일 때도 마찬가지예요. 리스너는 차트
+인스턴스마다 하나씩 존재하고, 결정된 값을 바꾸지는 않아요.
+
+### theme prop이 없을 때
+
+`theme`을 생략하는 것과 `theme="light"`는 달라요. prop이 없으면 컴포넌트는 아무것도 내보내지 않고,
+스타일시트가 알아서 OS를 따라가요.
+
+```css
+@media (prefers-color-scheme: dark) {
+  .gantt-container:not(.light):not([data-theme="light"]) { /* 다크 토큰 */ }
+}
+```
+
+그래서 테마를 지정하지 않은 차트는 다크 OS 환경에서 어두워져요. OS와 무관하게 라이트로 고정하려면
+`theme="light"`를 넘기세요. `light` 클래스가 하는 일은 그게 전부예요. 자체 토큰은 하나도 없고,
+라이트는 기본 `.gantt-container` 선언이에요.
+
+## 커스텀 속성
+
+33개 토큰은 모두 `.gantt-container`에 선언되고, `:root`에는 절대 선언되지 않아요. `:root`에 두면 호스트
+앱이 가진 `--background`나 `--border`와 충돌하니까요.
+
+그중 28개는 다크용으로 다시 정의돼요. 나머지 5개는 두 테마가 함께 쓰고, 아래 표에 대시로 표시했어요.
+
+### 배경과 텍스트
+
+| 토큰 | 라이트 | 다크 | 칠하는 곳 |
+|---|---|---|---|
+| `--gantt-background` | `#fafafa` | `#09090b` | 컨테이너, 툴바, 그리드 영역, 그리드 헤더, 상단 헤더 그룹, 콘텐츠 영역; 활성 배율 버튼 채움; 링크 핸들과 진행률 핸들 채움; 툴팁 텍스트 |
+| `--gantt-foreground` | `#18181b` | `#fafafa` | 본문 텍스트, 그리드 셀, 상단 그룹 라벨, 막대 밖에 그려지는 막대 라벨, 마일스톤 이름, 막대 툴팁 배경 |
+| `--gantt-muted` | `#f4f4f5` | `#18181b` | 하단 헤더 행, 배율 컨트롤 트랙, 행 호버와 선택, 스윔레인 그룹 행 |
+| `--gantt-muted-foreground` | `#71717a` | `#a1a1aa` | 보조 텍스트(그리드 헤더 셀, 눈금 라벨, 밴드 라벨, 그룹 개수 배지), 막대 리사이즈 그립, 스크롤바 thumb 호버 |
+| `--gantt-border` | `#e4e4e7` | `#27272a` | 툴바, 헤더와 그리드 테두리, 스크롤바 thumb, 펼침 버튼 호버 채움 |
+| `--gantt-border-subtle` | `rgba(0, 0, 0, 0.04)` | `rgba(255, 255, 255, 0.04)` | 행 구분선, 두 헤더 행 사이의 선 |
+| `--gantt-accent` | `#3b82f6` | — | 모든 포커스 링, 선택된 행의 인셋 막대, 행 드롭 라인, 드래그 가이드, 선택되거나 호버된 의존성 화살표, 링크 핸들 테두리, 링크 미리보기, 그려서 만들기 고스트 |
+
+### 막대, 마일스톤, 요약 행
+
+| 토큰 | 라이트 | 다크 | 칠하는 곳 |
+|---|---|---|---|
+| `--gantt-bar-bg` | `#e4e4e7` | `#27272a` | `.gantt-task-bar` 배경 |
+| `--gantt-bar-bg-hover` | `#d4d4d8` | `#3f3f46` | 그 호버 |
+| `--gantt-bar-text` | `#18181b` | `#fafafa` | 막대 안의 작업 이름 |
+| `--gantt-bar-shadow` | `0 1px 2px rgba(0, 0, 0, 0.05)` | `0 1px 2px rgba(0, 0, 0, 0.2)` | 가만히 있는 막대와 마일스톤 다이아몬드 |
+| `--gantt-bar-shadow-hover` | `0 4px 12px rgba(0, 0, 0, 0.1)` | `0 4px 12px rgba(0, 0, 0, 0.3)` | 호버된 막대와 다이아몬드 |
+| `--gantt-bar-shadow-drag` | `0 8px 24px rgba(0, 0, 0, 0.15)` | `0 8px 24px rgba(0, 0, 0, 0.4)` | 드래그 중인 막대나 다이아몬드 |
+| `--gantt-milestone-bg` | `#52525b` | `#d4d4d8` | 마일스톤 다이아몬드 **와** 요약 행 막대 |
+| `--gantt-milestone-bg-hover` | `#3f3f46` | `#e4e4e7` | 둘의 호버 |
+
+토큰 하나가 마일스톤과 요약 행을 함께 칠해요. CSS로는 둘을 따로 칠할 방법이 없어요.
+
+### 진행률과 베이스라인
+
+| 토큰 | 라이트 | 다크 | 칠하는 곳 |
+|---|---|---|---|
+| `--gantt-progress-bg` | `#a1a1aa` | `#52525b` | 막대 안의 진행률 채움 |
+| `--gantt-progress-handle` | `#52525b` | `#a1a1aa` | 진행률 핸들 테두리. 채움은 `--gantt-background`예요 |
+| `--gantt-baseline-bg` | `#a1a1aa` | `#71717a` | 막대 아래의 베이스라인 띠 |
+
+### 임계 경로(critical path)
+
+| 토큰 | 라이트 | 다크 | 칠하는 곳 |
+|---|---|---|---|
+| `--gantt-critical` | `#dc2626` | `#f87171` | 임계 경로 진행률 채움, 임계 경로 마일스톤 다이아몬드, 임계 경로 화살표 선과 화살촉 |
+| `--gantt-critical-bg` | `#fecaca` | `#7f1d1d` | 임계 경로 막대의 배경 |
+| `--gantt-critical-bg-hover` | `#fca5a5` | `#991b1b` | 그 호버 |
+| `--gantt-critical-text` | `#7f1d1d` | `#fee2e2` | 임계 경로 막대의 라벨. 막대 안쪽만 해당하고, 바깥 라벨은 `--gantt-foreground`로 넘어가요 |
+
+### 의존성 화살표
+
+| 토큰 | 라이트 | 다크 | 칠하는 곳 |
+|---|---|---|---|
+| `--gantt-arrow` | `#a1a1aa` | `#71717a` | 화살표 선과 화살촉 채움 |
+
+선택되거나 호버된 화살표는 `--gantt-accent`로 바뀌고, 임계 경로 위의 화살표는 `--gantt-critical`로
+바뀌어요.
+
+### 마커, 밴드, 오늘 선
+
+| 토큰 | 라이트 | 다크 | 칠하는 곳 |
+|---|---|---|---|
+| `--gantt-today-marker` | `#f43f5e` | `#fb7185` | 오늘 선, **그리고** 모든 무효 상태 색: 거부된 행 드롭 대상, 거부된 링크 미리보기, 거부된 링크 대상 |
+| `--gantt-marker` | `#6366f1` | `#818cf8` | 마커 선과 그 라벨 배경 |
+| `--gantt-marker-warning` | `#f59e0b` | `#fbbf24` | `data-warning="true"`인 마커 |
+| `--gantt-marker-label` | `#ffffff` | `#18181b` | 마커 라벨 텍스트 |
+| `--gantt-band-bg` | `rgba(99, 102, 241, 0.1)` | `rgba(129, 140, 248, 0.16)` | 범위 밴드의 채움 |
+
+### 비근무일
+
+| 토큰 | 라이트 | 다크 | 칠하는 곳 |
+|---|---|---|---|
+| `--gantt-non-working-bg` | `rgba(0, 0, 0, 0.035)` | `rgba(255, 255, 255, 0.03)` | 음영 처리된 주말과 공휴일 열 |
+
+어떤 날이 음영 처리되는지는 `showNonWorkingDays`, `holidays`, `isNonWorkingDay`가 정해요 —
+[타임라인](timeline.md)을 참고하세요.
+
+### 타이포그래피와 모션
+
+| 토큰 | 라이트 | 다크 | 칠하는 곳 |
+|---|---|---|---|
+| `--gantt-font-sans` | `-apple-system, BlinkMacSystemFont, "Segoe UI", "Geist", system-ui, sans-serif` | — | 컨테이너의 `font-family` |
+| `--gantt-duration-fast` | `150ms` | — | 막대 툴팁의 페이드인에만 쓰여요. 트랜지션 토큰에는 이징이 들어 있는데 `animation` 단축 속성이 이를 거부해서, 지속 시간만 담아요 |
+| `--gantt-transition-fast` | `150ms ease` | — | 막대, 버튼, 토글, 핸들의 색과 배경 트랜지션 |
+| `--gantt-transition-normal` | `200ms ease` | — | box-shadow 트랜지션과 되돌리기 애니메이션 |
+
+스타일시트 어디에서도 원격 폰트를 불러오지 않아요. 기본 폰트 크기는 `13px`이고 토큰으로 빠져 있지
+않아요.
+
+`@media (prefers-reduced-motion: reduce)` 아래에서는 컨테이너 안의 모든 트랜지션과 애니메이션이
+`0.01ms`로, `scroll-behavior`가 `auto`로 강제돼요. 모션 토큰을 어떻게 설정했든 그렇게 동작해요.
+
+## 토큰 덮어쓰기
+
+덮어쓰기는 `.gantt-container`에 쓰고, 스타일시트는 라이브러리 것보다 뒤에 불러오세요. 작성한 규칙과
+라이브러리의 기본 규칙은 명시도가 같아서, 소스 순서가 승자를 정해요.
+
+```css
+/* app.css - @jaeungkim/gantt-chart/style.css 뒤에 import */
+.gantt-container {
+  --gantt-font-sans: "Inter", system-ui, sans-serif;
+}
+```
+
+다크 블록이 건드리지 않는 5개 토큰은 이걸로 충분해요. `--gantt-font-sans`, `--gantt-accent`, 그리고
+모션 토큰 세 개예요. 나머지 28개는 그렇지 않아요.
+
+> [!WARNING]
+> `.gantt-container`에 한 줄로 쓴 덮어쓰기는 라이트 모드에서는 이기고 다크 모드에서는 져요.
+> 라이브러리의 다크 규칙은 `.gantt-container.dark, .gantt-container[data-theme="dark"]`이고 명시도가
+> `(0,2,0)`이에요. OS 폴백은 `.gantt-container:not(.light):not([data-theme="light"])`이고 명시도는
+> `(0,3,0)`이에요. 그냥 `.gantt-container` 규칙은 `(0,1,0)`이라 둘 다에게 밀려요.
+
+테마가 적용된 토큰을 바꾸려면 라이브러리의 선택자 세 개에 모두 대응해야 해요.
+
+```css
+/* app.css - @jaeungkim/gantt-chart/style.css 뒤에 import */
+.gantt-container {
+  --gantt-bar-bg: #dbeafe;
+  --gantt-bar-bg-hover: #bfdbfe;
+}
+
+.gantt-container.dark,
+.gantt-container[data-theme="dark"] {
+  --gantt-bar-bg: #1e3a5f;
+  --gantt-bar-bg-hover: #2b4f7d;
+}
+
+@media (prefers-color-scheme: dark) {
+  .gantt-container:not(.light):not([data-theme="light"]) {
+    --gantt-bar-bg: #1e3a5f;
+    --gantt-bar-bg-hover: #2b4f7d;
+  }
+}
+```
+
+토큰을 `:root`에 설정하면 아무 일도 일어나지 않아요. 토큰은 `.gantt-container` 자신에게 선언돼 있고,
+요소에 직접 붙은 선언은 조상에서 상속된 값을 언제나 이겨요.
+
+### 차트 하나에만 적용하기
+
+`className`을 넘기고 모든 선택자에 그 클래스를 덧붙이세요. 그러면 선택자마다 라이브러리보다 클래스가
+하나씩 더 붙어서, 대응하는 블록을 이겨요.
+
+```tsx
+<ReactGanttChart tasks={tasks} className="planning-chart" height={480} />
+```
+
+```css
+/* app.css - @jaeungkim/gantt-chart/style.css 뒤에 import */
+.gantt-container.planning-chart {
+  --gantt-bar-bg: #dbeafe;
+}
+
+.gantt-container.planning-chart.dark,
+.gantt-container.planning-chart[data-theme="dark"] {
+  --gantt-bar-bg: #1e3a5f;
+}
+
+@media (prefers-color-scheme: dark) {
+  .gantt-container.planning-chart:not(.light):not([data-theme="light"]) {
+    --gantt-bar-bg: #1e3a5f;
+  }
+}
+```
+
+### 작업별 색이 토큰보다 우선해요
+
+작업이 가진 `color`는 해당 막대에 인라인 `--gantt-bar-color`로 쓰여요. 막대는 테마 토큰보다 이 값을
+먼저 읽어서, 색을 지정한 작업은 토큰을 완전히 무시해요 — [커스텀 렌더링](custom-rendering.md)을
+참고하세요.
+
+## 배율 기억하기
+
+선택한 배율은 저장돼요. 그래서 새로고침해도 사용자가 월 뷰로 되돌아가지 않아요.
+
+저장소는 `localStorage`가 아니라 `sessionStorage`예요. 탭을 닫으면 지워져요. 기본 키는
+`"gantt-scale"`이고, `storageKey`로 바꿀 수 있어요.
+
+```tsx
+<ReactGanttChart tasks={tasks} storageKey="roadmap-scale" defaultScale="week" height={480} />
+```
+
+저장을 일으키는 경로는 네 가지예요. 세그먼트 컨트롤, 그 위에서 누르는 방향키, Ctrl/Cmd + 휠 확대
+제스처, 그리고 마운트 시점의 복원 자체예요. 이미 선택된 배율을 다시 고르면 아무것도 쓰지 않아요.
+차트의 다른 어떤 부분도 저장소를 건드리지 않아요. 드래그 프레임도, 그리드 너비도, 접힌 행도, 스크롤
+위치도 마찬가지예요.
+
+마운트 시 읽는 순서는 이번 세션에 저장된 값, 그다음 `defaultScale`, 그다음 `"month"`예요. 배율 키
+여섯 개에 없는 저장 값은 버려요.
+
+키를 고르기 전에 알아 두면 좋은 결과가 몇 가지 있어요.
+
+- **`defaultScale`은 첫 마운트 뒤 고정돼요.** `"month"`가 아닌 값은 마운트 때 저장소에 쓰여서, 다음
+  마운트는 저장소에서 그 값을 읽어요. 그래서 나중에 prop을 바꿔도 아무 효과가 없어 보여요.
+- **키를 공유하는 차트 둘은 동기화되지 않아요.** 차트마다 자기 상태를 갖고, `storage` 이벤트도 듣지
+  않아요. 한 차트에서 배율을 바꿔도 다른 차트는 움직이지 않아요. 충돌은 다음번에 차트가 마운트되어
+  키를 읽을 때에야 드러나요. 차트마다 `storageKey`를 따로 주세요.
+- **`storageKey`는 한 번만 읽어요.** 차트가 마운트될 때 값을 잡아 둬요. 그 뒤에 바꿔도 그 차트가 사는
+  동안에는 효과가 없어요.
+- **저장소를 못 쓰면 조용히 넘어가요.** 서버 렌더링, 시크릿 모드, 저장소가 막힌 브라우저에서는 읽기가
+  아무것도 돌려주지 않고 쓰기는 무시돼요. 배율은 메모리에서 그대로 바뀌고, 예외도 경고도 없어요.
+- **첫 프레임은 언제나 `"month"`예요.** 복원은 이펙트에서 돌아서, `defaultScale="year"`인 차트도 첫
+  프레임은 월 배율로 그려요.
+
+배율 키 자체와 각각이 무엇을 그리는지는 [타임라인](timeline.md)에서 다뤄요.
+
+## 한계
+
+테마가 다루지 않는 것들이에요.
+
+- **JS 테마 API는 없어요.** `tokens` prop도, 테마 객체도, 내보내는 기본 팔레트도 없어요. `GanttTheme`은
+  값 세 개짜리 유니온이고 그게 전부예요.
+- **색 네 개는 하드코딩이라 테마로 바꿀 수 없어요.** 활성 배율 버튼의 그림자
+  (`0 1px 3px rgba(0, 0, 0, 0.08)`), 드래그 가이드 라벨 텍스트(`#fff`), 의존성 삭제 글리프 선(`#fff`),
+  막대 툴팁의 그림자(`0 4px 16px rgba(0, 0, 0, 0.15)`)예요.
+- **지오메트리는 토큰이 아니에요.** 상단 헤더 행은 `44px`, 하단 행은 `28px`, 기본 폰트 크기는
+  `13px`이에요. 행 높이는 JS 상수고요. 어느 것도 변수가 아니에요.
+- **`--top-group-inset`은 손이 닿지 않아요.** 컨테이너가 아니라 `.gantt-top-group`에 선언돼 있고,
+  `--gantt-` 접두사도 없어요. 호스트 앱은 `.gantt-container`에서 이 값을 설정할 수 없어요.
+- **라이트 모드 토큰 블록은 없어요.** `light` 클래스는 OS 미디어 쿼리를 막기만 해요. 그래서 호스트 앱이
+  쓴 `.gantt-container.light { … }`는 기존 규칙의 확장이 아니라 새 규칙이에요.
+- **프로바이더는 없어요.** `theme`은 차트마다 넘기는 prop이에요. 페이지 단위로 한 번에 설정하는 장치가
+  없어서, 페이지의 모든 차트에 값을 따로 넘겨야 해요.
+- **테마는 저장되지 않아요.** 결정된 테마를 저장하는 곳이 없어요. 저장되는 건 배율뿐이고, 그것도 세션
+  동안만이에요.
+- **RTL은 없어요.** `dir`을 읽지도 설정하지도 않고, 스타일시트는 전부 물리 속성을 써요.
+- **검증은 없어요.** 알 수 없는 `theme` 값이나 빈 `storageKey`를 줘도 경고가 나오지 않아요.
+
+호스트 앱이 직접 해야 하는 일이에요.
+
+- `@jaeungkim/gantt-chart/style.css`를 import하고, 자기 스타일시트보다 앞에 두세요.
+- 테마가 적용된 덮어쓰기는 라이브러리의 선택자 세 개 아래에 모두 반복해서 쓰세요.
+- 기본 키를 직접 지울 때는 `"gantt-scale"` 문자열을 하드코딩하세요. 이 상수는 내보내지 않아요.
+- 페이지의 차트마다 `storageKey`를 따로 주세요.
+- 앱에 토글이 있다면 `theme`을 앱의 라이트/다크 상태로 몰아주세요. 차트는 앱이 아니라 OS를 읽어요.
+- 토큰으로 표현할 수 없는 변경은 `renderBar`로 막대를 통째로 교체하세요 —
+  [커스텀 렌더링](custom-rendering.md)을 참고하세요.
+
+CSS 밖에서 테마를 따라가는 것은 PNG 내보내기 하나뿐이에요. 컨테이너의 계산된 배경색을 그대로 배경으로
+가져가요 — [명령형 API](imperative-api.md)를 참고하세요.
+
+다음: [헤드리스 코어](headless-core.md)에서 React 없이 도는 스케줄링, 그래프, 캘린더 함수를 다뤄요.

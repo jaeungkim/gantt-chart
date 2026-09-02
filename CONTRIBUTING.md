@@ -16,7 +16,7 @@ The published library is `src/index.tsx` and everything it imports. `src/main.ts
 ```bash
 pnpm lint
 pnpm type-check
-pnpm test        # vitest, pure utils only (src/utils/utils.test.ts)
+pnpm test        # vitest, 20 suites across src/utils and src/core (pure functions only)
 pnpm build
 ```
 

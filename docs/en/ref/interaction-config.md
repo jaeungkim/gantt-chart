@@ -1,0 +1,245 @@
+`GanttInteractionConfig` is the chart-wide half of the interaction settings: six capability flags,
+one blanket `readOnly`, and two drag bounds. The type is exported from the package root, but the
+chart takes these nine fields as flat props and assembles the object itself — there is no
+`interaction` prop.
+
+```ts
+import type { GanttInteractionConfig } from '@jaeungkim/gantt-chart';
+```
+
+## GanttInteractionConfig
+
+```ts
+// src/types/task.ts
+/**
+ * Chart-wide interaction settings
+ *
+ * Every field is optional, and a task's own field of the same name wins over it.
+ * With nothing set, every gesture is allowed and there are no drag bounds - except
+ * drawing new tasks, which needs an `onTaskCreate` callback to go anywhere.
+ */
+export interface GanttInteractionConfig {
+  readOnly?: boolean;
+  allowMove?: boolean;
+  allowResize?: boolean;
+  allowProgressChange?: boolean;
+  allowLinkCreate?: boolean;
+  allowLinkDelete?: boolean;
+  allowTaskCreate?: boolean;
+  minDate?: string;
+  maxDate?: string;
+}
+```
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `readOnly` | `boolean` | `undefined` | Blocks every gesture on every task. Any capability flag set at either level beats it. |
+| `allowMove` | `boolean` | `undefined` | Dragging a bar along the timeline. |
+| `allowResize` | `boolean` | `undefined` | Dragging either edge of a bar. |
+| `allowProgressChange` | `boolean` | `undefined` | Dragging the progress handle. |
+| `allowLinkCreate` | `boolean` | `undefined` | Starting a dependency drag from a bar's handle. |
+| `allowLinkDelete` | `boolean` | `undefined` | Selecting and deleting a dependency arrow. |
+| `allowTaskCreate` | `boolean` | `undefined` | Drawing a new task on empty row space. Chart-wide only. |
+| `minDate` | `string` | `undefined` | Earliest date any bar may be dragged to, as a UTC ISO string. |
+| `maxDate` | `string` | `undefined` | Latest date any bar may be dragged to, as a UTC ISO string. |
+
+Every field unset means every gesture is allowed and there are no drag bounds. The one exception
+is `allowTaskCreate`, which also needs an `onTaskCreate` callback — see
+[Task creation](#task-creation) below.
+
+The nine props of the same names on `GanttProps` feed this object; see
+[GanttProps](props.md). The per-task fields that override it are on
+[Task](task.md).
+
+## Capability resolution
+
+Each of the five per-task capabilities is resolved by an internal function,
+`resolveTaskInteraction`. It is **not exported** from the package root — the resolution order is
+documented here because it decides what the chart does, not because it is callable.
+
+```ts
+// src/types/task.ts
+/**
+ * Resolves what one task allows, most specific setting first:
+ *
+ * `task.allowX` > `task.readOnly` > `config.allowX` > `config.readOnly` > allowed
+ *
+ * A capability flag always beats a blanket `readOnly` at the same level, so
+ * `readOnly` on the chart plus `allowProgressChange: true` on one task means
+ * "frozen except that one progress bar".
+ *
+ * Two structural rules are not flags and cannot be flagged back on, because the
+ * gesture has nowhere to write to: milestones are never resizable (they are a
+ * single point), and summary rows are never resizable and have no draggable
+ * progress (both are rolled up from their children, so an edit would snap back).
+ * Moving a summary is fine - it carries its whole subtree.
+ */
+export function resolveTaskInteraction(
+  task: Pick<
+    Task,
+    | 'type'
+    | 'readOnly'
+    | 'allowMove'
+    | 'allowResize'
+    | 'allowProgressChange'
+    | 'allowLinkCreate'
+    | 'allowLinkDelete'
+    | 'minDate'
+    | 'maxDate'
+  > & { isSummary?: boolean },
+  config: GanttInteractionConfig = NO_INTERACTION_CONFIG
+): ResolvedTaskInteraction {
+  const resolve = (
+    taskFlag: boolean | undefined,
+    configFlag: boolean | undefined
+  ): boolean => {
+    if (taskFlag !== undefined) return taskFlag;
+    if (task.readOnly !== undefined) return !task.readOnly;
+    if (configFlag !== undefined) return configFlag;
+    return !config.readOnly;
+  };
+
+  const derived = task.isSummary === true;
+
+  return {
+    canMove: resolve(task.allowMove, config.allowMove),
+    canResize:
+      !isMilestoneTask(task) &&
+      !derived &&
+      resolve(task.allowResize, config.allowResize),
+    canChangeProgress:
+      !derived &&
+      resolve(task.allowProgressChange, config.allowProgressChange),
+    canCreateLink: resolve(task.allowLinkCreate, config.allowLinkCreate),
+    canDeleteLink: resolve(task.allowLinkDelete, config.allowLinkDelete),
+    minDate: task.minDate ?? config.minDate,
+    maxDate: task.maxDate ?? config.maxDate,
+  };
+}
+```
+
+The order, most specific first:
+
+1. `task.allowX` — if the task carries its own flag for this capability, that value is the answer.
+2. `task.readOnly` — if set, the answer is its negation.
+3. `config.allowX` — the chart-wide flag for this capability.
+4. `config.readOnly` — the answer is its negation. Unset reads as `false`, so an untouched chart allows the gesture.
+
+`—` in the table below means the field is `undefined`.
+
+| `task.allowX` | `task.readOnly` | `config.allowX` | `config.readOnly` | Result | Decided by |
+|---|---|---|---|---|---|
+| `true` | any | any | any | allowed | 1 |
+| `false` | any | any | any | blocked | 1 |
+| — | `true` | any | any | blocked | 2 |
+| — | `false` | any | any | allowed | 2 |
+| — | — | `true` | any | allowed | 3 |
+| — | — | `false` | any | blocked | 3 |
+| — | — | — | `true` | blocked | 4 |
+| — | — | — | `false` | allowed | 4 |
+| — | — | — | — | allowed | 4 |
+
+### The five capabilities
+
+Each capability reads one pair of fields through the chain above, then the structural mask in the
+last column is `&&`-ed in front of the result.
+
+| Resolved capability | `Task` field | `GanttInteractionConfig` field | Structural mask |
+|---|---|---|---|
+| `canMove` | `allowMove` | `allowMove` | none |
+| `canResize` | `allowResize` | `allowResize` | `!isMilestoneTask(task) && !isSummary` |
+| `canChangeProgress` | `allowProgressChange` | `allowProgressChange` | `!isSummary` |
+| `canCreateLink` | `allowLinkCreate` | `allowLinkCreate` | none |
+| `canDeleteLink` | `allowLinkDelete` | `allowLinkDelete` | none |
+
+The resolver returns them in a `ResolvedTaskInteraction`. This type is **not exported** from the
+package root either; it is reproduced here because the field names appear in the source and in
+this table.
+
+```ts
+// src/types/task.ts
+export interface ResolvedTaskInteraction {
+  canMove: boolean;
+  canResize: boolean;
+  canChangeProgress: boolean;
+  canCreateLink: boolean;
+  canDeleteLink: boolean;
+  minDate?: string;
+  maxDate?: string;
+}
+```
+
+### Drag bounds
+
+`minDate` and `maxDate` do not use the chain. They are nullish-coalesced, one level deep:
+
+```ts
+// src/types/task.ts
+minDate: task.minDate ?? config.minDate,
+maxDate: task.maxDate ?? config.maxDate,
+```
+
+A task's own bound replaces the chart's; `readOnly` and the capability flags have no effect on
+either. What the bounds clamp during a drag is covered in [Editing tasks](../editing.md).
+
+### Task creation
+
+Drawing a new task is chart-wide only, so it has its own two-rung resolver — also internal, also
+not exported:
+
+```ts
+// src/types/task.ts
+/**
+ * Whether drawing a new task on empty timeline space is allowed
+ * Chart-wide only - the gesture starts on a row, not on a task
+ */
+export function canCreateTasks(
+  config: GanttInteractionConfig = NO_INTERACTION_CONFIG
+): boolean {
+  return config.allowTaskCreate ?? !config.readOnly;
+}
+```
+
+| `config.allowTaskCreate` | `config.readOnly` | Result |
+|---|---|---|
+| `true` | any | allowed |
+| `false` | any | blocked |
+| — | `true` | blocked |
+| — | `false` | allowed |
+| — | — | allowed |
+
+`Task` has no `allowTaskCreate` field, so there is no per-task rung. The chart ANDs the result
+with the presence of the callback:
+
+```ts
+// src/pages/Gantt.tsx
+const canDrawTasks = onTaskCreate !== undefined && canCreateTasks(interaction);
+```
+
+Without `onTaskCreate`, the gesture is off no matter how the flags are set. See
+[Editing tasks](../editing.md).
+
+## Constraints
+
+Two rules are `&&`-ed in front of the resolver's output, so no flag at any level re-enables them.
+
+1. **A milestone is never resizable.** `canResize` is `false` for any task with
+   `type: 'milestone'`, including one that sets `allowResize: true`.
+2. **A summary row is never resizable and has no draggable progress.** `canResize` and
+   `canChangeProgress` are both `false` when `isSummary` is `true`, including when the task sets
+   `allowResize: true` and `allowProgressChange: true`. `canMove` is unaffected — moving a summary
+   is allowed and carries its whole subtree.
+
+`isSummary` is set only when the `hierarchy` prop is on, so rule 2 does not apply to a flat chart.
+`readOnly` still freezes a summary row entirely.
+
+## Notes
+
+Exported from the package root: `GanttInteractionConfig` (type only).
+
+Not exported, and named on this page only to describe the chart's behaviour:
+`resolveTaskInteraction`, `canCreateTasks`, `ResolvedTaskInteraction`, `NO_INTERACTION_CONFIG`,
+`isMilestoneTask`. Do not import them.
+
+The gestures these flags govern are described in [Editing tasks](../editing.md) and
+[Dependencies](../dependencies.md).
