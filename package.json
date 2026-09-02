@@ -23,8 +23,7 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE",
-    "public/readmeImg.png"
+    "LICENSE"
   ],
   "description": "React Gantt chart with editable bars, dependency arrows, and headless scheduling utilities",
   "keywords": [

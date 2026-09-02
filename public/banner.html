@@ -1,0 +1,247 @@
+<!doctype html>
+<!--
+  Source for public/banner.png. Re-render with:
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless \
+    --screenshot=public/banner.png --window-size=1280,400 --force-device-scale-factor=2 \
+    --hide-scrollbars public/banner.html
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --bg: #09090b;
+        --fg: #fafafa;
+        --muted: #a1a1aa;
+        --line: #27272a;
+        --accent: #3b82f6;
+        --critical: #ef4444;
+        --milestone: #f59e0b;
+        --today: #fb7185;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        width: 1280px;
+        height: 400px;
+        overflow: hidden;
+        background: var(--bg);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .banner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        padding: 0 72px;
+        overflow: hidden;
+      }
+
+      /* faint timeline grid across the whole banner */
+      .banner::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.045) 1px,
+          transparent 1px
+        );
+        background-size: 64px 100%;
+        mask-image: linear-gradient(90deg, transparent, #000 30%, #000);
+      }
+
+      /* accent glow behind the chart art */
+      .banner::after {
+        content: '';
+        position: absolute;
+        top: -180px;
+        right: -120px;
+        width: 700px;
+        height: 560px;
+        background: radial-gradient(
+          closest-side,
+          rgba(59, 130, 246, 0.22),
+          transparent
+        );
+      }
+
+      .copy {
+        position: relative;
+        z-index: 1;
+        flex: 0 0 auto;
+        width: 500px;
+      }
+
+      .scope {
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--muted);
+      }
+
+      .wordmark {
+        margin-top: 6px;
+        font-size: 68px;
+        line-height: 1.04;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        color: var(--fg);
+      }
+
+      .wordmark span {
+        color: var(--accent);
+      }
+
+      .tagline {
+        margin-top: 18px;
+        font-size: 19px;
+        line-height: 1.5;
+        font-weight: 450;
+        color: var(--muted);
+      }
+
+      .meta {
+        margin-top: 24px;
+        display: flex;
+        gap: 10px;
+      }
+
+      .pill {
+        padding: 6px 13px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        font-size: 13.5px;
+        font-weight: 550;
+        color: #d4d4d8;
+        background: rgba(255, 255, 255, 0.025);
+      }
+
+      .art {
+        position: relative;
+        z-index: 1;
+        flex: 1 1 auto;
+        margin-right: -72px;
+      }
+
+      .art svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      /* brand stripe */
+      .stripe {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 5px;
+        background: linear-gradient(
+          90deg,
+          var(--accent),
+          #6366f1 45%,
+          var(--milestone) 75%,
+          var(--critical)
+        );
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner">
+      <div class="copy">
+        <div class="scope">@jaeungkim</div>
+        <h1 class="wordmark">gantt<span>-chart</span></h1>
+        <p class="tagline">
+          React Gantt chart with editable bars, dependency arrows, and a
+          headless scheduling core.
+        </p>
+        <div class="meta">
+          <div class="pill">React 18 &amp; 19</div>
+          <div class="pill">TypeScript</div>
+          <div class="pill">Headless core</div>
+        </div>
+      </div>
+
+      <div class="art">
+        <svg viewBox="0 0 620 288" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker
+              id="arrow"
+              viewBox="0 0 8 8"
+              refX="6"
+              refY="4"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto"
+            >
+              <path d="M0 0 L8 4 L0 8 z" fill="#71717a" />
+            </marker>
+          </defs>
+
+          <!-- row separators -->
+          <g stroke="#27272a" stroke-width="1">
+            <path d="M0 12 H620" />
+            <path d="M0 56 H620" />
+            <path d="M0 100 H620" />
+            <path d="M0 144 H620" />
+            <path d="M0 188 H620" />
+            <path d="M0 232 H620" />
+            <path d="M0 276 H620" />
+          </g>
+
+          <!-- today marker -->
+          <path
+            d="M492 4 V284"
+            stroke="#fb7185"
+            stroke-width="1.5"
+            stroke-dasharray="5 5"
+            opacity="0.7"
+          />
+
+          <!-- dependency arrows -->
+          <g stroke="#71717a" stroke-width="1.5" marker-end="url(#arrow)">
+            <path d="M124 34 H130 V78 H132" />
+            <path d="M276 78 H282 V122 H284" />
+            <path d="M384 122 H392 V148" />
+            <path d="M276 78 H288 V210 H296" />
+            <path d="M426 210 H432 V254 H436" />
+          </g>
+
+          <!-- critical path bars -->
+          <g>
+            <rect x="14" y="22" width="110" height="24" rx="6" fill="#ef4444" opacity="0.28" />
+            <rect x="14" y="22" width="88" height="24" rx="6" fill="#ef4444" />
+            <rect x="136" y="66" width="140" height="24" rx="6" fill="#ef4444" opacity="0.28" />
+            <rect x="136" y="66" width="98" height="24" rx="6" fill="#ef4444" />
+            <rect x="288" y="110" width="96" height="24" rx="6" fill="#ef4444" opacity="0.28" />
+            <rect x="288" y="110" width="48" height="24" rx="6" fill="#ef4444" />
+          </g>
+
+          <!-- milestone -->
+          <path d="M392 153 L405 166 L392 179 L379 166 Z" fill="#f59e0b" />
+
+          <!-- non-critical bars -->
+          <g>
+            <rect x="300" y="198" width="126" height="24" rx="6" fill="#3b82f6" opacity="0.28" />
+            <rect x="300" y="198" width="76" height="24" rx="6" fill="#3b82f6" />
+            <rect x="440" y="242" width="150" height="24" rx="6" fill="#3b82f6" opacity="0.28" />
+            <rect x="440" y="242" width="42" height="24" rx="6" fill="#3b82f6" />
+          </g>
+        </svg>
+      </div>
+
+      <div class="stripe"></div>
+    </div>
+  </body>
+</html>
