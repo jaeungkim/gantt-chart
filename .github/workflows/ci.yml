@@ -32,6 +32,16 @@ jobs:
       # The docs site consumes the built package through workspace:*, so this runs after
       # `pnpm build`. It is also what catches a page whose MDX no longer parses.
       - run: pnpm --filter @gantt-chart/docs build
+      # Every specifier in the emitted .d.ts must resolve for a consumer. The library imports
+      # its own modules bare (tsconfig baseUrl), and vite-plugin-dts rewrites those to relative
+      # paths - except a directory barrel like `core`, which it used to emit verbatim. A consumer
+      # then got "Cannot find module 'core'". Fail here instead of on their machine.
+      - name: Declarations must not import bare internal modules
+        run: |
+          bad=$(grep -rhoE "from '[^.'@][^']*'" $(find dist -name '*.d.ts') | sort -u \
+                | grep -vE "^from '(react|react-dom|dayjs)(/[^']*)?'$" || true)
+          if [ -n "$bad" ]; then echo "unresolvable specifiers in dist/*.d.ts:"; echo "$bad"; exit 1; fi
+          echo "declaration specifiers OK"
       # SSR safety: importing and server-rendering the built package in plain Node
       # (no DOM globals) must not touch window/document/sessionStorage.
       # A forwardRef/memo component is an object, not a function, so the first two steps

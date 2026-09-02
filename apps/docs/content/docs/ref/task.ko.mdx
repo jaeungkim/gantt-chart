@@ -213,7 +213,7 @@ export interface TaskTransformed extends Task {
 ## 참고 사항
 
 `isMilestoneTask`와 `normalizeProgress`는 **패키지 루트에서 내보내지 않아요**. 소스에 있고
-`src/types/task.ts`가 다시 내보내지만, `src/index.tsx`가 이 둘을 나열하지 않아요. 그래서
+`src/types/task.ts`가 다시 내보내지만, `src/index.ts`가 이 둘을 나열하지 않아요. 그래서
 `import { isMilestoneTask } from '@jaeungkim/gantt-chart'`는 실패해요. 대신 호스트 앱에서
 `task.type === 'milestone'`과 `Math.min(100, Math.max(0, progress))`를 직접 쓰세요.
 `RenderedDependency`도 내보내지 않아요.

@@ -4,10 +4,10 @@ import GanttDragGuides from "components/GanttDragGuides";
 import GanttGridSplitter from "components/GanttGridSplitter";
 import { GanttMarkers, GanttRangeBands } from "components/GanttMarkers";
 import GanttTaskGrid from "components/GanttTaskGrid";
-import GanttBarsLayer from "components/Gantt/GanttBarsLayer";
-import GanttNonWorkingLayer from "components/Gantt/GanttNonWorkingLayer";
-import GanttRowsLayer from "components/Gantt/GanttRowsLayer";
-import GanttToolbar from "components/Gantt/GanttToolbar";
+import GanttBarsLayer from "components/GanttBarsLayer";
+import GanttNonWorkingLayer from "components/GanttNonWorkingLayer";
+import GanttRowsLayer from "components/GanttRowsLayer";
+import GanttToolbar from "components/GanttToolbar";
 import {
   forwardRef,
   useCallback,
@@ -55,7 +55,7 @@ import {
   computeMarkerOffsets,
   computeNonWorkingRanges,
 } from "utils/timeline";
-import { GanttProps } from "./GanttProps";
+import { GanttProps } from 'types/props';
 
 /** Gantt component defaults */
 const DEFAULT_HEIGHT = 600;

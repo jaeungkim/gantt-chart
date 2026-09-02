@@ -53,7 +53,7 @@
     "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "type-check": "tsc --noEmit && tsc --noEmit -p playground",
+    "type-check": "tsc --noEmit && tsc --noEmit -p apps/playground",
     "test": "vitest run",
     "docs": "pnpm --filter @gantt-chart/docs dev"
   },

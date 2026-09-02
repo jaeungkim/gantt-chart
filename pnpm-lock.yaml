@@ -130,7 +130,7 @@ importers:
         specifier: ~5.7.3
         version: 5.7.3
 
-  playground:
+  apps/playground:
     dependencies:
       react:
         specifier: ^19.2.8

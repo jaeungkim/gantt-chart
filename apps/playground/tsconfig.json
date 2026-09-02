@@ -19,9 +19,9 @@
     // and in dev that name resolves to source so edits hot-reload. baseUrl matches the
     // library's own tsconfig so its internal bare imports (`core/tree`, `types/gantt`)
     // still resolve once those files are pulled in through the alias.
-    "baseUrl": "../src",
+    "baseUrl": "../../src",
     "paths": {
-      "@jaeungkim/gantt-chart": ["index.tsx"],
+      "@jaeungkim/gantt-chart": ["index.ts"],
       "*": ["*"]
     }
   },

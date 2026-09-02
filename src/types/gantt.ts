@@ -6,7 +6,7 @@ import type {
   PointerEventHandler,
   ReactNode,
 } from 'react';
-import type { SchedulingPolicy, WorkingCalendar } from 'core';
+import type { SchedulingPolicy, WorkingCalendar } from '../core';
 import type { Task, TaskTransformed } from './task';
 
 /**
