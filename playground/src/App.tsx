@@ -9,17 +9,24 @@ import {
   type SchedulingPolicy,
   type Task,
 } from '@jaeungkim/gantt-chart';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { seedTasks } from './db';
 
 /**
  * Dev playground - not part of the published package.
  *
- * Every switch below is declared once in CONTROLS and rendered by one loop, so adding a
- * feature to the harness means adding a row, not another block of JSX. Settings live in
+ * Root `src/` is the package. This app imports it by its published name, which vite.config.ts
+ * aliases to `../src` so edits hot-reload without a build; `apps/docs` consumes `dist/` instead,
+ * to show what npm actually serves.
+ *
+ * The chart fills the window. Every switch lives in the dev console - the gear button bottom-left
+ * (Agentation owns bottom-right) - and is declared once in CONTROLS and rendered by one loop, so
+ * adding a feature to the harness means adding a row, not another block of JSX. Settings live in
  * React state and are mirrored into the query string, so a scenario is a shareable link
- * (`?criticalPath=1&policy=shift-on-overlap`) that still toggles live once loaded - the
- * previous version read the params once at module scope and could not.
+ * (`?criticalPath=1&policy=shift-on-overlap`) that still toggles live once loaded.
+ *
+ * The console is a native <details>, so its inputs are in the DOM but hidden while it is closed:
+ * a test has to click `data-testid="dev-panel-toggle"` before touching the control testids.
  */
 
 interface Settings {
@@ -162,15 +169,26 @@ const columns: GanttColumn[] = [
   },
 ];
 
-const toolbarStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: 16,
-  alignItems: 'center',
-  padding: '8px 12px',
-  fontFamily: 'system-ui, sans-serif',
-  fontSize: 13,
-  flexWrap: 'wrap',
-};
+/**
+ * Dev console: a <details> pinned bottom-left. The browser owns open/closed, so there is no
+ * state, portal or key handler. `attention` lights a dot on the button while a readout inside
+ * needs a look, since a closed panel would otherwise hide it.
+ */
+function DevPanel({ children, attention }: { children: ReactNode; attention?: boolean }) {
+  return (
+    <details className="dev-panel" data-testid="dev-panel">
+      <summary
+        data-testid="dev-panel-toggle"
+        title="Dev console"
+        aria-label="Toggle dev console"
+        data-attention={attention || undefined}
+      >
+        &#9881;
+      </summary>
+      <div className="dev-panel-body">{children}</div>
+    </details>
+  );
+}
 
 function App() {
   const ref = useRef<GanttHandle>(null);
@@ -191,48 +209,8 @@ function App() {
     setSettings((current) => ({ ...current, [key]: value }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100svh' }}>
-      <div style={toolbarStyle}>
-        {CONTROLS.map((control) =>
-          control.type === 'boolean' ? (
-            <label key={control.key}>
-              <input
-                data-testid={control.key}
-                type="checkbox"
-                checked={settings[control.key]}
-                onChange={(e) => update(control.key, e.target.checked)}
-              />{' '}
-              {control.label}
-            </label>
-          ) : (
-            <label key={control.key}>
-              {control.label}{' '}
-              <select
-                data-testid={control.key}
-                value={settings[control.key]}
-                onChange={(e) =>
-                  update(control.key, e.target.value as SchedulingPolicy & string)
-                }
-              >
-                {control.options.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )
-        )}
-
-        <button type="button" onClick={() => setTasks(seedTasks)}>
-          Reset dates
-        </button>
-
-        <span data-testid="last-change">{lastChange}</span>
-        {cycle && <span data-testid="cycle">cycle: {cycle.join(' -> ')}</span>}
-      </div>
-
-      <div style={{ flex: 1, minHeight: 0 }}>
+    <>
+      <div style={{ height: '100svh' }}>
         <ReactGanttChart
           ref={ref}
           tasks={tasks}
@@ -301,8 +279,57 @@ function App() {
           }
         />
       </div>
+
+      {import.meta.env.DEV && (
+        <DevPanel attention={cycle !== null}>
+          {CONTROLS.map((control) =>
+            control.type === 'boolean' ? (
+              <label key={control.key}>
+                <input
+                  data-testid={control.key}
+                  type="checkbox"
+                  checked={settings[control.key]}
+                  onChange={(e) => update(control.key, e.target.checked)}
+                />{' '}
+                {control.label}
+              </label>
+            ) : (
+              <label key={control.key}>
+                {control.label}{' '}
+                <select
+                  data-testid={control.key}
+                  value={settings[control.key]}
+                  onChange={(e) =>
+                    update(control.key, e.target.value as SchedulingPolicy & string)
+                  }
+                >
+                  {control.options.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setTasks(seedTasks);
+              setCycle(null);
+            }}
+          >
+            Reset dates
+          </button>
+
+          <span data-testid="last-change">{lastChange}</span>
+          {cycle && <span data-testid="cycle">cycle: {cycle.join(' -> ')}</span>}
+        </DevPanel>
+      )}
+
       <Agentation />
-    </div>
+    </>
   );
 }
 
