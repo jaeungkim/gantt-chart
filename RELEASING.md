@@ -37,7 +37,7 @@ Maintainer runbook. Publishing is triggered by creating a GitHub Release in the 
 5. Issues → Labels → New label:
    - `breaking` `#b60205` — "Changes the public API or behavior; bumps the minor version while 0.x"
    - `skip-changelog` `#cfd3d7` — "Hide from release notes (CI, tooling, release chores)"
-6. Repo home page → About (gear icon): website `https://jaeungkim.com/gantt-chart`, topics `react gantt gantt-chart timeline typescript`.
+6. Repo home page → About (gear icon): website `https://gantt.jaeungkim.com`, topics `react gantt gantt-chart timeline typescript`.
 
 ## Cutting a release (example: 0.4.0)
 

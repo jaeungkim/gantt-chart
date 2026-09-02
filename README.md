@@ -7,7 +7,7 @@
 A Gantt chart for React: virtualized rows, editable bars, dependency arrows, and a scheduling
 engine that runs without a DOM.
 
-**[Live demo](https://jaeungkim.com/gantt-chart)** · **[Documentation](https://gantt.jaeungkim.com/docs)** · **[한국어 문서](https://gantt.jaeungkim.com/ko/docs)**
+**[Live demo](https://gantt.jaeungkim.com/docs/quick-start)** · **[Documentation](https://gantt.jaeungkim.com/docs)** · **[한국어 문서](https://gantt.jaeungkim.com/ko/docs)**
 
 ## Motivation
 
