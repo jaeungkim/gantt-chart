@@ -1,3 +1,4 @@
+import { Agentation } from "agentation";
 import Gantt from "pages/Gantt";
 import { useEffect, useRef, useState } from "react";
 import type { SchedulingPolicy } from "core";
@@ -261,6 +262,7 @@ function App() {
           }
         />
       </div>
+      <Agentation />
     </div>
   );
 }
