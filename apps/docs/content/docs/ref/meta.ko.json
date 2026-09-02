@@ -17,6 +17,7 @@
     "core-graph",
     "core-tree",
     "core-critical-path",
-    "core-calendar"
+    "core-calendar",
+    "..."
   ]
 }
