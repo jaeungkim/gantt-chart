@@ -51,7 +51,6 @@
   "scripts": {
     "dev": "pnpm --filter @gantt-chart/playground dev",
     "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
-    "preview": "pnpm --filter @gantt-chart/playground preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit && tsc --noEmit -p playground",

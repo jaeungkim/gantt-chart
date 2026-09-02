@@ -24,9 +24,9 @@ This is a pnpm workspace with three members:
 The playground imports the library by its published name, `@jaeungkim/gantt-chart`, the same
 way a consumer does. In dev that name is aliased to `src/` so edits hot-reload without a build.
 
-Every switch in the playground toolbar is one row in the `CONTROLS` array in
-`playground/src/App.tsx` - add a row, not another block of JSX. Settings mirror into the query
-string, so a scenario is a shareable link (`?criticalPath=1&policy=shift-on-overlap`).
+Every switch in the playground's dev console (the gear button bottom-left) is one row in the
+`CONTROLS` array in `playground/src/App.tsx` - add a row, not another block of JSX. Settings
+mirror into the query string, so a scenario is a shareable link (`?criticalPath=1&policy=shift-on-overlap`).
 
 ## Before you open a PR
 
@@ -37,7 +37,7 @@ pnpm test        # vitest, 20 suites across src/core, src/utils, src/hooks and s
 pnpm build
 ```
 
-CI runs the same four commands on every PR. There are no component tests, so for visual or drag changes attach a screenshot or GIF from the dev app to the PR.
+CI runs the same four commands on every PR, then builds the docs site and runs an SSR import smoke test. There are no component tests, so for visual or drag changes attach a screenshot or GIF from the dev app to the PR.
 
 ## Documentation
 
