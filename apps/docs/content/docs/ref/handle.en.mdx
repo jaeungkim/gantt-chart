@@ -1,0 +1,183 @@
+---
+title: "GanttHandle"
+description: "`GanttHandle`, `GanttScrollApi`, `GanttScrollOptions`, `GanttZoomAnchor`"
+---
+
+`GanttHandle` is the object a `ref` on the chart receives. It carries the scroll, zoom, export and
+undo/redo methods, and it is assembled from three interfaces — `GanttScrollApi`, `GanttExportApi`
+and `GanttHistoryApi`. All four types on this page are type-only exports of the package.
+
+```ts
+import type {
+  GanttHandle,
+  GanttScrollApi,
+  GanttScrollOptions,
+  GanttZoomAnchor,
+} from '@jaeungkim/gantt-chart';
+```
+
+## `GanttHandle`
+
+```ts
+/** Imperative API exposed through the ref */
+export interface GanttHandle
+  extends GanttScrollApi,
+    GanttExportApi,
+    GanttHistoryApi {}
+```
+
+It declares no member of its own. `GanttExportApi` is documented on [Export](export),
+`GanttHistoryApi` on [History](history).
+
+### Members
+
+| Member | Signature | Effect |
+|---|---|---|
+| `scrollToDate` | `(date: string \| Date \| Dayjs, options?: GanttScrollOptions) => void` | Scrolls horizontally so that date sits at the requested position; does nothing when the date is outside the rendered timeline. |
+| `scrollToToday` | `(options?: GanttScrollOptions) => void` | `scrollToDate` with the current instant. |
+| `scrollToTask` | `(taskId: string, options?: GanttScrollOptions) => void` | Scrolls horizontally to the task's bar, and vertically only when its row is off screen; does nothing for an id that is not on a rendered row. |
+| `zoomToFit` | `() => void` | Switches to the finest scale at which the whole project fits the timeline width and pins the earliest task date to the left edge. |
+| `getScrollElement` | `() => HTMLDivElement \| null` | Returns the chart's scroll container element, or `null` when the chart is not mounted. |
+| `exportToPng` | `(options?: GanttExportOptions) => Promise<Blob>` | Rasterises the chart and resolves with a PNG blob; triggers no download. See [Export](export). |
+| `undo` | `() => void` | Reverts the newest committed gesture and fires `onTasksChange`. See [History](history). |
+| `redo` | `() => void` | Replays the newest undone gesture and fires `onTasksChange`. See [History](history). |
+| `canUndo` | `boolean` | Whether there is a gesture to undo. Read through a getter, so it is current on every access. |
+| `canRedo` | `boolean` | Whether there is an undone gesture to redo. Read through a getter, so it is current on every access. |
+
+`undo` and `redo` return `void`. The resulting task array arrives through `onTasksChange`, not as a
+return value.
+
+## `GanttScrollApi`
+
+```ts
+/** Imperative scroll and zoom API */
+export interface GanttScrollApi {
+  /** Scroll horizontally to a given date */
+  scrollToDate: (date: string | Date | Dayjs, options?: GanttScrollOptions) => void;
+  /** Scroll horizontally to today */
+  scrollToToday: (options?: GanttScrollOptions) => void;
+  /** Scroll horizontally and vertically to a given task */
+  scrollToTask: (taskId: string, options?: GanttScrollOptions) => void;
+  /**
+   * Switch to the finest scale at which the whole project fits the viewport width
+   *
+   * Also scrolls the project into view. Does nothing while there are no tasks.
+   */
+  zoomToFit: () => void;
+  /** The scroll container DOM node (null when unavailable) */
+  getScrollElement: () => HTMLDivElement | null;
+}
+```
+
+`Dayjs` is the object type from `dayjs`; the package does not re-export it, so import it from
+`dayjs` itself. A plain string or `Date` is accepted and parsed as UTC — see
+[Task data](../task-data).
+
+## `GanttScrollOptions`
+
+```ts
+/** Options for the scrollTo* methods */
+export interface GanttScrollOptions {
+  /** Whether to animate the scroll (default true) */
+  smooth?: boolean;
+  /** Where the target lands inside the viewport (default 'center') */
+  align?: "start" | "center";
+}
+```
+
+| Field | Type | Default | Effect |
+|---|---|---|---|
+| `smooth` | `boolean` | `true` | `false` scrolls with `behavior: "auto"`. Any other value, `undefined` included, animates with `behavior: "smooth"`. |
+| `align` | `"start" \| "center"` | `"center"` | `"start"` puts the target at the left edge of the timeline area. `"center"` centres it in the timeline area, measured against the width left over after the task list pane. |
+
+Horizontal targets are clamped with `Math.max(0, …)`, so a target left of the timeline origin
+scrolls to `0`.
+
+`align` applies to the horizontal axis only. `scrollToTask` always centres the row vertically when
+it moves vertically at all.
+
+## `GanttZoomAnchor`
+
+```ts
+/** A date pinned at a fixed distance from the timeline's visible left edge */
+export interface GanttZoomAnchor {
+  date: Dayjs;
+  /** px from the left edge of the timeline area (the task list pane excluded) */
+  viewportX: number;
+}
+```
+
+The type is exported from the package, but no member of `GanttHandle` accepts it. It describes the
+anchor the chart keeps fixed while the scale changes — the behaviour behind `zoomToFit` and wheel
+zoom. Nothing public consumes it, so there is nothing to pass one to.
+
+## Attaching the ref
+
+```tsx
+// TimelinePane.tsx
+import { useRef } from 'react';
+import { ReactGanttChart } from '@jaeungkim/gantt-chart';
+import type { GanttHandle, Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const tasks: Task[] = [
+  {
+    id: '1', name: 'Design', parentId: null, sequence: '1',
+    startDate: '2025-06-01', endDate: '2025-06-10',
+  },
+  {
+    id: '2', name: 'Build', parentId: null, sequence: '2',
+    startDate: '2025-06-11', endDate: '2025-06-30',
+  },
+];
+
+export function TimelinePane() {
+  const chart = useRef<GanttHandle>(null);
+
+  return (
+    <>
+      <button onClick={() => chart.current?.scrollToToday({ align: 'start' })}>
+        Today
+      </button>
+      <button onClick={() => chart.current?.zoomToFit()}>Fit</button>
+      <ReactGanttChart ref={chart} tasks={tasks} height={400} />
+    </>
+  );
+}
+```
+
+## Before mount, and calling too early
+
+`ref.current` is `null` until React commits the chart, and `null` again after it unmounts. A read
+during the parent's render sees `null`; the handle is in place by the time the parent's
+`useEffect` or `useLayoutEffect` runs. Guard with `?.` rather than `!`.
+
+Once the handle exists, the methods tolerate being called before the data they need is there. Each
+one below returns without throwing and without a console warning:
+
+| Call | Condition | Result |
+|---|---|---|
+| `scrollToDate` | the timeline has no ticks, or the date falls before the first tick or past the end of the last | no scroll |
+| `scrollToToday` | today is outside the rendered range | no scroll |
+| `scrollToTask` | the id is not on a currently rendered row — unknown, or hidden under a collapsed parent or collapsed group | no scroll |
+| `zoomToFit` | `tasks` is empty, or the scroll container is not mounted | no scale change, no scroll |
+| `getScrollElement` | the chart is not mounted | `null` |
+| `undo` / `redo` | the corresponding stack is empty | no change, no `onTasksChange` |
+
+`exportToPng` is the exception: it rejects instead of doing nothing. Its full error list is on
+[Export](export).
+
+## Notes
+
+- The handle object is rebuilt whenever the underlying scroll, export or history APIs change
+  identity. `canUndo` and `canRedo` are getters on it, so they report the live value even from a
+  handle reference captured earlier.
+- `scrollToDate` and `scrollToToday` never touch `scrollTop`. Only `scrollToTask` scrolls
+  vertically, and only when the target row is outside the viewport.
+- `zoomToFit` takes no `GanttScrollOptions`. Its scroll is always instant, never animated.
+- `zoomToFit` picks from the six scales in the order `hour`, `day`, `week`, `month`, `quarter`,
+  `year`, and falls back to `year` when the project fits none of them — see
+  [The timeline](../timeline).
+- Row height for the vertical `scrollToTask` math is a fixed 38 px.
+- Behaviour, worked examples and the reasons behind these methods live in
+  [Imperative API](../imperative-api).

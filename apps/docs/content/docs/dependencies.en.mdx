@@ -1,0 +1,209 @@
+---
+title: "Dependencies"
+description: "The four link types, lag, and drawing arrows"
+---
+
+You map your API's `blockedBy` list onto `dependencies`, and every arrow comes out backwards. The field is called `targetId`, which reads like the task at the far end of the arrow. It is not. A dependency entry lives on the successor, and `targetId` holds the id of the predecessor it waits on.
+
+<GanttDemo preset="dependencies" />
+
+## Where a link lives
+
+One entry, on the task that waits.
+
+```tsx
+// src/DependencyExample.tsx
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const tasks: Task[] = [
+  {
+    id: 'design',
+    name: 'Design',
+    startDate: '2025-06-02',
+    endDate: '2025-06-05',
+    parentId: null,
+    sequence: '1',
+  },
+  {
+    id: 'build',
+    name: 'Build',
+    startDate: '2025-06-05',
+    endDate: '2025-06-12',
+    parentId: null,
+    sequence: '2',
+    // Build waits on Design, so the entry sits on Build
+    dependencies: [{ targetId: 'design', type: 'FS', lag: 2 }],
+  },
+];
+
+export function DependencyExample() {
+  return <ReactGanttChart tasks={tasks} height={300} />;
+}
+```
+
+That draws one arrow from Design to Build. `design` itself carries no `dependencies` at all. The field types are listed in [Task](ref/task).
+
+Two entries are dropped while the graph is built, silently: a dependency whose `targetId` is the task's own id, and a dependency whose `targetId` matches no task in the array.
+
+## The four types
+
+The two letters name the two ends of the link. The first letter is the predecessor's end. The second is the successor's end. `F` is finish, `S` is start.
+
+| Type | Predecessor end used | Successor end constrained | Date the link asks for |
+|---|---|---|---|
+| `FS` | finish | start | successor start = predecessor finish + lag |
+| `SS` | start | start | successor start = predecessor start + lag |
+| `FF` | finish | finish | successor finish = predecessor finish + lag |
+| `SF` | start | finish | successor finish = predecessor start + lag |
+
+`type` is required on every entry. There is no default.
+
+That date is what the link asks for, not a rule the chart keeps true on its own. `schedulingPolicy` defaults to `off`, and even when it is on it runs on a bar drag and nowhere else. Whether a successor is then pulled earlier to meet the date or only pushed later is the policy's question — see [Scheduling](scheduling).
+
+With `lag: 0` an `FS` link asks for a successor start on the same date the predecessor ends. No implicit one-day gap is added anywhere. In the example above Design ends 06-05 and the link carries `lag: 2`, so the link asks for a Build start of 06-07. Build stays at the 06-05 its own data gives it until a bar is dragged with a policy on.
+
+A milestone has no finish of its own. Both ends of a milestone resolve to its `startDate`, so an `FS` link out of a milestone hangs off `startDate`; the milestone rule itself is in [Task data](task-data).
+
+## lag
+
+`lag` is a signed number of whole days on the dependency entry. Positive pushes the successor that far past the predecessor's end of the link — the finish for `FS` and `FF`, the start for `SS` and `SF`. Negative overlaps, which is what other tools call a lead. There is no separate lead field.
+
+A missing `lag` is read as `0` everywhere it is consumed.
+
+The unit is whichever day the active calendar counts. Calendar days by default, working days once `workingCalendar` is on — see [Scheduling](scheduling). Every consumer treats the value as whole days, so a fractional `lag` is not meaningful.
+
+> [!IMPORTANT]
+> `lag` is data-in only. A link drawn in the chart is written as `{ targetId, type }` with no `lag` key, and no gesture, key or callback edits the lag of an existing link. To change one, rewrite the entry in your own `tasks` array.
+
+## Drawing a link
+
+Each bar carries two connector dots, one per end. They are 10px circles, placed at `left: -14px` and `right: -14px` on a task bar and at `left: -9px` and `left: 15px` on a milestone, which puts them on the diamond's two side vertices. They are transparent until the bar is hovered or selected, and they render only when that task's `canCreateLink` resolves to true.
+
+Drag from a dot and release on another bar. The type comes from the two anchors.
+
+| Drag starts at | Released over | Type |
+|---|---|---|
+| the predecessor's end dot | the successor's left half | `FS` |
+| the predecessor's start dot | the successor's left half | `SS` |
+| the predecessor's end dot | the successor's right half | `FF` |
+| the predecessor's start dot | the successor's right half | `SF` |
+
+The half is decided by the horizontal midpoint of the target's box. For a milestone the box measured is the diamond, not the wrapper that also holds the label. The drop target is found with `elementFromPoint`, so it is whatever bar element sits under the pointer, not the nearest bar.
+
+`Escape` cancels the drag.
+
+### What the drag rejects
+
+While the pointer is over a candidate, the chart validates the pair. A rejected target turns red, the reason is drawn beside the pointer, and releasing commits nothing.
+
+| Rejection | Condition | Text shown |
+|---|---|---|
+| self | the two ids are equal | `Cannot link a task to itself` |
+| duplicate | the successor already has an entry whose `targetId` is this predecessor | `These tasks are already linked` |
+| cycle | walking the predecessor's own predecessors reaches the successor | `That would create a circular dependency` |
+
+The order is fixed: self, then duplicate, then cycle.
+
+The duplicate check compares `targetId` alone. It ignores `type`, so an existing `design → build` link of any type refuses a second link between the same ordered pair. The reverse pair is a different question and is checked separately, by the cycle rule.
+
+The three strings are hardcoded English. They do not pass through `locale` or `formats`.
+
+A target whose `canCreateLink` is false is rejected earlier and more quietly: it never highlights, no reason text appears, and the release does nothing.
+
+### What reaches onDependencyCreate
+
+Everything the drag did not reject. Links across groups or lanes, links onto a summary row, links to and from a milestone, and links the scheduler can never satisfy all arrive at the callback.
+
+```tsx
+// src/LinkGuard.tsx
+import { useState } from 'react';
+import {
+  ReactGanttChart,
+  type GanttDependencyChange,
+  type Task,
+} from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+export function LinkGuard({ initial }: { initial: Task[] }) {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      onTasksChange={setTasks}
+      onDependencyCreate={(change: GanttDependencyChange) => {
+        // Only an exact false aborts
+        if (change.type === 'SF') return false;
+      }}
+      onDependencyDelete={({ predecessorId, successorId }) =>
+        window.confirm(`Unlink ${predecessorId} -> ${successorId}?`)
+      }
+    />
+  );
+}
+```
+
+The return value is compared with `=== false`. `true`, `undefined`, `null` and `0` all commit. So does a Promise: these two callbacks are synchronous only, and a returned Promise is never awaited, so an async guard resolves after the link is already in the data. `onBeforeTaskChange` does await; see [Events and cancellable changes](events) for the handler that does.
+
+`GanttDependencyChange` carries `predecessorId`, `successorId` and `type`, and nothing else — no `lag`, in either direction. Its shape is in [Changes](ref/changes).
+
+A committed link is one undo step, reversible through the [imperative API](imperative-api).
+
+## Deleting a link
+
+Every arrow has an invisible 12px-wide hit path along its route, drawn only when the successor's `canDeleteLink` is true. Pointerdown on it selects the arrow. A selected arrow switches to the accent colour and grows a round delete button, a cross in a circle, at the midpoint of its two endpoints.
+
+While one arrow is selected:
+
+| Input | Effect |
+|---|---|
+| `Delete` or `Backspace` | delete the selected link |
+| `Escape` | deselect |
+| pointerdown anywhere | deselect |
+
+Key presses are ignored while focus sits in an `input`, `textarea`, `select`, or `contentEditable` element.
+
+The permission read is the successor's `canDeleteLink` — the task whose `dependencies` array loses the entry. Setting `allowLinkDelete: false` on the predecessor changes nothing. When the flag is false the delete returns silently.
+
+The removal filters by `targetId` alone. If your data holds two entries on one successor pointing at the same predecessor, both arrows select together and one delete removes both.
+
+`Delete` reaches two handlers at once when a bar cell has keyboard focus and an arrow is selected: the link is removed and the focused task is deleted, in two separate undo steps. The task-delete key is documented in [Keyboard and screen readers](accessibility).
+
+## Interaction traps
+
+`allowLinkCreate: false` on a task blocks it in both directions. It is read on the source when the dots are rendered, and again on the drop target during the drag, so the task can neither start a link nor receive one. The full resolution order for these flags — task flag, `task.readOnly`, chart prop, chart `readOnly` — is in [Editing tasks](editing).
+
+`renderBar` disables link editing for that bar. A custom node receives `barProps` with `style`, `onPointerDown`, `onClick` and `onDoubleClick` only. It gets no connector dots and no `data-task-id`, and drop detection looks for `data-task-id`, so the bar can neither start a drag nor be dropped on. Spreading `barProps` does not bring dependencies back, and nothing warns. See [Custom rendering](custom-rendering).
+
+A cycle that already exists in your data disables the cycle guard for that walk. The guard stops revisiting ids it has seen, so the walk terminates on the existing loop before it reaches the successor, and the new link is allowed through.
+
+Creating or deleting a link never reschedules anything. `schedulingPolicy` runs on a bar drag and nowhere else, so a fresh `FS` link leaves an overlapping successor exactly where it was — see [Scheduling](scheduling).
+
+## Checking a link yourself
+
+`canLink(tasks, predecessorId, successorId)` returns `{ ok, cycle }`, rejecting a self-link and a cycle but not a duplicate, so it is not the same guard the drag uses.
+
+`linkKey(link)` builds the `"design>build:FS"` string that identifies one link, and it is the key format `criticalLinkIds` uses.
+
+Both are exported from the package and documented in [Graph core](ref/core-graph).
+
+## Limits
+
+The chart draws and removes links. It does not manage them.
+
+- **No lag editing.** No handle, dialog, key or callback writes `lag`. Links drawn in the UI always have none.
+- **No type editing.** Once an arrow exists, changing `FS` to `SS` means rewriting the entry in your `tasks` array.
+- **No enforcement on create.** Adding an `FS` link does not move the successor and nothing checks the dates. Links are enforced on a bar drag only, and only once `schedulingPolicy` is off its `off` default.
+- **No keyboard path to a link.** The connector dots carry `tabIndex={-1}` and no key starts a link drag. An arrow must be selected with a pointer before `Delete` applies to it.
+- **No multi-select.** One arrow is selected at a time.
+- **No hover tooltip, context menu or label on an arrow.** The only affordances are the hit path and the delete button on the selected arrow.
+- **No dots without hover or selection.** A finger has no hover, so a touch user has to select the bar first. Selection itself is off until `selectable` or `onTaskSelect` is set, and without one of those a touch user never reaches the dots.
+- **No arrow re-routing.** The elbow is computed from the two endpoints and the type alone, so arrows cross bars freely.
+- **No arrow to a hidden task.** A link whose predecessor is filtered out or hidden under a collapsed parent is not drawn. It still exists and still constrains scheduling.
+- **Unknown `type` values vanish.** A typo like `'fs'` produces no arrow, and the one diagnostic is a development-only `console.warn`, fired once per distinct bad value.
+- **No "link edited" callback.** There is `onDependencyCreate` and `onDependencyDelete`, and nothing between them.
+- **The drag's own guard is internal.** A host cannot import the function the chart uses; `canLink` is the public approximation and it misses duplicates.
+- **`linkKey` ignores `lag`.** Two entries between the same pair with the same `type` and different `lag` values produce the same key, so `criticalLinkIds` cannot tell them apart.
+
+Next: [Scheduling](scheduling) — what the chart does with these links once a bar moves.

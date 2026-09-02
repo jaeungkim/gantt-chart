@@ -1,0 +1,269 @@
+---
+title: "Imperative API"
+description: "The `ref` handle: scrolling, zoom, undo/redo, PNG export"
+---
+
+A user drags six bars in a row and then presses `Ctrl+Z`. A "today" button in your own toolbar has to move the chart's scroll position. Someone clicks "export" and expects a PNG of what is on screen. None of that is a prop. It goes through a ref on the chart.
+
+## The handle
+
+`ReactGanttChart` is wrapped in `forwardRef`. Point a `useRef<GanttHandle>` at it and the ref holds ten members after mount.
+
+```tsx
+// src/ChartWithControls.tsx
+import { useRef } from 'react';
+import { ReactGanttChart, type GanttHandle, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+export function ChartWithControls({ tasks }: { tasks: Task[] }) {
+  const ganttRef = useRef<GanttHandle>(null);
+
+  return (
+    <>
+      <button onClick={() => ganttRef.current?.scrollToToday()}>Today</button>
+      <ReactGanttChart ref={ganttRef} tasks={tasks} />
+    </>
+  );
+}
+```
+
+`GanttHandle` is an intersection of three interfaces and adds nothing of its own.
+
+| Member | Signature | What it does |
+|---|---|---|
+| `scrollToDate` | `(date: string \| Date \| Dayjs, options?: GanttScrollOptions) => void` | Scrolls horizontally to a date |
+| `scrollToToday` | `(options?: GanttScrollOptions) => void` | `scrollToDate(dayjs())` |
+| `scrollToTask` | `(taskId: string, options?: GanttScrollOptions) => void` | Scrolls to a task's bar, vertically too if the row is off screen |
+| `zoomToFit` | `() => void` | Picks the finest scale that shows every task, then pins the project start to the left edge |
+| `getScrollElement` | `() => HTMLDivElement \| null` | Hands back the scroll container DOM node |
+| `exportToPng` | `(options?: GanttExportOptions) => Promise<Blob>` | Rasterizes the chart and resolves with a PNG blob |
+| `undo` | `() => void` | Reverts the newest gesture |
+| `redo` | `() => void` | Replays the newest undone gesture |
+| `canUndo` | `boolean` | Whether there is a gesture to undo |
+| `canRedo` | `boolean` | Whether there is an undone gesture to redo |
+
+The three interfaces are exported separately as `GanttScrollApi`, `GanttExportApi` and `GanttHistoryApi`. `GanttScrollApi`, `GanttScrollOptions` and `GanttHandle` itself are declared in [GanttHandle](ref/handle), `GanttExportApi` in [GanttExportApi](ref/export), `GanttHistoryApi` in [GanttHistoryApi](ref/history).
+
+`canUndo` and `canRedo` are getters on the handle, not copied booleans. Every read goes to the store. Destructuring them snapshots a value that never updates again.
+
+## Scrolling
+
+Every scroll method takes the same options object.
+
+| Option | Values | Default | Rule |
+|---|---|---|---|
+| `smooth` | `boolean` | animated | The animation is off only for the literal `false`. `undefined` animates |
+| `align` | `'start' \| 'center'` | `'center'` | Only the literal `'start'` takes the start branch |
+
+`align: 'start'` puts the target at the left edge of the timeline area. `align: 'center'` centres it in the timeline area, with the pinned task list pane's width subtracted from the viewport width. Both targets are clamped at `0`, so a date near the beginning of the range lands as far left as the chart can go.
+
+```ts
+ganttRef.current?.scrollToDate('2026-09-01', { smooth: false, align: 'start' });
+ganttRef.current?.scrollToToday();
+ganttRef.current?.scrollToTask('task-42');
+```
+
+`scrollToDate` and `scrollToToday` move the horizontal axis only. Neither touches `scrollTop`.
+
+`scrollToTask` moves both axes. Horizontally it targets the bar's left edge under `align: 'start'` and the bar's midpoint otherwise. Vertically it acts only when the row is outside the viewport, and then it centres the row. `align` has no effect on the vertical axis.
+
+Every one of these fails silently. A date outside the rendered range, an unknown task id, and a chart that is not mounted yet all take an early return with no throw and no console output. This is deliberate, so that calling one while data is still loading is safe.
+
+`scrollToTask` searches the rendered rows only. A task under a collapsed parent or a collapsed group is not in that list, so the call is a no-op. Expand the row first. Collapse state is covered in [Task list and hierarchy](task-list).
+
+## Zooming
+
+`zoomToFit()` reads the earliest `startDate` and the latest `endDate` across the rendered tasks. It then walks the scale ladder from finest to coarsest — `hour`, `day`, `week`, `month`, `quarter`, `year` — and takes the first scale where the whole span fits in the timeline's width. When nothing fits, it lands on `year`. The earliest date is pinned to the timeline's left edge.
+
+It takes no options. The resulting scroll is always instant, because the anchor is applied by assigning `scrollLeft` directly rather than through `scrollTo({ behavior })`.
+
+The fit is measured against an average px-per-millisecond figure per scale, not against the ticks that will actually be built. That figure is exact for the scales whose ticks are a fixed duration and approximate on `quarter` and `year`, whose ticks are months of 28 to 31 days, so a span that lands within a few percent of the viewport width can pick the neighbouring scale.
+
+It bails out silently with no tasks, with no mounted scroll element, and when the min or max date is not a finite number.
+
+There is no `setScale`, `zoomIn` or `zoomOut` on the handle. The other two ways the scale changes are the built-in selector and `Ctrl`/`Cmd` + wheel, both described in [The timeline](timeline).
+
+`GanttZoomAnchor` is exported from the package, but nothing on the handle accepts one. It is a type you may see in the surface, not something you can pass.
+
+## Undo and redo
+
+One user gesture is one step. A subtree drag that moved twenty rows undoes in one press, because the whole gesture commits once.
+
+These are the gestures that record a step:
+
+| Gesture | Records |
+|---|---|
+| Bar move or resize, including a cascading reschedule and a whole-subtree drag | one step |
+| Progress-handle drag | one step |
+| Row reorder or re-parent in the task list | one step |
+| Drawing a dependency link | one step |
+| Deleting a dependency arrow | one step |
+| Keyboard nudge, keyboard progress `+`/`-` | one step each |
+
+Keyboard `Delete` goes through the same commit path but records no step. It removes a row, and the patch model cannot invert that, so it clears the history instead.
+
+A step stores only the fields that differ, not a copy of the task array. A gesture that changed nothing is not a step. Pushing a new step clears the redo stack.
+
+Undo and redo report their result through `onTasksChange`, exactly like a drag commit. There is no `onUndo`, no `onRedo`, and no `onHistoryChange`. They do not re-enter `onBeforeTaskChange` and cannot be vetoed, so the gate described in [Events and cancellable changes](events) never sees them.
+
+### The keyboard shortcuts
+
+The chart's root element carries its own key handler for history.
+
+| Keys | Action |
+|---|---|
+| `Ctrl+Z`, `Cmd+Z` | Undo |
+| `Ctrl+Shift+Z`, `Cmd+Shift+Z`, `Ctrl+Y`, `Cmd+Y` | Redo |
+| Any of those with `Alt`/`Option` held | Ignored |
+
+Both platform conventions are accepted on every platform. The handler ignores the key press when the event target is an `INPUT`, `TEXTAREA`, `SELECT`, or a `contenteditable` element, so a text field keeps its own undo.
+
+The root element is `tabIndex={-1}`. It is focusable by clicking the chart and is not in the tab order, so `Ctrl+Z` pressed elsewhere on the page does nothing. The grid's own arrow, `Home` and `End` keys are a separate handler, listed in [Keyboard and screen readers](accessibility).
+
+### `historyLimit`
+
+`historyLimit` is the number of steps kept. The default is `100`. The prop is applied in an effect, so a change to it takes effect one commit after the render that changed it.
+
+`0` is not "pause recording". It clears both stacks and stops recording, and raising the limit later brings nothing back. Any negative number behaves the same way.
+
+Lowering the limit drops the oldest steps from the undo stack and leaves the redo stack untouched. After undoing five steps and then setting `historyLimit={2}`, all five are still redoable.
+
+### What clears the stack
+
+| Trigger | Effect |
+|---|---|
+| A `tasks` prop whose content differs from what the chart holds | Both stacks cleared |
+| A `tasks` prop that is a byte-identical echo of the last commit | Nothing; the history survives |
+| A commit that adds a row, removes one, or replaces an id | Both stacks cleared, and that commit itself is not undoable |
+| `historyLimit` at `0` or below | Both stacks cleared |
+| A scale change, a zoom, a scroll, a collapse, a selection | Nothing |
+| Unmount | The store dies with the component |
+
+The echo check is `JSON.stringify(state.rawTasks) === JSON.stringify(raw)`. Re-serialised dates, an added optional key, or merely a different key order all read as "the host replaced the data". Pass back exactly the array `onTasksChange` handed you, or every gesture wipes the history it just recorded.
+
+> [!WARNING]
+> `Delete` or `Backspace` on a focused bar removes the task and its whole subtree. The row count changed, so no field patch can invert it. The deletion lands, the entire history is cleared, and the deletion itself cannot be undone. Row additions and removals are outside the patch model in general — undo only expresses field changes on rows that already existed.
+
+## Exporting a PNG
+
+`exportToPng()` resolves with a `Blob` of MIME type `image/png`. It is not a data URL and it is not a download. What happens to the blob is yours to decide.
+
+| Option | Type | Default |
+|---|---|---|
+| `pixelRatio` | `number` | `2` |
+| `background` | `string`, any CSS colour | The computed `background-color` of `.gantt-container`, or `#ffffff` when that is empty or transparent |
+| `range` | `{ from, to }`, each `string \| Date \| Dayjs` | The whole timeline |
+
+The background is painted before the image is drawn. A `foreignObject` render is transparent where nothing was painted, so without the fill a dark-theme export would come out clear.
+
+`range` clips horizontally. `from` and `to` may be given in either order; the window is normalised. A date before the timeline clamps to its left edge, a date past it clamps to the right edge. A range that lies entirely outside the timeline throws. So does a range that resolves to less than one pixel of timeline, which on the `year` scale means any window shorter than about six hours.
+
+Resolution is clamped to what a canvas can hold: 16384px per side and 268,435,456px of area. The requested `pixelRatio` is lowered to fit, so a very wide chart comes out downscaled rather than cropped. A `pixelRatio` of `0`, a negative number, or `NaN` falls back to `1` and is then clamped like any other value. Use `range` when you need a slice at full density.
+
+### What it captures
+
+The capture is a clone of the chart's scroll container. Virtualization is switched off for the duration, for both rows and header columns, so every row and every header cell is in the image rather than only the ones on screen. The scroll position is restored afterwards, whether the capture succeeded or threw.
+
+The row count it waits for is the rendered row count. Rows hidden under a collapsed parent or a collapsed group are not rendered, so a collapsed chart exports collapsed. The toolbar and the scale selector sit outside the scroll container and are not in the image.
+
+Nothing is fetched. The export builds an SVG `data:` URL in memory and draws it into a canvas, using only `cloneNode`, `getComputedStyle`, `XMLSerializer`, `Image`, `<canvas>` and `requestAnimationFrame`. There is no network request, and the package pulls in no rasterization dependency — its only runtime dependencies are `@tanstack/react-virtual`, `dayjs` and `zustand`.
+
+### Errors
+
+Every rejection is a plain `Error` with a message prefixed `exportToPng: `.
+
+| Message | Condition |
+|---|---|
+| `no Gantt chart is mounted.` | The ref has no scroll element |
+| `the chart container is not in the DOM.` | No `.gantt-container` ancestor |
+| `the chart has no timeline to export (no tasks).` | No timeline cells, or a total width under 1px |
+| `the requested range does not overlap the chart's timeline.` | The resolved range is under 1px wide |
+| `timed out waiting for all N rows to render.` | 60 animation frames passed without the full row count |
+| `the chart has no content to export (no timeline is rendered).` | No `.gantt-content` in the clone source |
+| `the chart has no content to export.` | The measured width or height is under 1px |
+| `the browser refused to rasterize the chart. …` | The SVG data URL failed to load as an image |
+| `could not get a 2D canvas context.` | `getContext('2d')` returned null |
+| `the canvas produced no PNG data.` | `toBlob` called back with null |
+| `the canvas is tainted, so it cannot be read back. …` | A cross-origin image or font reached the chart |
+
+The range is resolved before the chart enters export mode, so a bad range rejects without disturbing what the user is looking at.
+
+## A toolbar wired to the ref
+
+The buttons re-render because `onTasksChange` fires on every gesture, every undo and every redo. Every change the chart itself makes to `canUndo` and `canRedo` comes with one of those calls, so reading the getters during render is correct.
+
+```tsx
+// src/GanttToolbar.tsx
+import { useRef, useState } from 'react';
+import { ReactGanttChart, type GanttHandle, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+export function GanttToolbar({ initialTasks }: { initialTasks: Task[] }) {
+  const ganttRef = useRef<GanttHandle>(null);
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function handleExport() {
+    setBusy(true);
+    setExportError(null);
+    try {
+      const blob = await ganttRef.current!.exportToPng({ pixelRatio: 2 });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'gantt.png';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setExportError(String(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <div>
+        {/* read the getters here, never `const { canUndo } = ganttRef.current` */}
+        <button onClick={() => ganttRef.current?.undo()} disabled={!ganttRef.current?.canUndo}>
+          Undo
+        </button>
+        <button onClick={() => ganttRef.current?.redo()} disabled={!ganttRef.current?.canRedo}>
+          Redo
+        </button>
+        <button onClick={handleExport} disabled={busy}>
+          {busy ? 'Exporting…' : 'Export PNG'}
+        </button>
+        {exportError && <span role="alert">{exportError}</span>}
+      </div>
+
+      {/* setTasks stores the exact array the chart handed over, so the history survives */}
+      <ReactGanttChart
+        ref={ganttRef}
+        tasks={tasks}
+        onTasksChange={setTasks}
+        historyLimit={50}
+      />
+    </>
+  );
+}
+```
+
+## Limits
+
+- **The history cannot be inspected, cleared, or grouped.** There is no `clearHistory`, no transaction API, and no way to read the stack. `canUndo` and `canRedo` are the only observable state.
+- **Row additions and removals are not undoable.** The patch model expresses field changes on existing rows. Anything else clears the stack instead of recording a step.
+- **Nothing is persisted.** The history dies on unmount, on a page reload, and on a host-driven `tasks` replacement. Only the selected scale is written to `sessionStorage`.
+- **`canUndo` and `canRedo` do not subscribe to anything.** A toolbar with no other reason to re-render shows stale enablement. Re-render on `onTasksChange`.
+- **`exportToPng` is not safe to run concurrently.** Export mode is a single boolean, and the first call's cleanup turns it off while a second call may still be capturing. Await one export before starting the next.
+- **The export has no progress callback, no cancellation, and no timeout option.** A chart too large to render in 60 animation frames rejects, and the 60 cannot be raised.
+- **Only a whitelist of computed styles reaches the clone**: 67 HTML properties and 15 SVG paint properties. `filter`, `clip-path`, `background-size`, `background-position`, `background-repeat`, `text-decoration` and `outline` are among those dropped, so a custom stylesheet can look different in the PNG than on screen.
+- **Pseudo-elements are not captured at all.** `::before` and `::after` content is absent from the image.
+- **Webfonts are not fetched during rasterization.** Only fonts the browser already has render. A cross-origin font or image taints the canvas and the export rejects.
+- **The capture frame is sized from the timeline width alone**, and no test covers how the task list pane appears in the output. Check the result against your own layout before shipping a PNG with `showTaskList` on.
+- **PNG is the only export.** There is no SVG, PDF, CSV, or clipboard output, no format or quality option, no filename, no DPI metadata, and no vertical row-range clipping. A PDF is host-side glue around the blob.
+- **There is no vertical scroll API.** Nothing exposes `scrollToRow` or a scroll-position getter beyond `getScrollElement()`, which hands back the raw DOM node for you to drive yourself.
+- **The scroll and zoom methods never report failure.** An out-of-range date and an unknown id look exactly like success from the outside.
+
+Next: [Keyboard and screen readers](accessibility) — the treegrid structure and every key the grid handles.

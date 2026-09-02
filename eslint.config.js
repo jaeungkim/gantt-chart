@@ -6,7 +6,9 @@ import tseslint from "typescript-eslint";
 import react from "eslint-plugin-react";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  // Build output only. `eslint .` walks the whole workspace, so anything generated has to
+  // be listed here or it gets linted: apps/docs emits .next/ and the fumadocs .source/.
+  { ignores: ["dist", "**/dist/**", "**/.next/**", "**/.source/**"] },
   {
     files: ["**/*.{ts,tsx,js,jsx}"],
     languageOptions: {
@@ -65,6 +67,12 @@ export default tseslint.config(
     // The package barrel deliberately re-exports the headless core's functions alongside
     // the component, so the fast-refresh "components only" rule does not apply to it.
     files: ["src/index.tsx"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
+  {
+    // Next.js route files export generateStaticParams/generateMetadata alongside the page
+    // component by design; fast refresh does not apply to them.
+    files: ["apps/docs/app/**/*.tsx"],
     rules: { "react-refresh/only-export-components": "off" },
   },
   {

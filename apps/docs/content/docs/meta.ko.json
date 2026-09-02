@@ -1,0 +1,26 @@
+{
+  "title": "가이드",
+  "pages": [
+    "index",
+    "introduction",
+    "concepts",
+    "quick-start",
+    "task-data",
+    "task-list",
+    "grouping",
+    "timeline",
+    "editing",
+    "dependencies",
+    "scheduling",
+    "reordering",
+    "events",
+    "custom-rendering",
+    "imperative-api",
+    "accessibility",
+    "i18n",
+    "theming",
+    "headless-core",
+    "---레퍼런스---",
+    "ref"
+  ]
+}

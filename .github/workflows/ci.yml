@@ -29,6 +29,9 @@ jobs:
       - run: pnpm type-check
       - run: pnpm test
       - run: pnpm build
+      # The docs site consumes the built package through workspace:*, so this runs after
+      # `pnpm build`. It is also what catches a page whose MDX no longer parses.
+      - run: pnpm --filter @gantt-chart/docs build
       # SSR safety: importing and server-rendering the built package in plain Node
       # (no DOM globals) must not touch window/document/sessionStorage.
       # A forwardRef/memo component is an object, not a function, so the first two steps

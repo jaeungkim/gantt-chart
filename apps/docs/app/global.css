@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/* The package paints its palette on :root and .dark using the same custom-property names
+   fumadocs uses (--background, --foreground, --muted, --border, --accent). Imported
+   unlayered it wins the cascade and repaints the whole docs shell, so it goes in a layer
+   the theme's own tokens outrank. */
+@import '@jaeungkim/gantt-chart/style.css' layer(gantt);

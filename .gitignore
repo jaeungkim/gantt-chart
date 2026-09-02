@@ -21,3 +21,8 @@ dist-ssr
 *.sw?
 
 .playwright-mcp
+
+# Next.js / fumadocs (apps/docs)
+.next
+next-env.d.ts
+.source
