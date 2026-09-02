@@ -1,0 +1,372 @@
+사용자가 막대를 3일 뒤로 끌어다 놓아요. 그 날짜를 허용할지는 서버가 최종 결정하고, 응답까지 300ms가
+걸려요. 응답이 오기 전까지 막대는 놓인 자리에 그대로 있어야 해요. 답이 아니오라면 원래 자리로
+돌아가야 하고요. `onBeforeTaskChange`가 그걸 가능하게 하는 관문이고, 이 페이지는 그 전체 계약이에요.
+클릭과 더블 클릭, 선택처럼 보고만 하는 콜백도 함께 다루고, 이 관문을 거치지 않는 편집 경로도 짚어요.
+
+## 클릭과 선택
+
+사용자가 포인터로 무엇을 가리키는지는 콜백 세 개와 플래그 하나가 담당해요. 콜백은 막대와 작업 목록의
+해당 작업 행 양쪽에 연결돼 있어요. 그래서 어느 쪽을 클릭하든 같은 인자를 받는 같은 이벤트예요.
+
+| 프로퍼티 | 시그니처 |
+|---|---|
+| `onTaskClick` | `(task: TaskTransformed, event: React.MouseEvent) => void` |
+| `onTaskDoubleClick` | `(task: TaskTransformed, event: React.MouseEvent) => void` |
+| `onTaskSelect` | `(task: TaskTransformed \| null) => void` |
+| `selectable` | `boolean` |
+
+`TaskTransformed`는 작업에 차트가 계산한 레이아웃 필드를 더한 타입이에요. 그 형태는
+[작업](ref/task.md)에 있어요.
+
+```tsx
+// src/ProjectGantt.tsx
+import { useState } from 'react';
+import {
+  ReactGanttChart,
+  type Task,
+  type TaskTransformed,
+} from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+export function ProjectGantt({ initial }: { initial: Task[] }) {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+  const [inspected, setInspected] = useState<TaskTransformed | null>(null);
+
+  return (
+    <>
+      <ReactGanttChart
+        tasks={tasks}
+        onTasksChange={setTasks}
+        onTaskClick={(task) => console.log('clicked', task.id)}
+        onTaskDoubleClick={(task) => console.log('open editor for', task.id)}
+        onTaskSelect={setInspected}
+      />
+      <aside>{inspected ? inspected.name : 'Nothing selected'}</aside>
+    </>
+  );
+}
+```
+
+### 선택은 물어보는 순간 켜져요
+
+외워야 할 `selectable` 기본값은 없어요. `onTaskSelect`를 넘기면 선택이 켜지고, `selectable`은 그걸
+양방향으로 덮어써요.
+
+| `selectable` | `onTaskSelect` | 선택 |
+|---|---|---|
+| 생략 | 생략 | 꺼짐 |
+| 생략 | 전달 | 켜짐 |
+| `true` | 생략 | 켜짐, 하이라이트만 |
+| `true` | 전달 | 켜짐 |
+| `false` | 전달 | 꺼짐, `onTaskSelect`는 호출되지 않음 |
+
+다들 의외라고 느끼는 건 마지막 행이에요. `selectable={false}`는 조용한 선택이라는 뜻이 아니에요.
+선택 경로 전체가 핸들러에 닿기 전에 빠져나간다는 뜻이에요.
+
+한 번의 클릭 안에서 순서는 고정이에요. `onTaskClick`이 먼저 실행되고, 그다음 선택이 바뀌어요. 그리고
+`onTaskSelect`는 선택된 id가 실제로 바뀔 때만 실행돼요. 이미 선택된 행을 클릭하면 `onTaskClick`만
+실행되고 그걸로 끝이에요.
+
+하이라이트는 콜백이 아니라 클래스예요. 선택된 행에는 `.gantt-grid-row.selected`가, 선택된 막대에는
+`.gantt-task-bar.selected`가 붙어요.
+
+### 빈 타임라인을 클릭하면 선택이 풀려요
+
+타임라인의 배경 자체에 클릭이 닿으면 선택이 풀려요. 작업이 선택돼 있었다면 `onTaskSelect(null)`이
+호출돼요. 배경을 두 번 클릭해도 한 번만 실행되는데, id가 바뀌어야 하기 때문이에요. 행 배경과
+비근무일 음영, 범위 밴드는 클릭을 막지 않아요. 셋 다 포인터 이벤트를 받지 않기 때문이에요.
+
+선택이 풀리지 않는 곳이 두 군데 있어요. 작업 목록 창의 빈 영역을 클릭하면 아무 일도 일어나지 않아요.
+타임라인에 그려진 그룹 레이블을 클릭해도 마찬가지예요. 그 레이어에서 포인터 이벤트를 다시 받는 유일한
+요소이고, 작업 목록 창이 숨겨져 있을 때만 렌더링돼요.
+
+### 드래그 뒤에 따라오는 클릭은 막대에서만 삼켜져요
+
+브라우저는 드래그를 끝낸 pointerup 다음에 클릭을 발생시켜요. 막대 위에서는 차트가 그 클릭을 버려요.
+그래서 끝난 드래그는 `onTaskClick`을 실행하지 않고 선택도 바꾸지 않아요. 차트가 확인하는 플래그는
+스냅된 드래그 스텝 수가 실제로 바뀌었을 때만 세워져요. 한 스텝도 넘지 못한 누름과 흔들림은 여전히
+클릭이에요. 드래그 스텝은 배율마다 다르고 [작업 편집](editing.md)에서 다뤄요.
+
+> [!WARNING]
+> 작업 목록에는 같은 보호 장치가 없어요. 행을 실제로 옮긴 드래그도 그 행을 놓는 pointerup에서
+> 해당 행의 `onTaskClick`을 실행해요. 클릭 핸들러가 패널을 연다면, 행을 재정렬할 때 패널이 열려요.
+
+접기 토글은 양방향으로 예외예요. 토글을 눌러도 행 드래그가 시작되지 않고, 토글은 이벤트가 선택으로
+이어지기 전에 막아요.
+
+### 더블 클릭은 두 번의 클릭을 모두 실행해요
+
+차트 어디에도 클릭 횟수 디바운스는 없어요. 막대를 더블 클릭하면 `onTaskClick`이 두 번, 그다음
+`onTaskDoubleClick`이 한 번 실행돼요. 싱글 클릭이 실제 작업을 하고 더블 클릭이 에디터를 연다면,
+에디터가 열리기 전에 그 작업이 두 번 실행돼요.
+
+## onBeforeTaskChange
+
+`onBeforeTaskChange`는 포인터 제스처가 결과를 낸 뒤, 무언가 기록되기 전에 실행돼요. 이동과 크기 조절,
+진행률 드래그 세 가지 제스처를 다뤄요.
+
+```ts
+// onBeforeTaskChange 뒤에 있는 두 타입
+import type { GanttTaskChange } from '@jaeungkim/gantt-chart';
+
+type GanttChangeType = 'move' | 'resize' | 'progress';
+
+type GanttBeforeChangeHandler = (
+  change: GanttTaskChange
+) => boolean | void | Promise<boolean | void>;
+```
+
+제스처당 한 번, 변경 객체를 손대지 않은 채로 호출해요. 드래그 스텝을 한 번도 커밋하지 못한 제스처는
+여기까지 오지 않고, 아무것도 기록하지 않아요.
+
+### 변경 객체가 담고 있는 것
+
+| 필드 | 내용 |
+|---|---|
+| `type` | `'move'`, `'resize'` 또는 `'progress'` |
+| `task` | 사용자가 잡은 막대, 이미 변경된 뒤의 모습 |
+| `changedTasks` | 이 제스처가 다시 쓰는 작업만 |
+| `previousTasks` | 같은 작업들의 변경 전 모습, 같은 순서 |
+| `tasks` | 놓는 시점의 배열 전체, 변경이 이미 적용된 상태 |
+| `edge` | 왼쪽 크기 조절이면 `'start'`, 오른쪽이면 `'end'`, 그 밖에는 `undefined` |
+
+`tasks`는 놓는 시점의 스냅샷이지 미래에 대한 약속이 아니에요. JSDoc은 이걸 `onTasksChange`가 받게 될
+배열이라고 부르지만, 커밋은 살아 있는 작업에 다시 병합해요. 답을 기다리는 사이에 다른 무언가가
+커밋됐다면 둘은 달라질 수 있어요. 서버에는 `tasks`가 아니라 `changedTasks`를 보내세요.
+
+`changedTasks`와 `previousTasks`는 인덱스가 하나씩 맞물리고 둘 다 렌더 순서예요. 그래서 조회 없이 바로
+비교할 수 있어요. 길이가 달라지는 경우가 하나 있어요. `changedTasks`의 id가 이전 배열에 없으면
+`previousTasks`에 빈자리를 남기는 대신 빼요.
+
+`changedTasks`가 잡은 막대보다 넓어지는 상황은 두 가지예요. 요약 막대를 끌면 그 하위 트리 전체가
+따라와요. 자동 스케줄링이 켜져 있으면 놓는 시점에 연쇄가 다시 계산되고, 그때 밀려난 후행
+작업(successor)이 모두 배열에 들어가요. 그래서 핸들러는 한 번의 호출로 다운스트림 영향 전체를
+승인해요. 제스처가 건드리지 않은 작업은 나타나지 않아요. 연쇄를 결정하는 정책은
+[스케줄링](scheduling.md)에 있어요.
+
+정확한 타입 선언은 [변경](ref/changes.md)에 있어요.
+
+### 응답이 뜻하는 것
+
+| 핸들러 반환값 | 결과 |
+|---|---|
+| 없음 (`undefined`) | 커밋 |
+| `true` | 커밋 |
+| `false` | 롤백 |
+| `false`로 resolve되는 프로미스 | 정해지면 롤백 |
+| 그 밖의 값으로 resolve되는 프로미스 | 정해지면 커밋 |
+| reject된 프로미스 | 롤백 |
+| 동기 `throw` | 롤백 |
+
+명시적인 `false`만 거부예요. return 문이 없는 핸들러는 커밋해요. 그래서 `onBeforeTaskChange`를 그냥
+관찰자로 써도 안전해요.
+
+reject와 throw는 둘 다 롤백이에요. 그래서 끝내 resolve되지 않는 `fetch`와 버그가 있는 핸들러는 차트
+입장에서 똑같아 보여요. 업무 규칙에 따른 거부에는 `false`를 반환하고, 네트워크 실패는 throw로 두세요.
+둘 다 제스처를 되돌리지만, 결정인 쪽은 앞의 하나뿐이에요.
+
+응답은 동기 핸들러라도 언제나 다음 마이크로태스크에서 적용돼요. 차트가 반환값을 await하기 때문이에요.
+`pointerup` 안에서 적용되는 건 아무것도 없어요.
+
+### 응답을 기다리는 동안
+
+아무것도 비활성화되지 않고 아무것도 멈추지 않아요. 막대는 사용자가 놓은 자리에 그대로 있어요. 거기
+두었던 드래그 오프셋을 일부러 지우지 않기 때문이에요. 사용자는 그 막대를 다시 잡거나, 다른 막대를
+잡거나, 스크롤할 수 있어요. 대기 중인 진행률 드래그도 똑같아요. 채움은 사용자가 놓은 자리에 남고,
+핸들만 잡힌 모습을 잃어요.
+
+롤백은 아무것도 기록하지 않아요. 애초에 기록된 게 없기 때문이에요. 막대에서는 잡힌 막대와 연쇄된 모든
+후행 작업의 드래그 오프셋을 버려요. 드래그가 뷰포트를 자동 스크롤했다면 그것도 되돌려요. 진행률
+핸들에서는 미리보기를 버려서 저장된 값이 다시 보여요. 두 경우 모두 영향받은 막대를 200ms 동안
+`reverting`으로 표시해요. 그래서 되돌아가는 모습이 점프가 아니라 CSS 전환이 돼요.
+
+커밋은 놓는 시점의 스냅샷이 아니라 커밋 시점의 작업 배열을 읽어요. 자동 스케줄링이 켜져 있으면 놓는
+시점의 결과를 재생하는 대신 살아 있는 선행 작업(predecessor)에서 연쇄를 다시 계산해요. 그래서 거부가
+오가는 사이 다른 곳에서 반영된 편집은 살아남아요.
+
+### 사용자가 이미 다시 옮긴 막대에 늦게 도착한 응답
+
+작업마다 관문 레인이 두 개예요. 이동과 크기 조절은 `dates` 레인을 함께 써서 서로를 대체해요. 진행률
+편집은 자기 레인이 있어요. 그래서 대기 중인 날짜 결정과 진행률 결정은 서로를 취소하지 않아요.
+
+제스처는 처음 커밋된 움직임에서 자기 레인을 차지해요. 핸들러가 마침내 답하면, 차트는 그사이 더 새로운
+제스처가 그 레인을 차지했는지 확인해요. 차지했다면 응답은 버려져요. 커밋도 롤백도 실행 취소 스텝도,
+아무것도 없어요. 이 규칙이 없으면 느린 거부가, 사용자가 이미 다른 곳으로 옮긴 막대를 아무도 원하지
+않은 자리로 되돌려요.
+
+관문은 차트당 한 번 만들어져요. 그래서 한 페이지에 있는 차트 두 개는 서로 독립된 레인을 가져요.
+
+### 서버 왕복이 있는 낙관적 업데이트
+
+핸들러가 시작될 때 제스처는 이미 화면에 있어요. 그게 낙관이에요. 왕복은 그걸 확정하거나 도로
+가져가요.
+
+```tsx
+// src/ServerBackedGantt.tsx
+import { useState } from 'react';
+import {
+  ReactGanttChart,
+  type GanttTaskChange,
+  type Task,
+} from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+async function persist(change: GanttTaskChange): Promise<boolean> {
+  const response = await fetch('/api/tasks', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: change.type,
+      edge: change.edge ?? null,
+      // 잡은 막대만이 아니라 연쇄 전체
+      tasks: change.changedTasks.map((task) => ({
+        id: task.id,
+        startDate: task.startDate,
+        endDate: task.endDate,
+        progress: task.progress ?? null,
+      })),
+    }),
+  });
+
+  // 서버가 보낸 409는 전송 실패가 아니라 업무 규칙에 따른 거부예요
+  if (response.status === 409) return false;
+  if (!response.ok) throw new Error(`save failed: ${response.status}`);
+  return true;
+}
+
+export function ServerBackedGantt({ initial }: { initial: Task[] }) {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <>
+      {error ? <p role="alert">{error}</p> : null}
+      <ReactGanttChart
+        tasks={tasks}
+        onTasksChange={setTasks}
+        schedulingPolicy="shift-on-overlap"
+        onBeforeTaskChange={async (change) => {
+          setError(null);
+          try {
+            const accepted = await persist(change);
+            if (!accepted) {
+              setError(`${change.task.name} conflicts with another booking.`);
+              return false; // 막대가 되돌아가고 onTasksChange는 실행되지 않아요
+            }
+          } catch (cause) {
+            // throw도 롤백이라 저장되지 않은 편집이 화면에 남지 않아요
+            setError('Could not reach the server. Your change was undone.');
+            throw cause;
+          }
+          // 반환값 없음: 제스처가 커밋되고 다음으로 onTasksChange가 실행돼요
+        }}
+      />
+    </>
+  );
+}
+```
+
+짚어 둘 만한 게 두 가지 있어요. 차트가 `change.changedTasks`를 건네주니 요청 하나에 잡은 막대와 그
+하위 트리, 연쇄까지 다 담겨요. 그 목록을 직접 다시 만들 일은 없어요. 그리고 `onTasksChange`는 커밋
+뒤에 전체 배열과 함께 제스처당 한 번 실행돼요. 그래서 상태 업데이트는 거부와 경합하는 대신 마지막
+단계가 돼요.
+
+## 거부가 실행 취소와 맞물리는 방식
+
+실행 취소는 차트 안에 기록된 스텝을 대상으로 동작해요. 스텝은 커밋 시점에만, 오직 커밋 시점에만
+기록돼요. 그래서 규칙이 짧아요.
+
+| 결과 | 작업에 기록 | 실행 취소 스텝 | `onTasksChange` |
+|---|---|---|---|
+| 커밋 | 예 | 한 개, 옮겨진 작업이 몇 개든 | 한 번 실행 |
+| 롤백 | 아니오 | 없음 | 실행되지 않음 |
+| 대체됨 (늦은 응답) | 아니오 | 없음 | 실행되지 않음 |
+
+그래서 거부된 드래그는 히스토리를 그대로 남겨요. 사용자의 다음 Ctrl+Z는 거부된 제스처가 아니라 그
+전에 한 일을 되돌려요. 의도된 동작이에요. 아무 일도 없었으니 되돌릴 것도 없어요.
+
+실행 취소와 다시 실행은 `onBeforeTaskChange`를 다시 거치지 않아요. 핸들러가 이미 승인한 스텝을
+재생하고, 그 결과로 `onTasksChange`를 호출해요. 서버가 실행 취소를 알아야 한다면 거기서 알게 돼요.
+
+히스토리를 비우는 건 두 가지예요. 차트가 지금 들고 있는 것과 내용이 다른 `tasks` 프로퍼티를 건네면,
+호스트 앱이 데이터를 교체한 것으로 보고 스택을 버려요. `onTasksChange`가 건네준 것을 그대로 돌려주는
+건 여기 해당하지 않아요. 그래서 평범한 제어 루프는 안전해요. 서버가 날짜를 정규화하고 그 행들을
+되먹인다면 히스토리는 초기화된다고 보면 돼요.
+
+다른 하나는 행을 추가하거나 제거하는 커밋이에요. 실행 취소 스텝은 필드 패치이고, 어떤 필드 패치도
+삭제된 행을 되살릴 수 없어요. 그래서 그런 커밋은 스텝을 기록하는 대신 스택을 버려요. 키보드 삭제가
+그렇게 하는 내장 편집이에요. Delete를 누르면 작업과 그 하위 트리가 사라지고 되돌릴 것은 남지 않아요.
+실행 취소 스텝 하나가 무엇인지와 `historyLimit`은 [명령형 API](imperative-api.md)에 있어요.
+
+## onBeforeTaskChange에 닿지 않는 편집
+
+`onBeforeTaskChange`는 차트 전체가 아니라 포인터 제스처 세 개에 걸린 관문이에요. 다른 편집 경로 다섯
+개는 그 바깥에 있어요.
+
+| 경로 | 대신 쓰는 관문 | 비동기 거부? |
+|---|---|---|
+| 키보드 미세 이동, 키보드 진행률 스텝, 키보드 삭제 | **없음** | 해당 없음 |
+| 빈 행 공간에 새 작업 그리기 | `onTaskCreate`, 차트가 스스로 아무것도 추가하지 않아서 거부할 수 없음 | 아니오 |
+| 의존성 화살표 그리기 | `onDependencyCreate`, `false`를 반환하면 취소 | 아니오 |
+| 의존성 화살표 삭제 | `onDependencyDelete`, `false`를 반환하면 취소 | 아니오 |
+| 행 재정렬 | `onReorder`, `false`를 반환하면 취소 | 아니오 |
+
+키보드 행이 중요해요. `Alt`와 방향키는 막대를 옮기고, `Shift`는 크기를 조절하고, `+`와 `-`는 진행률을
+한 단계씩 바꾸고, `Delete`는 막대를 지워요. 이들 모두 작업에 곧바로 커밋하고 `onTasksChange`를
+실행해요. 거부 핸들러는 호출되지 않아요. 모든 편집에서 지켜야 하는 규칙이라면 `onTasksChange`에서도
+똑같이 강제하세요. 아니면 [작업 편집](editing.md)의 권한 체인으로 그 제스처를 꺼 두세요. 전체 키
+맵은 [키보드와 스크린 리더](accessibility.md)에 있어요.
+
+의존성과 재정렬 콜백 세 개도 거부할 수 있지만 동기예요. 차트가 반환값을 즉시 읽어서, 프로미스를
+넘기면 참으로 보고 그대로 커밋해요. 서버에 먼저 물어보려고 `onReorder`에서 프로미스를 반환해도
+동작하지 않아요. 각 페이로드는 [의존성](dependencies.md)과 [행 재정렬](reordering.md)에서 다뤄요.
+
+## 한계
+
+- **선택은 id 하나이고, 차트 내부에만 있어요.** 다중 선택도 `selectedTaskId` 프로퍼티도 없어요. 선택을
+  설정하거나, 리마운트 뒤에 복원하거나, 직접 해제할 수 없어요. 차트 밖에서 필요하면 `onTaskSelect`로
+  직접 추적하세요.
+- **컨텍스트 메뉴, 호버, 포커스 콜백은 없어요.** 오른쪽 클릭은 보고되지 않아요. 컨텍스트 메뉴가
+  필요하면 `renderBar`로 막대에 직접 핸들러를 붙이세요. [커스텀 렌더링](custom-rendering.md)을 보세요.
+- **거부는 사용자에게 아무것도 설명하지 않아요.** 막대가 200ms 동안 되돌아가는 게 피드백의 전부예요.
+  메시지나 토스트, 하이라이트는 직접 그려야 해요.
+- **핸들러는 변경을 고쳐 쓸 수 없어요.** 예 아니면 아니오만 답할 뿐이에요. 날짜를 조정해서 제스처를
+  받아들일 방법은 없어요. 커밋 뒤에 `onTasksChange`에서 값을 직접 스냅하세요.
+- **드래그 생명주기 콜백은 없어요.** `onDragStart`, `onDragMove`, `onDragEnd`도 없고 행 드래그용도
+  없어요. `onBeforeTaskChange`와 `onReorder`는 제스처가 끝날 때만 실행돼요.
+- **키보드 삭제는 되돌릴 수 없어요.** 행 제거는 필드 패치가 아니라서, 그 커밋은 스텝을 기록하는 대신
+  실행 취소 스택 전체를 버려요.
+- **차트는 핸들러를 재시도하거나 큐에 넣거나 디바운스하지 않아요.** 제스처 하나가 호출 하나예요. 같은
+  막대에서 제스처 둘이 진행 중이면 요청도 둘이고, 오래된 응답은 취소되는 게 아니라 버려져요. 요청
+  자체는 끝까지 실행돼요.
+- **`AbortSignal`은 전달되지 않아요.** 대체된 왕복을 취소해야 한다면 작업 id로 관리하는 컨트롤러를
+  직접 들고 있어야 해요.
+- **대기 중인 거부는 아무것도 잠그지 않아요.** 서버가 아직 생각하는 동안에도 사용자는 같은 막대를 다시
+  끌 수 있고, 아무 경고도 없어요. 제스처가 배타적이어야 한다면 요청이 열려 있는 동안 막대를 직접
+  비활성화하세요.
+- **저장은 직접 해야 해요.** 아무것도 저장되지 않고 어디로도 전송되지 않아요. `onTasksChange`는 배열을
+  건네고, 그게 `tasks` 프로퍼티로 돌아오길 기대해요.
+- **브라우저가 취소한 진행률 드래그는 커밋돼요.** 같은 방식으로 취소된 막대 드래그는 되돌아가요. 그
+  비대칭은 [작업 편집](editing.md)에 있어요.
+
+## 모든 이벤트를 한 표로
+
+| 사용자의 동작 | 콜백 | 취소할 수 있나요? |
+|---|---|---|
+| 막대나 그 행을 클릭 | `onTaskClick`, 그다음 `onTaskSelect` | 아니오 |
+| 막대나 그 행을 더블 클릭 | `onTaskClick` 두 번, 그다음 `onTaskDoubleClick` | 아니오 |
+| 빈 타임라인을 클릭 | 선택된 게 있었다면 `onTaskSelect(null)` | 아니오 |
+| 막대에서 드래그를 끝냄 | 없음 - 뒤따르는 클릭은 버려져요 | 해당 없음 |
+| 막대를 이동 | `onBeforeTaskChange` (`type: 'move'`), 그다음 `onTasksChange` | 예, 비동기 |
+| 막대 크기를 조절 | `onBeforeTaskChange` (`type: 'resize'`, `edge` 설정됨), 그다음 `onTasksChange` | 예, 비동기 |
+| 진행률 핸들을 드래그 | `onBeforeTaskChange` (`type: 'progress'`), 그다음 `onTasksChange` | 예, 비동기 |
+| 키보드로 편집 | `onTasksChange`만 | 아니오 |
+| 빈 행 공간에 작업을 그림 | `onTaskCreate` | 해당 없음, 차트는 아무것도 기록하지 않아요 |
+| 의존성 화살표를 그림 | `onDependencyCreate`, 그다음 `onTasksChange` | 예, 동기 |
+| 의존성 화살표를 삭제 | `onDependencyDelete`, 그다음 `onTasksChange` | 예, 동기 |
+| 행을 재정렬 | `onReorder`, 그다음 `onTasksChange` | 예, 동기 |
+| 실행 취소 또는 다시 실행 | `onTasksChange`만 | 아니오 |
+| 렌더링된 타임라인 범위가 바뀜 | `onRangeChange` - [타임라인](timeline.md) 참고 | 아니오 |
+
+다음: [커스텀 렌더링](custom-rendering.md). 이 페이지에 나온 동작을 하나도 포기하지 않으면서 막대와
+툴팁, 헤더 셀을 교체해요.

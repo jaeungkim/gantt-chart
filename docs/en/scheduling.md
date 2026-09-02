@@ -1,0 +1,429 @@
+You drag one bar two days later and let go. Its successor stays where it was, sitting on top of the
+task it was supposed to wait for. Every date downstream of that bar is now wrong, and nothing on
+screen says so. `schedulingPolicy` decides what happens to the successors when a bar moves.
+
+## Auto-scheduling with `schedulingPolicy`
+
+The prop takes one of three values and defaults to `"off"`.
+
+| Value | A successor moves | Direction | Result |
+|---|---|---|---|
+| `"off"` | never | – | nothing propagates, exactly as if the feature did not exist |
+| `"shift-on-overlap"` | only when the link is broken | later only | the successor keeps whatever slack it already had |
+| `"maintain-gap"` | whenever it is not sitting on its link | later and earlier | the successor lands on its earliest legal date, so the gap equals the link's `lag` |
+
+The difference between the two live policies is one clamp. `shift-on-overlap` throws away a negative
+correction and only ever pushes forward. `maintain-gap` applies it, so a successor is pulled back
+when its predecessor moves earlier.
+
+```tsx
+// src/App.tsx
+import { useState } from 'react';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const initial: Task[] = [
+  {
+    id: 'design',
+    name: 'Design',
+    startDate: '2026-03-02T09:00:00Z',
+    endDate: '2026-03-06T17:00:00Z',
+    parentId: null,
+    sequence: '1',
+  },
+  {
+    id: 'build',
+    name: 'Build',
+    startDate: '2026-03-09T09:00:00Z',
+    endDate: '2026-03-20T17:00:00Z',
+    parentId: null,
+    sequence: '2',
+    dependencies: [{ targetId: 'design', type: 'FS' }],
+  },
+];
+
+export function App() {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      onTasksChange={setTasks}
+      schedulingPolicy="shift-on-overlap"
+    />
+  );
+}
+```
+
+Which end of each task a link constrains is the dependency's job, not this page's. The four types and
+their `lag` are covered in [Dependencies](dependencies.md).
+
+### When it runs
+
+The engine runs on a bar drag and nowhere else. A move and a left or right resize both go through it.
+Which successors a resize disturbs depends on the link types, because each type reads one particular
+end of the predecessor.
+
+Drawing a link never reschedules anything. Neither does deleting one, loading a new `tasks` array,
+reordering a row, or turning `criticalPath` on. A fresh FS link over an overlapping successor leaves
+that successor overlapping until someone drags a bar.
+
+While the pointer is down the successors move on screen with the bar. Nothing is written during the
+drag. On release the dragged task and every successor that moved reach `onTasksChange` together, in
+one array, as one undo step.
+
+### What it never moves
+
+A task with `manuallyScheduled: true` is skipped. Its dates survive the propagation, and its
+successors still schedule off those dates, so pinning a task does not cut the chain running through
+it. The field itself is listed with the rest of the task shape in [Task data](task-data.md).
+
+The bar you dragged is also pinned. It lands where the pointer left it even when that breaks its own
+predecessor link, because the engine only ever walks forward from it. A predecessor is never pushed.
+
+Summary rows are pinned too, whenever `hierarchy` is on: every id that appears as another task's
+`parentId` is skipped, because its dates are rolled up from its children anyway. That roll-up is
+described in [Task list and hierarchy](task-list.md).
+
+No task is reshaped. Propagation moves both ends by the same number of days, so durations and times
+of day come out of it untouched.
+
+## Cycles
+
+A dependency loop is never followed. The graph is sorted topologically, and anything that cannot be
+ordered is left out of the walk and left at its own dates. The rest of the project still schedules
+around it.
+
+`onSchedulingCycle` reports what was skipped:
+
+```tsx
+import { useState } from 'react';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+
+export function Schedule({ initial }: { initial: Task[] }) {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+  const [stalled, setStalled] = useState<string[]>([]);
+
+  return (
+    <>
+      {stalled.length > 0 && <p>Not scheduled: {stalled.join(', ')}</p>}
+      <ReactGanttChart
+        tasks={tasks}
+        onTasksChange={setTasks}
+        schedulingPolicy="maintain-gap"
+        onSchedulingCycle={(taskIds: string[]) => setStalled(taskIds)}
+      />
+    </>
+  );
+}
+```
+
+The array is every id that could not be ordered, not only the members of the loop. A task that merely
+sits downstream of a cycle is listed too, because it could not be ordered either. Those tasks are
+exactly the ones whose dates the engine did not touch.
+
+Keeping loops out of the data in the first place is what `canLink` is for; its signature is in
+[Task graph helpers](ref/core-graph.md).
+
+> [!WARNING]
+> `onSchedulingCycle` fires many times per gesture: once per preview frame where the drag step
+> changed, once at drop, once at commit. It also never fires while `schedulingPolicy` is `"off"`,
+> because the graph is not built at all in that case. Use it to set state, not to open a dialog.
+
+## The working calendar
+
+`workingCalendar` is a boolean and defaults to `false`. On, the chart builds a calendar that skips
+non-working days and hands it to the scheduling engine, the critical-path pass and the drag's drop
+snap. Off, those three get a calendar that counts every day, which is plain calendar arithmetic.
+
+```tsx
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+
+export function WorkWeek({ tasks, setTasks }: {
+  tasks: Task[];
+  setTasks: (next: Task[]) => void;
+}) {
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      onTasksChange={setTasks}
+      schedulingPolicy="maintain-gap"
+      workingCalendar
+      holidays={['2026-09-21']}
+    />
+  );
+}
+```
+
+The calendar is built from the same predicate that shades the timeline. Without a custom
+`isNonWorkingDay`, a day is non-working when it is a Saturday, a Sunday, or a date listed in
+`holidays`, matched as `YYYY-MM-DD` in UTC. So what is shaded and what is skipped cannot drift apart.
+The shading itself, and both of those props, belong to [The timeline](timeline.md).
+
+`isNonWorkingDay` replaces that whole check when you pass it. The chart always hands the calendar a
+predicate, so `workingWeekdays` — the option a hand-built calendar can set — is unreachable through
+the component. A work week that is not Monday to Friday has to be written as an `isNonWorkingDay`
+function, or built directly with `createWorkingCalendar`; both are in
+[Working calendar](ref/core-calendar.md).
+
+### What it changes
+
+| Area | Effect |
+|---|---|
+| Duration | `duration` counts working days rather than calendar days |
+| Lag | `lag: 2` means two working days |
+| Propagation | a successor steps over non-working days as it moves |
+| Slack | early and late dates, and both slack numbers, are counted in working days |
+| Drop snapping | the moved edge — the start, for a whole-bar move — snaps forward onto a working day, and the rest of the bar follows by the same days |
+
+### What it does not change
+
+Bar geometry never sees the calendar. A bar that spans a weekend still spans it on screen — the days
+do not count. The timeline ticks and the header cells are untouched for the same reason. So is
+the shading, which has its own prop.
+
+The drag step itself is still calendar-day based. The pointer-to-date conversion counts every day and
+the calendar only adds the forward snap on top of it, so a move preserves the bar's calendar-day span
+rather than its working-day span.
+
+That snap is forward-only, and it can be overruled. The `minDate` / `maxDate` clamp runs after it and
+wins, so a bar pinned to a bound can sit on a Saturday. A left-edge resize that would snap past its
+own end does not snap at all. Those bounds are described in [Editing tasks](editing.md).
+
+With `schedulingPolicy="off"` and `criticalPath` off, the drop snap is the only thing
+`workingCalendar` changes that you can see.
+
+## The critical path
+
+`criticalPath` is a boolean and defaults to `false`. On, the chart runs the forward and backward pass
+over the raw tasks, through the same calendar the scheduling engine uses.
+
+Two things come out of it. In the DOM, a `critical` class lands on every bar the pass marked
+critical, on milestones the same way, and on the dependency arrows and arrowheads along the chain.
+The colours it picks up come from the `--gantt-critical` family of variables, listed with the rest in
+[Theming](theming.md). In the data, each transformed task gains a set of read-only fields.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `earlyStart` / `earlyFinish` | `string` | the earliest the task can run, as a UTC ISO string |
+| `lateStart` / `lateFinish` | `string` | the latest it can run without moving the project's finish |
+| `totalSlack` | `number` | days it can slip before the project's finish moves |
+| `freeSlack` | `number` | days it can slip before any successor's early start moves |
+| `critical` | `boolean` | zero total slack, and not finished |
+| `duration` | `number` | calendar days, or working days when `workingCalendar` is on |
+
+They are `undefined` while the prop is off, and stay `undefined` for any task caught in — or
+downstream of — a cycle, since those tasks are never ordered and so never get metrics. The same
+numbers come back from `computeCriticalPath` when you run the pass yourself; its result type is in
+[Critical path](ref/core-critical-path.md).
+
+```tsx
+import {
+  ReactGanttChart,
+  type GanttColumn,
+  type Task,
+} from '@jaeungkim/gantt-chart';
+
+const columns: GanttColumn[] = [
+  { key: 'name', header: 'Task', width: 220 },
+  { key: 'duration', header: 'Days', width: 60, render: (task) => task.duration ?? '-' },
+  { key: 'totalSlack', header: 'Slack', width: 60, render: (task) => task.totalSlack ?? '-' },
+];
+
+export function Schedule({ tasks, setTasks }: {
+  tasks: Task[];
+  setTasks: (next: Task[]) => void;
+}) {
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      onTasksChange={setTasks}
+      criticalPath
+      columns={columns}
+    />
+  );
+}
+```
+
+The `columns` prop is covered in [Task list and hierarchy](task-list.md).
+
+### Total slack and free slack
+
+`totalSlack` is measured against the project. It is the number of days the task can slip before the
+project's finish date moves. A task with zero total slack is on the critical path.
+
+`freeSlack` is measured against the neighbours. It is the number of days the task can slip before any
+of its successors has to start later, floored at zero. A task with no successors at all is the
+exception: its free slack is its total slack, not zero.
+
+A link joins the critical chain only when both of its ends are critical and the link is the one
+actually holding the successor in place. A slack link between two critical tasks is left out.
+
+### Tasks at 100% progress
+
+A finished task is never critical. `progress` is clamped into 0-100 before the test, so `150` counts
+as finished. A missing or non-numeric `progress` does not count as finished.
+
+Its slack numbers do not change. A completed task on the chain keeps `totalSlack: 0` and loses only
+the `critical` flag. Because a critical link needs both ends, the links either side of it drop off the
+chain with it, which can leave a visible gap in the highlighted chain. `critical: false` therefore
+does not imply `totalSlack > 0`.
+
+## Baselines
+
+A baseline is the plan you want to compare today's dates against. Two fields on the task carry it,
+both UTC ISO strings:
+
+```ts
+import type { Task } from '@jaeungkim/gantt-chart';
+
+const audit: Task = {
+  id: 'audit',
+  name: 'Content audit',
+  startDate: '2026-09-01T09:00:00Z',
+  endDate: '2026-09-04T17:00:00Z',
+  parentId: null,
+  sequence: '2',
+  baselineStart: '2026-09-01T09:00:00Z',
+  baselineEnd: '2026-09-03T17:00:00Z',
+};
+```
+
+No prop turns baselines on. Any task carrying `baselineStart` draws a thin bar under the live one,
+whatever the scheduling props say. `baselineEnd` is optional: without it the baseline collapses to a
+single point one pixel wide.
+
+The baseline element belongs to the row, not to the bar, so dragging the bar slides it across a
+baseline that stays put. That is the whole point of the feature. The timeline range is widened to
+cover baseline dates as well, so a baseline that falls outside the live bar is not clipped away.
+
+A milestone gets a small rotated square instead of a bar. The shape is chosen by the task's own
+`type`, not by the baseline's dates — a plain task carrying only `baselineStart` gets the one-pixel
+bar, not a diamond. [Task data](task-data.md) owns the milestone rule.
+
+`renderBaseline` replaces the default element:
+
+```tsx
+import {
+  ReactGanttChart,
+  type Task,
+  type TaskTransformed,
+} from '@jaeungkim/gantt-chart';
+
+export function Plan({ tasks, setTasks }: {
+  tasks: Task[];
+  setTasks: (next: Task[]) => void;
+}) {
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      onTasksChange={setTasks}
+      renderBaseline={(task: TaskTransformed) => (
+        <div
+          className="my-baseline"
+          style={{ left: `${task.baselineLeft}px`, width: `${task.baselineWidth}px` }}
+          title={`Planned: ${task.baselineStart} - ${task.baselineEnd}`}
+        />
+      )}
+    />
+  );
+}
+```
+
+It is called only for tasks that carry `baselineStart`, and it receives the transformed task with
+`baselineLeft` and `baselineWidth` already worked out. Absolute positioning stays your job, since the
+row provides the coordinate space. The default element is `aria-hidden="true"`; a custom one is not,
+so give it whatever labelling it needs. The renderer's exact type sits in
+[Renderers](ref/renderers.md).
+
+## A worked example
+
+Four tasks, all times UTC.
+
+```ts
+import type { Task } from '@jaeungkim/gantt-chart';
+
+export const tasks: Task[] = [
+  {
+    id: 'a', name: 'Kickoff', parentId: null, sequence: '1',
+    startDate: '2026-08-31T09:00:00Z', endDate: '2026-08-31T17:00:00Z',
+  },
+  {
+    id: 'b', name: 'Content audit', parentId: null, sequence: '2',
+    startDate: '2026-09-01T09:00:00Z', endDate: '2026-09-04T17:00:00Z',
+    dependencies: [{ targetId: 'a', type: 'FS' }],
+  },
+  {
+    id: 'c', name: 'Visual design', parentId: null, sequence: '3',
+    startDate: '2026-09-01T09:00:00Z', endDate: '2026-09-02T17:00:00Z',
+    dependencies: [{ targetId: 'a', type: 'FS' }],
+  },
+  {
+    id: 'd', name: 'Build', parentId: null, sequence: '4',
+    startDate: '2026-09-05T09:00:00Z', endDate: '2026-09-09T17:00:00Z',
+    dependencies: [
+      { targetId: 'b', type: 'FS' },
+      { targetId: 'c', type: 'FS', lag: 1 },
+    ],
+  },
+];
+```
+
+Content audit hands straight over to Build, so that link is tight. Visual design finishes a day
+earlier and its link carries a day of lag, which leaves Build a day of room on that side.
+
+Drag **Content audit** three days later, to `09-04 09:00 - 09-07 17:00`, and drop it:
+
+| `schedulingPolicy` | Build afterwards | Why |
+|---|---|---|
+| `"off"` | `09-05 09:00 - 09-09 17:00` | unchanged, and now overlapping its predecessor |
+| `"shift-on-overlap"` | `09-08 09:00 - 09-12 17:00` | pushed the three days the broken link demands |
+| `"maintain-gap"` | `09-08 09:00 - 09-12 17:00` | same answer: the link was already tight |
+
+Now start over and drag **Content audit** two days earlier instead, to `08-30 09:00 - 09-02 17:00`:
+
+| `schedulingPolicy` | Build afterwards | Why |
+|---|---|---|
+| `"off"` | `09-05 09:00 - 09-09 17:00` | unchanged |
+| `"shift-on-overlap"` | `09-05 09:00 - 09-09 17:00` | unchanged: nothing is broken, so nothing is pulled back |
+| `"maintain-gap"` | `09-04 09:00 - 09-08 17:00` | pulled back one day, not two |
+
+One day, not two, because Build has two predecessors. After the first day the lagged link from Visual
+design becomes the binding one and stops the pull. Visual design itself never moves in either drag —
+it is not downstream of the bar you dragged, so the engine never looks at it.
+
+With `criticalPath` on and no drag, Kickoff, Content audit and Build all report `totalSlack: 0` and
+carry the `critical` class; Visual design reports `totalSlack: 1` and stays grey. Turn
+`workingCalendar` on and Build — which runs Saturday to Wednesday — reports `duration: 3` instead of
+`4`.
+
+## Limits
+
+The engine propagates forward only. It never pushes a predecessor, never resolves a cycle, and never
+levels the whole project on its own — it starts from the bar you dragged and walks its successors.
+
+It only runs on a bar drag. Everything else that changes dates or links is your responsibility: after
+importing tasks, drawing a link, or editing a date in a form, the chart's dates are whatever you put
+in them. `scheduleTasks` is exported for exactly that case, and can be run over a whole project at
+once; see [`scheduleTasks`](ref/core-scheduling.md).
+
+Nothing is validated. An `endDate` before its `startDate`, an unparseable date string, or two
+dependencies between the same pair all pass straight through and produce arithmetic on bad input
+rather than an error.
+
+Every number here is whole days. `duration` and both slack figures are measured from the start of one
+date to the start of another, so a task that begins and ends on the same date reports `duration: 0`
+however many hours it covers, and a milestone reports `0` too.
+
+`criticalPath` never reschedules, and `schedulingPolicy` never computes slack. They are independent
+features that happen to share a calendar. The critical path is also computed from each task's own
+stored dates, so with [`hierarchy`](task-list.md) on a summary row's slack and duration can disagree
+with the span its bar is drawn from.
+
+Baselines are read-only to the chart. It draws `baselineStart` / `baselineEnd` and nothing else:
+snapshotting the plan, storing it, and deciding when to re-baseline are all the host app's job.
+
+There is no editor for anything on this page. `lag` cannot be changed from the chart, a task cannot be
+marked `manuallyScheduled` from the chart, and the working calendar cannot be edited from the chart.
+All three are data you pass in.
+
+Next: [Reordering rows](reordering.md), where moving a row changes the task list rather than the dates.

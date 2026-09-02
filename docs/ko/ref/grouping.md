@@ -1,0 +1,127 @@
+`GanttGroupBy`는 `groupBy` prop의 타입이에요. `GanttRow`와 `GanttRowGroup`은 차트가 작업에서 만들어
+내는 행 모델을 설명해요. 렌더링되는 행마다 항목이 하나씩 있고, 그룹 헤더 행도 포함해요. 셋 다
+패키지 루트에서 가져와요.
+
+```ts
+import type { GanttGroupBy, GanttRow, GanttRowGroup } from '@jaeungkim/gantt-chart';
+```
+
+그룹 묶기가 무엇을 하고 레인이 어떻게 채워지는지는 [그룹과 스윔레인](../grouping.md)을 참고하세요.
+
+## GanttGroupBy
+
+```ts
+/**
+ * 행을 스윔레인으로 묶는 방식
+ *
+ * 문자열은 작업에서 해당 필드를 읽어요. 함수는 그룹 값 자체를 돌려주고, 그 값이
+ * 헤더 라벨을 겸해요. 비어 있거나 null, undefined인 값은 "Ungrouped" 버킷으로
+ * 떨어져요.
+ */
+export type GanttGroupBy =
+  | string
+  | ((task: TaskTransformed) => string | null | undefined);
+```
+
+| 형태 | 의미 |
+|---|---|
+| `string` | 필드 이름이에요. 검사 없는 인덱스 접근으로 작업에서 읽어요. `Task`가 선언한 필드뿐 아니라 `TaskTransformed`의 모든 필드를 쓸 수 있어요. 어떤 작업에도 없는 이름을 주면 모든 작업에서 `undefined`가 나와요. 그래서 전부 Ungrouped 그룹 하나로 떨어져요. |
+| `(task: TaskTransformed) => string \| null \| undefined` | 그룹 값을 돌려줘요. 이 값이 헤더 라벨도 겸해요. |
+
+문자열이 아닌 반환값은 `String(value)`를 거쳐요. Ungrouped 버킷을 만드는 값은 `null`,
+`undefined`, `""` 셋뿐이에요. `0`은 `"0"` 그룹이 되고, `false`는 `"false"` 그룹이 돼요.
+
+접근자(accessor)는 넘겨준 `Task`가 아니라 `TaskTransformed`를 받아요. 그래서 `depth`, `order`,
+`isSummary`, `barLeft`, `barWidth`, 그리고 차트가 더한 스케줄링 필드까지 볼 수 있어요.
+[Task](task.md)를 참고하세요.
+
+## GanttRowGroup
+
+```ts
+export interface GanttRowGroup {
+  /** `groupBy`가 만들어 낸 원본 값 (ungrouped 버킷은 "") */
+  key: string;
+  /** 헤더에 보이는 값 */
+  label: string;
+  /** 그룹이 담은 작업 수 (행은 더 적을 수 있어요 - 레인이 행을 공유해요) */
+  count: number;
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `key` | `string` | `groupBy` 값을 문자열로 만든 값이에요. Ungrouped 버킷은 `""`예요. |
+| `label` | `string` | `key`와 같아요. Ungrouped 버킷만 예외로 `ungroupedLabel` prop 값이고, prop을 주지 않으면 `"Ungrouped"`예요. |
+| `count` | `number` | 그룹에 속한 작업 수예요. 차트가 지금 렌더링하는 작업 중에서 세어요. 행 수가 아니에요. 같은 레인의 작업은 행을 공유하니까요. |
+
+## GanttRow
+
+```ts
+/**
+ * 렌더링되는 행 하나
+ *
+ * 보통은 작업 하나, `lane`을 공유하면 여럿, 그룹 헤더 행이면 없어요. 트리 번호
+ * (`level`/`posinset`/`setsize`)는 그 행의 ARIA 값이에요. 그래서 렌더링 쪽에서
+ * 다시 계산할 필요가 없어요.
+ */
+export interface GanttRow {
+  /** 안정적인 키 - 헤더는 그룹 id, 그 외에는 행에 있는 작업 id들 */
+  id: string;
+  tasks: TaskTransformed[];
+  /** 들여쓰기 단계, 0부터 시작 */
+  depth: number;
+  /** `aria-level`, 1부터 시작 */
+  level: number;
+  /** 부모가 같은 행들 사이에서의 `aria-posinset` */
+  posinset: number;
+  /** 같은 집합에 대한 `aria-setsize` */
+  setsize: number;
+  /** 그룹 헤더 행에만 있어요 */
+  group?: GanttRowGroup;
+}
+```
+
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `id` | `string` | [행 id](#행-id)를 참고하세요. |
+| `tasks` | `TaskTransformed[]` | 그룹 헤더 행에서는 비어 있어요. 보통 행에는 항목이 하나, 작업이 `lane`을 공유하면 여러 개예요. |
+| `depth` | `number` | 0부터 시작해요. 그룹 헤더는 `0`이고, 그룹 안의 작업 행은 자기 작업 depth에 `1`을 더한 값이에요. |
+| `level` | `number` | `aria-level`이에요. 언제나 `depth + 1`이에요. |
+| `posinset` | `number` | 이 행과 부모가 같은 행들 사이에서의 `aria-posinset`이에요. 행의 부모는 위쪽에서 가장 가까운, `depth`가 한 단계 얕은 행이에요. |
+| `setsize` | `number` | 같은 집합에 대한 `aria-setsize`예요. 보이는 행만 세어요. |
+| `group` | `GanttRowGroup \| undefined` | 그룹 헤더 행에만 있어요. 이 값이 없다는 게 작업 행과 헤더를 가르는 기준이에요. |
+
+### 행 id
+
+| 행 종류 | `id` | 예시 |
+|---|---|---|
+| 그룹 헤더 | `` `group:${key}` `` | `groupBy`가 `"Dev"`를 내면 → `"group:Dev"` |
+| Ungrouped 헤더 | `"group:"` | 키가 `""`라서 콜론 뒤에 아무것도 없어요. 라벨은 관여하지 않아요 — `"group:Ungrouped"`는 어디에도 맞지 않아요. |
+| 작업 행 | 작업 id | `"a"` |
+| 레인 행 | 묶인 작업 id들을 `"+"`로 이은 값 | `"a+b"` |
+
+그룹 헤더 id는 작업 id와 같은 평평한 `collapsedIds` / `defaultCollapsedIds` 배열에 들어가요.
+Ungrouped 그룹을 접으려면 `collapsedIds={['group:']}`이에요.
+
+## 내보내지 않는 것들
+
+`src/utils/grouping.ts`에는 `buildGanttRows`, `packLanes`, `groupRowId`, `GROUP_ROW_PREFIX`,
+`DEFAULT_UNGROUPED_LABEL`, `BuildGanttRowsOptions`도 들어 있어요. 이 중 어느 것도 패키지에서
+다시 내보내지 않고, 헤드리스 코어에 속하지도 않아요. 그룹 처리는 렌더링 쪽에서 돌아가요. 헬퍼를
+가져오지 말고, 그룹 id는 문자열 리터럴 `` `group:${key}` ``로 직접 만드세요.
+
+## 참고 사항
+
+- `GanttRow`를 넘겨주는 prop이나 콜백은 없어요. 두 행 타입을 내보내는 건 호스트 앱이 차트가
+  다루는 형태를 이름으로 부를 수 있게 하려는 거예요. `TaskTransformed.order`를 읽을 때, 또는
+  `collapsedIds` 항목을 맞춰 볼 때 쓰여요.
+- `TaskTransformed`의 `order`는 1부터 시작하는 행 번호예요. 그룹 처리가 끝난 뒤에 붙어요. 그룹
+  헤더 행도 번호를 하나 가져가고, 레인 행 위의 작업들은 모두 같은 `order`를 보고해요.
+- `count`는 그룹 자신을 접기 전에 세어요. 그래서 접힌 그룹도 원래 숫자를 그대로 보여줘요. 접힌
+  서브트리를 걷어낸 뒤에 세니까, 그룹 안의 요약 행을 접으면 숫자가 줄어요.
+- `ungroupedLabel=""`은 헤더 라벨을 비워요. `"Ungrouped"` 기본값은 `undefined`일 때만 채워져요.
+- 그룹 헤더는 언제나 `depth: 0`이에요. 중첩 그룹은 없어요. `groupBy`는 값 하나를 받지, 목록을
+  받지 않아요.
+
+다음: `TaskTransformed`는 [Task](task.md), prop 목록의 `groupBy`와 `ungroupedLabel`은
+[GanttProps](props.md)를 보세요.

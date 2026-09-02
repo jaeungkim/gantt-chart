@@ -1,0 +1,236 @@
+`computeCriticalPath`는 `Task[]`에 임계 경로(critical path) 기법을 적용해요. 여유(slack) 값과
+이른/늦은 날짜, 그리고 프로젝트 완료일을 지금 자리에 붙잡아 두는 작업과 링크 집합을 돌려줘요.
+`forwardPass`와 `backwardPass`는 그 계산을 이루는 두 단계예요. 따로 실행할 수 있게 각각 내보내요.
+이 네 개와 `CriticalPathResult`, `TaskScheduleMetrics` 타입까지 모두 패키지 루트에서 가져와요.
+
+```ts
+import {
+  backwardPass,
+  computeCriticalPath,
+  forwardPass,
+  type CriticalPathResult,
+  type TaskScheduleMetrics,
+} from '@jaeungkim/gantt-chart';
+```
+
+동작과 `criticalPath` prop은 [스케줄링](../scheduling.md)에서 다뤄요. React 없이 코어만 돌리는
+방법은 [헤드리스 코어](../headless-core.md)에 있어요.
+
+## `computeCriticalPath`
+
+```ts
+/** 정방향 패스, 역방향 패스, 그리고 그 둘에서 따라 나오는 여유 값 */
+export function computeCriticalPath(
+  tasks: Task[],
+  options: CriticalPathOptions = {}
+): CriticalPathResult
+```
+
+```ts
+export interface CriticalPathOptions {
+  calendar?: WorkingCalendar;
+}
+```
+
+| 옵션 | 타입 | 기본값 | 효과 |
+|---|---|---|---|
+| `calendar` | `WorkingCalendar` | `CALENDAR_DAYS` | 이 페이지의 모든 숫자를 세는 날짜 단위예요. `CALENDAR_DAYS`는 모든 날을 계산하고, `createWorkingCalendar`로 만든 캘린더는 근무일만 계산해요. [`core-calendar.md`](core-calendar.md)를 참고해요 |
+
+호출할 때마다 `buildTaskGraph(tasks)`로 그래프를 다시 만들어요 — 메모이제이션은 없어요. 작업의
+`dependencies` 배열은 그 작업의 선행 작업(predecessor)을 담아요. 링크 형태는
+[`core-scheduling.md`](core-scheduling.md)에 있어요.
+
+빈 `tasks` 배열을 넘기면 `metrics`, `criticalTaskIds`, `criticalLinkIds`가 비어 있고
+`cycle: null`, `projectFinish: null`이 돌아와요.
+
+## `CriticalPathResult`
+
+```ts
+export interface CriticalPathResult {
+  metrics: Map<string, TaskScheduleMetrics>;
+  criticalTaskIds: Set<string>;
+  /** 임계 경로 위에 놓인 링크들의 `linkKey` 키 */
+  criticalLinkIds: Set<string>;
+  /** 의존성 순환에 걸린 id - 메트릭을 받지 못해요 */
+  cycle: string[] | null;
+  /** 프로젝트의 가장 이른 완료일(UTC ISO 문자열), 작업이 없으면 null */
+  projectFinish: string | null;
+}
+```
+
+| 필드 | 타입 | 내용 |
+|---|---|---|
+| `metrics` | `Map<string, TaskScheduleMetrics>` | 작업 id를 키로 써요. 그래프가 위상 정렬할 수 있었던 작업만 항목을 가져요 |
+| `criticalTaskIds` | `Set<string>` | `critical`이 `true`인 id |
+| `criticalLinkIds` | `Set<string>` | `linkKey` 문자열이고 형태는 `` `${predecessorId}>${successorId}:${type}` ``예요. 양쪽 끝이 모두 `criticalTaskIds`에 있고 **그리고** 자기 float가 정확히 `0`일 때만 추가돼요 |
+| `cycle` | `string[] \| null` | 그래프에 순환이 없으면 `null`이에요. 순환이 있으면 정렬하지 못한 모든 id인데, 순환의 구성원만이 아니라 순환 하류에 있는 작업까지 들어가요 |
+| `projectFinish` | `string \| null` | 모든 작업의 이른 완료 중 가장 늦은 값이고 `Date.prototype.toISOString()` 형식(UTC)이에요. `tasks`가 비었을 때만 `null`이에요 |
+
+## `TaskScheduleMetrics`
+
+```ts
+export interface TaskScheduleMetrics {
+  earlyStart: string;
+  earlyFinish: string;
+  lateStart: string;
+  lateFinish: string;
+  /** 프로젝트 완료일이 움직이기 전까지 작업이 밀릴 수 있는 일수 */
+  totalSlack: number;
+  /** 후행 작업의 이른 시작이 움직이기 전까지 작업이 밀릴 수 있는 일수 */
+  freeSlack: number;
+  critical: boolean;
+  /** 달력상 일수, 근무일 캘린더가 켜져 있으면 근무일 수 */
+  duration: number;
+}
+```
+
+| 필드 | 타입 | 단위 | 의미 |
+|---|---|---|---|
+| `earlyStart` | `string` | UTC ISO 문자열 | 작업 자신의 `startDate`를 선행 작업이 허용하는 가장 이른 시점까지 미룬 값 |
+| `earlyFinish` | `string` | UTC ISO 문자열 | 작업 자신의 종료일을 같은 일수만큼 미룬 값 |
+| `lateStart` | `string` | UTC ISO 문자열 | 작업 자신의 `startDate`를 `projectFinish`를 그대로 두는 한도에서 가장 늦은 시점까지 미룬 값 |
+| `lateFinish` | `string` | UTC ISO 문자열 | 작업 자신의 종료일을 같은 일수만큼 미룬 값 |
+| `totalSlack` | `number` | 정수 일수 | `lateShift - earlyShift` |
+| `freeSlack` | `number` | 정수 일수 | 작업에서 나가는 링크들의 float 중 가장 작은 값이고, `0` 아래로는 내려가지 않아요. 후행 작업(successor)이 없으면 `totalSlack`과 같아요 |
+| `critical` | `boolean` | — | `totalSlack === 0`이고 작업의 진행률이 100이 아닐 때 |
+| `duration` | `number` | 정수 일수 | `calendar.daysBetween(start, end)` |
+
+날짜 네 필드는 `.toISOString()`으로 만들어요. 그래서 언제나 `Z` 접미사가 붙은 UTC이고 밀리초까지
+적혀요. 모든 시프트는 정수 일수라서 작업의 시각은 두 패스를 지나도 그대로 남아요.
+
+### `totalSlack`
+
+`projectFinish`가 움직이기 전까지 작업이 `earlyStart`보다 며칠 늦게 시작할 수 있는지예요.
+`lateDates.shift - earlyDates.shift`로 계산하고, 두 시프트 모두 작업 자신이 들고 있는 날짜를
+기준으로 한 일수예요.
+
+- 단위: `calendar`의 날짜 단위로 센 정수 일수예요. `CALENDAR_DAYS`에서 금요일에서 월요일까지의
+  간격은 여유 3일이고, 월–금 근무 캘린더에서는 1일이에요.
+- `0`이면 날짜상으로 임계 사슬 위에 놓인 작업이라는 뜻이에요.
+- 클램프를 적용하지 않아서, 뺄셈이 내놓은 값이 그대로 결과가 돼요.
+
+### `freeSlack`
+
+후행 작업의 `earlyStart`를 밀기 전까지 작업이 `earlyStart`보다 며칠 늦게 시작할 수 있는지예요.
+
+- 나가는 링크가 하나 이상인 작업은
+  `Math.max(0, Math.min(...나가는 링크들의 float))`이에요. `0`이 하한이라 이런 작업에서는
+  이 필드가 음수가 되지 않아요.
+- 나가는 링크가 **없는** 작업은 `0`이 아니라 `totalSlack`으로 정해져요. 그래서 말단 작업의 두 여유
+  값은 언제나 같아요.
+- 단위: `totalSlack`과 같은 `calendar` 단위의 정수 일수예요.
+- 링크별 float는
+  `calendar.daysUpTo(predecessorAnchor, successorEarlyAnchor) - link.lag - predecessorEarlyShift`라서,
+  링크의 `lag`도 캘린더의 날짜 단위로 빼요.
+
+후행 작업이 있는 작업이라면 `freeSlack <= totalSlack`이에요.
+
+## `forwardPass`
+
+```ts
+/**
+ * 선행 작업을 감안했을 때 각 작업이 가장 이르게 실행될 수 있는 시점, 선행 작업부터 순회해요.
+ * 선행 작업이 없는 작업은 자기 날짜에 그대로 남아요.
+ */
+export function forwardPass(
+  tasks: Task[],
+  calendar: WorkingCalendar = CALENDAR_DAYS,
+  graph: TaskGraph = buildTaskGraph(tasks)
+): Map<string, EarlyDates>
+```
+
+```ts
+export interface EarlyDates {
+  start: Dayjs;
+  finish: Dayjs;
+  /** 작업 자신의 날짜보다 늦어진 일수 */
+  shift: number;
+}
+```
+
+`shift`는 `0`에서 시작해 커지기만 해요. 그래서 작업이 자기 `startDate`보다 앞으로 당겨지는 일은
+없어요. `graph.order`에서 빠진 작업은 자기 날짜와 `shift: 0`으로 반환 맵에 들어가요. 그래서 맵은
+`tasks`의 모든 id를 덮어요.
+
+## `backwardPass`
+
+```ts
+/**
+ * 프로젝트 완료일을 옮기지 않으면서 각 작업이 가장 늦게 실행될 수 있는 시점, 후행 작업부터 순회해요.
+ *
+ * 정방향 패스의 결과를 다시 계산하지 않고 그대로 받아요. 덕분에 손으로 쓴 이른 날짜를 넣어
+ * 따로 시험해 볼 수 있어요.
+ */
+export function backwardPass(
+  tasks: Task[],
+  early: Map<string, EarlyDates>,
+  calendar: WorkingCalendar = CALENDAR_DAYS,
+  graph: TaskGraph = buildTaskGraph(tasks),
+  projectFinish?: Dayjs
+): Map<string, LateDates>
+```
+
+```ts
+export interface LateDates {
+  start: Dayjs;
+  finish: Dayjs;
+  /** 작업이 그래도 실행될 수 있는, 작업 자신의 날짜보다 늦어진 일수 */
+  shift: number;
+}
+```
+
+| 매개변수 | 필수 | 기본값 |
+|---|---|---|
+| `tasks` | 예 | — |
+| `early` | 예 | — |
+| `calendar` | 아니요 | `CALENDAR_DAYS` |
+| `graph` | 아니요 | `buildTaskGraph(tasks)` — 호출자가 정방향 패스에서 쓴 그래프를 그대로 넘기지 않으면 다시 만들어요 |
+| `projectFinish` | 아니요 | `early` 안에서 가장 늦은 `finish` |
+
+`projectFinish` 인자가 없고 `early` 맵이 비어 있으면 빈 맵을 돌려줘요. `forwardPass`와 달리 반환
+맵은 `graph.order`에 있는 id만 덮어요.
+
+## 패키지 루트에서 내보내지 않는 것
+
+위에 나온 이름들 중 이것들은 `src/index.tsx`에 **없어요**. 그래서 `@jaeungkim/gantt-chart`에서
+import할 수 없어요.
+
+| 이름 | 종류 | 우회 방법 |
+|---|---|---|
+| `EarlyDates` | 타입 | `type Early = ReturnType<typeof forwardPass>`로 `Map<string, EarlyDates>`를 얻어요 |
+| `LateDates` | 타입 | `type Late = ReturnType<typeof backwardPass>` |
+| `CriticalPathOptions` | 타입 | 객체 리터럴을 인라인으로 넘겨요. 멤버는 `calendar` 하나뿐이에요 |
+| `normalizeProgress` | 함수 | `typeof p === 'number' && !Number.isNaN(p) ? Math.min(100, Math.max(0, p)) : null` — 진짜 구현은 진행률이 없거나 `NaN`일 때 숫자가 아니라 `null`을 돌려줘요 |
+| `taskStart`, `taskEnd`, `linkSourceDate`, `linkTargetDate` | 함수 | 내부용이라 공개된 대응물이 없어요 |
+
+`buildTaskGraph`, `linkKey`, `TaskGraph`는 내보내요 — [`core-graph.md`](core-graph.md)를 봐요.
+`CALENDAR_DAYS`, `createWorkingCalendar`, `WorkingCalendar`도 내보내요 —
+[`core-calendar.md`](core-calendar.md)를 봐요.
+
+## 참고
+
+진행률이 100인 작업은 절대 `critical`로 표시되지 않아요. `critical`은
+`totalSlack === 0 && normalizeProgress(task.progress) !== 100`이고, `normalizeProgress`가 먼저
+`0`–`100` 범위로 클램프해요. 그래서 `progress: 150`은 100으로 쳐서 작업을 임계 경로에서 빼요.
+숫자가 아니거나 `NaN`인 진행률은 완료로 보지 않아요.
+
+진행률 100% 규칙은 플래그만 바꿔요. 완료된 작업의 `totalSlack`과 `freeSlack`은 두 패스가 내놓은
+값을 그대로 유지해요. 그래서 `critical: false`가 `totalSlack > 0`을 뜻하지는 않아요. 임계 링크는
+양쪽 끝이 모두 `criticalTaskIds`에 있어야 하니, 작업을 완료로 표시하면 그 작업에 닿는 링크가 모두
+`criticalLinkIds`에서 빠져요.
+
+의존성 순환에 걸린 작업과 그 하류의 작업은 `metrics`에 항목이 없어요 — 메트릭 루프가
+`graph.order`를 도는데 거기서 빠져 있기 때문이에요. 그 id들은 `cycle`에 나와요.
+
+`duration`은 하루 단위예요. `calendar.daysBetween`이 양쪽 끝에 `startOf('day')`를 적용하니, 같은
+날짜에서 `09:00`부터 `17:00`까지 도는 작업은 `0`으로 나와요. 마일스톤은 종료일이 곧 `startDate`라서
+`0`이에요.
+
+`projectFinish`는 정방향 패스가 만든 맵의 모든 항목을 훑어서 구해요. 그 맵에는 `graph.order`에서 빠진
+작업도 들어 있어요. 그래서 순환에 걸린 작업이 메트릭이 없는데도 프로젝트 완료일을 정할 수 있어요.
+
+`linkKey`에는 `lag`가 들어가지 않아요. 같은 쌍 사이에 `type`이 같은 의존성이 둘 있으면 키를 하나
+공유해요. 그래서 float 값 하나와 `criticalLinkIds` 항목 하나를 같이 써요.
+
+`computeCriticalPath`는 작업을 옮기지 않아요. `tasks`를 읽고 숫자를 돌려줄 뿐이고, 전파는
+`scheduleTasks`가 맡아요 ([`core-scheduling.md`](core-scheduling.md)).
