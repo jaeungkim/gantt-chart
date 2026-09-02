@@ -23,14 +23,21 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "public/readmeImg.png"
   ],
-  "description": "Lightweight React Gantt Chart component",
+  "description": "React Gantt chart with editable bars, dependency arrows, and headless scheduling utilities",
   "keywords": [
     "gantt",
+    "gantt-chart",
     "chart",
+    "project-management",
     "react",
-    "timeline"
+    "scheduler",
+    "scheduling",
+    "timeline",
+    "critical-path",
+    "virtualized"
   ],
   "author": "jaeungkim",
   "license": "MIT",

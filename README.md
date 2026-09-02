@@ -4,108 +4,126 @@
 [![CI](https://github.com/jaeungkim/gantt-chart/actions/workflows/ci.yml/badge.svg)](https://github.com/jaeungkim/gantt-chart/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/@jaeungkim/gantt-chart)](LICENSE)
 
-A Gantt chart for React: virtualized rows, editable bars, dependency arrows, and a scheduling
-engine that runs without a DOM.
+React Gantt chart with editable bars, dependency arrows, and a headless scheduling core.
 
-**[Live demo](https://gantt.jaeungkim.com/docs/quick-start)** · **[Documentation](https://gantt.jaeungkim.com/docs)** · **[한국어 문서](https://gantt.jaeungkim.com/ko/docs)**
+**[Quick start](https://gantt.jaeungkim.com/docs/quick-start)** · **[Documentation](https://gantt.jaeungkim.com/docs)** · **[한국어 문서](https://gantt.jaeungkim.com/ko/docs)**
 
-## Motivation
+![Gantt chart preview](./public/readmeImg.png)
 
-I wanted Microsoft Project's Gantt chart for my own project planning, and it wanted a
-subscription. So I built one, borrowing ideas from MS Project, DHTMLX and Frappe Gantt.
+`@jaeungkim/gantt-chart` ships a ready-to-use React component and the React-free scheduling
+helpers behind it. Use `ReactGanttChart` when you want a production UI out of the box. Use the
+exported core when you need dependency scheduling, working-day calendars, or critical-path
+analysis in a server, worker, or test.
 
-There are not many open-source Gantt charts, so I hope this is useful to someone else too.
-Feedback, feature requests and pull requests are all welcome — this is my first open-source
-project and I would like to keep improving it with whoever shows up.
+## Highlights
+
+- Virtualized rows, task list columns, hierarchy, grouping, markers, baselines, dependency arrows,
+  and PNG export.
+- Move, resize, and set progress by drag; create and delete dependencies; reorder rows; undo and
+  redo; veto a commit with `onBeforeTaskChange`.
+- Headless exports for scheduling and analysis: `scheduleTasks`, `computeCriticalPath`,
+  `createWorkingCalendar`, `buildTaskGraph`, and `buildTaskTree`.
+- Keyboard-first ARIA treegrid, scoped `--gantt-*` theme tokens, light/dark/system theming,
+  per-task colors, and four render props.
 
 ## Install
 
 ```bash
 pnpm add @jaeungkim/gantt-chart
+# npm install @jaeungkim/gantt-chart
+# yarn add @jaeungkim/gantt-chart
 ```
 
 `react` and `react-dom` (`^18` or `^19`) are peer dependencies.
 
-## Usage
+## Quick example
 
 ```tsx
+import { useState } from 'react';
 import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
 import '@jaeungkim/gantt-chart/style.css';
 
-const tasks: Task[] = [
+const initialTasks: Task[] = [
   {
-    id: '1',
-    name: 'Project kickoff',
-    startDate: '2024-06-01T09:00:00Z',
-    endDate: '2024-06-03T17:00:00Z',
+    id: 'design',
+    name: 'Design',
+    startDate: '2026-03-02',
+    endDate: '2026-03-06',
     parentId: null,
     sequence: '1',
+    progress: 100,
   },
   {
-    id: '2',
-    name: 'Requirements',
-    startDate: '2024-06-04T09:00:00Z',
-    endDate: '2024-06-10T17:00:00Z',
+    id: 'build',
+    name: 'Build',
+    startDate: '2026-03-09',
+    endDate: '2026-03-20',
     parentId: null,
     sequence: '2',
-    dependencies: [{ targetId: '1', type: 'FS' }],
+    progress: 40,
+    dependencies: [{ targetId: 'design', type: 'FS' }],
+  },
+  {
+    id: 'ship',
+    name: 'Ship',
+    startDate: '2026-03-23',
+    endDate: '2026-03-23',
+    parentId: null,
+    sequence: '3',
+    type: 'milestone',
+    dependencies: [{ targetId: 'build', type: 'FS' }],
   },
 ];
 
-export default function App() {
+export default function ProjectChart() {
+  const [tasks, setTasks] = useState(initialTasks);
+
   return (
     <ReactGanttChart
       tasks={tasks}
-      height={600}
-      theme="system"
+      onTasksChange={setTasks}
+      height={420}
+      showTaskList
       defaultScale="month"
-      onTasksChange={(updated) => console.log(updated)}
     />
   );
 }
 ```
 
-The chart never stores your data. Every committed gesture ends in one `onTasksChange` call with a
-new array, and it is up to you to keep it.
+The chart does not keep your canonical data. A committed gesture ends in one `onTasksChange` call
+with the complete next task array, so your app stays the source of truth.
 
 Full walkthrough: **[Quick start](https://gantt.jaeungkim.com/docs/quick-start)**.
 
-## What it does
+## Why this package
 
-**Rendering** — virtualized rows, a configurable task list pane with a draggable splitter, six
-timeline scales from hour to year, elbow-routed dependency arrows, date markers, range bands,
-non-working-day shading and baseline bars.
+A Gantt chart stops being a table the first time a bar moves. Snapping, dependency routing,
+working-day math, critical path, and large row counts all have to agree on the same task model.
 
-**Editing** — move, resize and set progress by dragging; draw a new task on empty row space; draw
-and delete dependency arrows; reorder, indent and outdent rows; undo and redo.
+`@jaeungkim/gantt-chart` keeps that stack in one package: an opinionated React chart on top, and
+the same scheduling primitives exported underneath. The design borrows from Microsoft Project,
+DHTMLX, and Frappe Gantt, but leaves data fetching, persistence, validation, and app-specific
+workflows to the host app.
 
-**Scheduling** — successors reschedule on a drag under a policy you choose, a working-day calendar
-makes weekends and holidays stop counting, and the critical path comes with total and free slack.
-The same functions are exported as plain functions you can call on a server or in a worker.
-
-**Accessibility** — one ARIA treegrid with a roving tab stop; bars move, resize and step their
-progress from the keyboard.
-
-**Theming** — `--gantt-*` custom properties scoped to the chart container, a light / dark / system
-theme prop, per-task colors, and four render props for replacing elements outright.
-
-Each of these, and the honest list of what the library does **not** do, is in
-**[Introduction](https://gantt.jaeungkim.com/docs/introduction)**.
+The full boundary list is documented in
+**[Introduction](https://gantt.jaeungkim.com/docs/introduction)**, including what the library
+deliberately does not do.
 
 ## Documentation
 
-| Page | |
+| Page | What it covers |
 |---|---|
 | [Quick start](https://gantt.jaeungkim.com/docs/quick-start) | install to a working, editable chart |
-| [Task data](https://gantt.jaeungkim.com/docs/task-data) | the `Task` shape and how the `tasks` prop is compared |
-| [Editing tasks](https://gantt.jaeungkim.com/docs/editing) | gestures, permissions, touch |
-| [Dependencies](https://gantt.jaeungkim.com/docs/dependencies) | the four link types and lag |
-| [Scheduling](https://gantt.jaeungkim.com/docs/scheduling) | policies, working calendar, critical path, baselines |
-| [Keyboard and screen readers](https://gantt.jaeungkim.com/docs/accessibility) | the key map, the ARIA tree, and the gaps |
-| [Theming](https://gantt.jaeungkim.com/docs/theming) | the CSS custom properties |
+| [Task data](https://gantt.jaeungkim.com/docs/task-data) | the `Task` shape, date handling, and how the `tasks` prop is compared |
+| [Editing tasks](https://gantt.jaeungkim.com/docs/editing) | gestures, permissions, touch, and task creation |
+| [Dependencies](https://gantt.jaeungkim.com/docs/dependencies) | the four link types, lag, and dependency drawing |
+| [Scheduling](https://gantt.jaeungkim.com/docs/scheduling) | policies, the working calendar, critical path, and baselines |
+| [Imperative API](https://gantt.jaeungkim.com/docs/imperative-api) | scrolling, zoom, undo/redo, and PNG export |
+| [Headless core](https://gantt.jaeungkim.com/docs/headless-core) | using the scheduling engine without React or a DOM |
+| [Theming](https://gantt.jaeungkim.com/docs/theming) | theme modes, CSS tokens, and render props |
 | [Props](https://gantt.jaeungkim.com/docs/ref/props) | every prop, in one table |
 
-All 35 pages: **[English](https://gantt.jaeungkim.com/docs)** · **[한국어](https://gantt.jaeungkim.com/ko/docs)**
+Full docs: **[English](https://gantt.jaeungkim.com/docs)** · **[한국어](https://gantt.jaeungkim.com/ko/docs)**
 
 ## Contributing
 
