@@ -26,3 +26,7 @@ dist-ssr
 .next
 next-env.d.ts
 .source
+
+# Vercel CLI link artifact
+.vercel
+.env*.local
