@@ -135,3 +135,37 @@ describe("drag readout reports the edge the gesture moves", () => {
     );
   });
 });
+
+// A tick numeral is centred in its cell, so a mask edge landing anywhere inside a cell clips that
+// numeral mid-glyph. Snapping the mask out to whole cells is what keeps the ruler readable.
+describe("drag readout never slices a tick numeral", () => {
+  it("masks the covered numerals with the tick row's own colour, not a tint", () => {
+    expect(declaration(".gantt-drag-mask", "background")).toBe(
+      declaration(".gantt-bottom-row", "background")
+    );
+    const mask = block(".gantt-drag-mask");
+    expect(mask).not.toContain("border");
+    expect(mask).not.toContain("box-shadow");
+    expect(mask).not.toContain("opacity");
+  });
+
+  it("lines the mask up with the tick row it stands in for", () => {
+    expect(declaration(".gantt-drag-mask", "top")).toBe(
+      declaration(".gantt-top-header", "height")
+    );
+    expect(declaration(".gantt-drag-mask", "height")).toBe(
+      declaration(".gantt-bottom-row", "height")
+    );
+  });
+
+  it("snaps the mask out to whole cells, off the cells' own widths", () => {
+    expect(guides).toContain("snapDown(boundaries, startX)");
+    expect(guides).toContain("snapUp(boundaries, endX)");
+    expect(guides).toContain("tickBoundaries(bottomRowCells)");
+  });
+
+  // The band token was the last thing painting a colour of its own on the axis
+  it("leaves no band token behind for a container override to reach", () => {
+    expect(css).not.toContain("--gantt-drag-band");
+  });
+});

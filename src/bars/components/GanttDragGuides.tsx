@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import { useGanttStore } from "shared/context";
 import { resolveFormatters } from "shared/utils/i18n";
+import { snapDown, snapUp, tickBoundaries } from "timeline/utils/header";
 
 // The live readout for a move or resize. It is the tick row being precise for the length of one
 // gesture: the exact date is typeset at the edge the gesture is moving, in the row's own 11px
-// type. Nothing is drawn around it - the label paints the tick row's own background, so it blanks
-// the numerals it actually covers and no others, and the rest of the ruler keeps counting.
+// type, and the ruler outside the dragged span keeps counting. Nothing is drawn around it - the
+// numerals the span covers step aside behind a mask in the row's own colour.
 // A move carries both edges, so it writes both. A resize writes only the edge under the pointer:
 // the other end is not changing, and a second label that never moves is one number to ignore.
 // Mounted inside `.gantt-header-wrapper`, which is sticky and `totalWidth` wide - hence no width
@@ -17,9 +18,15 @@ export default function GanttDragGuides() {
   const dragMode = useGanttStore((store) => store.dragMode);
   const selectedScale = useGanttStore((store) => store.selectedScale);
   const localeOptions = useGanttStore((store) => store.localeOptions);
+  const bottomRowCells = useGanttStore((store) => store.bottomRowCells);
   const { edge, range } = useMemo(
     () => resolveFormatters(selectedScale, localeOptions),
     [selectedScale, localeOptions]
+  );
+
+  const boundaries = useMemo(
+    () => tickBoundaries(bottomRowCells),
+    [bottomRowCells]
   );
 
   const offset = currentTask ? dragOffsets[currentTask.id] : undefined;
@@ -28,6 +35,11 @@ export default function GanttDragGuides() {
   const startX = currentTask.barLeft + offset.offsetX;
   const endX = startX + currentTask.barWidth + offset.offsetWidth;
   const width = Math.max(endX - startX, 2);
+
+  // The mask is snapped out to whole cells, because a tick numeral is centred in its cell: an edge
+  // landing mid-numeral would leave half a glyph standing beside the date that replaced it.
+  const maskLeft = snapDown(boundaries, startX);
+  const maskRight = snapUp(boundaries, endX);
 
   const startLabel = edge(offset.offsetStartDate);
   const endLabel = edge(offset.offsetEndDate);
@@ -53,6 +65,10 @@ export default function GanttDragGuides() {
 
   return (
     <div className="gantt-drag-guides" aria-hidden="true">
+      <div
+        className="gantt-drag-mask"
+        style={{ left: `${maskLeft}px`, width: `${maskRight - maskLeft}px` }}
+      />
       <div
         className="gantt-drag-range"
         style={{ left: `${startX}px`, width: `${width}px` }}

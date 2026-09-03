@@ -42,10 +42,6 @@
 
   --gantt-non-working-bg: rgba(0, 0, 0, 0.035);
 
-  /* Consumed by .gantt-drag-range. Declared here so the documented container-level override
-     reaches it - a declaration on the element itself would beat an inherited one. */
-  --gantt-drag-band: color-mix(in srgb, var(--gantt-accent) 14%, var(--gantt-muted));
-
   --gantt-duration-fast: 150ms;
   --gantt-transition-fast: 150ms ease;
   --gantt-transition-normal: 200ms ease;
@@ -461,10 +457,18 @@
    edge it reports. 44px is .gantt-top-header's height and 28px .gantt-bottom-row's - the tests
    guard both. min-width keeps two labels legible on a span narrower than they are, which is why
    there is no lift into the month row any more. */
+/* The numerals the dragged span covers step aside for the dates that replace them. This is the
+   tick row's own colour, so no shape appears - the ruler goes quiet under the bar and comes back
+   when the pointer lifts. GanttDragGuides snaps it out to whole tick cells, because an edge
+   landing mid-numeral would otherwise slice that numeral down the middle. */
+.gantt-drag-mask {
+  position: absolute;
+  top: 44px;
+  height: 28px;
+  background: var(--gantt-muted);
+}
+
 .gantt-drag-range {
-  /* Opaque rather than a wash: the band stands IN for the tick numerals it covers instead of
-     tinting them, so no date is ever read through it. --gantt-drag-band is inherited from the
-     container, so the band and a label that has lifted out of it are the same surface. */
   position: absolute;
   top: 44px;
   height: 28px;
