@@ -23,15 +23,13 @@ and applies whatever the chart hands to `onTasksChange` — see [Events](events)
 |---|---|
 | task | One item of data — one entry in the `tasks` array. |
 | bar | The horizontal block drawn for one task. Dragging it is [Editing tasks](editing). |
-| row | One line of the grid. It can carry zero, one or several tasks. |
+| row | One line of the grid. It carries one task, or several that share a lane. |
 | task list | The left pane, the list of task names beside the timeline. See [Task list and hierarchy](task-list). |
 | timeline | The time axis and everything drawn against it. See [The timeline](timeline). |
 | scale | Which unit the timeline is drawn in: `hour`, `day`, `week`, `month`, `quarter` or `year`. See [The timeline](timeline). |
 | tick | One cell of the lower header row. How much time one tick covers depends on the scale. |
 | summary row | A task that has children under `parentId`, with `hierarchy` on. Its dates come from the children. See [Task list and hierarchy](task-list). |
-| group header row | The band label produced by a `groupBy` value that at least one task carries. It owns no task of its own. See [Grouping and swimlanes](grouping). |
-| swimlane | The band of rows under one group header row. See [Grouping and swimlanes](grouping). |
-| lane | The `lane` field, which puts several tasks side by side on one row. See [Grouping and swimlanes](grouping). |
+| lane | The `lane` field, which puts several tasks side by side on one row. See [Lanes](lanes). |
 
 Every word above names something in this snippet:
 
@@ -95,7 +93,7 @@ export function Demo() {
 ```
 
 Four tasks, three rows: `design` and `build` share the lane `Ana` and do not overlap, so they are
-packed onto one row. [Grouping and swimlanes](grouping) owns that packing.
+packed onto one row. [Lanes](lanes) owns that packing.
 
 ## The words for your data
 
@@ -156,23 +154,16 @@ and a path cannot be split. It is off unless you turn it on. See [Reordering row
 
 ## A row is not a task
 
-`GanttRow.tasks` is an array, and its length is 0, 1 or more:
+`GanttRow.tasks` is an array, and its length is 1 or more:
 
 | Row | `tasks.length` | When |
 |---|---|---|
 | ordinary row | 1 | the normal case |
-| lane row | 2 or more | tasks in the same group sharing a `lane`, that do not overlap in time |
-| group header row | 0 | one per `groupBy` value |
+| lane row | 2 or more | tasks sharing a `lane`, that do not overlap in time |
 
-So "the third row" and "the third task" are different statements as soon as `lane` or `groupBy` is
-in play. Code reading `row.tasks[0]` is reading the first task on that row, not the row itself. The
-row model, its ids and its ARIA numbering are owned by [Grouping and swimlanes](grouping) and
-[`GanttRow`](ref/grouping).
-
-> [!NOTE]
-> The `lane` field's own doc comment in the source calls it a swimlane. These docs keep the two
-> words apart. A swimlane is a band of rows produced by `groupBy`. A lane is several tasks packed
-> onto one row. The two are independent mechanisms that compose.
+So "the third row" and "the third task" are different statements as soon as `lane` is in play. Code
+reading `row.tasks[0]` is reading the first task on that row, not the row itself. The row model, its
+ids and its ARIA numbering are owned by [Lanes](lanes) and [`GanttRow`](ref/rows).
 
 ## Which words need a prop turned on
 
@@ -181,7 +172,6 @@ Half of the vocabulary above describes nothing until you switch something on.
 | Concept | Needs | Default |
 |---|---|---|
 | summary row, roll-up, subtree drag, collapsing a task row | `hierarchy` | `false` |
-| group header row, swimlane | `groupBy` | none set |
 | lane row | a `lane` value on two or more tasks | no prop |
 | a drop moving off a weekend or a holiday | `workingCalendar` | `false` |
 
@@ -200,11 +190,11 @@ with the host app.
   only proposes a draft — the host produces the `id`, `parentId` and `sequence`. See
   [Editing tasks](editing).
 - **There is no resource, cost or effort model.** A task has no assignee, owner or budget field.
-  You can hang your own properties on a task object and group by them, but they are untyped and they
-  count toward the `tasks` diff — [Task data](task-data) explains that diff.
+  You can hang your own properties on a task object, but they are untyped and they count toward the
+  `tasks` diff — [Task data](task-data) explains that diff.
 - **One calendar per chart.** There is no per-task working calendar and no per-task time zone. All
   dates are UTC.
-- **Rows are not a layout API.** You cannot set a row's height, force a group to exist with no
-  tasks in it, or nest one group inside another.
+- **Rows are not a layout API.** You cannot set a row's height, and every row comes from a task —
+  there is no way to force an empty one.
 
 Next: [Quick start](quick-start) puts these words on screen.

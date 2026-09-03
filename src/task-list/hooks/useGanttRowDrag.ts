@@ -5,7 +5,7 @@ import { GanttTaskMoveApi } from "task-list/hooks/useGanttTaskMove";
 import { useLatestRef } from "shared/hooks/useLatestRef";
 import { useGanttStore, useGanttStoreApi } from "shared/context";
 import { GanttReorderDraft } from "shared/store";
-import { GanttRow } from "rows/utils/grouping";
+import { GanttRow } from "rows/utils/rows";
 import { armPointerGesture, suppressTouchScroll } from "shared/utils/pointerGesture";
 
 interface UseGanttRowDragParams {
@@ -84,8 +84,8 @@ export function useGanttRowDrag({
 
       const row = rowsRef.current[item.index];
       const target = row?.tasks[0];
-      // A group header owns no task, and a lane row owns several - neither names a slot
-      if (!row || !target || row.group || row.tasks.length > 1) return null;
+      // A lane row owns several tasks, so it names no single slot
+      if (!row || !target || row.tasks.length > 1) return null;
 
       const offset = (y - item.start) / item.size;
       const mode: GanttDropMode =

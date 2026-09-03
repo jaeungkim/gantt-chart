@@ -271,7 +271,6 @@ export interface GanttTaskMoveChange extends GanttTaskMove {
 export interface GanttMoveOptions {
   hierarchy: boolean;
   canReorder?: (task: Task) => boolean;
-  groupOf?: (task: Task) => string;
 }
 ```
 
@@ -279,11 +278,6 @@ export interface GanttMoveOptions {
 |---|---|---|---|
 | `hierarchy` | `boolean` | — | 필수예요. `false`면 깊이를 `sequence`만 들고 있어서 부모를 바꿀 수 없고, 형제 목록도 `parentId`가 아니라 sequence 경로에서 읽어요. |
 | `canReorder` | `(task: Task) => boolean` | 없음 — 모든 작업을 옮길 수 있어요 | 그 작업을 옮겨도 되는지예요. `false`를 돌려주면 `read-only`예요. 차트는 여기에 `resolveTaskInteraction(task, interaction).canReorder`를 넘겨요. |
-| `groupOf` | `(task: Task) => string` | 없음 — 밴드 검사를 하지 않아요 | 작업의 스윔레인 값이에요. 주면 다른 그룹으로 넘어가는 이동을 거절해요. |
-
-작업의 그룹은 최상위 조상에서 읽어요. 그래서 다른 밴드에 있는 부모를 받아들이면 작업이 조용히 밴드를
-옮겨 다니게 돼요. 코어는 작업의 그룹 필드를 대신 고쳐 쓸 수 없어서(`groupBy`는 접근자일 수도 있어요)
-이동 자체를 거절해요.
 
 `hierarchy`가 `true`일 때 부모 링크는 `buildTaskTree`와 똑같이 정규화돼요. 고아, 자기 참조, 순환은
 모두 루트가 돼요. 위 [부모 해석](#부모-해석)을 보세요.
@@ -297,7 +291,6 @@ export type GanttMoveRejection =
   | "unknown-parent"
   | "read-only"
   | "cycle"
-  | "cross-group"
   | "reparent-disabled"
   | "no-op";
 ```
@@ -309,7 +302,6 @@ export type GanttMoveRejection =
 | `"read-only"` | `canReorder(task)`가 `false`를 돌려줬어요. |
 | `"reparent-disabled"` | `hierarchy`가 `false`인데 `toParentId`가 지금 부모와 달라요. |
 | `"cycle"` | `toParentId`가 옮길 작업 자신의 서브트리 안에 있어요. 자기 자신을 부모로 삼는 것도 여기예요. |
-| `"cross-group"` | `groupOf`를 줬고, 작업의 최상위 조상과 새 부모의 최상위 조상이 서로 다른 그룹이에요. |
 | `"no-op"` | 부모도 자리도 그대로예요. 아무것도 바뀌지 않는 이동은 거절해요. |
 
 검사 순서는 이 표 순서 그대로예요. 그래서 없는 작업을 없는 부모 밑으로 옮기면 `unknown-task`가

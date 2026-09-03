@@ -245,14 +245,14 @@ counts as expandable when `hierarchy` is on; with `hierarchy={false}` the attrib
 `Enter` announces the row instead of toggling it. See
 [Task list and hierarchy](task-list).
 
-`aria-owns` is omitted when the row has no bars. A group header row from `groupBy` always has none;
-see [Grouping and swimlanes](grouping).
+`aria-owns` lists one id per task on the row, so a lane row owns several. Every row carries at least
+one task, so the attribute is never omitted; see [Lanes](lanes).
 
 ### Without the task list pane
 
 The pane is absent whenever `showTaskList` is not `true`, which is the default.
 `showTaskList={false}` renders exactly what the toolbar's collapse button used to render.
-Nothing inside the chart flips the pane any more, so the four changes below happen when you change
+Nothing inside the chart flips the pane any more, so the three changes below happen when you change
 the prop and at no other time.
 
 - There is no column-header row, so `aria-rowcount` loses its `+1` and the first data row is
@@ -260,7 +260,6 @@ the prop and at no other time.
 - There is no `role="rowgroup"` anywhere. The rows sit directly inside `role="presentation"`
   wrappers.
 - Cell column 0 is the first bar rather than the first task-list column.
-- A group header row's single cell moves out of the task list into the timeline row.
 
 ### What is never emitted
 
@@ -301,7 +300,7 @@ first child, ahead of the chart body.
 | `Delete`, accepted | `Design phase deleted` |
 | `Delete`, refused | `Design phase cannot be deleted` |
 | a reorder key, accepted | the moved row's label and where it landed |
-| a reorder key, refused | nothing - the key is not claimed at all |
+| a reorder key, refused | nothing |
 | `Enter` on a non-expandable row | the full label, with the progress omitted |
 | `Enter` on an expandable row | nothing |
 | `Ctrl`/`Cmd` + a vertical arrow | `week scale` — the key of the scale it landed on |
@@ -321,7 +320,7 @@ stops to the page, and a custom `renderDetail` body can add more.
 | 4 | the detail panel's close button | the panel is open, with the default body |
 
 A row's cells are numbered left to right: the task-list's name cell first, then one cell per bar on
-the row. A group header row has exactly one cell.
+the row.
 
 Clicking a cell syncs the focus state to it. A keyboard move does the opposite: it sets the state,
 then hunts for the matching element three times — once immediately, then on the next two animation
@@ -375,10 +374,10 @@ there. No key is bound to it — a shortcut of your own calls `addTask()` on the
 > the row — including the Name cell — with no confirmation step. The chart keeps no snapshot of its
 > own to restore from.
 
-**Not every refused key is announced.** A refusal from a capability check is announced. A key that
-lands on a row with no task is not: the handler calls `preventDefault`, finds no task, and returns
-in silence. Group header rows are exactly this case, so `Delete`, `+`, `-` and the editing arrows are
-swallowed on them with no feedback.
+**Not every refused key is announced.** A refusal from a capability check is announced. A refused
+row move is not. `Alt` + a vertical arrow at either end of the sibling list, an indent with no
+previous sibling, an outdent from the root, a chart that never set `allowReorder`, and an
+`onTaskMove` that returns `false` all `preventDefault` the key and then return in silence.
 
 **A cell reference can point at nothing.** The focus column is not clamped when the row changes.
 Moving down from a two-bar row onto a one-bar row keeps a column index that row does not have, no

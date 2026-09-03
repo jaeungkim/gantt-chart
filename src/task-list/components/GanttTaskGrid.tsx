@@ -9,7 +9,7 @@ import {
   TaskTransformed,
 } from "shared/task";
 import { GanttFocus, rowAriaProps } from "interaction/utils/a11y";
-import { GanttRow, isRowExpandable } from "rows/utils/grouping";
+import { GanttRow, isRowExpandable } from "rows/utils/rows";
 
 interface GanttTaskGridProps {
   // Rows on screen - collapsed subtrees are already filtered out
@@ -115,45 +115,6 @@ export default function GanttTaskGrid({
             transform: `translateY(${virtualRow.start}px)`,
           };
 
-          if (row.group) {
-            return (
-              <div
-                key={`grid-row-${row.id}`}
-                className="gantt-grid-row group"
-                style={rowStyle}
-                {...aria}
-              >
-                <div
-                  className="gantt-grid-cell"
-                  role="gridcell"
-                  tabIndex={focused && focus.col === 0 ? 0 : -1}
-                  data-gantt-cell={`${virtualRow.index}:0`}
-                >
-                  {/* A band cannot be dragged, but its text still starts where a task's does */}
-                  {reorderEnabled && <span className="gantt-grid-grip-spacer" />}
-                  {showRowNumbers && <span className="gantt-grid-no" />}
-                  <button
-                    type="button"
-                    className={`gantt-grid-expander${collapsed ? "" : " open"}`}
-                    onClick={() => onToggleCollapse(row.id)}
-                    tabIndex={-1}
-                    aria-hidden="true"
-                  >
-                    <svg viewBox="0 0 12 12" aria-hidden="true">
-                      <path d="M4 2.5 L8 6 L4 9.5" />
-                    </svg>
-                  </button>
-                  <span className="gantt-grid-cell-text">
-                    {row.group.label}
-                  </span>
-                  <span className="gantt-grid-group-count">
-                    {row.group.count}
-                  </span>
-                </div>
-              </div>
-            );
-          }
-
           if (!task) return null;
 
           // A row that carries a whole lane names no single task to move
@@ -249,7 +210,7 @@ export default function GanttTaskGrid({
                   )}
                   <span className="gantt-grid-cell-text">{task.name}</span>
                   {row.tasks.length > 1 && (
-                    <span className="gantt-grid-group-count">
+                    <span className="gantt-grid-lane-count">
                       +{row.tasks.length - 1}
                     </span>
                   )}

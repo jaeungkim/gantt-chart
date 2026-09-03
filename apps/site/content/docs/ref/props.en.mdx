@@ -34,9 +34,9 @@ Every prop is optional. The Default column carries the value the component actua
 | Prop | Type | Default | Description |
 |---|---|---|---|
 | `showTaskList` | `boolean` | `false` | Shows the left pane, which lists task names. See [Task list and hierarchy](../task-list). |
-| `showRowNumbers` | `boolean` | `false` | Prints each row's `sequence` as a narrow column in front of the name. Swimlane bands stay blank. |
+| `showRowNumbers` | `boolean` | `false` | Prints each row's `sequence` as a narrow column in front of the name. See [Task list and hierarchy](../task-list). |
 
-## Hierarchy and grouping
+## Hierarchy
 
 | Prop | Type | Default | Description |
 |---|---|---|---|
@@ -44,8 +44,6 @@ Every prop is optional. The Default column carries the value the component actua
 | `collapsedIds` | `string[]` | none — the chart keeps its own list | Controlled collapsed set. See [Task list and hierarchy](../task-list). |
 | `defaultCollapsedIds` | `string[]` | `[]` | Uncontrolled seed, read once on mount. See [Task list and hierarchy](../task-list). |
 | `onCollapsedChange` | `(collapsedIds: string[]) => void` | none | Fires on every collapse toggle, controlled or not. See [Task list and hierarchy](../task-list). |
-| `groupBy` | `GanttGroupBy` | none | Groups rows into swimlanes. See [Grouping and swimlanes](../grouping) and [GanttGroupBy](grouping). |
-| `ungroupedLabel` | `string` | `"Ungrouped"` | Header label for tasks with no group value. See [Grouping and swimlanes](../grouping). |
 
 ## Timeline and range
 

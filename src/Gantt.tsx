@@ -100,8 +100,6 @@ function GanttChart({
   collapsedIds,
   defaultCollapsedIds,
   onCollapsedChange,
-  groupBy,
-  ungroupedLabel,
   workingCalendar = false,
   allowLinkCreate,
   allowLinkDelete,
@@ -197,7 +195,6 @@ function GanttChart({
   const move = useGanttTaskMove({
     hierarchy,
     interaction,
-    groupBy,
     collapsedIds: collapse.collapsedIds,
     onTasksChange,
     onTaskMove,
@@ -268,8 +265,6 @@ function GanttChart({
     tasks: transformedTasks,
     hierarchy,
     collapsedIds: collapse.collapsedIds,
-    groupBy,
-    ungroupedLabel,
   });
 
   // The link drag resolves its drop target by arithmetic, so it needs every row, culled ones included
@@ -502,7 +497,6 @@ function GanttChart({
                     ownedByTaskList={taskList.visible}
                     hierarchy={hierarchy}
                     collapsedIds={collapse.collapsedIds}
-                    focus={keyboard.focus}
                   />
 
                   <GanttTodayLine leftPx={todayPx} />

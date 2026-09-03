@@ -65,7 +65,7 @@ export function TaskDataExample() {
 | `minDate` | `string` | no | the chart's `minDate` | Earliest date a drag may land on. |
 | `maxDate` | `string` | no | the chart's `maxDate` | Latest date a drag may land on. |
 
-The five `allowX` flags and `readOnly` resolve most-specific-first, `task.allowX` before `task.readOnly` before the chart's config; see [Editing tasks](editing). `minDate` and `maxDate` do not use that chain — the task's value replaces the chart's when present. `color` and `className` and the four CSS variables a colored bar sets are covered in [Styling](styling). `lane` is covered in [Grouping and swimlanes](grouping).
+The five `allowX` flags and `readOnly` resolve most-specific-first, `task.allowX` before `task.readOnly` before the chart's config; see [Editing tasks](editing). `minDate` and `maxDate` do not use that chain — the task's value replaces the chart's when present. `color` and `className` and the four CSS variables a colored bar sets are covered in [Styling](styling). `lane` is covered in [Lanes](lanes).
 
 ### Fields that do nothing on their own
 
@@ -74,7 +74,7 @@ One field is read only under a prop. `lane` needs no prop at all.
 | Field | What it needs |
 |---|---|
 | `parentId` | `hierarchy` — without it no tree is built, depth comes from `sequence`, and nothing is a summary row. See [Task list and hierarchy](task-list). |
-| `lane` | nothing. Packing runs with or without `groupBy`; with `groupBy` on, a lane packs inside its own group only. See [Grouping and swimlanes](grouping). |
+| `lane` | nothing. The tasks that share a lane are packed onto as few rows as their dates allow, across the whole list. See [Lanes](lanes). |
 
 ### TaskDependency fields
 

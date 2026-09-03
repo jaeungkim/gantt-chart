@@ -95,25 +95,6 @@ describe('validateMove', () => {
     ).toBe('reparent-disabled');
   });
 
-  it('refuses a drop that would cross a group band', () => {
-    const groups: Record<string, string> = { p1: 'left', p2: 'right' };
-    expect(
-      validateMove(nested(), { taskId: 'a', toParentId: 'p2', toIndex: 0 }, {
-        ...ON,
-        groupOf: (t) => groups[t.id] ?? '',
-      }),
-    ).toBe('cross-group');
-  });
-
-  it('allows a drop inside the same group band', () => {
-    expect(
-      validateMove(nested(), { taskId: 'b', toParentId: 'a', toIndex: 0 }, {
-        ...ON,
-        groupOf: () => 'one',
-      }),
-    ).toBeNull();
-  });
-
   it('refuses a drop that changes nothing', () => {
     expect(
       validateMove(nested(), { taskId: 'a', toParentId: 'p1', toIndex: 0 }, ON),

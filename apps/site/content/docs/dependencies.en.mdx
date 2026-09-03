@@ -101,7 +101,7 @@ A target whose `canCreateLink` is false is rejected earlier and more quietly: it
 
 ### What reaches onDependencyCreate
 
-Everything the drag did not reject. Links across groups or lanes, links onto a summary row, and links whose two dates flatly contradict each other all arrive at the callback.
+Everything the drag did not reject. Links across lanes, links onto a summary row, and links whose two dates flatly contradict each other all arrive at the callback.
 
 ```tsx title="src/LinkGuard.tsx"
 import { useState } from 'react';

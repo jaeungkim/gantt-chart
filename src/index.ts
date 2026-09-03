@@ -30,12 +30,11 @@ export type {
   GanttDetailRenderProps,
   GanttDetailRenderer,
   GanttFormatOverrides,
-  GanttGroupBy,
   GanttScaleFormat,
   GanttScaleKey,
   GanttTheme,
 } from './shared/types';
-export type { GanttRow, GanttRowGroup } from './rows/utils/grouping';
+export type { GanttRow } from './rows/utils/rows';
 
 // Headless core - no React, no DOM. Usable on a server or in a worker.
 export {

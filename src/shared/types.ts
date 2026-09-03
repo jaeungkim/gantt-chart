@@ -96,11 +96,6 @@ export interface GanttTopHeaderGroup {
   label: string;
 }
 
-/** How rows are grouped: a string reads that field off the task, a function returns the label itself, and empty values land in "Ungrouped". */
-export type GanttGroupBy =
-  | string
-  | ((task: TaskTransformed) => string | null | undefined);
-
 /** The rendered timeline range, as reported by `onRangeChange` */
 export interface GanttDateRange {
   start: Dayjs;

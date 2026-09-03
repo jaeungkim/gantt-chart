@@ -63,22 +63,11 @@ export interface Task {
   sequence: string;
   /** Progress 0-100 (%) - omitted means no progress display */
   progress?: number;
-  /**
-   * Bar color - any CSS color value
-   *
-   * The progress fill and the hover shade are derived from it, so one value colors the
-   * whole bar. Omitted, the `--gantt-*` theme tokens decide as before.
-   */
+  /** Bar color (any CSS color) - progress fill and hover shade derive from it; omitted, the `--gantt-*` tokens decide */
   color?: string;
   /** Extra class name put on this task's bar and its task-list row */
   className?: string;
-  /**
-   * Swimlane this task shares a row with
-   *
-   * Tasks with the same lane (inside the same group) are drawn side by side on one
-   * row; overlapping ones stack onto extra rows automatically. Omitted, the task
-   * gets a row of its own as before.
-   */
+  /** Lane this task shares a row with - lane-mates draw side by side, overlaps stack onto extra rows */
   lane?: string;
   dependencies?: TaskDependency[];
   /** Blocks every gesture on this task - overrides the chart's `readOnly` prop */
@@ -93,12 +82,7 @@ export interface Task {
   allowLinkCreate?: boolean;
   /** Allows/blocks deleting a dependency this task owns - overrides both `readOnly` settings */
   allowLinkDelete?: boolean;
-  /**
-   * Allows/blocks dragging this row to a new position or a new parent
-   *
-   * Unlike the other flags this one is off unless something turns it on: reordering is
-   * opt-in, so `allowReorder` on the chart (or here) is what enables it.
-   */
+  /** Allows/blocks dragging this row to a new position or parent - opt-in, off unless this or the chart's `allowReorder` turns it on */
   allowReorder?: boolean;
   /** Earliest date this task may be dragged to (ISO string) - overrides the chart's `minDate` */
   minDate?: string;
@@ -120,7 +104,7 @@ Six fields are required: `id`, `name`, `startDate`, `endDate`, `parentId`, `sequ
 | `progress` | `number` | no | 0–100 (%). Clamped, never rejected: `-10` → `0`, `150` → `100`, `Infinity` → `100`. A non-number or `NaN` means no progress display. No rounding. | always |
 | `color` | `string` | no | Any CSS color. Sets `--gantt-bar-color`, plus a hover shade at 86% and a progress fill at 62% mixed with `#000`, and a `--gantt-bar-text-color` that flips the bar label between black and white by the color's own lightness ([Styling](../styling)). An empty or whitespace-only string is ignored. | always |
 | `className` | `string` | no | Added to both the bar and the task-list row. | always |
-| `lane` | `string` | no | Tasks sharing a lane inside a group pack onto one row; overlapping ones stack onto extra rows. Absent or empty means a row of its own. | always |
+| `lane` | `string` | no | Tasks sharing a lane pack onto one row; overlapping ones stack onto extra rows. Absent or empty means a row of its own. See [Lanes](../lanes). | always |
 | `dependencies` | `TaskDependency[]` | no | Predecessors of this task. Default `[]`. | always |
 | `readOnly` | `boolean` | no | Blocks every gesture on this task. | always |
 | `allowMove` | `boolean` | no | Overrides `readOnly` on both levels for the move gesture. | always |
@@ -165,7 +149,7 @@ export interface TaskTransformed extends Task {
 | `barLeft` | `number` | px from the timeline origin; `0` when the timeline has no cells | always |
 | `barWidth` | `number` | px, clamped to a minimum of `1`; `0` only when the timeline has no cells | always |
 | `depth` | `number` | `parentId` chain depth with `hierarchy` on, dot count in `sequence` otherwise | always |
-| `order` | `number` | 1-based row number after grouping and lane packing | always |
+| `order` | `number` | 1-based row number after lane packing | always |
 | `originalOrder` | `number` | the 1-based index in the sequence-sorted array, before the `order` rewrite | always |
 | `isSummary` | `boolean` | `true` when the task has children. Always `false` with `hierarchy` off. Typed optional, written on every task. | always |
 

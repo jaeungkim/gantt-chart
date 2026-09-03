@@ -6,7 +6,6 @@ import {
   GanttDateRange,
   GanttDetailRenderer,
   GanttFormatOverrides,
-  GanttGroupBy,
   GanttScaleKey,
   GanttTheme,
 } from "shared/types";
@@ -61,7 +60,7 @@ export interface GanttProps {
   firstDayOfWeek?: number;
   /** Whether to show the task list pane on the left (default false) - names only, per-task detail belongs in `renderDetail`. */
   showTaskList?: boolean;
-  /** Whether the task list prints each row's `sequence` as a leading number column (default false) - swimlane bands stay blank. */
+  /** Whether the task list prints each row's `sequence` as a leading number column (default false). */
   showRowNumbers?: boolean;
   /** Whether to use the parentId hierarchy (default false) - parents become summary rows (dates and progress rolled up, dragging moves the subtree); row order still comes from `sequence`. */
   hierarchy?: boolean;
@@ -71,10 +70,6 @@ export interface GanttProps {
   defaultCollapsedIds?: string[];
   /** Called whenever the collapsed state changes - in controlled and uncontrolled mode alike */
   onCollapsedChange?: (collapsedIds: string[]) => void;
-  /** Groups rows into swimlanes by task field name or accessor - a task's group is read off its root ancestor, and headers collapse under the id `group:<value>`. */
-  groupBy?: GanttGroupBy;
-  /** Header label for tasks whose group value is missing (default `"Ungrouped"`) */
-  ungroupedLabel?: string;
   /** Allows/blocks drawing dependencies between bars (default true) - beats `readOnly` */
   allowLinkCreate?: boolean;
   /** Allows/blocks selecting and deleting dependency arrows (default true) - beats `readOnly` */

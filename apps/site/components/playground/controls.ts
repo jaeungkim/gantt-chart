@@ -3,7 +3,6 @@ import type { GanttScaleKey, GanttTheme } from '@jaeungkim/gantt-chart';
 // Every switch the playground offers; mirrored into the query string (`?scale=week&holidays=1`).
 export interface Settings {
   hierarchy: boolean;
-  groupBy: boolean;
   showTaskList: boolean;
   showRowNumbers: boolean;
   readOnly: boolean;
@@ -56,13 +55,6 @@ export const CONTROLS: readonly Control[] = [
     key: 'hierarchy',
     label: 'Hierarchy',
     hint: 'Summary rows from the parentId chain',
-    group: 'Data',
-    type: 'boolean',
-  },
-  {
-    key: 'groupBy',
-    label: 'Swimlanes',
-    hint: 'Group rows by progress status',
     group: 'Data',
     type: 'boolean',
   },
@@ -249,7 +241,6 @@ export const GROUPS: readonly ControlGroup[] = [
 // `readOnly` is the one exception, being a restriction rather than a feature.
 export const DEFAULTS: Settings = {
   hierarchy: true,
-  groupBy: true,
   showTaskList: true,
   showRowNumbers: true,
   readOnly: false,

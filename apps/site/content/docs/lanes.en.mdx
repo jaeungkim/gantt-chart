@@ -1,0 +1,138 @@
+---
+title: "Lanes"
+description: "The `lane` task field, which packs tasks that never overlap onto one row"
+---
+
+A support team's twelve one-day jobs each take a full row. Every one of them is blank most of the
+way across, and the chart scrolls for something that would fit on a single line. The task field
+`lane` puts tasks that share a string on the same row, side by side.
+
+## Sharing a row
+
+`lane` is a field on the task, not a chart prop. There is nothing to switch on.
+
+```tsx
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+
+const tasks: Task[] = [
+  { id: 'spec', name: 'Spec', lane: 'ana', parentId: null, sequence: '1',
+    startDate: '2026-03-02T00:00:00Z', endDate: '2026-03-06T00:00:00Z' },
+  { id: 'wires', name: 'Wireframes', lane: 'ana', parentId: null, sequence: '2',
+    startDate: '2026-03-09T00:00:00Z', endDate: '2026-03-12T00:00:00Z' },
+];
+
+<ReactGanttChart tasks={tasks} height={480} />;
+```
+
+A falsy `lane` is no lane. `lane: ""` gets the task a row of its own, exactly like omitting the
+field.
+
+Lane strings are matched exactly, with no trimming and no case folding. `"ana"`, `"Ana"` and
+`"ana "` are three lanes.
+
+## How packing works
+
+Lane members are packed greedily, first fit, in start-date order.
+
+| Rule | Effect |
+|---|---|
+| ordering | by `startDate`, not by input order; equal starts keep input order |
+| fit | a task joins the **first** row whose last bar has ended, not the tightest one |
+| touching | a task starting exactly when the previous one ends shares the row |
+| overlap | an overlapping task opens one extra row |
+| reuse | a row is reused as soon as it is free |
+
+Packing ignores `parentId`. A parent and a child that carry the same lane string are packed
+together like any other pair, and the row takes the depth of its first task.
+
+The packed rows are inserted at the position of the lane's first-appearing member. Later members
+contribute nothing at their own positions.
+
+A lane row's id is the ids of its tasks joined with `"+"`, as in `spec+wires`, because the row
+names no single task. In the task list it shows the name of `tasks[0]` — the earliest-starting task
+on that row, not the first one in the input array — followed by a `+N` badge counting the others.
+
+## What a lane row costs
+
+Every task on a lane row reports the same `order`. `order` is what positions dependency arrows
+vertically, so a link drawn between two lane-mates renders as one horizontal line. A link dropped
+anywhere on a lane row lands on the horizontally nearest bar — see [Dependencies](dependencies).
+
+A lane row can neither be dragged to a new position nor be dropped onto. It names no single task to
+move, and no single slot to move one into — see [Task list and hierarchy](task-list).
+
+Drawing a new task is unaffected. It only happens in the blank region below the last row, so no row
+is ever a target, lane or not — see [Editing tasks](editing).
+
+An unparseable `endDate` poisons the row that task opened. The fit test is `rowEnd <= start`, and
+every comparison against `NaN` is false, so that row is never offered to a later task again. Later
+lane members fall through to the next free row, and open a new one when there is none.
+
+### Styling the badge
+
+| Selector | What it is |
+|---|---|
+| `.gantt-grid-lane-count` | the `+N` badge on a row that packs several lane-mates |
+
+The colors come from the `--gantt-*` custom properties in [Theming](theming).
+
+## A worked example
+
+Four tasks, three of them sharing the lane `ana`.
+
+```tsx
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+
+const tasks: Task[] = [
+  { id: 'spec', name: 'Spec', lane: 'ana', parentId: null, sequence: '1',
+    startDate: '2026-03-02T00:00:00Z', endDate: '2026-03-06T00:00:00Z' },
+  { id: 'api', name: 'API', parentId: null, sequence: '2',
+    startDate: '2026-03-02T00:00:00Z', endDate: '2026-03-13T00:00:00Z' },
+  { id: 'wires', name: 'Wireframes', lane: 'ana', parentId: null, sequence: '3',
+    startDate: '2026-03-09T00:00:00Z', endDate: '2026-03-12T00:00:00Z' },
+  { id: 'review', name: 'Review', lane: 'ana', parentId: null, sequence: '4',
+    startDate: '2026-03-04T00:00:00Z', endDate: '2026-03-05T00:00:00Z' },
+];
+
+<ReactGanttChart tasks={tasks} height={480} />;
+```
+
+Three rows come out of four tasks:
+
+| Row | `id` | Task list shows | `order` on its tasks |
+|---|---|---|---|
+| 1 | `spec+wires` | `Spec` `+1` | `1` on both |
+| 2 | `review` | `Review` | `2` |
+| 3 | `api` | `API` | `3` |
+
+`spec` ends on Mar 6 and `wires` starts on Mar 9, so the two share row 1. `review` overlaps `spec`,
+so it opens row 2. `api` is second in the input and carries no lane, but the whole lane is placed
+where its first member sits, which pushes `api` to the last row.
+
+## Limits
+
+Lane packing rewrites `order` and nothing else. It does not touch dates, bar geometry, or
+`originalOrder`.
+
+What this area does not do:
+
+- **No lane declaration.** A lane exists because a task carries the string. Nothing declares a
+  lane, orders lanes, or holds an empty one open.
+- **No lane label.** The lane string itself is never rendered. The row is named after its
+  earliest-starting task.
+- **One task per lane row in the task list.** The name cell — and the row's click, double-click and
+  list-cell focus — act on `tasks[0]`. The other members are reachable only through their bars,
+  each of which is its own keyboard cell — see [Keyboard and screen readers](accessibility).
+- **No stable object identity.** A task whose row number moved is handed on as a shallow copy, so
+  packing a lane replaces the references the chart passes to renderers and callbacks. A lane-free
+  chart hands back the objects it was given.
+- **No exported helpers.** The row builder and the lane packer are internal. Only the
+  [`GanttRow`](ref/rows) type is exported.
+
+What the host app does itself:
+
+- Decide which tasks share a lane, by writing the same string on each of them.
+- Look up the other members of a lane row, if it needs them. A callback fired from the task list
+  hands over the row's first task.
+
+Next: [The timeline](timeline) covers scales, the visible range, and zooming.

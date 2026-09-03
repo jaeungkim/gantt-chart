@@ -128,7 +128,7 @@ export function useGanttScrollApi({
       if (!el) return;
 
       // Vertical: move only when the row is off screen. `order` is the row number, so
-      // grouping and shared lanes are accounted for.
+      // shared lanes are accounted for.
       const rowTop = (task.order - 1) * rowHeight;
       const outOfView =
         rowTop < el.scrollTop ||

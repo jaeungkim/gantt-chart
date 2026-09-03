@@ -12,7 +12,7 @@ import {
   taskAtFocus,
 } from './a11y';
 import dayjs from 'core/dates';
-import { buildGanttRows } from 'rows/utils/grouping';
+import { buildGanttRows } from 'rows/utils/rows';
 import { buildTaskTree, getVisibleTasks } from 'core/tree';
 
 const task = (
@@ -331,7 +331,7 @@ describe('keyboard navigation across a collapsed subtree', () => {
     const tasks = tree();
     const taskTree = buildTaskTree(tasks);
     const visible = getVisibleTasks(tasks, new Set(collapsed), taskTree);
-    return buildGanttRows(visible, { tree: taskTree });
+    return buildGanttRows(visible);
   };
 
   const keyboardRows = (collapsed: string[]): GanttKeyboardRow[] =>

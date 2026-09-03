@@ -63,21 +63,11 @@ export interface Task {
   sequence: string;
   /** 진행률 0-100 (%) - 생략하면 진행률을 표시하지 않아요 */
   progress?: number;
-  /**
-   * 막대 색 - CSS 색상 값이면 무엇이든
-   *
-   * 진행률 채움과 hover 음영을 이 값에서 뽑아내요. 값 하나가 막대 전체를 칠하는
-   * 셈이에요. 생략하면 기존처럼 `--gantt-*` 테마 토큰이 결정해요.
-   */
+  /** 막대 색 (CSS 색상이면 무엇이든) - 진행률 채움과 hover 음영을 여기서 뽑아내요. 생략하면 `--gantt-*` 토큰이 결정해요 */
   color?: string;
   /** 이 작업의 막대와 작업 목록 행에 함께 붙는 추가 클래스 이름 */
   className?: string;
-  /**
-   * 이 작업이 행을 공유하는 스윔레인
-   *
-   * 같은 그룹 안에서 레인이 같은 작업들은 한 행에 나란히 그려요. 겹치는 작업은
-   * 자동으로 추가 행에 쌓여요. 생략하면 기존처럼 작업이 자기 행을 하나 가져요.
-   */
+  /** 이 작업이 행을 공유하는 레인 - 같은 레인끼리는 나란히 그리고, 겹치면 추가 행에 쌓여요 */
   lane?: string;
   dependencies?: TaskDependency[];
   /** 이 작업의 모든 제스처를 막아요 - 차트의 `readOnly` prop보다 우선해요 */
@@ -92,12 +82,7 @@ export interface Task {
   allowLinkCreate?: boolean;
   /** 이 작업이 가진 의존성을 지우는 것을 허용/차단해요 - 양쪽 `readOnly` 설정보다 우선해요 */
   allowLinkDelete?: boolean;
-  /**
-   * 이 행을 다른 자리나 다른 부모로 끄는 것을 허용/차단해요
-   *
-   * 다른 플래그와 달리 무언가 켜 주기 전까지 꺼져 있어요. 순서 바꾸기는 opt-in이라,
-   * 차트의 `allowReorder`나 여기 있는 이 값이 켜 주는 역할을 해요.
-   */
+  /** 이 행을 다른 자리나 다른 부모로 끄는 것을 허용/차단해요 - opt-in이라, 이 값이나 차트의 `allowReorder`가 켜 주기 전까지 꺼져 있어요 */
   allowReorder?: boolean;
   /** 이 작업을 드래그할 수 있는 가장 이른 날짜 (ISO 문자열) - 차트의 `minDate`보다 우선해요 */
   minDate?: string;
@@ -119,7 +104,7 @@ export interface Task {
 | `progress` | `number` | 아니요 | 0–100 (%)예요. 거부하지 않고 잘라내요. `-10` → `0`, `150` → `100`, `Infinity` → `100`. 숫자가 아니거나 `NaN`이면 진행률을 표시하지 않아요. 반올림은 없어요. | 항상 |
 | `color` | `string` | 아니요 | CSS 색상이면 무엇이든 돼요. `--gantt-bar-color`를 설정하고, `#000`을 섞어 86%짜리 hover 음영과 62%짜리 진행률 채움을 함께 만들어요. 색의 밝기에 따라 막대 레이블을 검정과 흰색 사이에서 뒤집는 `--gantt-bar-text-color`도 함께 설정해요 ([스타일링](../styling)). 빈 문자열이나 공백뿐인 문자열은 무시해요. | 항상 |
 | `className` | `string` | 아니요 | 막대와 작업 목록 행 양쪽에 붙어요. | 항상 |
-| `lane` | `string` | 아니요 | 한 그룹 안에서 레인을 공유하는 작업들은 한 행에 모여요. 겹치는 작업은 추가 행에 쌓이고요. 없거나 비어 있으면 자기 행을 하나 가져요. | 항상 |
+| `lane` | `string` | 아니요 | 레인을 공유하는 작업들은 한 행에 모여요. 겹치는 작업은 추가 행에 쌓이고요. 없거나 비어 있으면 자기 행을 하나 가져요. [레인](../lanes) 참고. | 항상 |
 | `dependencies` | `TaskDependency[]` | 아니요 | 이 작업의 선행 작업들이에요. 기본값은 `[]`. | 항상 |
 | `readOnly` | `boolean` | 아니요 | 이 작업의 모든 제스처를 막아요. | 항상 |
 | `allowMove` | `boolean` | 아니요 | 이동 제스처에서 두 단계의 `readOnly`를 모두 덮어써요. | 항상 |
@@ -164,7 +149,7 @@ export interface TaskTransformed extends Task {
 | `barLeft` | `number` | 타임라인 원점에서 떨어진 px. 타임라인에 셀이 없으면 `0` | 항상 |
 | `barWidth` | `number` | px. 최소 `1`로 잘라내요. 타임라인에 셀이 없을 때만 `0` | 항상 |
 | `depth` | `number` | `hierarchy`가 켜지면 `parentId` 체인의 깊이, 아니면 `sequence`의 점 개수 | 항상 |
-| `order` | `number` | 그룹과 레인 패킹을 마친 뒤의 1부터 시작하는 행 번호 | 항상 |
+| `order` | `number` | 레인 패킹을 마친 뒤의 1부터 시작하는 행 번호 | 항상 |
 | `originalOrder` | `number` | `order`를 다시 쓰기 전, sequence로 정렬한 배열에서의 1부터 시작하는 인덱스 | 항상 |
 | `isSummary` | `boolean` | 작업에 자식이 있으면 `true`. `hierarchy`가 꺼지면 항상 `false`. 타입은 선택이지만 모든 작업에 써 넣어요. | 항상 |
 

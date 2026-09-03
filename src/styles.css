@@ -1150,31 +1150,8 @@
   }
 }
 
-.gantt-grid-row.group,
-.gantt-task-row.group {
-  background: var(--gantt-muted);
-  font-weight: 600;
-}
-
-.gantt-grid-row.group .gantt-grid-cell {
-  gap: 6px;
-}
-
-/* Pinned left so the label stays readable however far the timeline is scrolled */
-.gantt-group-label {
-  position: sticky;
-  left: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 100%;
-  padding: 0 10px;
-  pointer-events: auto;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.gantt-grid-group-count {
+/* The "+N" badge on a row that packs several lane-mates */
+.gantt-grid-lane-count {
   flex: none;
   padding: 0 6px;
   border-radius: 999px;

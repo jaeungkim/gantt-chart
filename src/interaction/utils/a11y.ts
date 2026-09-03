@@ -8,7 +8,7 @@ import {
   TaskTransformed,
 } from "shared/task";
 import dayjs from "core/dates";
-import { GanttRow } from "rows/utils/grouping";
+import { GanttRow } from "rows/utils/rows";
 import { clampDragDates, clampMoveDelta, shiftByDragSteps } from "timeline/utils/geometry";
 import { collectSubtreeIds } from "core/tree";
 

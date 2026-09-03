@@ -65,7 +65,7 @@ export function TaskDataExample() {
 | `minDate` | `string` | 아니요 | 차트의 `minDate` | 드래그가 도달할 수 있는 가장 이른 날짜예요. |
 | `maxDate` | `string` | 아니요 | 차트의 `maxDate` | 드래그가 도달할 수 있는 가장 늦은 날짜예요. |
 
-`allowX` 플래그 다섯 개와 `readOnly`는 구체적인 쪽이 먼저 이겨요. `task.allowX`, `task.readOnly`, 차트 설정 순서예요. [작업 편집](editing)에 자세히 나와요. `minDate`와 `maxDate`는 이 순서를 쓰지 않아요. 작업에 값이 있으면 차트 값을 그대로 대체해요. `color`와 `className`, 그리고 색이 지정된 막대가 설정하는 CSS 변수 네 개는 [스타일링](styling)에서 다뤄요. `lane`은 [그룹과 스윔레인](grouping)에서 다뤄요.
+`allowX` 플래그 다섯 개와 `readOnly`는 구체적인 쪽이 먼저 이겨요. `task.allowX`, `task.readOnly`, 차트 설정 순서예요. [작업 편집](editing)에 자세히 나와요. `minDate`와 `maxDate`는 이 순서를 쓰지 않아요. 작업에 값이 있으면 차트 값을 그대로 대체해요. `color`와 `className`, 그리고 색이 지정된 막대가 설정하는 CSS 변수 네 개는 [스타일링](styling)에서 다뤄요. `lane`은 [레인](lanes)에서 다뤄요.
 
 ### 혼자서는 아무 일도 하지 않는 필드
 
@@ -74,7 +74,7 @@ export function TaskDataExample() {
 | 필드 | 필요한 조건 |
 |---|---|
 | `parentId` | `hierarchy` — 없으면 트리를 만들지 않고, 깊이는 `sequence`에서 나오고, 요약 행도 생기지 않아요. [작업 목록과 계층](task-list)을 참고하세요. |
-| `lane` | 없어요. 패킹은 `groupBy`가 있든 없든 동작해요. `groupBy`를 켜면 레인은 자기 그룹 안에서만 묶여요. [그룹과 스윔레인](grouping)을 참고하세요. |
+| `lane` | 없어요. 같은 레인을 쓰는 작업들은 날짜가 허락하는 한 목록 전체에서 가장 적은 행으로 묶여요. [레인](lanes)을 참고하세요. |
 
 ### TaskDependency 필드
 

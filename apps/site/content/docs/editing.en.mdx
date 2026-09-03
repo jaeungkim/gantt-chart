@@ -455,10 +455,9 @@ A drop reads how far down the row under the pointer it is.
 The middle band is half the row, so re-parenting is the wide target and the two sibling bands are
 the precise ones.
 
-A drop the chart refuses is refused while the pointer is still down, not swallowed on release. Four
-drops are refused this way and never reach your app: a row dropped inside its own subtree, a drop
-into another `groupBy` band, a re-parent while `hierarchy` is off, and a drop that would change
-nothing.
+A drop the chart refuses is refused while the pointer is still down, not swallowed on release. Three
+drops are refused this way and never reach your app: a row dropped inside its own subtree, a
+re-parent while `hierarchy` is off, and a drop that would change nothing.
 
 ### What a move rewrites
 
@@ -563,9 +562,8 @@ is yours to do.
   the keyboard layer.
 - **A bar cannot be dragged to another row.** Vertical dragging lives in the task list, on the row
   grip, and never on the bar.
-- **Some rows cannot be dragged at all.** A group header row has no task to move, and a row
-  carrying more than one task - a shared `lane` - has no single one; see
-  [Grouping and swimlanes](grouping).
+- **A row carrying more than one task cannot be dragged.** A shared `lane` puts several tasks on
+  one row, and the grip then names no single one to move; see [Lanes](lanes).
 - **A drag cannot outdent to the root level.** Every drop band is expressed relative to another
   row, and none of them means "top level, after everything". `Ctrl`/`Cmd` + `ArrowLeft` does it.
 - **A row drag does not auto-scroll.** `autoScrollOnDrag` covers bar moves and resizes only, so a

@@ -32,7 +32,6 @@ export type GanttMoveRejection =
   | "unknown-parent"
   | "read-only"
   | "cycle"
-  | "cross-group"
   | "reparent-disabled"
   | "no-op";
 
@@ -41,8 +40,6 @@ export interface GanttMoveOptions {
   hierarchy: boolean;
   /** Whether this task may be moved at all - left out, every task may */
   canReorder?: (task: Task) => boolean;
-  /** A task's group value - given, a move may not cross into another group (the group is read off the root ancestor) */
-  groupOf?: (task: Task) => string;
 }
 
 /** The sibling lists a move is measured against - `toIndex` is counted against exactly these */
@@ -140,16 +137,6 @@ function buildForest(sorted: Task[], hierarchy: boolean): Forest {
   return { children, parentOf };
 }
 
-/** The root ancestor of a task - itself when it has no parent */
-function rootOf(id: string, parentOf: Map<string, string | null>): string {
-  let cursor = id;
-  // Acyclic by construction, so this ends
-  for (let parent = parentOf.get(cursor); parent; parent = parentOf.get(cursor)) {
-    cursor = parent;
-  }
-  return cursor;
-}
-
 const NO_IDS: readonly string[] = [];
 
 /** Reads the ordered forest the moves below are counted against */
@@ -221,19 +208,6 @@ export function validateMove(
   if (move.toParentId) {
     const subtree = new Set(collectSubtreeIds(sorted, task.id));
     if (subtree.has(move.toParentId)) return "cycle";
-  }
-
-  // A task's band comes from its root ancestor, so a new parent in another band moves it
-  if (options.groupOf && parent) {
-    const currentRoot = byId.get(rootOf(task.id, parentOf));
-    const targetRoot = byId.get(rootOf(parent.id, parentOf));
-    if (
-      currentRoot &&
-      targetRoot &&
-      options.groupOf(currentRoot) !== options.groupOf(targetRoot)
-    ) {
-      return "cross-group";
-    }
   }
 
   const siblings = children.get(fromParentId ?? ROOT) ?? [];

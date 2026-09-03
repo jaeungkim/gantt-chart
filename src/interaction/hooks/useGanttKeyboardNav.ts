@@ -16,7 +16,7 @@ import {
   stepTaskProgress,
   taskAtFocus,
 } from "interaction/utils/a11y";
-import { GanttRow, isRowExpandable } from "rows/utils/grouping";
+import { GanttRow, isRowExpandable } from "rows/utils/rows";
 import { resolveFormatters } from "shared/utils/i18n";
 import { stepScale } from "timeline/utils/viewport";
 import dayjs from "core/dates";
@@ -88,12 +88,11 @@ export function useGanttKeyboardNav({
     [focus, rows.length]
   );
 
-  // A group header row is a single full-width cell
   const keyboardRows = useMemo<GanttKeyboardRow[]>(
     () =>
       rows.map((row) => ({
-        cells: row.group ? 1 : Math.max(gridColumnCount + row.tasks.length, 1),
-        firstBarCell: row.group ? 1 : gridColumnCount,
+        cells: Math.max(gridColumnCount + row.tasks.length, 1),
+        firstBarCell: gridColumnCount,
         expandable: isRowExpandable(row, hierarchy),
         expanded: !collapsedIds.has(row.id),
       })),
