@@ -13,6 +13,10 @@ export interface Settings {
   allowLinkDelete: boolean;
   allowTaskCreate: boolean;
   reorder: boolean;
+  selectable: boolean;
+  vetoLinkCreate: boolean;
+  vetoLinkDelete: boolean;
+  vetoMove: boolean;
   scale: GanttScaleKey;
   zoomOnWheel: boolean;
   infiniteScroll: boolean;
@@ -20,12 +24,19 @@ export interface Settings {
   holidays: boolean;
   workingCalendar: boolean;
   autoScrollOnDrag: boolean;
+  dateBounds: boolean;
+  visibleRange: boolean;
+  customNonWorking: boolean;
+  initialScrollTo: string;
   showDetail: boolean;
+  customDetail: boolean;
+  controlledDetail: boolean;
   // 'host' passes no `theme` prop at all, so the chart inherits the site's color-scheme.
   theme: GanttTheme | 'host';
   locale: string;
   firstDayOfWeek: string;
   showTooltip: boolean;
+  customFormats: boolean;
   chartHeight: string;
 }
 
@@ -77,6 +88,20 @@ export const CONTROLS: readonly Control[] = [
     key: 'showDetail',
     label: 'Detail panel',
     hint: 'Opens on a click; narrows the timeline, never covers it',
+    group: 'Data',
+    type: 'boolean',
+  },
+  {
+    key: 'customDetail',
+    label: 'Custom detail body',
+    hint: '`renderDetail` replaces the built-in field list',
+    group: 'Data',
+    type: 'boolean',
+  },
+  {
+    key: 'controlledDetail',
+    label: 'Controlled detail',
+    hint: '`detailTaskId` drives the panel; the chart only proposes through `onDetailChange`',
     group: 'Data',
     type: 'boolean',
   },
@@ -139,6 +164,35 @@ export const CONTROLS: readonly Control[] = [
   },
 
   {
+    key: 'selectable',
+    label: 'Selectable',
+    hint: 'Off leaves `onTaskSelect` wired but never fires it',
+    group: 'Editing',
+    type: 'boolean',
+  },
+  {
+    key: 'vetoLinkCreate',
+    label: 'Reject new links',
+    hint: '`onDependencyCreate` returns false - the arrow is drawn, then refused',
+    group: 'Editing',
+    type: 'boolean',
+  },
+  {
+    key: 'vetoLinkDelete',
+    label: 'Reject link deletes',
+    hint: '`onDependencyDelete` returns false',
+    group: 'Editing',
+    type: 'boolean',
+  },
+  {
+    key: 'vetoMove',
+    label: 'Reject row moves',
+    hint: '`onTaskMove` returns false - needs Row reorder on',
+    group: 'Editing',
+    type: 'boolean',
+  },
+
+  {
     key: 'scale',
     label: 'Scale',
     hint: 'The chart ships no picker - this select is the host’s',
@@ -190,6 +244,36 @@ export const CONTROLS: readonly Control[] = [
   },
 
   {
+    key: 'dateBounds',
+    label: 'Drag bounds',
+    hint: '`minDate`/`maxDate` clamped to the fixture span',
+    group: 'Timeline',
+    type: 'boolean',
+  },
+  {
+    key: 'visibleRange',
+    label: 'Pinned range',
+    hint: '`visibleStart`/`visibleEnd`, two weeks past the tasks either side',
+    group: 'Timeline',
+    type: 'boolean',
+  },
+  {
+    key: 'customNonWorking',
+    label: 'Custom non-working day',
+    hint: '`isNonWorkingDay` replaces the weekend/holiday check with Fridays',
+    group: 'Timeline',
+    type: 'boolean',
+  },
+  {
+    key: 'initialScrollTo',
+    label: 'Initial scroll',
+    hint: 'Mount-time only, so the chart remounts on a change',
+    group: 'Timeline',
+    type: 'select',
+    options: ['anchor', 'today', 'none'],
+  },
+
+  {
     key: 'theme',
     label: 'Theme',
     hint: '"host" inherits the site, "system" the OS',
@@ -217,6 +301,13 @@ export const CONTROLS: readonly Control[] = [
     key: 'showTooltip',
     label: 'Tooltips',
     hint: 'Hover and drag alike',
+    group: 'Presentation',
+    type: 'boolean',
+  },
+  {
+    key: 'customFormats',
+    label: 'Label overrides',
+    hint: '`formats` beats the locale on the day and week scales',
     group: 'Presentation',
     type: 'boolean',
   },
@@ -251,6 +342,10 @@ export const DEFAULTS: Settings = {
   allowLinkDelete: true,
   allowTaskCreate: true,
   reorder: true,
+  selectable: true,
+  vetoLinkCreate: false,
+  vetoLinkDelete: false,
+  vetoMove: false,
   scale: 'week',
   zoomOnWheel: true,
   infiniteScroll: true,
@@ -258,11 +353,18 @@ export const DEFAULTS: Settings = {
   holidays: true,
   workingCalendar: true,
   autoScrollOnDrag: true,
+  dateBounds: false,
+  visibleRange: false,
+  customNonWorking: false,
+  initialScrollTo: 'anchor',
   showDetail: true,
+  customDetail: false,
+  controlledDetail: false,
   theme: 'host',
   locale: 'en-US',
   firstDayOfWeek: '1',
   showTooltip: true,
+  customFormats: false,
   chartHeight: 'fill',
 };
 
