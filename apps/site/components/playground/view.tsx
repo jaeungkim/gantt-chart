@@ -2,6 +2,7 @@
 
 import {
   ReactGanttChart,
+  type GanttFormatOverrides,
   type GanttHandle,
   type Task,
   type TaskTransformed,
@@ -10,13 +11,39 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DEMO_ANCHOR, demoHolidays, demoTasks } from '@/components/demo/tasks';
 import {
   CONTROLS,
-  DEFAULTS,
   GROUPS,
   readSettings,
   writeSettings,
   type Settings,
   type SelectValue,
 } from '@/components/playground/controls';
+
+// The fixture's own span, as dates. Read off `demoTasks` rather than the live `tasks` state, so
+// dragging a bar out to the edge does not drag the bounds along with it.
+const day = (iso: string) => iso.slice(0, 10);
+const FIXTURE_START = day(
+  demoTasks.reduce((first, task) => (task.startDate < first ? task.startDate : first), demoTasks[0].startDate)
+);
+const FIXTURE_END = day(
+  demoTasks.reduce((last, task) => (task.endDate > last ? task.endDate : last), demoTasks[0].endDate)
+);
+
+// A fortnight past the tasks either side, so a pinned range reads apart from the auto-fit one.
+const shift = (iso: string, days: number) =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+// One override per slot, on two scales - enough to see `formats` beat both the locale and the
+// built-in labels. `d` arrives in UTC mode, so `.format()` needs no conversion.
+const DEMO_FORMATS: GanttFormatOverrides = {
+  day: {
+    tick: (d) => d.format('D ddd'),
+    header: (d) => d.format('MMMM YYYY').toUpperCase(),
+    tooltip: (d) => d.format('YYYY/MM/DD HH:mm'),
+  },
+  // The week scale ticks in days and groups in weeks, so the override that reads as a week goes on
+  // the header, not the tick.
+  week: { header: (d) => `week of ${d.format('D MMM')}` },
+};
 
 // The console floats over the chart, so it follows the chart's own overlay language rather than
 // the site's card: one step lifted off the chart background (#fafafa -> white, #09090b -> zinc
@@ -83,6 +110,11 @@ export function PlaygroundView() {
   const [tasks, setTasks] = useState<Task[]>(demoTasks);
   const [selected, setSelected] = useState<TaskTransformed | null>(null);
   const [range, setRange] = useState<string>('-');
+  // Collapse is controlled outright: the chevrons write back through `onCollapsedChange`, which is
+  // also what the two buttons below drive.
+  const [collapsed, setCollapsed] = useState<string[]>([]);
+  // Tracked whether or not `controlledDetail` is on - off, it only feeds the stat row.
+  const [detailId, setDetailId] = useState<string | null>(null);
   useEffect(() => writeSettings(settings), [settings]);
 
   // An overlay pinned over the viewport, not requestFullscreen, so the exit control stays visible.
@@ -111,7 +143,14 @@ export function PlaygroundView() {
   const reset = () => {
     setTasks(demoTasks);
     setSelected(null);
+    setCollapsed([]);
+    setDetailId(null);
   };
+
+  // Only rows that actually have children collapse.
+  const parentIds = tasks
+    .filter((task) => tasks.some((child) => child.parentId === task.id))
+    .map((task) => task.id);
 
   // A fresh array every render would make the chart recompute its non-working days each time.
   const holidays = useMemo(
@@ -143,6 +182,8 @@ export function PlaygroundView() {
       >
         <ReactGanttChart
           ref={ref}
+          // `initialScrollTo` is read once, at mount, so the row only means anything on a remount.
+          key={settings.initialScrollTo}
           tasks={tasks}
           onTasksChange={setTasks}
           onTaskCreate={(draft) => {
@@ -160,9 +201,15 @@ export function PlaygroundView() {
             ]);
           }}
           onTaskSelect={setSelected}
+          selectable={settings.selectable}
           onRangeChange={(next) =>
             setRange(`${next.start.format('YYYY-MM-DD')} .. ${next.end.format('YYYY-MM-DD')}`)
           }
+          // Each veto returns false, which is the documented "reject it" answer - the gesture runs,
+          // the chart draws it, and then nothing is applied.
+          onDependencyCreate={settings.vetoLinkCreate ? () => false : undefined}
+          onDependencyDelete={settings.vetoLinkDelete ? () => false : undefined}
+          onTaskMove={settings.vetoMove ? () => false : undefined}
           readOnly={settings.readOnly}
           // Each `allow*` beats `readOnly`, so only the off state is passed through.
           allowMove={settings.allowMove ? undefined : false}
@@ -172,13 +219,44 @@ export function PlaygroundView() {
           allowLinkDelete={settings.allowLinkDelete ? undefined : false}
           allowTaskCreate={settings.allowTaskCreate ? undefined : false}
           allowReorder={settings.reorder}
+          minDate={settings.dateBounds ? FIXTURE_START : undefined}
+          maxDate={settings.dateBounds ? FIXTURE_END : undefined}
+          visibleStart={settings.visibleRange ? shift(FIXTURE_START, -14) : undefined}
+          visibleEnd={settings.visibleRange ? shift(FIXTURE_END, 14) : undefined}
           height="100%"
           width="100%"
           showTaskList={settings.showTaskList}
           showRowNumbers={settings.showRowNumbers}
+          collapsedIds={collapsed}
+          onCollapsedChange={setCollapsed}
           showDetail={settings.showDetail}
-          defaultScale={DEFAULTS.scale}
-          initialScrollTo={DEMO_ANCHOR}
+          renderDetail={
+            settings.customDetail
+              ? ({ task, close, scale }) => (
+                  <div className="flex flex-col gap-2 p-3 text-[12.5px]">
+                    <strong className="text-[13px]">{task.name}</strong>
+                    <span className="text-fd-muted-foreground">
+                      {task.startDate} &rarr; {task.endDate} &middot; {scale}
+                    </span>
+                    <button type="button" className={ACTION} onClick={close}>
+                      Close
+                    </button>
+                  </div>
+                )
+              : undefined
+          }
+          detailTaskId={settings.controlledDetail ? detailId : undefined}
+          onDetailChange={(task) => setDetailId(task?.id ?? null)}
+          // Seeded from the console, so a remount lands on the scale the console is showing
+          // instead of snapping back to the default.
+          defaultScale={settings.scale}
+          initialScrollTo={
+            settings.initialScrollTo === 'none'
+              ? undefined
+              : settings.initialScrollTo === 'today'
+                ? 'today'
+                : DEMO_ANCHOR
+          }
           // Keeps the console's `scale` row honest when ctrl+wheel or zoomToFit moves the scale.
           onScaleChange={(scale) => update('scale', scale)}
           // 'host' means "no prop" - the chart then inherits the site's color-scheme.
@@ -188,6 +266,10 @@ export function PlaygroundView() {
           hierarchy={settings.hierarchy}
           showNonWorkingDays={settings.showNonWorkingDays}
           holidays={holidays}
+          // Replaces the weekend/holiday check outright, which is why the two rows above stop
+          // mattering while it is on.
+          isNonWorkingDay={settings.customNonWorking ? (date) => date.day() === 5 : undefined}
+          formats={settings.customFormats ? DEMO_FORMATS : undefined}
           workingCalendar={settings.workingCalendar}
           autoScrollOnDrag={settings.autoScrollOnDrag}
           showTooltip={settings.showTooltip}
@@ -249,6 +331,14 @@ export function PlaygroundView() {
                 >
                   Today
                 </button>
+                <button
+                  type="button"
+                  className={ACTION}
+                  title={`scrollToDate('${DEMO_ANCHOR}')`}
+                  onClick={() => ref.current?.scrollToDate(DEMO_ANCHOR)}
+                >
+                  Scroll to anchor
+                </button>
                 <button type="button" className={ACTION} onClick={() => ref.current?.zoomToFit()}>
                   Fit
                 </button>
@@ -268,6 +358,32 @@ export function PlaygroundView() {
                   onClick={() => first && ref.current?.openDetail(first.id)}
                 >
                   Open detail
+                </button>
+                <button
+                  type="button"
+                  className={ACTION}
+                  disabled={!detailId}
+                  onClick={() => ref.current?.closeDetail()}
+                >
+                  Close detail
+                </button>
+                <button
+                  type="button"
+                  className={ACTION}
+                  // Collapsing needs summary rows, and there is nothing to collapse without them.
+                  disabled={!settings.hierarchy || !parentIds.length}
+                  title={settings.hierarchy ? undefined : 'Turn hierarchy on first'}
+                  onClick={() => setCollapsed(parentIds)}
+                >
+                  Collapse all
+                </button>
+                <button
+                  type="button"
+                  className={ACTION}
+                  disabled={!collapsed.length}
+                  onClick={() => setCollapsed([])}
+                >
+                  Expand all
                 </button>
                 <button
                   type="button"
@@ -294,6 +410,8 @@ export function PlaygroundView() {
                 {(
                   [
                     ['Selected', selected?.id ?? '-'],
+                    ['Detail', detailId ?? '-'],
+                    ['Collapsed', collapsed.length ? collapsed.join(', ') : '-'],
                     ['Rendered range', range],
                   ] as const
                 ).map(([term, value]) => (
