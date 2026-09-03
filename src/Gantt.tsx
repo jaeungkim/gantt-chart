@@ -95,6 +95,7 @@ function GanttChart({
   formats,
   firstDayOfWeek,
   showTaskList,
+  showRowNumbers = false,
   hierarchy = false,
   collapsedIds,
   defaultCollapsedIds,
@@ -468,6 +469,7 @@ function GanttChart({
                   virtualItems={virtual.virtualRows}
                   totalHeight={virtual.totalHeight}
                   width={taskList.width}
+                  showRowNumbers={showRowNumbers}
                   hierarchy={hierarchy}
                   collapsedIds={collapse.collapsedIds}
                   onToggleCollapse={collapse.toggle}

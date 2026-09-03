@@ -18,6 +18,8 @@ interface GanttTaskGridProps {
   virtualItems: VirtualItem[];
   totalHeight: number;
   width: number;
+  // Prints each row's `sequence` ("2.1") as a leading column; bands have none, so they stay blank
+  showRowNumbers: boolean;
   hierarchy: boolean;
   collapsedIds: ReadonlySet<string>;
   onToggleCollapse: (rowId: string) => void;
@@ -39,6 +41,7 @@ export default function GanttTaskGrid({
   virtualItems,
   totalHeight,
   width,
+  showRowNumbers,
   hierarchy,
   collapsedIds,
   onToggleCollapse,
@@ -128,6 +131,7 @@ export default function GanttTaskGrid({
                 >
                   {/* A band cannot be dragged, but its text still starts where a task's does */}
                   {reorderEnabled && <span className="gantt-grid-grip-spacer" />}
+                  {showRowNumbers && <span className="gantt-grid-no" />}
                   <button
                     type="button"
                     className={`gantt-grid-expander${collapsed ? "" : " open"}`}
@@ -213,6 +217,9 @@ export default function GanttTaskGrid({
                       // Holds the space so the row's text does not jog
                       <span className="gantt-grid-grip-spacer" />
                     ))}
+                  {showRowNumbers && (
+                    <span className="gantt-grid-no">{task.sequence}</span>
+                  )}
                   <span
                     className="gantt-grid-indent"
                     style={{ width: `${row.depth * TREE_INDENT}px` }}
