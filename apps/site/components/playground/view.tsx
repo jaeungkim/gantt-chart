@@ -31,32 +31,46 @@ interface LogEntry {
   detail: string;
 }
 
-// The dock floats over the chart, so it is glass; the panel has to stay readable over dense
-// rows, so it is not. `dark:` here is fumadocs' `.dark` class, not the media query, so both
-// follow the site's own theme switch rather than the OS.
-const DOCK =
-  'border border-fd-border/70 bg-fd-card/80 backdrop-blur-xl dark:border-white/10 dark:bg-fd-card/70';
+// The console floats over the chart, so it follows the chart's own overlay language rather than
+// the site's card: one step lifted off the chart background (#fafafa -> white, #09090b -> zinc
+// 900), a hairline ring, and a shadow that does the separating. `dark:` here is fumadocs' `.dark`
+// class, not the media query, so both follow the site's theme switch rather than the OS.
+const HAIRLINE = 'border-black/[0.07] dark:border-white/[0.08]';
 
-const PANEL = 'border border-fd-border/70 bg-fd-card dark:border-white/10';
+const SURFACE = `border bg-white dark:bg-[#18181b] ${HAIRLINE}`;
+
+const DOCK = `${SURFACE} rounded-full shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_20px_-6px_rgba(0,0,0,0.22)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.5),0_10px_28px_-8px_rgba(0,0,0,0.75)]`;
+
+const PANEL = `${SURFACE} rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05),0_18px_44px_-14px_rgba(0,0,0,0.3)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.55),0_22px_52px_-16px_rgba(0,0,0,0.85)]`;
+
+// Every interactive surface is the same tinted fill over the panel, so nothing needs its own
+// colour: black at 2-7% in light, white at 3-9% in dark.
+const FILL =
+  'bg-black/[0.02] hover:bg-black/[0.06] dark:bg-white/[0.03] dark:hover:bg-white/[0.08]';
+
+const FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-console-accent/45';
 
 // Round, filled on hover, dented on press - the shape agentation's toolbar uses.
 const ICON_BUTTON =
-  'grid size-9 shrink-0 cursor-pointer place-items-center rounded-full text-fd-muted-foreground outline-none transition-[background-color,color,transform] duration-150 hover:bg-fd-accent hover:text-fd-foreground focus-visible:ring-2 focus-visible:ring-fd-ring active:scale-[0.92]';
+  `grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-fd-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-black/[0.06] hover:text-fd-foreground active:scale-[0.92] dark:hover:bg-white/[0.08] ${FOCUS}`;
 
 const ACTION =
-  'rounded-full border border-fd-border/70 px-2.5 py-1 text-[12px] text-fd-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-fd-accent hover:text-fd-foreground active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fd-muted-foreground disabled:active:scale-100';
+  `h-7 rounded-lg border px-2.5 text-[12px] font-medium text-fd-muted-foreground transition-[background-color,color,transform] duration-150 hover:text-fd-foreground active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-black/[0.02] disabled:hover:text-fd-muted-foreground disabled:active:scale-100 dark:disabled:hover:bg-white/[0.03] ${HAIRLINE} ${FILL} ${FOCUS}`;
 
-const HEADING = 'text-[10.5px] font-semibold uppercase tracking-[0.08em] text-fd-muted-foreground';
+const HEADING = 'text-[10px] font-semibold uppercase tracking-[0.09em] text-fd-muted-foreground';
 
-const ROW = 'flex items-center justify-between gap-3 py-[5px] text-[12.5px] text-fd-foreground';
+// A fixed 32px row is the whole rhythm of the panel - every control sits on the same baseline.
+const ROW = 'flex h-8 items-center justify-between gap-3 text-[12.5px] text-fd-foreground';
+
+const DIVIDER = `border-t ${HAIRLINE}`;
 
 // The track is a sibling of the visually hidden input, so `peer-checked` drives both it and the
 // knob it paints with `::after`.
 const SWITCH =
-  'relative h-[18px] w-8 shrink-0 rounded-full bg-fd-border transition-colors duration-200 after:absolute after:left-[2px] after:top-[2px] after:size-[14px] after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-200 peer-checked:bg-fd-primary peer-checked:after:translate-x-[14px] peer-focus-visible:ring-2 peer-focus-visible:ring-fd-ring peer-focus-visible:ring-offset-1 peer-focus-visible:ring-offset-fd-card dark:after:bg-fd-card';
+  'relative h-4 w-7 shrink-0 rounded-full bg-black/[0.18] transition-colors duration-200 after:absolute after:left-[2px] after:top-[2px] after:size-3 after:rounded-full after:bg-white after:shadow-[0_1px_2px_rgba(0,0,0,0.3)] after:transition-transform after:duration-200 peer-checked:bg-console-accent peer-checked:after:translate-x-3 peer-focus-visible:ring-2 peer-focus-visible:ring-console-accent/45 dark:bg-white/20';
 
 const SELECT =
-  'h-7 w-[7.5rem] cursor-pointer rounded-lg border border-fd-border/70 bg-fd-background/60 px-2 text-[12px] text-fd-foreground outline-none transition-colors hover:border-fd-border focus-visible:ring-2 focus-visible:ring-fd-ring';
+  `h-7 w-[7.5rem] cursor-pointer rounded-lg border px-2 text-[12px] text-fd-foreground transition-colors duration-150 ${HAIRLINE} ${FILL} ${FOCUS}`;
 
 const Icon = ({ children, className = 'size-4' }: { children: ReactNode; className?: string }) => (
   <svg
@@ -207,6 +221,7 @@ export function PlaygroundView() {
           height="100%"
           width="100%"
           showTaskList={settings.showTaskList}
+          showRowNumbers={settings.showRowNumbers}
           showDetail={settings.showDetail}
           detailTrigger={settings.detailTrigger}
           defaultScale={DEFAULTS.scale}
@@ -233,7 +248,7 @@ export function PlaygroundView() {
           rather than two stacked buttons. z-index clears every chart layer and stays under
           Agentation's 100000. */}
       <div
-        className={`absolute bottom-4 left-4 z-[1000] flex items-center gap-1 rounded-full p-1 shadow-lg shadow-black/10 dark:shadow-black/40 ${DOCK}`}
+        className={`absolute bottom-4 left-4 z-[1000] flex items-center gap-1 p-1 ${DOCK}`}
       >
         {/* Native <details>: controls stay in the DOM while closed, so a test clicks
             `console-toggle` first. `contents` keeps the summary in the dock's own flex row. */}
@@ -242,7 +257,7 @@ export function PlaygroundView() {
             data-testid="console-toggle"
             title="Console"
             aria-label="Toggle the console"
-            className={`${ICON_BUTTON} list-none group-open/console:bg-fd-primary/10 group-open/console:text-fd-primary [&::-webkit-details-marker]:hidden`}
+            className={`${ICON_BUTTON} list-none group-open/console:bg-console-accent/10 group-open/console:text-console-accent [&::-webkit-details-marker]:hidden`}
           >
             <Icon>
               <path d="M4 6h9M17.5 6H20M4 12h2.5M11 12h9M4 18h9M17.5 18H20" />
@@ -253,19 +268,21 @@ export function PlaygroundView() {
           </summary>
 
           <div
-            className={`absolute bottom-[calc(100%+0.625rem)] left-0 flex max-h-[min(40rem,calc(100svh-8rem))] w-[21rem] max-w-[calc(100vw-2rem)] origin-bottom-left flex-col overflow-hidden rounded-2xl text-[13px] shadow-2xl shadow-black/20 motion-safe:animate-console-in dark:shadow-black/60 ${PANEL}`}
+            className={`absolute bottom-[calc(100%+0.625rem)] left-0 flex max-h-[min(40rem,calc(100svh-8rem))] w-[21rem] max-w-[calc(100vw-2rem)] origin-bottom-left flex-col overflow-hidden text-[12.5px] motion-safe:animate-console-in ${PANEL}`}
           >
-            <header className="flex shrink-0 items-center gap-2 border-b border-fd-border/60 px-3.5 py-2.5">
-              <span className="size-1.5 rounded-full bg-fd-primary motion-safe:animate-pulse" />
+            <header
+              className={`flex h-10 shrink-0 items-center gap-2 border-b px-3.5 ${HAIRLINE}`}
+            >
+              <span className="size-1.5 rounded-full bg-console-accent" />
               <h2 className="text-[12px] font-semibold tracking-tight text-fd-foreground">
                 Console
               </h2>
-              <span className="ml-auto font-mono text-[11px] text-fd-muted-foreground">
+              <span className="ml-auto font-mono text-[11px] tabular-nums text-fd-muted-foreground">
                 {tasks.length} tasks &middot; {settings.scale}
               </span>
             </header>
 
-            <div className="flex flex-1 flex-col overflow-y-auto overscroll-contain px-3.5 [&>*]:shrink-0">
+            <div className="console-scroll flex flex-1 flex-col overflow-y-auto overscroll-contain px-3.5 [&>*]:shrink-0">
               <div data-testid="actions" className="flex flex-wrap items-center gap-1.5 py-3">
                 <button
                   type="button"
@@ -328,7 +345,7 @@ export function PlaygroundView() {
                     ['Rendered range', range],
                   ] as const
                 ).map(([term, value]) => (
-                  <div key={term} className={`${ROW} py-1`}>
+                  <div key={term} className={ROW}>
                     <dt className={HEADING}>{term}</dt>
                     <dd className="truncate font-mono text-[11.5px] text-fd-foreground">{value}</dd>
                   </div>
@@ -341,10 +358,10 @@ export function PlaygroundView() {
                 <details
                   key={group}
                   open
-                  className="console-section group/section border-t border-fd-border/50"
+                  className={`console-section group/section ${DIVIDER}`}
                 >
                   <summary
-                    className={`${HEADING} flex cursor-pointer list-none items-center gap-1.5 py-2.5 transition-colors hover:text-fd-foreground [&::-webkit-details-marker]:hidden`}
+                    className={`${HEADING} flex h-8 cursor-pointer list-none items-center gap-1.5 transition-colors duration-150 hover:text-fd-foreground [&::-webkit-details-marker]:hidden`}
                   >
                     <Icon className="size-3 transition-transform duration-200 group-open/section:rotate-90">
                       <path d="m9 6 6 6-6 6" />
@@ -396,8 +413,10 @@ export function PlaygroundView() {
 
             {/* Pinned rather than last in the scroll column: the log is what you watch while
                 dragging a bar, so it stays on screen wherever the controls are scrolled to. */}
-            <section className="shrink-0 border-t border-fd-border/60 bg-fd-muted/40 dark:bg-black/20">
-              <h3 className={`${HEADING} flex items-center justify-between px-3.5 py-2`}>
+            <section
+              className={`shrink-0 bg-black/[0.02] dark:bg-white/[0.02] ${DIVIDER}`}
+            >
+              <h3 className={`${HEADING} flex h-8 items-center justify-between px-3.5`}>
                 Event log
                 <button
                   type="button"
@@ -409,7 +428,7 @@ export function PlaygroundView() {
               </h3>
               <ol
                 data-testid="event-log"
-                className="h-24 overflow-y-auto overscroll-contain px-3.5 pb-2.5 font-mono text-[11px] leading-5"
+                className="console-scroll h-24 overflow-y-auto overscroll-contain px-3.5 pb-2.5 font-mono text-[11px] leading-5"
               >
                 {log.length === 0 && (
                   <li className="font-sans text-[11.5px] leading-4 text-fd-muted-foreground">
@@ -420,7 +439,7 @@ export function PlaygroundView() {
                 {log.map((entry) => (
                   <li key={entry.id} className="flex gap-2 motion-safe:animate-console-log-in">
                     <span className="shrink-0 text-fd-muted-foreground/70">{entry.at}</span>
-                    <span className="shrink-0 text-fd-primary">{entry.event}</span>
+                    <span className="shrink-0 text-console-accent">{entry.event}</span>
                     <span className="truncate text-fd-muted-foreground">{entry.detail}</span>
                   </li>
                 ))}
@@ -429,7 +448,7 @@ export function PlaygroundView() {
           </div>
         </details>
 
-        <span className="mx-0.5 h-5 w-px bg-fd-border/70" />
+        <span className="mx-0.5 h-5 w-px bg-black/[0.09] dark:bg-white/[0.12]" />
 
         <button
           type="button"
@@ -437,7 +456,7 @@ export function PlaygroundView() {
           aria-pressed={fullscreen}
           title={fullscreen ? 'Leave fullscreen (Esc)' : 'Fill the window'}
           aria-label={fullscreen ? 'Leave fullscreen' : 'Fill the window'}
-          className={`${ICON_BUTTON} aria-pressed:bg-fd-primary/10 aria-pressed:text-fd-primary`}
+          className={`${ICON_BUTTON} aria-pressed:bg-console-accent/10 aria-pressed:text-console-accent`}
           onClick={() => setFullscreen((current) => !current)}
         >
           <Icon>

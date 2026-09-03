@@ -49,8 +49,8 @@ export const DATE_FORMATS: Record<GanttScaleKey, string> = {
   year: 'MMM YYYY',
 };
 
-// The readout prints a span. Day, week and month drop the year - the top header row above the
-// readout already spells it out. Quarter and year keep it: those spans routinely cross a year.
+// The readout prints one end of the dragged span. Day, week and month drop the year - the top
+// header row above it already spells it out. Quarter and year keep it: those spans cross a year.
 export const RANGE_FORMATS: Record<GanttScaleKey, string> = {
   day: 'MMM D, HH:mm [UTC]',
   week: 'MMM D',

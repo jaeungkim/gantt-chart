@@ -24,6 +24,9 @@
 @theme {
   --animate-console-in: console-in 220ms cubic-bezier(0.34, 1.32, 0.64, 1);
   --animate-console-log-in: console-log-in 180ms ease-out;
+  /* The chart's own `--gantt-accent`, which is scoped to `.gantt-container` and so out of reach
+     here. Repeating it is what ties the console to the chart rather than to the site's chrome. */
+  --color-console-accent: #3b82f6;
 }
 
 @keyframes console-in {
@@ -46,6 +49,17 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* The panel's own scrollbars. Left native they paint a light track straight down the dark
+   surface, which is the seam that made the console read as a webpage rather than a tool. */
+.console-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+
+.dark .console-scroll {
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }
 
 /* A <details> section that slides instead of snapping. `interpolate-size` is what makes the

@@ -99,8 +99,9 @@ no `formats` override and no `locale` applies.
 
 The tooltip and readout strings live in separate `DATE_FORMATS` and `RANGE_FORMATS` constants,
 neither exported. `[UTC]` in the hour and day strings is a dayjs escaped literal, not a resolved
-zone name. The readout formats both ends of the dragged range and joins them with an en dash,
-unless the two ends format identically, in which case it prints the one label. The shorter
+zone name. The readout formats one end of the dragged range at a time and writes it on the tick
+row at that end: a move writes both ends, a resize only the end it is moving. Two ends that format
+identically collapse to a single label, joined by an en dash where the strings differ. The shorter
 strings drop the year, which the header row above the readout is already showing; `quarter` and
 `year` keep it, because a span at those scales can cross a year boundary.
 

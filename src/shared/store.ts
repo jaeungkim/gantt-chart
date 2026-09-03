@@ -1,5 +1,6 @@
 import {
   GanttBottomRowCell,
+  GanttDragMode,
   GanttDragOffset,
   GanttLocaleOptions,
   GanttScaleKey,
@@ -53,6 +54,8 @@ export interface GanttState {
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
   currentTask: TaskTransformed | null;
+  /** Which gesture the running bar drag is - null when none. The readout dims the anchored end. */
+  dragMode: GanttDragMode | null;
   dragOffsets: Record<string, GanttDragOffset>;
   transformedTasks: TaskTransformed[];
   /** Locale and label formats - undefined means the built-in English labels */
@@ -71,6 +74,7 @@ export interface GanttState {
   setSelectedScale: (scale: GanttScaleKey) => void;
   setLocaleOptions: (options: GanttLocaleOptions | undefined) => void;
   setCurrentTask: (task: TaskTransformed | null) => void;
+  setDragMode: (mode: GanttDragMode | null) => void;
   setSelectedTaskId: (taskId: string | null) => void;
   setHoveredTaskId: (taskId: string | null) => void;
   setRawTasks: (rawTasks: Task[]) => void;
@@ -101,6 +105,7 @@ export function createGanttStore(initialScale: GanttScaleKey = "month") {
     bottomRowCells: [],
     selectedScale: initialScale,
     currentTask: null,
+    dragMode: null,
     dragOffsets: {},
     localeOptions: undefined,
     linkDraft: null,
@@ -110,6 +115,11 @@ export function createGanttStore(initialScale: GanttScaleKey = "month") {
     hoveredTaskId: null,
 
     setCurrentTask: (task) => set({ currentTask: task }),
+
+    setDragMode: (mode) => {
+      if (get().dragMode === mode) return;
+      set({ dragMode: mode });
+    },
 
     setLinkDraft: (draft) => set({ linkDraft: draft }),
 

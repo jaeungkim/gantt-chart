@@ -9,6 +9,7 @@ export interface Settings {
   hierarchy: boolean;
   groupBy: boolean;
   showTaskList: boolean;
+  showRowNumbers: boolean;
   readOnly: boolean;
   allowMove: boolean;
   allowResize: boolean;
@@ -74,6 +75,14 @@ export const CONTROLS: readonly Control[] = [
     key: 'showTaskList',
     label: 'Task list',
     hint: 'The pinned pane on the left',
+    group: 'Data',
+    type: 'boolean',
+  },
+
+  {
+    key: 'showRowNumbers',
+    label: 'Row numbers',
+    hint: 'Prints each row’s sequence ("2.1") in front of the name',
     group: 'Data',
     type: 'boolean',
   },
@@ -255,6 +264,7 @@ export const DEFAULTS: Settings = {
   hierarchy: true,
   groupBy: false,
   showTaskList: true,
+  showRowNumbers: true,
   readOnly: false,
   allowMove: true,
   allowResize: true,

@@ -85,6 +85,8 @@ export interface GanttFormatters {
   header: (date: Dayjs) => string;
   tooltip: (date: Dayjs) => string;
   range: (start: Dayjs, end: Dayjs) => string;
+  /** One end of a dragged range, at the readout's precision - `range` merged both ends */
+  edge: (date: Dayjs) => string;
 }
 
 export interface GanttBottomRowCell {
