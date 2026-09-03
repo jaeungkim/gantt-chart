@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { snapDown, snapUp, tickBoundaries } from './header';
+import { tickBoundaries, tickCellAt } from './header';
 
 // The drag readout masks the tick numerals it stands in for. A numeral is centred in its cell, so
 // a mask edge landing anywhere inside a cell would clip that numeral mid-glyph - these are what
@@ -22,36 +22,37 @@ describe('tick boundaries', () => {
   });
 });
 
-describe('snapping to a tick boundary', () => {
-  const boundaries = [0, 72, 144, 216, 288];
+describe('the cell a value falls in', () => {
+  const boundaries = tickBoundaries(cells(72, 72, 72, 72));
 
-  it('leaves a value already on a boundary where it is', () => {
-    expect(snapDown(boundaries, 144)).toBe(144);
-    expect(snapUp(boundaries, 144)).toBe(144);
+  it('returns the cell as an index, its left edge and its width', () => {
+    expect(tickCellAt(boundaries, 100)).toEqual({ index: 1, left: 72, width: 72 });
+    expect(tickCellAt(boundaries, 73)).toEqual({ index: 1, left: 72, width: 72 });
+    expect(tickCellAt(boundaries, 143)).toEqual({ index: 1, left: 72, width: 72 });
   });
 
-  it('opens outward to the cell the value falls in', () => {
-    expect(snapDown(boundaries, 100)).toBe(72);
-    expect(snapUp(boundaries, 100)).toBe(144);
-    expect(snapDown(boundaries, 73)).toBe(72);
-    expect(snapUp(boundaries, 143)).toBe(144);
+  // The tick at a boundary marks the instant that cell starts, so an edge exactly there belongs
+  // to that cell - a bar ending at midnight writes the day it ends on, not the day before
+  it('gives a value on a boundary to the cell that starts there', () => {
+    expect(tickCellAt(boundaries, 144)).toEqual({ index: 2, left: 144, width: 72 });
+    expect(tickCellAt(boundaries, 0)).toEqual({ index: 0, left: 0, width: 72 });
   });
 
-  it('clamps rather than running off either end of the ruler', () => {
-    expect(snapDown(boundaries, -40)).toBe(0);
-    expect(snapUp(boundaries, -40)).toBe(0);
-    expect(snapDown(boundaries, 9999)).toBe(288);
-    expect(snapUp(boundaries, 9999)).toBe(288);
+  it('clamps to the first and last cell rather than running off the ruler', () => {
+    expect(tickCellAt(boundaries, -40)).toEqual({ index: 0, left: 0, width: 72 });
+    expect(tickCellAt(boundaries, 288)).toEqual({ index: 3, left: 216, width: 72 });
+    expect(tickCellAt(boundaries, 9999)).toEqual({ index: 3, left: 216, width: 72 });
   });
 
-  it('never returns a down-snap above its up-snap, whatever the value', () => {
-    for (let x = -10; x <= 300; x += 7) {
-      expect(snapDown(boundaries, x)).toBeLessThanOrEqual(snapUp(boundaries, x));
-    }
+  it('handles cells of unequal width', () => {
+    expect(tickCellAt(tickBoundaries(cells(30, 126, 126)), 100)).toEqual({
+      index: 1,
+      left: 30,
+      width: 126,
+    });
   });
 
-  it('is safe on a one-boundary ruler, which is what an empty chart gives it', () => {
-    expect(snapDown([0], 500)).toBe(0);
-    expect(snapUp([0], 500)).toBe(0);
+  it('has no cell to return on an empty ruler, which is what an empty chart gives it', () => {
+    expect(tickCellAt([0], 500)).toBeNull();
   });
 });

@@ -255,8 +255,9 @@ describe('edge formatter', () => {
     expect(resolveFormatters('quarter').edge(start)).toBe('Jan 2026');
   });
 
-  it('spells the clock out at the scale whose ticks are hours', () => {
-    expect(resolveFormatters('day').edge(start)).toBe('Jan 15, 09:00 UTC');
+  // The day scale's ticks are hours and its header row is the date, so the readout is the clock
+  it('writes only the clock at the scale whose ticks are hours', () => {
+    expect(resolveFormatters('day').edge(start)).toBe('09:00 UTC');
   });
 
   it('goes through the locale when one is set', () => {

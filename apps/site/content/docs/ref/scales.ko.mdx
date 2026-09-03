@@ -90,7 +90,7 @@ export type GanttLabelUnit =
 
 | 배율 | `formatTickLabel` | `formatHeaderLabel` | 툴팁 포맷 문자열 | readout 포맷 문자열 |
 |---|---|---|---|---|
-| `day` | `d.format('HH')` | `d.format('MMM D, YYYY')` | `'MMM D, YYYY HH:mm [UTC]'` | `'MMM D, HH:mm [UTC]'` |
+| `day` | `d.format('HH')` | `d.format('MMM D, YYYY')` | `'MMM D, YYYY HH:mm [UTC]'` | `'HH:mm [UTC]'` |
 | `week` | `d.format('D')` | `d.format('MMM YYYY')` | `'MMM D, YYYY'` | `'MMM D'` |
 | `month` | `d.format('MMM D')` | `d.format('MMM YYYY')` | `'MMM D, YYYY'` | `'MMM D'` |
 | `quarter` | `d.format('MMM')` | `` `Q${quarterOfYear(d)} ${d.format('YYYY')}` `` | `'MMM YYYY'` | `'MMM YYYY'` |
@@ -98,10 +98,12 @@ export type GanttLabelUnit =
 
 툴팁과 readout 문자열은 각각 `DATE_FORMATS`와 `RANGE_FORMATS` 상수에 있고, 둘 다 내보내지 않아요.
 hour와 day 문자열에 들어간 `[UTC]`는 dayjs가 이스케이프한 리터럴이에요. 해석된 시간대 이름이
-아니에요. readout은 드래그 중인 구간의 한쪽 끝씩 그려서 눈금 행의 그 끝에 적어요. 이동이면 양 끝을
-다 적고, 크기 조절이면 움직이는 끝만 적어요. 양 끝이 똑같이 그려지면 라벨 하나로 합치고, 다르게
-그려지면 en dash로 이어요. 더 짧은 문자열이 연도를 빼는 건 readout 바로 위의 헤더 행이 이미 연도를
-보여 주기 때문이에요. `quarter`와 `year`는 연도를 남겨요. 그 배율에서는 구간이 해를 넘길 수 있거든요.
+아니에요. readout은 드래그 중인 구간의 한쪽 끝씩 그려서, 그 끝이 떨어진 눈금 셀에 적어요. 이동이면
+양 끝을 다 적고, 크기 조절이면 움직이는 끝만 적어요. 양 끝이 같은 셀에 떨어지면 라벨 하나를 나눠
+쓰고, 다르게 그려지면 en dash로 이어요. 더 짧은 문자열이 연도를 빼는 건 readout 바로 위의 헤더 행이
+이미 연도를 보여 주기 때문이에요. `quarter`와 `year`는 연도를 남겨요. 그 배율에서는 구간이 해를 넘길
+수 있거든요. `day`는 날짜도 빼요. 그 배율에서는 헤더 행이 날짜이고 눈금이 시간이라, readout은 시각만
+적어요.
 
 ## GanttScaleFormat
 

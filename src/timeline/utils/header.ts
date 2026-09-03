@@ -29,26 +29,25 @@ export function tickBoundaries(cells: GanttBottomRowCell[]): number[] {
   return edges;
 }
 
-// Largest boundary at or before `x`, and smallest at or after it. `boundaries` is ascending, so
-// both are one binary search - a chart at day scale can carry a few thousand cells.
-export function snapDown(boundaries: number[], x: number): number {
+// The cell `x` falls in: its index, left edge and width. `boundaries` is ascending, so this is
+// one binary search - a chart at day scale can carry a few thousand cells. A value exactly on a
+// boundary belongs to the cell that starts there (the tick marks the instant that cell begins),
+// and a value off either end to the first or last cell. Null only for an empty ruler.
+export function tickCellAt(
+  boundaries: number[],
+  x: number
+): { index: number; left: number; width: number } | null {
+  if (boundaries.length < 2) return null;
   let low = 0;
-  let high = boundaries.length - 1;
+  let high = boundaries.length - 2;
   while (low < high) {
     const mid = Math.ceil((low + high) / 2);
     if (boundaries[mid] <= x) low = mid;
     else high = mid - 1;
   }
-  return boundaries[low];
-}
-
-export function snapUp(boundaries: number[], x: number): number {
-  let low = 0;
-  let high = boundaries.length - 1;
-  while (low < high) {
-    const mid = Math.floor((low + high) / 2);
-    if (boundaries[mid] >= x) high = mid;
-    else low = mid + 1;
-  }
-  return boundaries[high];
+  return {
+    index: low,
+    left: boundaries[low],
+    width: boundaries[low + 1] - boundaries[low],
+  };
 }

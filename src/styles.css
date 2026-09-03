@@ -454,56 +454,24 @@
   pointer-events: none;
 }
 
-/* Spans the dragged range across the tick row and paints nothing: it exists to put a label at the
-   edge it reports. 44px is .gantt-top-header's height and 28px .gantt-bottom-row's - the tests
-   guard both. min-width keeps two labels legible on a span narrower than they are, which is why
-   there is no lift into the month row any more. */
-/* The numerals the dragged span covers step aside for the dates that replace them. This is the
-   tick row's own colour, so no shape appears - the ruler goes quiet under the bar and comes back
-   when the pointer lifts. GanttDragGuides snaps it out to whole tick cells, because an edge
-   landing mid-numeral would otherwise slice that numeral down the middle. */
-.gantt-drag-mask {
+/* The cell a dragged edge lands in writes the full date. It covers exactly that cell in the tick
+   row's own colour, so its numeral steps aside and the date stands centred where the numeral
+   stood - on the grid, nothing floating, and never a numeral sliced in half. 44px is
+   .gantt-top-header's height and 28px .gantt-bottom-row's - the tests guard both. */
+.gantt-drag-cell {
   position: absolute;
   top: 44px;
   height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--gantt-muted);
 }
 
-.gantt-drag-range {
-  position: absolute;
-  top: 44px;
-  height: 28px;
-  min-width: max-content;
-  display: flex;
-  gap: 12px;
-}
-
-/* One half of the span per label, and the reason two pinned labels can never overlap: a sticky
-   label is bounded by its own half, so the far end leaves the screen with the edge it reports
-   instead of sliding into its neighbour. Paints nothing itself. */
-.gantt-drag-side {
-  flex: 1 1 auto;
-  min-width: max-content;
-  display: flex;
-}
-
-.gantt-drag-side.start {
-  justify-content: flex-start;
-}
-
-.gantt-drag-side.end {
-  justify-content: flex-end;
-}
-
-/* A merged label stands for both ends, so it takes the whole span and centres */
-.gantt-drag-side.start.end {
-  justify-content: center;
-}
-
-/* The tick row's own type and its own surface: no band, no ring, no shadow, no accent. Painting
-   the row's background means a label blanks exactly the numerals it covers and leaves the rest of
-   the ruler standing, so the date reads as the row being precise rather than a panel on top. */
-.gantt-drag-edge {
+/* The date, typed like the tick beside it. Its own surface only matters when it is wider than
+   its cell - both edges in one cell at the finest zoom - where it spills out symmetrically and
+   still blanks what it covers. */
+.gantt-drag-cell > span {
   flex: none;
   padding: 0 6px;
   background: var(--gantt-muted);
@@ -516,17 +484,15 @@
   white-space: nowrap;
 }
 
-/* Each label pins to the side it reports, so a span wider than the viewport - day scale draws
-   288px per calendar day - keeps its date in view for the whole gesture. `left` is content space,
-   so the start offsets by the pinned task list or it slides under the pane. */
-.gantt-drag-edge.start {
-  position: sticky;
-  left: var(--gantt-pane-inset, 0px);
-}
-
-.gantt-drag-edge.end {
-  position: sticky;
-  right: 0;
+/* The bar's footprint on the ruler: its exact span and its own radius, as a tint of the
+   foreground with no edge - the bar's shadow on the axis rather than a band parked on it. 5px in
+   from the tick row's top and bottom. */
+.gantt-drag-footprint {
+  position: absolute;
+  top: 49px;
+  height: 18px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--gantt-foreground) 6%, transparent);
 }
 
 /* Standard properties first (Chrome 121+, Firefox); browsers without them use the webkit rules */

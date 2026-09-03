@@ -90,7 +90,7 @@ no `formats` override and no `locale` applies.
 
 | scale | `formatTickLabel` | `formatHeaderLabel` | tooltip format string | readout format string |
 |---|---|---|---|---|
-| `day` | `d.format('HH')` | `d.format('MMM D, YYYY')` | `'MMM D, YYYY HH:mm [UTC]'` | `'MMM D, HH:mm [UTC]'` |
+| `day` | `d.format('HH')` | `d.format('MMM D, YYYY')` | `'MMM D, YYYY HH:mm [UTC]'` | `'HH:mm [UTC]'` |
 | `week` | `d.format('D')` | `d.format('MMM YYYY')` | `'MMM D, YYYY'` | `'MMM D'` |
 | `month` | `d.format('MMM D')` | `d.format('MMM YYYY')` | `'MMM D, YYYY'` | `'MMM D'` |
 | `quarter` | `d.format('MMM')` | `` `Q${quarterOfYear(d)} ${d.format('YYYY')}` `` | `'MMM YYYY'` | `'MMM YYYY'` |
@@ -98,11 +98,12 @@ no `formats` override and no `locale` applies.
 
 The tooltip and readout strings live in separate `DATE_FORMATS` and `RANGE_FORMATS` constants,
 neither exported. `[UTC]` in the hour and day strings is a dayjs escaped literal, not a resolved
-zone name. The readout formats one end of the dragged range at a time and writes it on the tick
-row at that end: a move writes both ends, a resize only the end it is moving. Two ends that format
-identically collapse to a single label, joined by an en dash where the strings differ. The shorter
+zone name. The readout formats one end of the dragged range at a time and writes it in the tick
+cell that end lands in: a move writes both ends, a resize only the end it is moving. Two ends that
+land in the same cell share one label, joined by an en dash where the strings differ. The shorter
 strings drop the year, which the header row above the readout is already showing; `quarter` and
-`year` keep it, because a span at those scales can cross a year boundary.
+`year` keep it, because a span at those scales can cross a year boundary. `day` drops the date as
+well: at that scale the header row is the date and the ticks are hours, so the readout is the clock.
 
 ## GanttScaleFormat
 

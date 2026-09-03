@@ -54,10 +54,11 @@ const TOOLTIP_OPTIONS: Record<GanttScaleKey, Intl.DateTimeFormatOptions> = {
   year: UTC_MONTH,
 };
 
-// Header drag readout - one end of the dragged span. Mirrors RANGE_FORMATS: the year goes
-// where the row above the readout already shows it, and stays where a span can cross a year.
+// Header drag readout - one end of the dragged span, written in the tick cell it lands in.
+// Mirrors RANGE_FORMATS: the year goes where the row above the readout already shows it, and
+// stays where a span can cross a year; the day scale's header row is the date, so it keeps the clock.
 const RANGE_OPTIONS: Record<GanttScaleKey, Intl.DateTimeFormatOptions> = {
-  day: { month: 'short', day: 'numeric', ...CLOCK, timeZoneName: 'short' },
+  day: { ...CLOCK, timeZoneName: 'short' },
   week: { month: 'short', day: 'numeric' },
   month: { month: 'short', day: 'numeric' },
   quarter: UTC_MONTH,
