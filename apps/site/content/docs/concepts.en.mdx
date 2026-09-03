@@ -1,0 +1,222 @@
+---
+title: "Concepts and vocabulary"
+description: "Every term the rest of the docs use, defined once"
+---
+
+You read `row` on one page and `task` on the next, and you assume they are the same thing. They
+are not, and the difference bites the first time two tasks share a row. This page fixes one word per
+thing. Every other page uses these words and only these words.
+
+## The chart and the host app
+
+**The chart** is the `<ReactGanttChart>` component exported by `@jaeungkim/gantt-chart`. It draws
+what the `tasks` prop gives it and reports every edit back.
+
+**The host app** is your application around it. It owns the task array, decides what to persist,
+and applies whatever the chart hands to `onTasksChange` — see [Events](events).
+
+## What is on screen
+
+<ChartSketch preset="anatomy" />
+
+| Word | What it names |
+|---|---|
+| task | One item of data — one entry in the `tasks` array. |
+| bar | The horizontal block drawn for one task. Dragging it is [Editing tasks](editing). |
+| row | One line of the grid. It can carry zero, one or several tasks. |
+| task list | The left pane, the list of task names beside the timeline. See [Task list and hierarchy](task-list). |
+| timeline | The time axis and everything drawn against it. See [The timeline](timeline). |
+| scale | Which unit the timeline is drawn in: `hour`, `day`, `week`, `month`, `quarter` or `year`. See [The timeline](timeline). |
+| tick | One cell of the lower header row. How much time one tick covers depends on the scale. |
+| summary row | A task that has children under `parentId`, with `hierarchy` on. Its dates come from the children. See [Task list and hierarchy](task-list). |
+| group header row | The band label produced by a `groupBy` value that at least one task carries. It owns no task of its own. See [Grouping and swimlanes](grouping). |
+| swimlane | The band of rows under one group header row. See [Grouping and swimlanes](grouping). |
+| lane | The `lane` field, which puts several tasks side by side on one row. See [Grouping and swimlanes](grouping). |
+
+Every word above names something in this snippet:
+
+```tsx title="concepts-demo.tsx"
+import { useState } from 'react';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const initialTasks: Task[] = [
+  {
+    id: 'phase-1',
+    name: 'Phase 1',
+    startDate: '2026-03-02',
+    endDate: '2026-03-20',
+    parentId: null,
+    sequence: '1',
+  },
+  {
+    id: 'design',
+    name: 'Design',
+    startDate: '2026-03-02',
+    endDate: '2026-03-06',
+    parentId: 'phase-1',
+    sequence: '1.1',
+    lane: 'Ana',
+  },
+  {
+    id: 'build',
+    name: 'Build',
+    startDate: '2026-03-09',
+    endDate: '2026-03-20',
+    parentId: 'phase-1',
+    sequence: '1.2',
+    lane: 'Ana',
+    progress: 40,
+    dependencies: [{ targetId: 'design', type: 'FS' }],
+    baselineStart: '2026-03-09',
+    baselineEnd: '2026-03-18',
+  },
+  {
+    id: 'ship',
+    name: 'Ship',
+    startDate: '2026-03-23',
+    endDate: '2026-03-27',
+    parentId: null,
+    sequence: '2',
+    dependencies: [{ targetId: 'build', type: 'FS' }],
+  },
+];
+
+export function Demo() {
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      onTasksChange={setTasks}
+      hierarchy
+      workingCalendar
+    />
+  );
+}
+```
+
+Four tasks, three rows: `design` and `build` share the lane `Ana` and do not overlap, so they are
+packed onto one row. [Grouping and swimlanes](grouping) owns that packing.
+
+## The words for your data
+
+**Task.** The unit you pass in. Six fields are required — `id`, `name`, `startDate`, `endDate`,
+`parentId`, `sequence` — and the rest are optional. The field table lives in
+[Task data](task-data), the type in [`Task`](ref/task).
+
+**Dependency.** A link between two tasks, in one of four types: `FS`, `SS`, `FF`, `SF`. The first
+letter is the predecessor's end, the second is the successor's end. See
+[Dependencies](dependencies).
+
+**Predecessor and successor.** The predecessor is the earlier task in a link, the successor the
+later one. The entry lives on the **successor**, and its `targetId` names the predecessor:
+
+```ts
+import type { TaskDependency } from '@jaeungkim/gantt-chart';
+
+// This sits on "build", the successor. It reads: build waits for design to finish.
+const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
+```
+
+**Baseline.** A planned snapshot, `baselineStart` and `baselineEnd`, drawn as a thin bar under the
+live one. It moves only when the data changes. Dragging the live bar slides it across a baseline
+that stays put. See [Working calendar](working-calendar).
+
+## The working calendar
+
+The rule that decides where a drop may land. With `workingCalendar` off, a bar stays wherever the
+pointer let go. With it on, a drop that lands on a weekend or a `holidays` date moves forward onto
+the next working day. Bars still span the weekend on screen, and the drag step is still counted in
+calendar days. [Working calendar](working-calendar) says exactly what it does and does not change.
+
+## Sequence orders, parentId nests
+
+They are two independent fields and nothing reconciles them.
+
+`sequence` decides **row order**, always, hierarchy or not. It is a dotted string compared segment
+by segment as numbers — [Task data](task-data) owns the comparison rules.
+
+`parentId` decides **nesting**, and only when the `hierarchy` prop is on. With it off, indentation is
+read from the number of dots in `sequence` instead. `parentId` is not inert, though: deleting a task
+still takes its whole subtree with it, hierarchy on or off — see
+[Keyboard and screen readers](accessibility).
+
+Three tasks, where `Audit` is a child of `Phase 1` but carries a top-level `sequence`:
+
+| task | `sequence` | `parentId` | `hierarchy` off | `hierarchy` on |
+|---|---|---|---|---|
+| Phase 1 | `'1'` | `null` | Phase 1 | Phase 1 |
+| Design | `'1.1'` | `'phase-1'` | ↳ Design | ↳ Design |
+| Audit | `'3'` | `'phase-1'` | Audit | ↳ Audit |
+
+Row order is the same in both columns, because both read `sequence`. Only the indentation moves.
+
+The two agreeing is a convention, not a rule. A child whose `sequence` sorts above its parent
+renders above its parent, indented, with no warning. The host app owns that string: on a task
+drawn on the chart, on one it edits, and on every task it hands in.
+
+One gesture is the exception. `allowReorder` lets a row be dragged to a new slot or a new parent,
+and that renumbers `sequence` on every task whose tree path changed — because `sequence` is a path,
+and a path cannot be split. It is off unless you turn it on. See [Reordering rows](editing#reordering-rows).
+
+## A row is not a task
+
+`GanttRow.tasks` is an array, and its length is 0, 1 or more:
+
+| Row | `tasks.length` | When |
+|---|---|---|
+| ordinary row | 1 | the normal case |
+| lane row | 2 or more | tasks in the same group sharing a `lane`, that do not overlap in time |
+| group header row | 0 | one per `groupBy` value |
+
+So "the third row" and "the third task" are different statements as soon as `lane` or `groupBy` is
+in play. Code reading `row.tasks[0]` is reading the first task on that row, not the row itself. The
+row model, its ids and its ARIA numbering are owned by [Grouping and swimlanes](grouping) and
+[`GanttRow`](ref/grouping).
+
+> [!NOTE]
+> The `lane` field's own doc comment in the source calls it a swimlane. These docs keep the two
+> words apart. A swimlane is a band of rows produced by `groupBy`. A lane is several tasks packed
+> onto one row. The two are independent mechanisms that compose.
+
+## Which words need a prop turned on
+
+Half of the vocabulary above describes nothing until you switch something on.
+
+| Concept | Needs | Default |
+|---|---|---|
+| summary row, roll-up, subtree drag, collapsing a task row | `hierarchy` | `false` |
+| group header row, swimlane | `groupBy` | none set |
+| lane row | a `lane` value on two or more tasks | no prop |
+| a drop moving off a weekend or a holiday | `workingCalendar` | `false` |
+| baseline bar | nothing — a `baselineStart` on the task is enough | always on |
+
+Baselines are the odd one out. There is no prop to turn them off, so any task carrying
+`baselineStart` draws one.
+
+## Limits
+
+The vocabulary is wider than the behaviour behind it. These are the gaps, and the work that stays
+with the host app.
+
+- **No word here implies validation.** There is no schema and no runtime type check on `Task`: no
+  id-uniqueness check, no date parsing check, no progress range check on input. Bad data degrades
+  silently, and a missing `sequence` throws during render. Two tasks sharing an `id` both draw a row,
+  but every lookup keyed by id — the tree, the dependency graph, the roll-up — keeps only the last of
+  them. [Task data](task-data) lists what each malformed field does.
+- **The chart owns no data.** It renders the `tasks` prop and hands every edit to `onTasksChange`.
+  Persistence, optimistic updates and server round-trips are the host app's, and drawing a new task
+  only proposes a draft — the host produces the `id`, `parentId` and `sequence`. See
+  [Editing tasks](editing).
+- **There is no resource, cost or effort model.** A task has no assignee, owner or budget field.
+  You can hang your own properties on a task object and group by them, but they are untyped and they
+  count toward the `tasks` diff — [Task data](task-data) explains that diff.
+- **One calendar per chart.** There is no per-task working calendar and no per-task time zone. All
+  dates are UTC.
+- **A baseline is a drawn snapshot, not a comparison.** Nothing computes variance between the
+  baseline and the live dates. The host does that arithmetic if it wants a number.
+- **Rows are not a layout API.** You cannot set a row's height, force a group to exist with no
+  tasks in it, or nest one group inside another.
+
+Next: [Quick start](quick-start) puts these words on screen.

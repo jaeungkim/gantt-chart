@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/* The package paints its palette on :root and .dark using the same custom-property names
+   fumadocs uses (--background, --foreground, --muted, --border, --accent). Imported
+   unlayered it wins the cascade and repaints the whole docs shell, so it goes in a layer
+   the theme's own tokens outrank. */
+@import '@jaeungkim/gantt-chart/style.css' layer(gantt);
+
+/* Tailwind derives --default-font-family from --font-sans and preflight puts that on
+   <html>, so this one block moves the whole shell onto Pretendard, fumadocs chrome
+   included. `inline` is required: the two variables are declared by classes on <html>
+   (see app/fonts/pretendard.ts), so the value has to be substituted rather than emitted
+   as another indirection Tailwind resolves at build time.
+
+   Latin first, hangul second - per-glyph fallback walks the list, so a Korean character
+   skips past the latin face and its Arial-metric fallback and lands on the hangul one. */
+@theme inline {
+  --font-sans: var(--font-pretendard-latin), var(--font-pretendard-korean),
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+/* The chart's own token names `"Pretendard Variable"` so that a consumer who self-hosts
+   Pretendard under its real name gets it for free. next/font deliberately hashes the family
+   it generates, so that literal matches nothing here and the chart alone would fall back to
+   the system font on an otherwise-Pretendard page. Point the token at the same two faces.
+   This rule is unlayered and the library's is in layer(gantt), so it wins on layer order
+   regardless of where the stylesheets land. */
+.gantt-container {
+  --gantt-font-sans: var(--font-pretendard-latin), var(--font-pretendard-korean),
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}

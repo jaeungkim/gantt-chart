@@ -1,0 +1,239 @@
+---
+title: "Detail panel"
+description: "The docked side panel: what opens it, `renderDetail`, and controlling it"
+---
+
+A bar carries a name, two dates and a progress fill. Every other field you hold about that task has
+nowhere to go. The detail panel is a pane docked to the right of the chart that shows one task at a
+time. It is a sibling of the timeline rather than a layer over it, so the timeline gets narrower
+while the panel is open instead of being covered by it, and the chart behind it stays interactive:
+this is not a modal, nothing is trapped inside it, and no backdrop swallows the next click.
+
+<GanttDemo preset="detail" />
+
+## Turning the panel on
+
+The panel is off by default. `showDetail` turns it on. When `showDetail` is omitted, passing
+`renderDetail` turns it on for you — the renderer is the switch, the way `showTaskList` is the
+switch for the pane in [Task list and hierarchy](task-list).
+
+| `showDetail` | `renderDetail` | Panel | Body |
+|---|---|---|---|
+| omitted | omitted | hidden | — |
+| omitted | given | shown | yours |
+| `true` | omitted | shown | the built-in body |
+| `true` | given | shown | yours |
+| `false` | omitted | hidden | — |
+| `false` | given | hidden | — |
+
+An explicit `false` wins over `renderDetail`.
+
+Turning the panel on also turns row selection on, so the row whose detail is open is the highlighted
+one. An explicit `selectable={false}` still wins: the panel opens and closes as usual, nothing is
+highlighted. What selection is and which callbacks it fires is in [Events](events).
+
+## What the default body renders
+
+With the panel on and no `renderDetail`, the built-in body renders two things:
+
+- a **heading**, `task.name`;
+- a **meta line**, `start → end · progress`. The dates go through the current scale's own tooltip
+  formatter — the one the hover tooltip uses — so `locale` and `formats` already control them, and
+  the progress is dropped when the task carries none.
+
+That is the whole default. It shows no other field of the task, and there is no prop that adds
+one: a field needs a caption, and only the host knows what that caption should say. Anything
+further is `renderDetail`, below.
+
+The reason the default stops there is that it can then carry no user-visible English at all. A
+name is your data and the dates follow [Locale and date formats](i18n), so the panel needs no
+translation of its own. The only fixed strings are the accessible name of the panel and of its
+close button.
+
+## What opens it
+
+`detailTrigger` picks the gesture. It defaults to `'selection'`.
+
+| `detailTrigger` | Opens on | Keyboard |
+|---|---|---|
+| `'selection'` (default) | a single click on a bar or on a task-list row | `Enter` on the focused row |
+| `'doubleClick'` | a double click on a bar or on a task-list row | `Enter` on the focused row |
+| `'none'` | nothing in the chart | — |
+
+`'none'` does not turn the panel off. The feature stays enabled — the `<aside>` is mounted only while
+a task is open, and under `'none'` only `detailTaskId` and the ref open one, which is what a host
+wants when the chart's own clicks already drive some other pane.
+
+A single click is the default because a double click is the convention of the *modal* task editors:
+Bryntum's TaskEdit defaults to `triggerEvent: 'eventdblclick'`, DHTMLX opens its lightbox on
+`dblclick`. Those open a form you have to finish or cancel, so they are expensive and ask for a
+deliberate gesture. A docked panel is cheap in both directions — it opens on the click that already
+selects the row and closes with `Escape` — and frappe-gantt's `popup_trigger` does not even offer a
+double click, only `'click'` and `'hover'`. `'doubleClick'` is there for hosts that want the panel
+out of the way of ordinary selection.
+
+The panel is an `<aside role="complementary" aria-label="Task details">`, not a dialog: no focus
+trap, no backdrop. It sits outside the treegrid, so the chart keeps exactly one tab stop and the
+panel is the next one. `Escape` closes it from the chart or from inside the panel, and closing puts
+focus back on whatever held it when the panel opened. The key map gains no new key for any of this —
+`Enter` on a focused row already announced the row and now opens the panel too. Every key is listed
+in [Keyboard and screen readers](accessibility).
+
+## Controlled and uncontrolled
+
+The open task is one id, in either mode.
+
+| Prop | Mode | Rule |
+|---|---|---|
+| `detailTaskId` | controlled | a `string` or `null` here is what the chart shows, and internal state stops updating |
+| `detailTaskId` omitted | uncontrolled | the chart holds the open task itself |
+| `onDetailChange` | both | fires on every open and close, with the task or `null` |
+
+The mode switch is `detailTaskId !== undefined`. `null` is not an opt-out the way it is elsewhere:
+it is the controlled way to say "closed", which is why the chart tests against `undefined` instead
+of falling back with `??`.
+
+> [!WARNING]
+> In controlled mode the chart opens nothing on its own. It waits for a new `detailTaskId`. Pass
+> `detailTaskId` without handling `onDetailChange` and every click looks ignored.
+
+`onDetailChange` fires in controlled and uncontrolled mode alike, and only when the open task
+actually changes: clicking the row that is already open fires nothing. It never fires on mount, and
+it is not a change event for the panel's contents — moving a bar whose detail is open does not fire
+it.
+
+## Opening it from your own code
+
+`GanttHandle` carries `openDetail(taskId)` and `closeDetail()`; an unknown id is ignored the way
+`scrollToTask` ignores one, and both are no-ops while the panel is off. They are listed with the
+rest of the ref in [GanttHandle](ref/handle).
+
+## Replacing the body
+
+`renderDetail` replaces everything inside the panel. The `<aside>` itself stays the chart's — its
+width, its `role`, its accessible name and the focus handling on close are not yours to lose. Only
+the children change, which also means the close button is yours to render: `close` is the same
+function the built-in button calls, and `Escape` keeps working whether you render one or not.
+
+The renderer receives a `GanttDetailRenderProps`.
+
+| Field | Type | What it is |
+|---|---|---|
+| `task` | `TaskTransformed` | The open task as the chart transformed it — rolled-up summary dates, `depth`, `order`, `barLeft` and the rest |
+| `close` | `() => void` | Closes the panel; the same function the built-in close button calls |
+| `scale` | `GanttScaleKey` | The scale the timeline is on at this render |
+
+```tsx title="ProjectChart.tsx"
+import { useState } from 'react';
+import { ReactGanttChart } from '@jaeungkim/gantt-chart';
+import type { GanttDetailRenderProps, Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const tasks: Task[] = [
+  { id: 'p1', name: 'Phase 1', parentId: null, sequence: '1',
+    startDate: '2025-03-03', endDate: '2025-03-28' },
+  { id: 't1', name: 'Design', parentId: 'p1', sequence: '1.1',
+    startDate: '2025-03-03', endDate: '2025-03-12', progress: 100 },
+  { id: 't2', name: 'Build', parentId: 'p1', sequence: '1.2',
+    startDate: '2025-03-12', endDate: '2025-03-28', progress: 40 },
+];
+
+function TaskDetail({ task, close }: GanttDetailRenderProps) {
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        <h2 style={{ margin: 0, fontSize: 14 }}>{task.name}</h2>
+        <button type="button" onClick={close} aria-label="Close task details">
+          ✕
+        </button>
+      </div>
+      <p style={{ margin: 0, fontSize: 12 }}>
+        {task.startDate.slice(0, 10)} → {task.endDate.slice(0, 10)}
+      </p>
+      <p style={{ margin: 0, fontSize: 12 }}>{task.progress ?? 0}% done</p>
+    </>
+  );
+}
+
+export function ProjectChart() {
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      showTaskList
+      hierarchy
+      renderDetail={(props) => <TaskDetail {...props} />}
+      detailTaskId={detailTaskId}
+      onDetailChange={(task) => setDetailTaskId(task?.id ?? null)}
+      height={420}
+    />
+  );
+}
+```
+
+`renderDetail`'s relatives — `renderTooltip`, `renderHeaderCell` and `renderBaseline` — are in
+[Custom rendering](custom-rendering).
+
+## Panel width
+
+One custom property, `--gantt-detail-width`, declared on `.gantt-container` next to the theme tokens
+in [Theming](theming). It defaults to `320px`.
+
+```css
+.gantt-container {
+  --gantt-detail-width: 420px;
+}
+```
+
+The panel is laid out as `flex: 0 0 var(--gantt-detail-width)`, so it neither grows nor shrinks: the
+timeline absorbs the whole change. The panel adds no colour token of its own — it paints itself from
+the tokens the rest of the chart already uses.
+
+## Edge cases
+
+**The open task leaves `tasks`.** The panel closes with it, because the open id no longer resolves to
+a task. `onDetailChange` is deliberately *not* fired for that: your own change to `tasks` caused it,
+so it is not news to you.
+
+**`detailTaskId` naming a task that is not in the array.** Same result — the panel is closed, and no
+error is raised. It opens as soon as an id that does resolve arrives.
+
+**`Escape` leaves the row selected.** It closes the panel only. `onTaskSelect` does not fire.
+
+**Clicking empty timeline space.** The selection is cleared *and* the panel closes.
+
+**Collapsing the open task's parent.** The panel stays open. Ids resolve against every task the chart
+holds, not against the visible rows, so a hidden row keeps its panel.
+
+**Clicking another row while the panel is open.** The panel switches to that task in place and does
+not pull focus back — focus is restored only when the panel unmounts.
+
+**Under `'selection'` the panel answers to the click, not to the selection changing.** That is
+deliberate. Selection ignores a click on the already-selected row, so a panel driven by the selection
+would stay shut after `Escape` however often you clicked the same row.
+
+## Limits
+
+The panel does not resize. There is no drag handle and no width prop — `--gantt-detail-width` is the
+only lever, and it is CSS, so it cannot be animated into place by a host that wants a spring.
+
+Placement is fixed on the right. There is no left, bottom or floating variant, and no prop to detach
+it into a window of its own.
+
+It shows one task at a time. There are no tabs, no history, no back button between tasks, and no
+multi-select panel.
+
+Nothing inside it is editable. The built-in body renders values, never inputs; a form there is your
+`renderDetail` and your state, and the chart will not hear about it unless you feed the result back
+through `tasks`.
+
+There is no animation. The panel appears and disappears on the frame the open task changes, and
+`prefers-reduced-motion` has nothing to do for it.
+
+So the host app owns: any control that toggles `showDetail`, holding the open id in state if it wants
+controlled mode, everything a form in `renderDetail` does, and persisting the panel width if a user
+should be able to change it.
+
+Next: [Events](events), where every callback a gesture fires — `onDetailChange` among them — is
+listed with its arguments.

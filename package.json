@@ -25,17 +25,14 @@
     "README.md",
     "LICENSE"
   ],
-  "description": "React Gantt chart with editable bars, dependency arrows, and headless scheduling utilities",
+  "description": "React Gantt chart with editable bars, dependency arrows, and headless date utilities",
   "keywords": [
     "gantt",
     "gantt-chart",
     "chart",
     "project-management",
     "react",
-    "scheduler",
-    "scheduling",
     "timeline",
-    "critical-path",
     "virtualized"
   ],
   "author": "jaeungkim",
@@ -49,20 +46,19 @@
     "url": "https://github.com/jaeungkim/gantt-chart/issues"
   },
   "scripts": {
-    "dev": "pnpm --filter @gantt-chart/playground dev",
+    "dev": "pnpm --filter @gantt-chart/site dev",
     "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.d.ts','dist/index.d.cts')\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "type-check": "tsc --noEmit && tsc --noEmit -p apps/playground",
+    "type-check": "tsc --noEmit",
     "test": "vitest run",
-    "docs": "pnpm --filter @gantt-chart/docs dev"
+    "docs:build": "pnpm build && pnpm --filter @gantt-chart/site build"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0"
   },
   "dependencies": {
-    "@tanstack/react-virtual": "^3.14.10",
     "dayjs": "^1.11.23",
     "zustand": "^5.0.15"
   },

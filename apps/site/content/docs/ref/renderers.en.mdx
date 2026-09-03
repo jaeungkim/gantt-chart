@@ -1,0 +1,253 @@
+---
+title: "Render prop types"
+description: "`GanttTooltipRenderer`, `GanttHeaderCellRenderer`, `GanttDetailRenderer`"
+---
+
+Four props replace a piece of the chart's own markup: `renderTooltip`, `renderHeaderCell`,
+`renderDetail` and `renderBaseline`. Their types come from `@jaeungkim/gantt-chart`, except
+`renderBaseline`, which is declared inline on `GanttProps` and has no exported named type.
+Behaviour and worked examples live in [Custom rendering](../custom-rendering).
+
+```ts
+import type {
+  GanttTooltipRenderer,
+  GanttTooltipRenderProps,
+  GanttTooltipReason,
+  GanttHeaderCellRenderer,
+  GanttHeaderCellRenderProps,
+  GanttDetailRenderer,
+  GanttDetailRenderProps,
+} from '@jaeungkim/gantt-chart';
+```
+
+`TaskTransformed` is documented in [Task](task) and `GanttScaleKey` in [Scales](scales).
+`Dayjs` comes from `dayjs`; `ReactNode` and `CSSProperties` come from `react`.
+
+## GanttTooltipRenderer
+
+```ts title="src/shared/types.ts"
+/** Why a tooltip is showing */
+export type GanttTooltipReason = 'hover' | 'move' | 'resize' | 'progress';
+
+/** Props handed to a `renderTooltip` override */
+export interface GanttTooltipRenderProps {
+  task: TaskTransformed;
+  reason: GanttTooltipReason;
+  /** Start being previewed - the live drag value while a gesture is running */
+  startDate: Dayjs;
+  /** End being previewed */
+  endDate: Dayjs;
+  /** End minus start in milliseconds */
+  durationMs: number;
+  /** Progress 0-100, or null when the task has none */
+  progress: number | null;
+  scale: GanttScaleKey;
+}
+
+export type GanttTooltipRenderer = (
+  props: GanttTooltipRenderProps
+) => ReactNode;
+```
+
+### Fields
+
+| Field | Type | Value |
+|---|---|---|
+| `task` | `TaskTransformed` | The task the tooltip belongs to |
+| `reason` | `GanttTooltipReason` | See the table below |
+| `startDate` | `Dayjs` | The live drag start while a gesture runs, otherwise `dayjs(task.startDate)` |
+| `endDate` | `Dayjs` | The live drag end while a gesture runs, otherwise `dayjs(task.endDate)` |
+| `durationMs` | `number` | `endDate.valueOf() - startDate.valueOf()`, in milliseconds |
+| `progress` | `number \| null` | The live value while the progress handle is dragged, otherwise the task's clamped `progress`. `null` when the task has none |
+| `scale` | `GanttScaleKey` | The scale currently selected |
+
+### reason
+
+Resolved most specific first.
+
+| Value | When |
+|---|---|
+| `progress` | The progress handle is being dragged |
+| `resize` | A bar drag is running in mode `left` or `right` |
+| `move` | A bar drag is running in mode `bar` |
+| `hover` | The mouse is over the bar and nothing is being dragged |
+
+None of the above means the renderer is not called at all. Neither is it called while
+`showTooltip` is `false`.
+
+### Constraints
+
+There is no props bag here, so nothing must be spread.
+
+- `showTooltip` defaults to `true`. Setting it to `false` suppresses the hover tooltip, the drag
+  tooltip and `renderTooltip` alike.
+- The returned node is rendered as the last child of the bar node. Positioning comes from the
+  `.gantt-bar-tooltip` class, so a replacement that does not use that class positions itself.
+- The default markup is `<div class="gantt-bar-tooltip gantt-sr-only" role="status" aria-live="polite">`
+  during a gesture and `<div class="gantt-bar-tooltip gantt-bar-tooltip-detail" role="tooltip">` on
+  hover. A replacement without those roles loses the live announcement.
+- The gesture node is visually hidden by `gantt-sr-only`: the visible readout for a move or a resize
+  is the range band on the date header, so the bar does not print the same dates a second time. It
+  is still mounted and still announced. A `renderTooltip` of your own is not hidden - it is rendered
+  as given, for `reason: "move"` and `"resize"` too.
+
+## GanttHeaderCellRenderer
+
+```ts title="src/shared/types.ts"
+/** Props handed to a `renderHeaderCell` override */
+export interface GanttHeaderCellRenderProps {
+  /** `'top'` is a merged group label, `'bottom'` a single time tick */
+  row: 'top' | 'bottom';
+  date: Dayjs;
+  /** The label the default header would print */
+  label: string;
+  width: number;
+  scale: GanttScaleKey;
+  /** Spread onto the root node of the replacement to keep the header layout intact */
+  cellProps: { className: string; style: CSSProperties };
+}
+
+export type GanttHeaderCellRenderer = (
+  props: GanttHeaderCellRenderProps
+) => ReactNode;
+```
+
+### Fields
+
+| Field | Type | Value |
+|---|---|---|
+| `row` | `'top' \| 'bottom'` | `'top'` for a merged group label, `'bottom'` for one tick |
+| `date` | `Dayjs` | The cell's UTC start — the merged group's start for `'top'`, the tick's start for `'bottom'` |
+| `label` | `string` | Exactly what the default header would print, locale and `formats` overrides already applied |
+| `width` | `number` | The cell's width in px — the merged group width for `'top'`, the virtualized tick size for `'bottom'` |
+| `scale` | `GanttScaleKey` | The scale currently selected |
+| `cellProps` | object | See the table below |
+
+### cellProps
+
+| `row` | `cellProps.className` | `cellProps.style` |
+|---|---|---|
+| `'top'` | `"gantt-top-group"` | `{ width: '<group width>px' }` |
+| `'bottom'` | `"gantt-bottom-cell"` | `{ width: '<tick width>px' }` |
+
+### Constraints
+
+Spread `cellProps` on the root node of the replacement.
+
+- Both header rows go through the same renderer, so a replacement must branch on `row`.
+- Without `cellProps.style` the cell has no explicit width. Both rows are flex rows, and the bottom
+  row starts with a spacer sized to the virtualized cells skipped on the left, so one auto-sized
+  cell shifts every cell after it and the header stops lining up with the bars.
+- Without `cellProps.className` the cell loses the borders and typography the stylesheet gives it.
+- The result is wrapped in a `Fragment` with a key by the chart, so the renderer supplies no key.
+- The default children are not carried: the top row's `<p class="gantt-top-group-label">{label}</p>`
+  and the bottom cell's tick label text.
+
+## GanttDetailRenderer
+
+```ts title="src/shared/types.ts"
+/** Props handed to a `renderDetail` override */
+export interface GanttDetailRenderProps {
+  task: TaskTransformed;
+  /** Closes the panel - wire it to your own close control */
+  close: () => void;
+  scale: GanttScaleKey;
+}
+
+export type GanttDetailRenderer = (props: GanttDetailRenderProps) => ReactNode;
+```
+
+### Fields
+
+| Field | Type | Value |
+|---|---|---|
+| `task` | `TaskTransformed` | The open task, as the chart transformed it |
+| `close` | `() => void` | Closes the panel — the same function the built-in close button calls |
+| `scale` | `GanttScaleKey` | The scale currently selected |
+
+### Example
+
+```tsx
+const renderDetail: GanttDetailRenderer = ({ task, close, scale }) => (
+  <>
+    <button type="button" onClick={close} aria-label="Close task details">
+      ✕
+    </button>
+    <h2>{task.name}</h2>
+    <p>
+      {task.startDate.slice(0, 10)} → {task.endDate.slice(0, 10)} · {scale}
+    </p>
+  </>
+);
+```
+
+### Constraints
+
+Only the panel's children are the renderer's, so there is no props bag to spread.
+
+- The `<aside class="gantt-detail" role="complementary" aria-label="Task details">` stays the
+  chart's, and so does its width — that comes from the `--gantt-detail-width` custom property
+  (`320px`), not from the renderer.
+- The close button is not carried over. `close` is the same function the built-in one calls, and
+  `Escape` closes the panel from anywhere whether or not a replacement renders a control of its own.
+- Returning `null` or `undefined` renders an **empty** panel, not the default body. Unlike
+  `renderBaseline`, there is no fallback to the built-in markup here.
+- Passing the renderer turns the panel on when `showDetail` is omitted, the way `showTaskList`
+  turns the task list on. An explicit `showDetail={false}` still wins.
+- The renderer runs only while a task is open. With nothing open there is no `<aside>` in the DOM at
+  all, so it is never called without a task — `detailTrigger="none"` included.
+- The renderer is the only way to put a task's other fields in the panel. The default body shows
+  the name and the dates, and there is no prop that adds a row to it.
+
+What opens the panel, controlled mode and the default body are in
+[Detail panel](../detail-panel).
+
+## renderBaseline
+
+Declared inline on `GanttProps` — there is no exported renderer type for it, so it cannot be
+imported by name.
+
+```ts title="src/props.ts"
+/**
+ * Replaces the default baseline bar
+ *
+ * Called only for tasks that carry `baselineStart`. Return whatever you like - the
+ * element is positioned by the row, not by the renderer.
+ */
+renderBaseline?: (task: TaskTransformed) => ReactNode;
+```
+
+The default it replaces:
+
+```tsx title="src/bars/components/GanttBarsLayer.tsx"
+<div
+  className="gantt-baseline"
+  style={{
+    left: `${task.baselineLeft}px`,
+    width: `${Math.max(task.baselineWidth ?? 0, MIN_BAR_WIDTH)}px`,
+  }}
+  aria-hidden="true"
+/>
+```
+
+### Constraints
+
+There is no props bag and no `left` / `width` argument, so nothing must be spread — and nothing is
+positioned for you horizontally.
+
+- The renderer runs only when `task.baselineLeft !== undefined`. The JSDoc names `baselineStart`;
+  the code reads the derived geometry field, which today is set only when `baselineStart` is
+  present.
+- Read `task.baselineLeft` and `task.baselineWidth` off the task yourself. Both are
+  `number | undefined` on `TaskTransformed`. `baselineWidth` is the measured width, not the drawn
+  one - the default element clamps it to `MIN_BAR_WIDTH` (14px), and a renderer that wants a
+  point baseline to be visible has to do the same.
+- The node renders inside the bar's wrapper, which supplies the vertical placement only. Horizontal
+  placement is the renderer's job.
+- Returning `null` or `undefined` renders the **default** baseline element, not nothing. There is
+  no way to hide a baseline through this prop.
+- A bar culled from the viewport takes its baseline with it, so the renderer is not called for
+  off-screen rows.
+
+Baselines themselves are covered in [Working calendar](../working-calendar). Every prop named here is
+indexed in [Props](props).

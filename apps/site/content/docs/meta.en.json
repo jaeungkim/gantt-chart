@@ -1,0 +1,27 @@
+{
+  "title": "Guides",
+  "pages": [
+    "index",
+    "introduction",
+    "concepts",
+    "quick-start",
+    "task-data",
+    "task-list",
+    "grouping",
+    "timeline",
+    "editing",
+    "dependencies",
+    "working-calendar",
+    "detail-panel",
+    "events",
+    "custom-rendering",
+    "imperative-api",
+    "accessibility",
+    "i18n",
+    "theming",
+    "headless-core",
+    "...",
+    "---Reference---",
+    "ref"
+  ]
+}

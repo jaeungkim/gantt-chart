@@ -1,0 +1,251 @@
+---
+title: "Render prop 타입"
+description: "`GanttTooltipRenderer`, `GanttHeaderCellRenderer`, `GanttDetailRenderer`"
+---
+
+네 개의 prop이 차트가 직접 그리는 마크업의 일부를 대체해요. `renderTooltip`,
+`renderHeaderCell`, `renderDetail`, `renderBaseline`이에요. 타입은 `@jaeungkim/gantt-chart`에서 가져와요. 다만
+`renderBaseline`은 `GanttProps`에 인라인으로 선언돼 있어서 이름으로 export된 타입이 없어요.
+동작과 실제 예제는 [커스텀 렌더링](../custom-rendering)에 있어요.
+
+```ts
+import type {
+  GanttTooltipRenderer,
+  GanttTooltipRenderProps,
+  GanttTooltipReason,
+  GanttHeaderCellRenderer,
+  GanttHeaderCellRenderProps,
+  GanttDetailRenderer,
+  GanttDetailRenderProps,
+} from '@jaeungkim/gantt-chart';
+```
+
+`TaskTransformed`는 [작업](task)에, `GanttScaleKey`는 [배율](scales)에 정리돼 있어요.
+`Dayjs`는 `dayjs`에서 와요. `ReactNode`, `CSSProperties`는 `react`에서 와요.
+
+## GanttTooltipRenderer
+
+```ts title="src/shared/types.ts"
+/** 툴팁이 보이는 이유 */
+export type GanttTooltipReason = 'hover' | 'move' | 'resize' | 'progress';
+
+/** `renderTooltip` 오버라이드에 전달되는 props */
+export interface GanttTooltipRenderProps {
+  task: TaskTransformed;
+  reason: GanttTooltipReason;
+  /** 미리보기 중인 시작 - 제스처가 진행 중이면 드래그 중인 값 */
+  startDate: Dayjs;
+  /** 미리보기 중인 종료 */
+  endDate: Dayjs;
+  /** 종료에서 시작을 뺀 값, 밀리초 */
+  durationMs: number;
+  /** 진행률 0-100, 값이 없는 작업이면 null */
+  progress: number | null;
+  scale: GanttScaleKey;
+}
+
+export type GanttTooltipRenderer = (
+  props: GanttTooltipRenderProps
+) => ReactNode;
+```
+
+### 필드
+
+| 필드 | 타입 | 값 |
+|---|---|---|
+| `task` | `TaskTransformed` | 툴팁이 속한 작업 |
+| `reason` | `GanttTooltipReason` | 아래 표를 보세요 |
+| `startDate` | `Dayjs` | 제스처가 진행 중이면 드래그 중인 시작, 아니면 `dayjs(task.startDate)` |
+| `endDate` | `Dayjs` | 제스처가 진행 중이면 드래그 중인 종료, 아니면 `dayjs(task.endDate)` |
+| `durationMs` | `number` | `endDate.valueOf() - startDate.valueOf()`, 밀리초 단위 |
+| `progress` | `number \| null` | 진행률 핸들을 드래그하는 동안에는 실시간 값, 아니면 작업의 clamp된 `progress`. 값이 없는 작업이면 `null` |
+| `scale` | `GanttScaleKey` | 현재 선택된 배율 |
+
+### reason
+
+가장 구체적인 것부터 차례로 결정돼요.
+
+| 값 | 조건 |
+|---|---|
+| `progress` | 진행률 핸들을 드래그하는 중 |
+| `resize` | 막대 드래그가 `left` 또는 `right` 모드로 진행 중 |
+| `move` | 막대 드래그가 `bar` 모드로 진행 중 |
+| `hover` | 마우스가 막대 위에 있고 아무것도 드래그하지 않는 중 |
+
+위 중 어느 것도 아니면 렌더러는 아예 호출되지 않아요. `showTooltip`이 `false`일 때도 호출되지
+않아요.
+
+### 제약
+
+여기에는 props 묶음이 없어요. 그래서 spread 할 것도 없어요.
+
+- `showTooltip`의 기본값은 `true`예요. `false`로 설정하면 호버 툴팁, 드래그 툴팁, `renderTooltip`이
+  모두 함께 막혀요.
+- 반환한 노드는 막대 노드의 마지막 자식으로 렌더링돼요. 위치는 `.gantt-bar-tooltip` 클래스가
+  잡아요. 그래서 그 클래스를 쓰지 않는 대체 노드는 스스로 위치를 잡아야 해요.
+- 기본 마크업은 제스처 중에는
+  `<div class="gantt-bar-tooltip gantt-sr-only" role="status" aria-live="polite">`, 호버일 때는
+  `<div class="gantt-bar-tooltip gantt-bar-tooltip-detail" role="tooltip">`이에요. 이 role이 없는
+  대체 노드는 실시간 안내를 잃어요.
+- 제스처 노드는 `gantt-sr-only`로 화면에서는 숨겨져요. 이동이나 크기 조절의 눈에 보이는 readout은
+  날짜 헤더의 범위 밴드예요. 막대가 같은 날짜를 한 번 더 찍지 않도록요. 노드는 그대로 마운트되고
+  그대로 안내돼요. 직접 넘긴 `renderTooltip`은 숨기지 않아요. `reason`이 `"move"`나 `"resize"`일
+  때도 준 그대로 렌더링돼요.
+
+## GanttHeaderCellRenderer
+
+```ts title="src/shared/types.ts"
+/** `renderHeaderCell` 오버라이드에 전달되는 props */
+export interface GanttHeaderCellRenderProps {
+  /** `'top'`은 병합된 그룹 레이블, `'bottom'`은 시간 눈금 하나 */
+  row: 'top' | 'bottom';
+  date: Dayjs;
+  /** 기본 헤더가 찍었을 레이블 */
+  label: string;
+  width: number;
+  scale: GanttScaleKey;
+  /** 헤더 레이아웃을 그대로 두려면 대체 노드의 루트에 spread 하세요 */
+  cellProps: { className: string; style: CSSProperties };
+}
+
+export type GanttHeaderCellRenderer = (
+  props: GanttHeaderCellRenderProps
+) => ReactNode;
+```
+
+### 필드
+
+| 필드 | 타입 | 값 |
+|---|---|---|
+| `row` | `'top' \| 'bottom'` | 병합된 그룹 레이블이면 `'top'`, 눈금 하나면 `'bottom'` |
+| `date` | `Dayjs` | 셀의 UTC 시작 — `'top'`이면 병합된 그룹의 시작, `'bottom'`이면 눈금의 시작 |
+| `label` | `string` | 기본 헤더가 찍었을 문자열 그대로예요. locale과 `formats` 오버라이드가 이미 반영돼 있어요 |
+| `width` | `number` | 셀의 너비(px) — `'top'`이면 병합된 그룹 너비, `'bottom'`이면 가상화된 눈금 크기 |
+| `scale` | `GanttScaleKey` | 현재 선택된 배율 |
+| `cellProps` | object | 아래 표를 보세요 |
+
+### cellProps
+
+| `row` | `cellProps.className` | `cellProps.style` |
+|---|---|---|
+| `'top'` | `"gantt-top-group"` | `{ width: '<group width>px' }` |
+| `'bottom'` | `"gantt-bottom-cell"` | `{ width: '<tick width>px' }` |
+
+### 제약
+
+대체 노드의 루트에 `cellProps`를 spread 하세요.
+
+- 헤더 두 행이 같은 렌더러를 거쳐요. 그래서 대체 노드는 `row`로 분기해야 해요.
+- `cellProps.style`이 없으면 셀에 명시적인 너비가 없어요. 두 행 모두 flex 행이고, 아래 행은 왼쪽에서
+  건너뛴 가상화 셀만큼의 spacer로 시작해요. 그래서 크기가 자동인 셀 하나가 뒤의 모든 셀을 밀어내고,
+  헤더가 막대와 어긋나요.
+- `cellProps.className`이 없으면 셀은 스타일시트가 주던 테두리와 타이포그래피를 잃어요.
+- 결과는 차트가 key를 붙인 `Fragment`로 감싸요. 그래서 렌더러는 key를 넘기지 않아요.
+- 기본 자식은 딸려오지 않아요. 위 행의 `<p class="gantt-top-group-label">{label}</p>`와 아래 셀의
+  눈금 레이블 텍스트요.
+
+## GanttDetailRenderer
+
+```ts title="src/shared/types.ts"
+/** `renderDetail` 오버라이드에 전달되는 props */
+export interface GanttDetailRenderProps {
+  task: TaskTransformed;
+  /** 패널을 닫아요 - 직접 만든 닫기 컨트롤에 연결하세요 */
+  close: () => void;
+  scale: GanttScaleKey;
+}
+
+export type GanttDetailRenderer = (props: GanttDetailRenderProps) => ReactNode;
+```
+
+### 필드
+
+| 필드 | 타입 | 값 |
+|---|---|---|
+| `task` | `TaskTransformed` | 열려 있는 작업이에요. 차트가 변환한 형태 그대로예요 |
+| `close` | `() => void` | 패널을 닫아요 — 내장 닫기 버튼이 호출하는 것과 같은 함수예요 |
+| `scale` | `GanttScaleKey` | 현재 선택된 배율 |
+
+### 예제
+
+```tsx
+const renderDetail: GanttDetailRenderer = ({ task, close, scale }) => (
+  <>
+    <button type="button" onClick={close} aria-label="Close task details">
+      ✕
+    </button>
+    <h2>{task.name}</h2>
+    <p>
+      {task.startDate.slice(0, 10)} → {task.endDate.slice(0, 10)} · {scale}
+    </p>
+  </>
+);
+```
+
+### 제약
+
+렌더러의 몫은 패널의 자식뿐이에요. 그래서 spread 할 props 묶음이 없어요.
+
+- `<aside class="gantt-detail" role="complementary" aria-label="Task details">`는 차트의 것으로
+  남아요. 너비도 마찬가지예요. 너비는 렌더러가 아니라 `--gantt-detail-width` 커스텀 속성(`320px`)이
+  정해요.
+- 닫기 버튼은 딸려오지 않아요. `close`는 내장 버튼이 호출하는 것과 같은 함수예요. 대체 노드가 닫기
+  컨트롤을 직접 그리든 안 그리든 `Escape`는 어디서나 패널을 닫아요.
+- `null`이나 `undefined`를 반환하면 기본 본문이 아니라 **빈** 패널이 렌더링돼요. `renderBaseline`과
+  달리 여기에는 내장 마크업으로 돌아가는 fallback이 없어요.
+- `showDetail`을 생략했다면 이 렌더러를 넘기는 것이 패널을 켜는 스위치예요. `showTaskList`가 작업
+  목록을 켜는 것과 같아요. 명시한 `showDetail={false}`가 항상 이겨요.
+- 렌더러는 작업이 열려 있는 동안에만 실행돼요. 아무것도 열려 있지 않으면 DOM에 `<aside>` 자체가
+  없어서 작업 없이 호출되는 일은 없어요. `detailTrigger="none"`일 때도 마찬가지예요.
+- 작업의 나머지 필드를 패널에 넣는 방법은 렌더러뿐이에요. 기본 본문은 이름과 날짜를 보여주고, 거기에
+  줄을 더하는 prop은 없어요.
+
+무엇이 패널을 여는지, controlled 모드, 기본 본문은 [상세 패널](../detail-panel)에 있어요.
+
+## renderBaseline
+
+`GanttProps`에 인라인으로 선언돼 있어요. export된 렌더러 타입이 없어서 이름으로 import할 수 없어요.
+
+```ts title="src/props.ts"
+/**
+ * 기본 베이스라인 막대를 대체해요
+ *
+ * `baselineStart`를 가진 작업에만 호출돼요. 무엇을 반환하든 상관없어요 - 요소의
+ * 위치는 렌더러가 아니라 행이 잡아요.
+ */
+renderBaseline?: (task: TaskTransformed) => ReactNode;
+```
+
+이 prop이 대체하는 기본값이에요.
+
+```tsx title="src/bars/components/GanttBarsLayer.tsx"
+<div
+  className="gantt-baseline"
+  style={{
+    left: `${task.baselineLeft}px`,
+    width: `${Math.max(task.baselineWidth ?? 0, MIN_BAR_WIDTH)}px`,
+  }}
+  aria-hidden="true"
+/>
+```
+
+### 제약
+
+props 묶음도 없고 `left` / `width` 인자도 없어요. 그래서 spread 할 것은 없지만, 가로 위치도 아무도
+잡아 주지 않아요.
+
+- 렌더러는 `task.baselineLeft !== undefined`일 때만 실행돼요. JSDoc은 `baselineStart`라고 적어
+  뒀지만, 코드는 파생된 지오메트리 필드를 읽어요. 그 필드는 지금은 `baselineStart`가 있을 때만
+  채워져요.
+- `task.baselineLeft`와 `task.baselineWidth`는 작업에서 직접 읽으세요. 둘 다 `TaskTransformed`에서
+  `number | undefined`예요. `baselineWidth`는 측정된 너비지 그려지는 너비가 아니에요. 기본 요소는
+  `MIN_BAR_WIDTH`(14px)로 하한을 잡으니, 점 하나짜리 베이스라인을 보이게 하려면 렌더러도 똑같이
+  해야 해요.
+- 노드는 막대 래퍼 안에 렌더링돼요. 래퍼는 세로 배치만 잡아 줘요. 가로 배치는 렌더러의 몫이에요.
+- `null`이나 `undefined`를 반환하면 아무것도 안 그려지는 게 아니라 **기본** 베이스라인 요소가
+  렌더링돼요. 이 prop으로 베이스라인을 숨길 방법은 없어요.
+- 뷰포트에서 걸러진 막대는 베이스라인도 함께 데려가요. 그래서 화면 밖 행에는 렌더러가 호출되지
+  않아요.
+
+베이스라인 자체는 [근무일 달력](../working-calendar)에서 다뤄요. 여기 나온 모든 prop은
+[Props](props)에 정리돼 있어요.

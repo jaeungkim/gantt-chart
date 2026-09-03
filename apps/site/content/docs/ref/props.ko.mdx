@@ -1,0 +1,182 @@
+---
+title: "GanttProps"
+description: "컴포넌트가 받는 모든 prop"
+---
+
+`GanttProps`는 `ReactGanttChart`가 받는 프로퍼티 전체예요. 이 타입과 아래 표에 나오는 모든 타입은
+패키지 루트에서 내보내요. `Dayjs`, `ReactNode`, `React.MouseEvent`만 예외이고, 이 셋은 `dayjs`와
+`react`에서 와요:
+
+```tsx
+import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
+```
+
+모든 프로퍼티는 선택이에요. 기본값 열에는 컴포넌트가 실제로 사용하는 대체 값이 들어 있어요. `없음`은
+대체 값이 없다는 뜻이고, 그 프로퍼티가 켜는 기능도 꺼진 채로 있어요.
+
+## 데이터
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `tasks` | `Task[]` | `[]` | 작업 배열이에요. [작업 데이터](../task-data) 참고. |
+| `onTasksChange` | `(updatedTasks: Task[]) => void` | 없음 | 편집이 확정될 때마다 배열 전체와 함께 호출돼요. [작업 편집](../editing) 참고. |
+
+## 레이아웃과 크기
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `height` | `number \| string` | `600` | 차트 높이예요. px 숫자나 아무 CSS 길이나 받아요. [빠른 시작](../quick-start) 참고. |
+| `width` | `number \| string` | `"100%"` | 차트 너비예요. px 숫자나 아무 CSS 길이나 받아요. [빠른 시작](../quick-start) 참고. |
+| `className` | `string` | 없음 | 컨테이너의 `gantt-container` 클래스 뒤에 붙어요. [테마](../theming) 참고. |
+
+## 작업 목록
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `showTaskList` | `boolean` | `false` | 왼쪽 패널을 보여줘요. 작업 이름만 나열하고 그 밖의 것은 없어요. [작업 목록과 계층](../task-list) 참고. |
+
+## 계층과 그룹
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `hierarchy` | `boolean` | `false` | `parentId`로 깊이와 요약 행을 계산해요. [작업 목록과 계층](../task-list) 참고. |
+| `collapsedIds` | `string[]` | 없음 — 차트가 자체 목록을 들고 있어요 | 제어 방식의 접힘 집합이에요. [작업 목록과 계층](../task-list) 참고. |
+| `defaultCollapsedIds` | `string[]` | `[]` | 비제어 초기값이고, 마운트할 때 한 번만 읽어요. [작업 목록과 계층](../task-list) 참고. |
+| `onCollapsedChange` | `(collapsedIds: string[]) => void` | 없음 | 제어 여부와 상관없이 접기 토글마다 호출돼요. [작업 목록과 계층](../task-list) 참고. |
+| `groupBy` | `GanttGroupBy` | 없음 | 행을 스윔레인으로 묶어요. [그룹과 스윔레인](../grouping)과 [GanttGroupBy](grouping) 참고. |
+| `ungroupedLabel` | `string` | `"Ungrouped"` | 그룹 값이 없는 작업의 헤더 라벨이에요. [그룹과 스윔레인](../grouping) 참고. |
+
+## 타임라인과 범위
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `defaultScale` | `GanttScaleKey` | `"month"` | 차트를 만들 때 한 번 읽는 시작 배율이에요. [타임라인](../timeline) 참고. |
+| `onScaleChange` | `(scale: GanttScaleKey) => void` | 없음 | 무엇이 바꿨든 배율이 확정될 때마다 호출돼요. [타임라인](../timeline) 참고. |
+| `visibleStart` | `string` | 없음 — 범위가 작업에 맞춰져요 | 타임라인 시작을 이 ISO 날짜에 고정해요. [타임라인](../timeline) 참고. |
+| `visibleEnd` | `string` | 없음 — 범위가 작업에 맞춰져요 | 타임라인 끝을 이 ISO 날짜에 고정해요. [타임라인](../timeline) 참고. |
+| `showNonWorkingDays` | `boolean` | `true` | 주말과 휴일을 음영 처리해요. [타임라인](../timeline) 참고. |
+| `holidays` | `string[]` | 없음 — 휴일로 처리하는 날짜가 없어요 | 비근무일로 음영 처리할 ISO 날짜 문자열이에요. [타임라인](../timeline) 참고. |
+| `isNonWorkingDay` | `(date: Dayjs) => boolean` | 없음 — 주말과 `holidays` 검사를 써요 | 내장 비근무일 판정을 대신해요. [타임라인](../timeline) 참고. |
+| `onRangeChange` | `(range: GanttDateRange) => void` | 없음 | 렌더링된 범위가 바뀔 때마다 호출돼요. [타임라인](../timeline) 참고. |
+
+## 확대와 스크롤
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `zoomOnWheel` | `boolean` | `false` | Ctrl/Cmd + 휠로 배율 단계를 오르내려요. [타임라인](../timeline) 참고. |
+| `infiniteScroll` | `boolean` | `false` | 어느 쪽 끝에든 가까워지면 렌더링 범위를 늘려요. [타임라인](../timeline) 참고. |
+| `initialScrollTo` | `"today" \| string` | 없음 | 타임라인이 처음 렌더링된 뒤 한 번만 스크롤해요. [명령형 API](../imperative-api) 참고. |
+| `autoScrollOnDrag` | `boolean` | `true` | 뷰포트 가장자리에서 막대를 끌면 타임라인이 스크롤돼요. [작업 편집](../editing) 참고. |
+
+## 편집 권한
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `readOnly` | `boolean` | `false` | 모든 작업의 이동, 크기 조절, 진행률 드래그를 막아요. [작업 편집](../editing) 참고. |
+| `allowMove` | `boolean` | `!readOnly` | 막대 이동을 허용하고 `readOnly`보다 우선해요. [작업 편집](../editing) 참고. |
+| `allowResize` | `boolean` | `!readOnly` | 막대 크기 조절을 허용하고 `readOnly`보다 우선해요. [작업 편집](../editing) 참고. |
+| `allowProgressChange` | `boolean` | `!readOnly` | 진행률 핸들 드래그를 허용하고 `readOnly`보다 우선해요. [작업 편집](../editing) 참고. |
+| `allowTaskCreate` | `boolean` | `!readOnly` | 새 작업 제안을 허용해요. **Add task** 버튼도, `addTask()`도, 그린 범위도 함께요. [작업 편집](../editing) 참고. |
+| `allowReorder` | `boolean` | `false` | 작업 목록 행을 끌어 다른 자리나 다른 부모로 옮기도록 허용해요. [작업 편집](../editing) 참고. |
+| `minDate` | `string` | 없음 | 막대를 끌어 놓을 수 있는 가장 이른 ISO 날짜예요. [작업 편집](../editing) 참고. |
+| `maxDate` | `string` | 없음 | 막대를 끌어 놓을 수 있는 가장 늦은 ISO 날짜예요. [작업 편집](../editing) 참고. |
+
+## 의존성
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `allowLinkCreate` | `boolean` | `!readOnly` | 막대 사이에 의존성을 그리도록 허용해요. [의존성](../dependencies) 참고. |
+| `allowLinkDelete` | `boolean` | `!readOnly` | 의존성 화살표를 선택해 지우도록 허용해요. [의존성](../dependencies) 참고. |
+| `onDependencyCreate` | `(change: GanttDependencyChange) => boolean \| void` | 없음 | 그린 링크가 적용되기 전에 실행돼요. `false`면 거부해요. [의존성](../dependencies) 참고. |
+| `onDependencyDelete` | `(change: GanttDependencyChange) => boolean \| void` | 없음 | 화살표가 지워지기 전에 실행돼요. `false`면 그대로 둬요. [의존성](../dependencies) 참고. |
+
+## 근무일 캘린더
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `workingCalendar` | `boolean` | `false` | 모든 날짜 계산을 근무일 캘린더로 처리해요. [근무일 캘린더](../working-calendar) 참고. |
+
+## 렌더링
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `renderTooltip` | `GanttTooltipRenderer` | 없음 — 내장 툴팁을 써요 | 호버와 드래그 툴팁 노드를 바꿔요. [커스텀 렌더링](../custom-rendering)과 [렌더러](renderers) 참고. |
+| `renderHeaderCell` | `GanttHeaderCellRenderer` | 없음 — 내장 헤더 셀을 써요 | 타임라인 헤더 셀을 두 행 모두에서 바꿔요. [커스텀 렌더링](../custom-rendering)과 [렌더러](renderers) 참고. |
+| `renderBaseline` | `(task: TaskTransformed) => ReactNode` | 없음 — 내장 기준선 막대를 써요 | `baselineStart`가 있는 작업의 기준선 막대를 바꿔요. [근무일 캘린더](../working-calendar) 참고. |
+| `showTooltip` | `boolean` | `true` | 호버와 드래그 툴팁을 보여줘요. [커스텀 렌더링](../custom-rendering) 참고. |
+
+## 이벤트
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `onTaskClick` | `(task: TaskTransformed, event: React.MouseEvent) => void` | 없음 | 막대나 행을 클릭할 때 호출되고, 드래그 뒤에는 호출되지 않아요. [이벤트](../events) 참고. |
+| `onTaskDoubleClick` | `(task: TaskTransformed, event: React.MouseEvent) => void` | 없음 | 더블 클릭할 때 호출돼요. [이벤트](../events) 참고. |
+| `onTaskSelect` | `(task: TaskTransformed \| null) => void` | 없음 | 선택이 바뀔 때 호출되고, 빈 타임라인을 클릭하면 `null`이 와요. [이벤트](../events) 참고. |
+| `selectable` | `boolean` | `onTaskSelect !== undefined` | 클릭 선택과 그 강조 표시를 켜요. [이벤트](../events) 참고. |
+| `onTaskCreate` | `(draft: GanttTaskDraft) => void` | 없음 | 제안된 범위와 함께 호출돼요. **Add task** 버튼, `addTask()`, 그린 범위 중 어느 것이든요. [작업 편집](../editing) 참고. |
+| `onTaskMove` | `(change: GanttTaskMoveChange) => boolean \| void` | 없음 | 행 이동이 적용되기 전에 실행돼요. `false`면 거부해요. [작업 편집](../editing) 참고. |
+
+## 상세 패널
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `renderDetail` | `GanttDetailRenderer` | 없음 — 내장 패널 본문을 써요 | 고정 패널의 본문을 바꾸고, 넘기면 패널이 켜져요. [상세 패널](../detail-panel)과 [GanttDetailRenderer](renderers) 참고. |
+| `showDetail` | `boolean` | `renderDetail !== undefined` | 타임라인 오른쪽에 붙는 패널을 보여줘요. [상세 패널](../detail-panel) 참고. |
+| `detailTrigger` | `GanttDetailTrigger` | `"selection"` | `'selection'`, `'doubleClick'`, `'none'` 중 하나이고, 패널을 여는 제스처를 정해요. [상세 패널](../detail-panel)과 [GanttDetailTrigger](../detail-panel#무엇이-패널을-여는가) 참고. |
+| `detailTaskId` | `string \| null` | 없음 — 차트가 열린 작업을 자체적으로 들고 있어요 | 제어 방식으로 열 작업이고, `null`이면 닫혀요. [상세 패널](../detail-panel) 참고. |
+| `onDetailChange` | `(task: TaskTransformed \| null) => void` | 없음 | 제어 여부와 상관없이 열고 닫을 때마다 호출돼요. [상세 패널](../detail-panel) 참고. |
+
+## 로케일과 테마
+
+| 프로퍼티 | 타입 | 기본값 | 설명 |
+|---|---|---|---|
+| `locale` | `string` | 없음 — 내장 영어 라벨을 써요 | 모든 날짜 라벨에 쓰는 BCP 47 태그예요. [로케일과 날짜 형식](../i18n) 참고. |
+| `formats` | `GanttFormatOverrides` | 없음 — 로케일의 라벨을 써요 | 배율별 `tick` / `header` / `tooltip` 라벨을 덮어써요. [로케일과 날짜 형식](../i18n) 참고. |
+| `firstDayOfWeek` | `number` | 없음 — 주 단위 묶음이 꺼져요 | `0` = 일요일 .. `6` = 토요일이고, week 배율의 상단 헤더를 묶어요. [로케일과 날짜 형식](../i18n) 참고. |
+| `theme` | `GanttTheme` | 없음 — 테마 클래스를 붙이지 않아요 | `'light'`, `'dark'`, `'system'` 중 하나예요. [테마](../theming) 참고. |
+
+## 보이는 것과 다른 기본값
+
+- **`selectable`**에도 고정된 기본값이 없어요. 생략하면 `onTaskSelect`를 준 경우에만 선택이 켜져요.
+  콜백 없이 강조만 쓰려면 `true`, 아예 끄려면 `false`를 넘겨요.
+- **`showDetail`**도 같은 방식이에요. 생략하면 `renderDetail`을 준 경우에만 상세 패널이 켜져요.
+  렌더러가 곧 스위치예요. 패널을 켜면 `selectable`로 따로 끄지 않는 한
+  행 선택도 함께 켜져요. [상세 패널](../detail-panel) 참고.
+- **`detailTrigger`**의 기본값 `'selection'`은 더블 클릭이 아니라 한 번 클릭이에요. 다른 간트
+  라이브러리가 작업 편집기를 더블 클릭으로 여는 것과 달라요. 더블 클릭으로 열려면 `'doubleClick'`을,
+  차트에서 아예 열지 않고 `detailTaskId`와 ref에만 맡기려면 `'none'`을 넘겨요.
+  [상세 패널](../detail-panel) 참고.
+- **`allowMove`, `allowResize`, `allowProgressChange`, `allowTaskCreate`, `allowLinkCreate`,
+  `allowLinkDelete`**의 기본값은 `true`가 아니라 `!readOnly`예요. 같은 이름의 작업별 플래그가 차트
+  쪽 설정보다 우선하고, 작업 자신의 `readOnly`는 그 둘 사이에 놓여요.
+  [GanttInteractionConfig](interaction-config) 참고.
+- **`allowTaskCreate`**만으로는 아무것도 만들어지지 않아요. `onTaskCreate`도 함께 줘야 해요. 없으면
+  버튼도 제스처도 없고, `addTask()`도 조용히 지나가요.
+- **`allowReorder`**의 기본값만 `!readOnly`가 아니라 `false`예요. 명시적으로 켜야 하는 유일한
+  제스처라, 아무 말도 없는 차트에는 손잡이가 생기지 않아요. 작업 자신의 `allowReorder`는 그 작업의
+  `readOnly`도 이기고, `readOnly: true`인 작업은 차트 쪽 플래그로 켤 수 없어요.
+  [GanttInteractionConfig](interaction-config) 참고.
+- **`defaultScale`**은 제어 값이 아니라 시작 값이에요. 차트를 만들 때 한 번만 읽어서 첫 그리기부터 그
+  배율로 나와요. 그 뒤에 프로퍼티를 바꿔도 무시하고, 그때 `onScaleChange`도 호출되지 않아요. 저장하는
+  값이 없어서 다시 마운트하면 시작 값에서 다시 출발해요.
+- **`collapsedIds`**와 **`defaultCollapsedIds`**는 한 값의 제어 쪽과 비제어 쪽이에요. `collapsedIds`를
+  넘기면 차트는 그 목록을 보여주고 자체 추적을 멈춰요. `onCollapsedChange`는 두 방식 모두에서 호출돼요.
+- **`theme`**을 생략하면 테마 클래스가 전혀 붙지 않고, 호스트 앱이 정해요. `'system'`은 서버 렌더링과
+  첫 하이드레이션 렌더에서 `null`로 풀리고, 그다음에 실제 설정으로 바뀌어요.
+- **`visibleStart`**와 **`visibleEnd`**는 서로 독립이에요. 한쪽 끝을 고정하면 그쪽으로는
+  `infiniteScroll`이 범위를 늘리지 못하고, 반대쪽은 계속 늘어나요.
+- **`workingCalendar`**는 `holidays`와 `isNonWorkingDay`로 캘린더를 만들어요. `showNonWorkingDays`
+  음영을 결정하는 설정과 같아요.
+
+## 참고
+
+- 작업 목록에는 열 API가 없어요. 시작 패널 너비 220px로 `task.name`을 보여주고, 작업에 관한 나머지는
+  상세 패널의 몫이에요. [작업 목록과 계층](../task-list) 참고.
+- `GanttTaskMoveChange`는 `onTaskMove`가 받는 값이에요. 패키지 루트에서 내보내고, 필드는 이 값을 만드는
+  `moveTask` 함수 옆 [트리 헬퍼](core-tree)에 정리돼 있어요.
+- `Dayjs`는 `dayjs` 패키지에서 오고, `ReactNode`와 `React.MouseEvent`는 `react`에서 와요.
+  셋 다 이 패키지에서 다시 내보내지 않아요.
+- 차트는 자체 컨트롤을 그리지 않아요. 툴바도 배율 선택기도 없어요. 선택기가 필요하면 호스트가 직접 그리고,
+  ref의 `setScale`으로 움직이고, `onScaleChange`로 상태를 맞춰요. [타임라인](../timeline) 참고.
+- `ReactGanttChart`는 스크롤과 확대, 배율 전환, 상세 패널 열고 닫기를 위한 `GanttHandle` 타입 `ref`도
+  받아요. `GanttProps`의 일부는 아니에요 — [GanttHandle](handle) 참고.

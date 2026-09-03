@@ -1,12 +1,4 @@
-/**
- * The task data model - the part of it the headless core owns.
- *
- * Everything here is plain data and pure functions: no React, no DOM, no pixels.
- * `src/types/task.ts` re-exports these and adds the render-side types (bar geometry,
- * arrow coordinates) on top.
- */
-
-export type TaskType = 'task' | 'milestone';
+// The task data model. `src/shared/task.ts` re-exports these and adds the render-side types.
 
 export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 
@@ -14,13 +6,6 @@ export interface TaskDependency {
   /** The predecessor's id - a task's `dependencies` list the tasks it waits on */
   targetId: string;
   type: DependencyType;
-  /**
-   * Signed delay between the two ends of the link, in days
-   *
-   * Positive is lag (wait this long after the predecessor), negative is lead (overlap).
-   * Counted in working days when the working-day calendar is on, calendar days otherwise.
-   */
-  lag?: number;
 }
 
 export interface Task {
@@ -30,26 +15,13 @@ export interface Task {
   endDate: string;
   parentId: string | null;
   sequence: string;
-  /** Task kind - 'milestone' renders as a diamond at startDate (default 'task') */
-  type?: TaskType;
   /** Progress 0-100 (%) - omitted means no progress display */
   progress?: number;
-  /**
-   * Bar color - any CSS color value
-   *
-   * The progress fill and the hover shade are derived from it, so one value colors the
-   * whole bar. Omitted, the `--gantt-*` theme tokens decide as before.
-   */
+  /** Bar color (any CSS color) - progress fill and hover shade derive from it; omitted, the `--gantt-*` tokens decide */
   color?: string;
   /** Extra class name put on this task's bar and its task-list row */
   className?: string;
-  /**
-   * Swimlane this task shares a row with
-   *
-   * Tasks with the same lane (inside the same group) are drawn side by side on one
-   * row; overlapping ones stack onto extra rows automatically. Omitted, the task
-   * gets a row of its own as before.
-   */
+  /** Swimlane this task shares a row with - same lane draws side by side, overlaps stack onto extra rows */
   lane?: string;
   dependencies?: TaskDependency[];
   /** Blocks every gesture on this task - overrides the chart's `readOnly` prop */
@@ -64,20 +36,16 @@ export interface Task {
   allowLinkCreate?: boolean;
   /** Allows/blocks deleting a dependency this task owns - overrides both `readOnly` settings */
   allowLinkDelete?: boolean;
+  /** Allows/blocks dragging this row to a new position or parent - opt-in, off unless this or the chart's `allowReorder` turns it on */
+  allowReorder?: boolean;
   /** Earliest date this task may be dragged to (ISO string) - overrides the chart's `minDate` */
   minDate?: string;
   /** Latest date this task may be dragged to (ISO string) - overrides the chart's `maxDate` */
   maxDate?: string;
-  /** The scheduling engine never moves this task; it still constrains its successors */
-  manuallyScheduled?: boolean;
   /** Planned start snapshot - drawn as a thin bar under the live one (UTC ISO string) */
   baselineStart?: string;
   /** Planned end snapshot (UTC ISO string) */
   baselineEnd?: string;
-}
-
-export function isMilestoneTask(task: Pick<Task, 'type'>): boolean {
-  return task.type === 'milestone';
 }
 
 /** Normalizes progress into the 0-100 range; null when the value is missing or invalid */

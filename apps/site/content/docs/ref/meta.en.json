@@ -1,0 +1,15 @@
+{
+  "title": "Reference",
+  "pages": [
+    "props",
+    "task",
+    "interaction-config",
+    "grouping",
+    "renderers",
+    "handle",
+    "scales",
+    "core-tree",
+    "core-calendar",
+    "..."
+  ]
+}

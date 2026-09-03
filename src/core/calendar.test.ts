@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CALENDAR_DAYS, createWorkingCalendar } from './calendar';
 import dayjs from './dates';
 
-// June 2025: the 2nd is a Monday, the 6th a Friday, the 7th/8th the weekend,
-// the 9th the next Monday.
+// June 2025: 2nd Mon, 6th Fri, 7th/8th weekend, 9th the next Mon.
 const d = (iso: string) => dayjs(`2025-${iso}`);
 const iso = (date: { toISOString(): string }) => date.toISOString().slice(0, 16);
 
@@ -62,8 +61,7 @@ describe('working-day calendar', () => {
   });
 
   it('measures a non-working anchor from the working day the walk would reach', () => {
-    // Saturday itself is never counted: from Sat, one day forward is Monday, and
-    // measuring back to Friday is a single day either way.
+    // Saturday is never counted either way.
     expect(workweek.daysBetween(d('06-07'), d('06-09'))).toBe(1);
     expect(workweek.daysBetween(d('06-07'), d('06-06'))).toBe(0);
     expect(workweek.daysBetween(d('06-06'), d('06-07'))).toBe(0);
@@ -91,11 +89,9 @@ describe('working-day calendar', () => {
 
   describe('daysUntil / daysUpTo', () => {
     it('daysUntil is the smallest step that clears the target', () => {
-      // Fri 09:00 has to move one working day to reach Mon 09:00
+      // One working day lands on Mon 09:00, so clearing Mon 17:00 takes two.
       expect(workweek.daysUntil(d('06-06T09:00'), d('06-09T09:00'))).toBe(1);
-      // ... and two to clear Mon 17:00, since one lands at Mon 09:00
       expect(workweek.daysUntil(d('06-06T09:00'), d('06-09T17:00'))).toBe(2);
-      // A target in the past gives a negative answer
       expect(workweek.daysUntil(d('06-09'), d('06-04'))).toBe(-3);
       expect(workweek.daysUntil(d('06-09'), d('06-09'))).toBe(0);
     });

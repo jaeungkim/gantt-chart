@@ -1,0 +1,278 @@
+---
+title: "명령형 API"
+description: "`ref` 핸들: 스크롤과 줌, 그리고 상세 패널"
+---
+
+차트는 타임라인만 그리고 그 주위에는 아무것도 두지 않아요. 툴바도, 배율 선택기도 없어요. 그래서 "오늘" 버튼도, "전체 보기" 버튼도, 배율 컨트롤도 전부 직접 그려야 해요. 셋 다 prop이 아니에요. 전부 차트의 ref를 거쳐요.
+
+## 핸들
+
+`ReactGanttChart`는 `forwardRef`로 감싸져 있어요. `useRef<GanttHandle>`를 연결하면 마운트 이후 ref에 멤버 아홉 개가 담겨요.
+
+```tsx title="src/ChartWithControls.tsx"
+import { useRef } from 'react';
+import { ReactGanttChart, type GanttHandle, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+export function ChartWithControls({ tasks }: { tasks: Task[] }) {
+  const ganttRef = useRef<GanttHandle>(null);
+
+  return (
+    <>
+      <button onClick={() => ganttRef.current?.scrollToToday()}>Today</button>
+      <ReactGanttChart ref={ganttRef} tasks={tasks} />
+    </>
+  );
+}
+```
+
+`GanttHandle`은 `GanttScrollApi`와 `GanttDetailApi`, `GanttTaskCreateApi`를 확장한 타입이고, 그 자체로 더하는 건 없어요.
+
+| 멤버 | 시그니처 | 하는 일 |
+|---|---|---|
+| `scrollToDate` | `(date: string \| Date \| Dayjs, options?: GanttScrollOptions) => void` | 날짜 위치로 가로 스크롤해요 |
+| `scrollToToday` | `(options?: GanttScrollOptions) => void` | `scrollToDate(dayjs())` |
+| `scrollToTask` | `(taskId: string, options?: GanttScrollOptions) => void` | 작업의 막대로 스크롤해요. 행이 화면 밖이면 세로로도 움직여요 |
+| `setScale` | `(scale: GanttScaleKey) => void` | 타임라인 한가운데를 그대로 둔 채 배율을 바꿔요 |
+| `zoomToFit` | `() => void` | 모든 작업이 보이는 가장 촘촘한 배율을 골라 프로젝트 시작을 왼쪽 끝에 고정해요 |
+| `getScrollElement` | `() => HTMLDivElement \| null` | 스크롤 컨테이너 DOM 노드를 돌려줘요 |
+| `openDetail` | `(taskId: string) => void` | 상세 패널을 그 작업으로 열어요 |
+| `closeDetail` | `() => void` | 상세 패널을 닫아요 |
+| `addTask` | `() => void` | `onTaskCreate`로 새 작업을 제안해요 |
+
+`GanttScrollApi`와 `GanttDetailApi`, `GanttTaskCreateApi`, `GanttScrollOptions`, `GanttHandle` 자신은 [GanttHandle](ref/handle)에 선언돼 있어요.
+
+## 스크롤
+
+스크롤 메서드는 모두 같은 옵션 객체를 받아요.
+
+| 옵션 | 값 | 기본값 | 규칙 |
+|---|---|---|---|
+| `smooth` | `boolean` | 애니메이션 적용 | 애니메이션은 리터럴 `false`일 때만 꺼져요. `undefined`는 애니메이션으로 움직여요 |
+| `align` | `'start' \| 'center'` | `'center'` | 리터럴 `'start'`일 때만 start 분기를 타요 |
+
+`align: 'start'`는 대상을 타임라인 영역의 왼쪽 끝에 놓아요. `align: 'center'`는 타임라인 영역 안에서 가운데에 맞춰요. 이때 고정된 작업 목록 창의 너비를 뷰포트 너비에서 빼요. 두 경우 모두 `0`에서 잘려요. 그래서 범위 앞쪽에 가까운 날짜는 차트가 갈 수 있는 가장 왼쪽에 놓여요.
+
+```ts
+ganttRef.current?.scrollToDate('2026-09-01', { smooth: false, align: 'start' });
+ganttRef.current?.scrollToToday();
+ganttRef.current?.scrollToTask('task-42');
+```
+
+`scrollToDate`와 `scrollToToday`는 가로축만 움직여요. 둘 다 `scrollTop`은 건드리지 않아요.
+
+`scrollToTask`는 두 축을 모두 움직여요. 가로로는 `align: 'start'`일 때 막대의 왼쪽 끝을, 그 외에는 막대의 중간 지점을 겨냥해요. 세로로는 행이 뷰포트 밖에 있을 때만 동작하고, 그때 행을 가운데로 맞춰요. `align`은 세로축에 아무 영향이 없어요.
+
+이 메서드들은 하나같이 조용히 실패해요. 렌더링 범위 밖의 날짜, 알 수 없는 작업 id, 아직 마운트되지 않은 차트는 모두 조기 반환해요. 예외도 콘솔 출력도 없어요. 데이터를 불러오는 중에 호출해도 안전하도록 일부러 그렇게 뒀어요.
+
+`scrollToTask`는 렌더링된 행만 뒤져요. 접힌 부모나 접힌 그룹 아래의 작업은 그 목록에 없어요. 그래서 호출해도 아무 일이 일어나지 않아요. 행을 먼저 펼쳐 주세요. 접힘 상태는 [작업 목록과 계층](task-list)에서 다뤄요.
+
+## 배율 바꾸기
+
+예전에는 차트가 타임라인 위에 버튼 여섯 개짜리 배율 선택기를 그렸어요. 이제는 그리지 않아요. 배율을 기억하지도 않아요. `storageKey` prop과 그 뒤에 있던 `sessionStorage` 기록이 사라졌거든요. 배율은 인스턴스마다 따로 도는 평범한 상태라, `defaultScale`에서 시작하고 다시 마운트되면 처음부터 다시 시작해요.
+
+선택기를 대신하는 건 API 두 개예요. 쓰는 쪽은 `setScale`이에요.
+
+```ts
+ganttRef.current?.setScale('week');
+```
+
+타임라인 영역 한가운데의 날짜를 그대로 한가운데에 두기 때문에, 배율만 갈아 끼울 때처럼 화면이 튀지 않고 보던 자리에 그대로 남아요. 다섯 배율 중 하나가 아닌 키는 무시해요. 모르는 작업 id와 똑같이 조용히 넘어가요. 화면에 붙잡을 게 없을 때는, 그러니까 스크롤 컨테이너가 마운트되지 않았거나 한가운데가 눈금 밖일 때는 앵커 없이 배율만 바꿔요.
+
+읽는 쪽은 `onScaleChange` prop이에요. 배율이 확정될 때마다 한 번 호출되고, 무엇이 바꿨는지는 가리지 않아요. `setScale`도, `Ctrl`/`Cmd` + 휠도, `zoomToFit()`도, 키보드 바인딩도 모두요. 마운트 때는 호출되지 않아요.
+
+컨트롤은 기본 `<select>` 하나면 끝이에요.
+
+```tsx title="src/ChartWithScale.tsx"
+import { useRef, useState } from 'react';
+import {
+  ReactGanttChart,
+  type GanttHandle,
+  type GanttScaleKey,
+  type Task,
+} from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const SCALES: GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
+
+export function ChartWithScale({ tasks }: { tasks: Task[] }) {
+  const ganttRef = useRef<GanttHandle>(null);
+  const [scale, setScale] = useState<GanttScaleKey>('month');
+
+  return (
+    <>
+      <select
+        value={scale}
+        onChange={(e) => ganttRef.current?.setScale(e.target.value as GanttScaleKey)}
+      >
+        {SCALES.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
+
+      <ReactGanttChart
+        ref={ganttRef}
+        tasks={tasks}
+        defaultScale="month"
+        onScaleChange={setScale}
+      />
+    </>
+  );
+}
+```
+
+select는 자기 상태를 직접 바꾸지 않아요. 고른 값은 차트로 들어가고 차트가 다시 알려줘요. 그래서 휠이나 키보드로 바꾼 배율도 같은 길을 지나고, select가 그대로 따라와요.
+
+select가 `setScale`을 부르는 유일한 곳이더라도 `onScaleChange`는 연결해 두세요. 그리드 안에 포커스가 있으면 `Ctrl`/`Cmd` + `ArrowUp`이 배율을 촘촘하게, `Ctrl`/`Cmd` + `ArrowDown`이 성기게 한 칸씩 옮겨요. `zoomOnWheel`이 켜져 있으면 `Ctrl`/`Cmd` + 휠도 같은 일을 해요. 둘 다 사다리 양 끝에서 멈춰요. 콜백이 없으면 select는 차트와 어긋나요.
+
+option 텍스트는 앱이 쓰니까, 라벨도 나머지 UI와 함께 번역돼요. 사라진 선택기는 헤더 칸과 눈금, 툴팁이 전부 `Intl`을 거치는 차트 안에서 영어 키 여섯 개를 날것 그대로 찍었어요. `<select>`는 키보드와 스크린 리더, 터치 동작도 플랫폼에서 그냥 받아 와요. 직접 만든 버튼 여섯 개라면 하나씩 다 만들어야 하는 것들이죠.
+
+## 줌
+
+`zoomToFit()`는 렌더링된 작업 중 가장 이른 `startDate`와 가장 늦은 `endDate`를 읽어요. 그다음 배율 사다리를 촘촘한 쪽에서 성긴 쪽으로 훑어요. 순서는 `hour`, `day`, `week`, `month`, `quarter`, `year`예요. 전체 구간이 타임라인 너비에 들어가는 첫 배율을 골라요. 아무것도 맞지 않으면 `year`에 멈춰요. 가장 이른 날짜는 타임라인 왼쪽 끝에 고정돼요.
+
+옵션은 받지 않아요. 결과 스크롤은 언제나 즉시 이뤄져요. 기준점을 `scrollTo({ behavior })`가 아니라 `scrollLeft`에 직접 대입해서 적용하기 때문이에요.
+
+들어맞는지는 실제로 만들어질 눈금이 아니라, 배율별 평균 밀리초당 px 값으로 재요. 눈금 길이가 고정된 배율에서는 이 값이 정확해요. 반면 `quarter`와 `year`는 눈금이 28~31일짜리 달이라 근삿값이에요. 그래서 구간이 뷰포트 너비와 몇 퍼센트 차이로 갈리면 옆 배율이 뽑히기도 해요.
+
+작업이 없을 때, 마운트된 스크롤 요소가 없을 때, 최소나 최대 날짜가 유한한 수가 아닐 때는 조용히 빠져나와요.
+
+핸들에는 `zoomIn`과 `zoomOut`이 없어요. 여섯 키를 담은 배열을 직접 만들어 `setScale`로 한 칸씩 옮기거나, 그 일을 `Ctrl`/`Cmd` + 휠과 `Ctrl`/`Cmd` + `ArrowUp`/`ArrowDown`에 맡기면 돼요. 둘 다 [타임라인](timeline)에서 설명해요.
+
+`GanttZoomAnchor`는 패키지에서 export되지만, 핸들의 어느 멤버도 이 값을 받지 않아요. `setScale`과 `zoomToFit`은 각자 알아서 앵커를 만들어요. API 표면에서 눈에 띄는 타입일 뿐, 넘길 수 있는 값은 아니에요.
+
+## 상세 패널
+
+마지막 두 메서드는 핸들에서 뷰포트와 무관한 유일한 부분이에요. `openDetail(taskId)`은 오른쪽에 붙은 상세 패널을 그 작업으로 열고, `closeDetail()`은 닫아요. 패널이 무엇인지, 무엇이 패널을 켜는지, 무엇을 그리는지는 [상세 패널](detail-panel)에 있어요. 여기서는 ref 쪽만 다뤄요.
+
+```ts
+ganttRef.current?.openDetail('task-42');
+ganttRef.current?.closeDetail();
+```
+
+패널이 꺼져 있는 동안에는 둘 다 아무 일도 하지 않아요. 그리고 기본값이 꺼짐이에요. 패널은 `renderDetail`이나 `showDetail`이 켜야 비로소 존재하거든요. 그래서 `openDetail`에 연결한 버튼에는 따로 가드를 둘 필요가 없어요. 열 패널이 생기기 전까지는 조용히 있다가, 렌더러를 넘기는 날부터 동작해요.
+
+`openDetail`은 어떤 작업도 가리키지 않는 id를 무시해요. `scrollToTask`와 똑같이 조용히요. 한 가지에서만 갈라져요. id를 렌더링된 행이 아니라 차트가 들고 있는 모든 작업에 대해 해석해요. 그래서 접힌 부모 아래 숨은 작업도 자기 패널을 열어요. 렌더링된 행이 필요한 쪽은 스크롤이에요. 그래서 둘은 함께 부르는 게 좋아요.
+
+이미 닫혀 있는 패널에 `closeDetail()`을 불러도 아무 일도 없고, `onDetailChange`도 실행되지 않아요.
+
+```tsx title="src/ChartWithDetail.tsx"
+import { useRef } from 'react';
+import { ReactGanttChart, type GanttHandle, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+export function ChartWithDetail({ tasks }: { tasks: Task[] }) {
+  const ganttRef = useRef<GanttHandle>(null);
+
+  // 스크롤 먼저, 그다음 열기 — 패널은 차트가 스크롤할 수 없는 id도 해석해요
+  const inspect = (taskId: string) => {
+    ganttRef.current?.scrollToTask(taskId);
+    ganttRef.current?.openDetail(taskId);
+  };
+
+  return (
+    <>
+      <ul>
+        {tasks.map((task) => (
+          <li key={task.id}>
+            <button onClick={() => inspect(task.id)}>{task.name}</button>
+          </li>
+        ))}
+      </ul>
+
+      <ReactGanttChart ref={ganttRef} tasks={tasks} showDetail detailTrigger="none" />
+    </>
+  );
+}
+```
+
+ref를 유일한 입구로 만드는 건 `detailTrigger="none"`이에요. 기능은 켜진 채로 있지만, 차트 안의 무엇도 패널을 열지 않아요. 기본값인 `"selection"`에서는 행을 선택하는 그 클릭과 포커스된 행에서 누른 `Enter`도 패널을 열어요. 그러니 직접 만든 버튼은 차트의 트리거를 대체하는 게 아니라 거기에 하나 더 얹히는 셈이에요.
+
+`Escape`는 포커스가 어디에 있든 패널을 닫고, 행 선택은 그대로 남겨요. 짝이 되는 여는 키는 없어요. 그래서 직접 만든 단축키가 부를 것도 결국 `openDetail`이에요.
+
+`detailTaskId`를 넘기면 차트는 제어 모드가 되고, 두 메서드 모두 스스로는 패널을 움직이지 않아요. 요청을 `onDetailChange`로 알릴 뿐이고, 패널은 직접 들고 있는 상태가 바뀔 때 따라 움직여요. 그 prop이 없으면 차트가 열린 작업을 직접 들고 있어서 두 메서드가 그 자리에서 동작하고, `onDetailChange`도 똑같이 실행돼요.
+
+## 작업 추가하기
+
+뷰포트와 무관한 멤버는 `addTask()` 하나예요. 작업 목록 아래 **Add task** 띠가 만드는 것과 같은 초안 — 현재 배율에 맞춘, 오늘이 놓인 눈금 하나 — 을 만들어 `onTaskCreate`에 넘겨요.
+
+```tsx
+ganttRef.current?.addTask();
+```
+
+띠와도, 그린 범위와도 똑같이 아무것도 쓰지 않아요. 새 행은 호스트 앱의 핸들러가 그 작업을 `tasks` 배열에 넣을 때 서요. `onTaskCreate`가 없거나 `allowTaskCreate={false}`면 호출은 조용히 지나가요. 그래서 여기에 연결한 버튼에는 `openDetail`에 연결한 버튼과 마찬가지로 따로 가드를 둘 필요가 없어요.
+
+직접 만든 단축키가 부를 것도 이거예요. 차트는 작업 생성에 키를 하나도 묶지 않아요.
+
+초안에 무엇이 담기는지, 무엇이 생성을 끄는지는 [작업 편집](editing)에 있어요.
+
+## ref에 연결한 툴바
+
+차트는 컨트롤을 하나도 그리지 않아요. 그래서 이게 곧 툴바예요. 위에서 본 것들이 전부 직접 만든 컴포넌트 하나에 모여요.
+
+버튼에는 상태가 없어요. 메서드는 호출되는 순간에 스토어를 읽거든요. 값을 비춰 두는 건 배율 select 하나뿐이고, 그 거울을 맞춰 주는 게 `onScaleChange`예요.
+
+```tsx title="src/GanttToolbar.tsx"
+import { useRef, useState } from 'react';
+import {
+  ReactGanttChart,
+  type GanttHandle,
+  type GanttScaleKey,
+  type Task,
+} from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const SCALES: GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
+
+export function GanttToolbar({ tasks }: { tasks: Task[] }) {
+  const ganttRef = useRef<GanttHandle>(null);
+  const [scale, setScale] = useState<GanttScaleKey>('month');
+
+  return (
+    <>
+      <div>
+        {/* 차트가 마운트되기 전까지 ref는 null이라, 호출마다 옵셔널 체이닝을 써요 */}
+        <button onClick={() => ganttRef.current?.scrollToToday()}>Today</button>
+        <button onClick={() => ganttRef.current?.zoomToFit()}>Fit</button>
+        <button
+          onClick={() => ganttRef.current?.scrollToTask('task-42', { align: 'start' })}
+        >
+          Go to task 42
+        </button>
+        <button onClick={() => ganttRef.current?.openDetail('task-42')}>
+          Details for 42
+        </button>
+
+        <select
+          aria-label="Timeline scale"
+          value={scale}
+          onChange={(e) => ganttRef.current?.setScale(e.target.value as GanttScaleKey)}
+        >
+          {SCALES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+
+      <ReactGanttChart
+        ref={ganttRef}
+        tasks={tasks}
+        defaultScale="month"
+        onScaleChange={setScale}
+        showDetail
+      />
+    </>
+  );
+}
+```
+
+`zoomToFit()`도 나름의 배율에 안착하고, 그 변화 역시 `onScaleChange`가 알려줘요. 그래서 "Fit" 버튼을 눌러도 select는 따로 손댈 것 없이 함께 움직여요.
+
+## 한계
+
+- **핸들은 데이터를 건드리지 않아요.** 작업과 관련된 멤버는 `addTask()` 하나뿐이고, 그마저 제안만 해요. `onTaskCreate`를 부르고 아무것도 쓰지 않아요. 작업을 수정하거나 옮기거나 지우는 메서드는 없고, 작업에 대한 모든 변경은 `tasks` prop과 `onTasksChange`를 거쳐요.
+- **세로 스크롤 API는 없어요.** `scrollToRow`도, 스크롤 위치를 읽는 getter도 없어요. `getScrollElement()`가 원본 DOM 노드를 돌려주니 직접 다뤄야 해요.
+- **어떤 메서드도 실패를 알리지 않아요.** 범위 밖 날짜도, 알 수 없는 id도, 알 수 없는 배율 키도, 패널이 꺼진 상태의 상세 호출도 바깥에서 보면 성공과 똑같아요.
+- **핸들에는 배율을 읽는 getter가 없어요.** 쓰는 건 `setScale`, 알려주는 건 `onScaleChange`예요. ref로 현재 배율을 되읽을 수는 없으니, 배율은 직접 만든 상태에 있거나 아예 어디에도 없어요.
+
+다음: [키보드와 스크린 리더](accessibility) — treegrid 구조와 그리드가 처리하는 모든 키.

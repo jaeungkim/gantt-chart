@@ -1,0 +1,236 @@
+---
+title: "상세 패널"
+description: "도킹된 사이드 패널: 무엇이 패널을 여는지, `renderDetail`, 제어 방식"
+---
+
+막대가 담는 것은 이름과 날짜 둘, 그리고 진행률 채우기예요. 그 작업에 대해 갖고 있는 나머지 필드는
+놓을 자리가 없어요. 상세 패널은 차트 오른쪽에 붙는 창이고, 한 번에 작업 하나를 보여줘요. 타임라인
+위에 얹히는 레이어가 아니라 타임라인의 형제라서, 패널이 열려 있는 동안 타임라인이 가려지는 게 아니라
+좁아져요. 그리고 뒤의 차트는 계속 조작할 수 있어요. 모달이 아니고, 안에 갇히는 것도 없고, 다음 클릭을
+삼키는 배경막도 없어요.
+
+<GanttDemo preset="detail" />
+
+## 패널 켜기
+
+패널은 기본적으로 꺼져 있어요. `showDetail`이 패널을 켜요. `showDetail`을 생략하면 `renderDetail`을
+넘기는 것만으로 패널이 켜져요. [작업 목록과 계층](task-list)에서 `showTaskList`가 창의 스위치인
+것처럼, 여기서는 렌더러가 스위치예요.
+
+| `showDetail` | `renderDetail` | 패널 | 본문 |
+|---|---|---|---|
+| 생략 | 생략 | 숨김 | — |
+| 생략 | 지정 | 표시 | 지정한 렌더러 |
+| `true` | 생략 | 표시 | 내장 본문 |
+| `true` | 지정 | 표시 | 지정한 렌더러 |
+| `false` | 생략 | 숨김 | — |
+| `false` | 지정 | 숨김 | — |
+
+명시적인 `false`가 `renderDetail`보다 우선해요.
+
+패널을 켜면 행 선택도 함께 켜져요. 상세가 열린 행이 곧 강조되는 행이 되도록요. 명시적인
+`selectable={false}`는 여전히 이겨요. 패널은 평소대로 열리고 닫히지만 아무 행도 강조되지 않아요.
+선택이 무엇이고 어떤 콜백을 실행하는지는 [이벤트](events)에 있어요.
+
+## 기본 본문이 그리는 것
+
+패널을 켜고 `renderDetail`을 주지 않으면 내장 본문이 두 가지를 그려요.
+
+- **제목** `task.name`;
+- **메타 줄** `start → end · progress`. 날짜는 현재 스케일의 툴팁 포매터, 즉 호버 툴팁이 쓰는 그
+  포매터를 거쳐요. 그래서 `locale`과 `formats`가 이미 날짜를 정해요. 작업에 진행률이 없으면 진행률은
+  빠져요.
+
+기본 본문은 여기까지예요. 작업의 다른 필드는 보여주지 않고, 그걸 추가하는 prop도 없어요. 필드에는
+캡션이 필요한데, 그 캡션이 무엇이어야 하는지는 호스트 앱만 알거든요. 그 이상은 아래의
+`renderDetail`이 맡아요.
+
+기본 본문이 여기서 멈추는 이유는, 그래야 사용자에게 보이는 영어를 하나도 담지 않기 때문이에요.
+이름은 데이터고 날짜는 [로케일과 날짜 형식](i18n)을 따라요. 그래서 패널 자체는 번역할 것이 없어요.
+고정된 문자열은 패널 자체와 닫기 버튼의 접근성 이름뿐이에요.
+
+## 무엇이 패널을 여는가
+
+`detailTrigger`가 제스처를 골라요. 기본값은 `'selection'`이에요.
+
+| `detailTrigger` | 여는 동작 | 키보드 |
+|---|---|---|
+| `'selection'` (기본값) | 막대나 작업 목록 행을 한 번 클릭 | 포커스된 행에서 `Enter` |
+| `'doubleClick'` | 막대나 작업 목록 행을 더블 클릭 | 포커스된 행에서 `Enter` |
+| `'none'` | 차트 안에는 없음 | — |
+
+`'none'`은 패널을 끄지 않아요. 기능은 그대로 켜져 있어요. `<aside>`는 작업이 열려 있는 동안에만
+마운트되고, `'none'`에서는 `detailTaskId`와 ref만 작업을 열어요. 차트의 클릭이 이미 다른 창을 몰고
+있는 호스트가 원하는 설정이에요.
+
+기본값이 한 번 클릭인 이유는, 더블 클릭이 *모달* 작업 편집기의 관례이기 때문이에요. Bryntum의
+TaskEdit은 `triggerEvent: 'eventdblclick'`이 기본이고, DHTMLX는 `dblclick`에 lightbox를 열어요. 그런
+편집기는 끝내거나 취소해야 하는 폼을 여니까 비싸고, 그래서 의도적인 제스처를 요구해요. 도킹된 패널은
+양쪽 다 싸요. 이미 행을 선택하는 그 클릭으로 열리고 `Escape`로 닫혀요. frappe-gantt의 `popup_trigger`는
+아예 더블 클릭을 선택지로 두지도 않고 `'click'`과 `'hover'`만 제공해요. `'doubleClick'`은 패널을 평범한
+선택과 겹치지 않게 두고 싶은 호스트를 위한 값이에요.
+
+패널은 `<aside role="complementary" aria-label="Task details">`이고 dialog가 아니에요. 포커스 트랩도
+배경막도 없어요. treegrid 바깥에 놓여 있어서 차트는 탭 정지점을 정확히 하나만 갖고, 패널이 그다음
+정지점이 돼요. `Escape`는 차트에서도 패널 안에서도 패널을 닫고, 닫을 때 포커스는 패널이 열리던 순간
+포커스를 갖고 있던 곳으로 돌아가요. 이 모든 것에 새 키는 하나도 늘지 않아요. 포커스된 행에서 누르는
+`Enter`는 원래 행을 읽어주던 키였고, 이제 패널도 함께 열어요. 키 전체는
+[키보드와 스크린 리더](accessibility)에 있어요.
+
+## 제어 방식과 비제어 방식
+
+열린 작업은 id 하나예요. 두 모드 모두요.
+
+| 프로퍼티 | 모드 | 규칙 |
+|---|---|---|
+| `detailTaskId` | 제어 | 여기 넘긴 `string`이나 `null`이 차트가 보여주는 상태이고, 내부 상태는 갱신을 멈춰요 |
+| `detailTaskId` 생략 | 비제어 | 차트가 열린 작업을 직접 들고 있어요 |
+| `onDetailChange` | 둘 다 | 열고 닫을 때마다 작업 또는 `null`과 함께 실행돼요 |
+
+모드를 가르는 것은 `detailTaskId !== undefined`예요. 여기서 `null`은 다른 곳처럼 기능을 끄는 수단이
+아니에요. "제어 방식이고, 닫힌 상태"를 뜻해요. 그래서 차트는 `??`로 되돌아가지 않고 `undefined`인지를
+검사해요.
+
+> [!WARNING]
+> 제어 모드에서 차트는 스스로 아무것도 열지 않아요. 새로운 `detailTaskId`를 기다려요.
+> `onDetailChange`를 처리하지 않고 `detailTaskId`만 넘기면 모든 클릭이 무시되는 것처럼 보여요.
+
+`onDetailChange`는 제어 모드와 비제어 모드에서 똑같이 실행돼요. 열린 작업이 실제로 바뀔 때만요. 이미
+열려 있는 행을 클릭하면 아무 일도 일어나지 않아요. 마운트 시점에는 절대 실행되지 않고, 패널 내용이
+바뀌었다고 알리는 이벤트도 아니에요. 상세가 열린 막대를 옮겨도 실행되지 않아요.
+
+## 코드에서 직접 열기
+
+`GanttHandle`은 `openDetail(taskId)`와 `closeDetail()`을 갖고 있어요. 모르는 id는 `scrollToTask`가
+무시하는 것과 같은 방식으로 무시하고, 패널이 꺼져 있는 동안에는 둘 다 아무 일도 하지 않아요. 나머지
+ref 멤버와 함께 [GanttHandle](ref/handle)에 정리돼 있어요.
+
+## 본문 갈아 끼우기
+
+`renderDetail`은 패널 안쪽을 통째로 대체해요. `<aside>` 자체는 차트의 것으로 남아요. 너비, `role`,
+접근성 이름, 닫을 때의 포커스 처리는 잃어버릴 수 없어요. 바뀌는 것은 자식 노드뿐이고, 그래서 닫기
+버튼은 직접 그려야 해요. `close`는 내장 버튼이 호출하는 바로 그 함수이고, 버튼을 그리든 말든
+`Escape`는 계속 동작해요.
+
+렌더러는 `GanttDetailRenderProps`를 받아요.
+
+| 필드 | 타입 | 무엇인가 |
+|---|---|---|
+| `task` | `TaskTransformed` | 차트가 변환한 형태의 열린 작업 — 롤업된 요약 날짜, `depth`, `order`, `barLeft` 등이 채워져 있어요 |
+| `close` | `() => void` | 패널을 닫아요. 내장 닫기 버튼이 호출하는 함수와 같아요 |
+| `scale` | `GanttScaleKey` | 이 렌더 시점에 타임라인이 놓인 스케일 |
+
+```tsx title="ProjectChart.tsx"
+import { useState } from 'react';
+import { ReactGanttChart } from '@jaeungkim/gantt-chart';
+import type { GanttDetailRenderProps, Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const tasks: Task[] = [
+  { id: 'p1', name: 'Phase 1', parentId: null, sequence: '1',
+    startDate: '2025-03-03', endDate: '2025-03-28' },
+  { id: 't1', name: 'Design', parentId: 'p1', sequence: '1.1',
+    startDate: '2025-03-03', endDate: '2025-03-12', progress: 100 },
+  { id: 't2', name: 'Build', parentId: 'p1', sequence: '1.2',
+    startDate: '2025-03-12', endDate: '2025-03-28', progress: 40 },
+];
+
+function TaskDetail({ task, close }: GanttDetailRenderProps) {
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+        <h2 style={{ margin: 0, fontSize: 14 }}>{task.name}</h2>
+        <button type="button" onClick={close} aria-label="Close task details">
+          ✕
+        </button>
+      </div>
+      <p style={{ margin: 0, fontSize: 12 }}>
+        {task.startDate.slice(0, 10)} → {task.endDate.slice(0, 10)}
+      </p>
+      <p style={{ margin: 0, fontSize: 12 }}>{task.progress ?? 0}% 완료</p>
+    </>
+  );
+}
+
+export function ProjectChart() {
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      showTaskList
+      hierarchy
+      renderDetail={(props) => <TaskDetail {...props} />}
+      detailTaskId={detailTaskId}
+      onDetailChange={(task) => setDetailTaskId(task?.id ?? null)}
+      height={420}
+    />
+  );
+}
+```
+
+`renderDetail`의 친척인 `renderTooltip`, `renderHeaderCell`, `renderBaseline`은
+[커스텀 렌더링](custom-rendering)에 있어요.
+
+## 패널 너비
+
+커스텀 속성 하나, `--gantt-detail-width`예요. [테마](theming)의 테마 토큰들 옆에서
+`.gantt-container`에 선언돼요. 기본값은 `320px`이에요.
+
+```css
+.gantt-container {
+  --gantt-detail-width: 420px;
+}
+```
+
+패널은 `flex: 0 0 var(--gantt-detail-width)`로 배치돼요. 그래서 늘지도 줄지도 않고, 변화는 타임라인이
+전부 흡수해요. 패널은 자기 색 토큰을 추가하지 않아요. 차트의 나머지가 이미 쓰는 토큰으로 자기를
+칠해요.
+
+## 예외 상황
+
+**열려 있는 작업이 `tasks`에서 빠짐.** 열린 id가 더 이상 어떤 작업으로도 해석되지 않으니 패널도 함께
+닫혀요. `onDetailChange`는 이때 일부러 실행하지 *않아요*. `tasks`를 바꾼 건 호스트 자신이라서, 호스트에게
+새로운 소식이 아니에요.
+
+**배열에 없는 작업을 가리키는 `detailTaskId`.** 결과는 같아요. 패널은 닫혀 있고 오류도 나지 않아요.
+해석되는 id가 들어오는 순간 열려요.
+
+**`Escape`는 행 선택을 남겨둬요.** 패널만 닫아요. `onTaskSelect`는 실행되지 않아요.
+
+**빈 타임라인 공간 클릭.** 선택이 해제되고 패널*도* 닫혀요.
+
+**열려 있는 작업의 부모를 접기.** 패널은 열린 채로 있어요. id는 보이는 행이 아니라 차트가 들고 있는
+모든 작업에 대해 해석돼요. 그래서 숨겨진 행도 자기 패널을 유지해요.
+
+**패널이 열린 상태에서 다른 행 클릭.** 패널은 그 자리에서 그 작업으로 바뀌고, 포커스를 도로 가져오지
+않아요. 포커스 복원은 패널이 언마운트될 때만 일어나요.
+
+**`'selection'`에서 패널은 선택 변화가 아니라 클릭에 반응해요.** 일부러 그렇게 했어요. 선택은 이미
+선택된 행의 클릭을 무시해요. 그래서 선택에 끌려가는 패널은 `Escape`로 닫은 뒤 같은 행을 아무리 다시
+클릭해도 닫힌 채로 있게 돼요.
+
+## 한계
+
+패널은 크기가 조절되지 않아요. 드래그 핸들도 없고 너비 prop도 없어요. `--gantt-detail-width`가 유일한
+손잡이이고 그건 CSS라서, 스프링처럼 애니메이션으로 밀어 넣고 싶은 호스트에게는 방법이 없어요.
+
+위치는 오른쪽으로 고정돼 있어요. 왼쪽, 아래쪽, 떠 있는 형태의 변형은 없고, 패널을 별도 창으로 떼어내는
+prop도 없어요.
+
+한 번에 작업 하나만 보여줘요. 탭도, 히스토리도, 작업 사이를 오가는 뒤로 가기 버튼도, 다중 선택 패널도
+없어요.
+
+패널 안에서는 아무것도 편집할 수 없어요. 내장 본문은 값을 그릴 뿐 입력 요소를 그리지 않아요. 거기에
+폼을 놓는 건 `renderDetail`과 호스트의 상태가 할 일이고, 그 결과를 `tasks`로 되돌려주지 않는 한 차트는
+아무것도 듣지 못해요.
+
+애니메이션은 없어요. 패널은 열린 작업이 바뀌는 그 프레임에 나타나고 사라져요. `prefers-reduced-motion`이
+패널에 대해 할 일은 없어요.
+
+그래서 호스트 앱이 책임지는 것은 이래요. `showDetail`을 토글하는 컨트롤 만들기, 제어 모드를 쓰려면 열린
+id를 상태로 들고 있기, `renderDetail`에 놓은 폼이 하는 모든 일, 그리고 사용자가 패널 너비를 바꿀 수 있어야
+한다면 그 너비를 직접 저장하기.
+
+다음은 제스처가 실행하는 모든 콜백을 — `onDetailChange`까지 포함해서 — 인자와 함께 정리한
+[이벤트](events)예요.
