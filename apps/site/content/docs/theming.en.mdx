@@ -5,7 +5,7 @@ description: "The theme prop and the CSS custom properties"
 
 You render the chart and get a column of unpositioned divs with no colors. The stylesheet is a
 separate file, and importing the component does not pull it in. Once it is loaded the chart is
-themed by 27 CSS custom properties and one `theme` prop.
+themed by 26 CSS custom properties and one `theme` prop.
 
 Nearly every color, shadow and transition in the chart reads a `--gantt-*` variable; the ones
 that do not are named under Limits. There is no theme object in JS and no `tokens` prop. CSS is
@@ -103,10 +103,10 @@ does — is already correct on the first client render, so only static HTML show
 
 ## The custom properties
 
-All 27 tokens are declared on `.gantt-container`, never on `:root`. On `:root` they would collide
+All 26 tokens are declared on `.gantt-container`, never on `:root`. On `:root` they would collide
 with a host app's own `--background` and `--border`.
 
-20 of them are redefined for dark. The other 7 are shared by both themes and are marked with a
+20 of them are redefined for dark. The other 6 are shared by both themes and are marked with a
 dash below.
 
 ### Surface and text
@@ -204,9 +204,9 @@ and the library's base rule have the same specificity, so source order is what d
 }
 ```
 
-That is enough for the 7 tokens the dark block never touches: `--gantt-font-sans`,
-`--gantt-accent`, `--gantt-detail-width`, `--gantt-drag-band`, and the three motion tokens. For
-the other 20 it is not.
+That is enough for the 6 tokens the dark block never touches: `--gantt-font-sans`,
+`--gantt-accent`, `--gantt-detail-width`, and the three motion tokens. For the other 20 it is
+not.
 
 > [!WARNING]
 > A one-line override on `.gantt-container` wins in light mode and loses in dark. The library's
