@@ -1,0 +1,145 @@
+---
+title: "Introduction"
+description: "What the library is, and what it deliberately leaves to you"
+---
+
+A project timeline looks like a table with coloured rectangles next to it. Then the first bar gets
+dragged. The drag has to snap to a step that changes with the scale. The day it lands on is a
+Saturday, and nobody starts a task on a Saturday, so the drop has to move forward off it. The arrow
+to the bar behind it has to be re-routed around the rows in between. And the project has 4,000 rows,
+so none of this may mount 4,000 DOM nodes.
+
+That is a virtualized grid, a drag system, a dependency router and a working-day calendar,
+underneath what looked like a table.
+
+`@jaeungkim/gantt-chart` is that stack as one React component. It renders the chart, handles the
+gestures, and hands the host app a new `tasks` array every time something commits. The date math
+that decides where a bar lands is a separate React-free layer in the same package, so a server or a
+worker can call it without rendering anything.
+
+```ts
+import { ReactGanttChart, createWorkingCalendar, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+```
+
+The package has two runtime dependencies — `dayjs` and `zustand` —
+and takes `react` and `react-dom` as peer dependencies, `^18` or `^19`. Every prop is optional;
+`tasks` defaults to an empty array. The install command and the first working chart are in
+[Quick start](quick-start).
+
+## What you get
+
+### Rendering
+
+- Rows and time cells are virtualized together, from one window with five items of overscan; bars outside that window are culled too.
+- A task list pane on the left, listing task names behind a draggable splitter — see [Task list and hierarchy](task-list).
+- Six timeline scales, hour through year, each with its own tick unit, drag step and label formats — see [The timeline](timeline).
+- Dependency arrows routed as elbows, for all four link types — see [Dependencies](dependencies).
+- A today line and non-working-day shading — see [The timeline](timeline).
+
+### Editing
+
+- Drag a bar to move it, drag either edge to resize it, drag the handle to set progress — see [Editing tasks](editing).
+- Drag below the last row to draw a new task; the chart proposes a draft and never adds the row itself.
+- Drag from a bar's link handle to another bar to create a dependency; click an arrow to select it, then press Delete — see [Dependencies](dependencies).
+
+### Dates
+
+- A working calendar moves a drop forward off a weekend or a holiday — see [Working calendar](working-calendar).
+- Dependency arrows are drawn and edited, never enforced: the bar you moved is the only bar that moves.
+- The tree and calendar math are exported as plain functions, callable without rendering — see [Headless core](headless-core).
+
+### Accessibility
+
+- The chart is one ARIA treegrid; each row carries `aria-level`, `aria-posinset`/`aria-setsize` and `aria-rowindex`.
+- The grid body is a single roving tab stop; arrow keys move between rows, and across the cells of a row. The pane splitter is the one other tab stop.
+- Bars move, resize and step their progress from the keyboard — see [Keyboard and screen readers](accessibility).
+- Ctrl/Cmd + ArrowUp and ArrowDown step the timeline scale finer and coarser, and announce the new one.
+- A bar's accessible name is built from the task name, its dates and its progress.
+
+### Theming
+
+- `theme` takes `'light'`, `'dark'` or `'system'`; omitted, no theme class is attached and your own CSS decides — see [Theming](theming).
+- Theme tokens are `--gantt-*` custom properties scoped to `.gantt-container`, not `:root`, so they cannot collide with your app's variables. Two box-shadows and two `#fff` values stay literal.
+- A per-task `color` derives the bar, its progress fill and its hover shade from one value — see [Custom rendering](custom-rendering).
+- `renderTooltip` and `renderHeaderCell` replace the default elements.
+- `locale` renders the header, tooltip and drag-readout dates through `Intl.DateTimeFormat`, and `formats` overrides those three per scale — see [Locale and date formats](i18n).
+
+## What it does not do
+
+**No server, and no data fetching.** There is no `fetch`, no `XMLHttpRequest` and no `WebSocket`
+anywhere in the source. Tasks arrive as a prop. `onRangeChange` fires when the rendered timeline
+range changes, which is the hook for loading more.
+
+**No chrome.** The chart renders the timeline, and the task list pane when you ask for one. It
+renders no controls of its own: no toolbar, no scale picker, no zoom buttons, no collapse button.
+Scale changes through `setScale` on the ref or Ctrl/Cmd + ArrowUp / ArrowDown, and `onScaleChange`
+reports every change so a control of your own can follow the chart. The `<select>` to pair with
+them is in [Quick start](quick-start).
+
+**No persistence.** Not the task data, not the scale, not the pane width, not the collapsed rows,
+not the scroll position, and not the theme. The scale used to survive a remount through
+`sessionStorage`; that path and the `storageKey` prop that named its key are both gone, and the
+scale is now plain state on the chart instance.
+
+**No resource or cost model.** A `Task` has no assignee, no effort, no rate and no cost field —
+see [Task data](task-data). There is no resource pane, no histogram and no levelling. A
+swimlane groups rows by a string you supply; it does not know what a person is.
+
+**Almost no validation.** Nothing checks that ids are unique, that `endDate` follows `startDate`,
+or that a date string parses; bad values degrade quietly instead of throwing. An unparseable date
+draws a bar across the whole timeline. The one exception is `sequence`: a task without it throws a
+`TypeError` during render, because the row sort splits that string. See [Task data](task-data).
+
+**No automatic rescheduling.** Dragging a bar moves that bar, and its subtree when it is a summary
+row. A successor never moves because its predecessor did, whatever the link between them says.
+See [Dependencies](dependencies).
+
+**No export, and no print path.** Nothing turns the chart into a PNG, an SVG, a PDF, a CSV or a
+clipboard payload, and the stylesheet carries no print rules. What leaves the chart is the `tasks`
+array.
+
+**React only.** `react` and `react-dom` are peer dependencies. The headless core is written
+without React or DOM access, but the package ships a single entry point with no `./core` subpath,
+so importing `createWorkingCalendar` in Node still resolves the bundle that needs the React peers
+present.
+
+**The built-in text is English, and most of it is fixed.** The ARIA labels and the screen-reader
+announcements are hardcoded — `"Gantt chart"`, `"Resize task list"`, `"Delete FS dependency"`, and
+a scale change announces the raw key, as in `"week scale"` — and there is no string bundle and no
+`messages` prop. The one label a prop can replace is `ungroupedLabel`.
+Anything you render around the chart is your own text, so a scale control's option labels translate
+with the rest of your UI. There is also no RTL support: the stylesheet uses physical properties
+throughout.
+
+### What the host app does
+
+- Owns the `tasks` array, and stores it. The chart adds no row on its own.
+- Applies each commit: a committed gesture ends in `onTasksChange` with a new array.
+- Supplies `id`, `parentId` and `sequence` for a task drawn on the chart.
+- Validates dates and ids before they reach the `tasks` prop.
+- Loads more data on `onRangeChange`.
+- Renders the scale control, and any other chrome around the chart.
+
+## Where to start reading
+
+Read [Concepts and vocabulary](concepts) first. It fixes the words the rest of the docs use —
+task, bar, row, tick, lane, predecessor — so the later pages stay short.
+
+Then [Quick start](quick-start), which installs the package and renders a chart with real data.
+
+After that, go to the page for the thing you are building.
+
+| You are building | Read |
+|---|---|
+| a read-only timeline view | [Task data](task-data), then [The timeline](timeline) |
+| an editable plan | [Editing tasks](editing), then [Events](events) |
+| a plan with links and a work week | [Dependencies](dependencies), then [Working calendar](working-calendar) |
+| a WBS-style outline | [Task list and hierarchy](task-list) |
+| a per-team or per-phase board | [Grouping and swimlanes](grouping) |
+| a chart that matches your design system | [Theming](theming), then [Custom rendering](custom-rendering) |
+| date math with no chart | [Headless core](headless-core) |
+
+Every prop is listed in one place, in [Props](ref/props).
+
+Next: [Concepts and vocabulary](concepts).

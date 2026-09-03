@@ -4,11 +4,16 @@
 /* ===== DESIGN TOKENS =====
    Every token is prefixed --gantt-* and scoped to .gantt-container.
    On :root they would collide with the host app's --background/--border and friends.
-   Fonts are not bundled - the host can override --gantt-font-sans. */
+   Fonts are not bundled - the stack below only names Pretendard, so a host that has it
+   installed or self-hosted gets it and everyone else falls through to the system font.
+   Override --gantt-font-sans to use something else. */
 .gantt-container {
   /* Typography */
-  --gantt-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Geist",
-    system-ui, sans-serif;
+  /* Width of the docked detail panel */
+  --gantt-detail-width: 320px;
+
+  --gantt-font-sans: "Pretendard Variable", Pretendard, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", "Geist", system-ui, sans-serif;
 
   /* Background */
   --gantt-background: #fafafa;
@@ -23,12 +28,19 @@
   --gantt-border-subtle: rgba(0, 0, 0, 0.04);
 
   /* Task bar */
-  --gantt-bar-bg: #e4e4e7;
-  --gantt-bar-bg-hover: #d4d4d8;
+  --gantt-bar-bg: #c7c7cd;
+  --gantt-bar-bg-hover: #b4b4bc;
   --gantt-bar-text: #18181b;
-  --gantt-bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --gantt-bar-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --gantt-bar-shadow-drag: 0 8px 24px rgba(0, 0, 0, 0.15);
+  /* Flat at rest. A drop shadow under every bar is a lift cue on an object that is not
+     lifted, and 40 of them stack into a grey haze that costs the bar its own edge. The
+     shadows below are events: a hairline on hover, a real lift only while dragging. */
+  --gantt-bar-shadow: none;
+  --gantt-bar-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --gantt-bar-shadow-drag: 0 4px 12px rgba(0, 0, 0, 0.16);
+  /* Floating surfaces - the tooltip and the drag-guide label. Separate from the bar
+     shadows because a light panel on a dark ground needs an EDGE, not a heavier
+     shadow: the dark values below pair the drop with a hairline ring. */
+  --gantt-shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.15);
 
   /* Dependency arrows */
   --gantt-arrow: #a1a1aa;
@@ -39,27 +51,14 @@
   /* Today marker */
   --gantt-today-marker: #f43f5e;
 
-  /* Date markers and range bands */
-  --gantt-marker: #6366f1;
-  --gantt-marker-warning: #f59e0b;
-  --gantt-marker-label: #ffffff;
-  --gantt-band-bg: rgba(99, 102, 241, 0.1);
-
-  /* Milestone */
-  --gantt-milestone-bg: #52525b;
-  --gantt-milestone-bg-hover: #3f3f46;
+  /* Summary bar */
+  --gantt-summary-bg: #dcdce0;
+  --gantt-summary-bg-hover: #cfcfd4;
 
   /* Critical path */
-  --gantt-critical: #dc2626;
-  --gantt-critical-bg: #fecaca;
-  --gantt-critical-bg-hover: #fca5a5;
-  --gantt-critical-text: #7f1d1d;
-
-  /* Baseline (planned vs actual) */
-  --gantt-baseline-bg: #a1a1aa;
 
   /* Progress */
-  --gantt-progress-bg: #a1a1aa;
+  --gantt-progress-bg: #8e8e97;
   --gantt-progress-handle: #52525b;
 
   /* Non-working-day shading */
@@ -83,34 +82,24 @@
   --gantt-border: #27272a;
   --gantt-border-subtle: rgba(255, 255, 255, 0.04);
 
-  --gantt-bar-bg: #27272a;
-  --gantt-bar-bg-hover: #3f3f46;
+  --gantt-bar-bg: #3a3a41;
+  --gantt-bar-bg-hover: #47474f;
   --gantt-bar-text: #fafafa;
-  --gantt-bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --gantt-bar-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --gantt-bar-shadow-drag: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --gantt-bar-shadow: none;
+  --gantt-bar-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --gantt-bar-shadow-drag: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --gantt-shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
 
   --gantt-arrow: #71717a;
 
   --gantt-today-marker: #fb7185;
 
-  --gantt-marker: #818cf8;
-  --gantt-marker-warning: #fbbf24;
-  --gantt-marker-label: #18181b;
-  --gantt-band-bg: rgba(129, 140, 248, 0.16);
 
-  --gantt-milestone-bg: #d4d4d8;
-  --gantt-milestone-bg-hover: #e4e4e7;
+  --gantt-summary-bg: #2a2a2f;
+  --gantt-summary-bg-hover: #35353c;
 
-  --gantt-critical: #f87171;
-  --gantt-critical-bg: #7f1d1d;
-  --gantt-critical-bg-hover: #991b1b;
-  --gantt-critical-text: #fee2e2;
-
-  /* Baseline (planned vs actual) */
-  --gantt-baseline-bg: #71717a;
-
-  --gantt-progress-bg: #52525b;
+  --gantt-progress-bg: #6c6c76;
   --gantt-progress-handle: #a1a1aa;
 
   --gantt-non-working-bg: rgba(255, 255, 255, 0.03);
@@ -128,34 +117,25 @@
     --gantt-border: #27272a;
     --gantt-border-subtle: rgba(255, 255, 255, 0.04);
 
-    --gantt-bar-bg: #27272a;
-    --gantt-bar-bg-hover: #3f3f46;
+    --gantt-bar-bg: #3a3a41;
+    --gantt-bar-bg-hover: #47474f;
     --gantt-bar-text: #fafafa;
-    --gantt-bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    --gantt-bar-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.3);
-    --gantt-bar-shadow-drag: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --gantt-bar-shadow: none;
+    --gantt-bar-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --gantt-bar-shadow-drag: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --gantt-shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.55),
+      0 0 0 1px rgba(255, 255, 255, 0.08);
 
     --gantt-arrow: #71717a;
 
     --gantt-today-marker: #fb7185;
 
-    --gantt-marker: #818cf8;
-    --gantt-marker-warning: #fbbf24;
-    --gantt-marker-label: #18181b;
-    --gantt-band-bg: rgba(129, 140, 248, 0.16);
 
-    --gantt-milestone-bg: #d4d4d8;
-    --gantt-milestone-bg-hover: #e4e4e7;
+    --gantt-summary-bg: #2a2a2f;
+    --gantt-summary-bg-hover: #35353c;
 
-    --gantt-critical: #f87171;
-    --gantt-critical-bg: #7f1d1d;
-    --gantt-critical-bg-hover: #991b1b;
-    --gantt-critical-text: #fee2e2;
 
-    /* Baseline (planned vs actual) */
-    --gantt-baseline-bg: #71717a;
-
-    --gantt-progress-bg: #52525b;
+      --gantt-progress-bg: #6c6c76;
     --gantt-progress-handle: #a1a1aa;
 
     --gantt-non-working-bg: rgba(255, 255, 255, 0.03);
@@ -173,10 +153,45 @@
 }
 
 /* ===== BASE LAYOUT ===== */
+/* ===== STACKING MODEL =====
+   The chart has two isolated tiers, and a number is only comparable with the others in
+   its own tier. Nothing here is a token: a --gantt-z-* on the container would be public
+   theming API for values that mean nothing outside their tier, and a host setting one
+   to 0 would silently reintroduce the bug the wrapper lift fixes.
+
+   TIER A - inside .gantt-container (this rule's `isolation`)
+     70  .gantt-detail          the docked task panel, over the pinned list and its splitter
+     60  .gantt-grid-splitter   outside the scroll container, so it must beat the pane
+     50  .gantt-grid            the pinned task list
+
+   TIER B - inside .gantt-timeline (its own `isolation`, below)
+     45  .gantt-dependency-arrows.linking   the link preview
+     30  .gantt-header-wrapper              the ceiling for anything that scrolls under
+                                            the date axis - which is why the tooltip
+                                            sits below its bar, and why no bar wrapper
+                                            may be lifted past 5. The drag readout is a
+                                            CHILD of this wrapper, so it needs no rung of
+                                            its own - it rides the header's.
+      5  .gantt-draw-ghost
+      2  .gantt-bar-wrap        while its bar is being dragged
+      1  .gantt-bar-wrap        while its bar's tooltip is open
+   auto  backgrounds, arrows, the today line, resting bars - ordered by DOM order, which
+         already gives the correct back-to-front sequence
+
+   The two wrapper rungs are the whole overlay mechanism. `transform` makes the wrapper a
+   stacking context for its DESCENDANTS; it does not remove the wrapper from its parent's
+   ordering. So an explicit z-index there lifts the bar and its tooltip as one subtree,
+   and the tooltip's own z-index never has to compete across rows. */
 .gantt-container {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Tier A. Without it nothing from here down to .gantt-body establishes a context, so
+     the pane's 50 and the splitter's 60 resolve against the HOST page's root - a host
+     nav at 55 lands between the chart's own two surfaces. This is also why the chart
+     does not use the top layer (popover/dialog): the top layer paints above every
+     stacking context by construction, so a host could not restrain a hover tooltip. */
+  isolation: isolate;
   background: var(--gantt-background);
   font-family: var(--gantt-font-sans);
   font-size: 13px;
@@ -192,113 +207,23 @@
   outline: none;
 }
 
-/* ===== TOOLBAR ===== */
-.gantt-toolbar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 12px 16px;
-  background: var(--gantt-background);
-  border-bottom: 1px solid var(--gantt-border);
-}
-
-/* Task list collapse toggle - far left of the toolbar (pushed there by margin-right auto) */
-.gantt-grid-toggle {
-  margin-right: auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  color: var(--gantt-muted-foreground);
-  background: transparent;
-  border: 1px solid var(--gantt-border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: color var(--gantt-transition-fast),
-    background var(--gantt-transition-fast);
-}
-
-.gantt-grid-toggle:hover {
-  color: var(--gantt-foreground);
-  background: var(--gantt-muted);
-}
-
-.gantt-grid-toggle:focus-visible {
-  outline: 2px solid var(--gantt-accent);
-  outline-offset: -2px;
-}
-
-.gantt-grid-toggle svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.3;
-}
-
-.gantt-grid-toggle[aria-expanded="true"] svg rect {
-  fill: var(--gantt-muted);
-}
-
-/* ===== SCALE SELECTOR ===== */
-.gantt-scale-selector {
-  display: inline-flex;
-}
-
-.gantt-scale-control {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--gantt-muted);
-  border-radius: 8px;
-  border: 1px solid var(--gantt-border);
-}
-
-.gantt-scale-button {
-  position: relative;
-  padding: 6px 14px;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--gantt-muted-foreground);
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all var(--gantt-transition-fast);
-  text-transform: capitalize;
-}
-
-.gantt-scale-button:hover {
-  color: var(--gantt-foreground);
-}
-
-.gantt-scale-button:focus-visible {
-  outline: 2px solid var(--gantt-accent);
-  outline-offset: -2px;
-}
-
-.gantt-scale-button[data-active="true"] {
-  color: var(--gantt-foreground);
-  background: var(--gantt-background);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
 /* ===== MAIN CHART AREA ===== */
 .gantt-main {
   position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  /* Column flow so the add-task strip has a foot to sit on. With no strip rendered the
+     scroll container is still the only child and fills the box exactly as it did. */
+  display: flex;
+  flex-direction: column;
 }
 
 .gantt-scroll-container {
   position: relative;
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -308,11 +233,24 @@
   align-items: stretch;
   width: max-content;
   min-width: 100%;
+  /* Fewer rows than the container is tall: stretch anyway so the panes, their
+     separator and the timeline background reach the bottom edge */
+  min-height: 100%;
 }
 
+/* Grows past its measured width when the timeline is narrower than the container,
+   so the header strip and the row stripes reach the right edge */
 .gantt-timeline {
   position: relative;
-  flex: none;
+  flex: 1 0 auto;
+  /* Column flow so .gantt-content can grow past the rows - the drag guides are absolute
+     and stay out of it */
+  display: flex;
+  flex-direction: column;
+  /* Tier B root. Everything the timeline paints is sealed in here, so no number inside
+     can ever be compared with the pinned task list's 50 or the splitter's 60 - which is
+     what lets the numbers inside stay small ordinals. */
+  isolation: isolate;
 }
 
 /* ===== TASK GRID (list on the left) ===== */
@@ -322,6 +260,9 @@
   left: 0;
   z-index: 50;
   flex: none;
+  /* Column flow, same reason as .gantt-timeline - .gantt-grid-body grows past the rows */
+  display: flex;
+  flex-direction: column;
   background: var(--gantt-background);
   border-right: 1px solid var(--gantt-border);
   /* No overflow here - it would make this a scroll container and pin the header's sticky
@@ -331,6 +272,7 @@
 .gantt-grid-header {
   position: sticky;
   top: 0;
+  flex: none;
   z-index: 1;
   display: flex;
   align-items: flex-end;
@@ -340,7 +282,10 @@
   border-bottom: 1px solid var(--gantt-border);
 }
 
+/* One column, so it takes the pane */
 .gantt-grid-header-cell {
+  flex: 1;
+  min-width: 0;
   padding: 0 10px;
   font-size: 11px;
   font-weight: 600;
@@ -382,71 +327,19 @@
   box-shadow: inset 2px 0 0 var(--gantt-accent);
 }
 
-/* ===== ROW DRAG (reorder / re-parent) ===== */
-.gantt-grid-row.draggable {
-  cursor: grab;
-}
-
-.gantt-grid.row-dragging,
-.gantt-grid.row-dragging .gantt-grid-row {
-  cursor: grabbing;
-}
-
+/* Lifted off the list while it is being dragged to a new place in the tree */
 .gantt-grid-row.dragging {
   opacity: 0.45;
 }
 
-/* Drop-into - this row becomes the new parent */
-.gantt-grid-row.drop-into {
-  background: color-mix(in srgb, var(--gantt-accent) 14%, transparent);
-  box-shadow: inset 0 0 0 1px var(--gantt-accent);
-}
-
-/* An illegal drop is shown, not hidden - the release then does nothing */
-.gantt-grid-row.drop-into.invalid,
-.gantt-grid.row-dragging .gantt-grid-row.drop-into.invalid {
-  background: color-mix(in srgb, var(--gantt-today-marker) 14%, transparent);
-  box-shadow: inset 0 0 0 1px var(--gantt-today-marker);
-  cursor: no-drop;
-}
-
-/* Insertion line between two rows - its left edge marks the indent level it would land at */
-.gantt-grid-drop-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  margin-top: -1px;
-  background: var(--gantt-accent);
-  pointer-events: none;
-}
-
-.gantt-grid-drop-line::before {
-  content: '';
-  position: absolute;
-  top: -3px;
-  left: 0;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: inherit;
-}
-
-.gantt-grid-drop-line.invalid {
-  background: var(--gantt-today-marker);
-}
-
 .gantt-grid-cell {
+  flex: 1;
   display: flex;
   align-items: center;
   min-width: 0;
   padding: 0 10px;
   font-size: 12px;
   color: var(--gantt-foreground);
-}
-
-.gantt-grid-cell + .gantt-grid-cell {
-  color: var(--gantt-muted-foreground);
 }
 
 .gantt-grid-cell-text {
@@ -507,6 +400,78 @@
   width: 20px;
 }
 
+/* Row drag handle. Sits before the indent, so it is at the same x whatever the depth,
+   and stays invisible until the row is pointed at - a column of dots on every row reads
+   as decoration and competes with the task names. No touch-action here on purpose: a
+   swipe over the grip has to scroll the pane, so the long press in `armPointerGesture`
+   is what lifts a row instead. */
+.gantt-grid-grip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  padding: 0;
+  color: var(--gantt-muted-foreground);
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  opacity: 0;
+  cursor: grab;
+  transition: opacity var(--gantt-transition-fast);
+}
+
+.gantt-grid-row:hover .gantt-grid-grip,
+.gantt-grid-row:focus-within .gantt-grid-grip {
+  opacity: 1;
+}
+
+.gantt-grid-grip:active {
+  cursor: grabbing;
+}
+
+.gantt-grid-grip svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+/* Keeps the text start aligned on rows that cannot be dragged */
+.gantt-grid-grip-spacer {
+  flex: none;
+  width: 20px;
+}
+
+/* Where the drop would land. `color` carries the state, so both shapes below pick the
+   refused colour up from one rule. */
+.gantt-grid-drop {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  /* Centred on the boundary between the two rows rather than hanging below it */
+  margin-top: -1px;
+  color: var(--gantt-accent);
+  background: currentColor;
+  pointer-events: none;
+}
+
+/* A drop that becomes a child lands inside the row, so the row is ringed instead */
+.gantt-grid-drop.child {
+  height: auto;
+  margin-top: 0;
+  background: none;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+/* Refused by the core - the same colour an invalid link preview uses */
+.gantt-grid-drop.blocked {
+  color: var(--gantt-today-marker);
+}
+
 /* Sits over the pane edge, outside the scroll container - the pane is pinned left,
    so the splitter must not travel with the horizontal scroll */
 .gantt-grid-splitter {
@@ -527,33 +492,119 @@
   outline: none;
 }
 
-/* ===== DRAG GUIDES ===== */
+/* ===== ADD TASK STRIP =====
+   The foot of the task list pane, and like the splitter it is outside the scroll
+   container: the pane itself is inside the treegrid, whose children may only be rows.
+   Pane-width rather than full-width, so it reads as the list continuing rather than as a
+   toolbar the chart grew. It does not scroll with the rows - a list long enough to scroll
+   is exactly the one where the way to add a row must stay where it was. */
+.gantt-grid-footer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 6px;
+  background: var(--gantt-background);
+  border-top: 1px solid var(--gantt-border);
+  border-right: 1px solid var(--gantt-border);
+}
+
+.gantt-grid-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--gantt-muted-foreground);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.gantt-grid-add:hover {
+  color: var(--gantt-foreground);
+  background: var(--gantt-muted);
+}
+
+.gantt-grid-add:focus-visible {
+  outline: 2px solid var(--gantt-accent);
+  outline-offset: -2px;
+}
+
+.gantt-grid-add svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+/* ===== DRAG READOUT (on the date axis) =====
+   A move or resize reports itself on the header, not over the grid: one translucent band
+   riding the tick row for the EXTENT, one pill above it for the exact dates. This is
+   Frappe's `.date-range-highlight` model, and it replaced two full-height accent rules
+   that ran the whole content height plus a pill on each one - which collided with each
+   other on a short bar and covered the month label they sat on.
+
+   The layer lives inside .gantt-header-wrapper, which is already `position: sticky` (so it
+   is the containing block, and the readout is pinned to the viewport top for free) and
+   already carries width: totalWidth (so `left` is in the same coordinate space as a bar's
+   barLeft). That is also why there is no z-index here any more: the wrapper's own 30 is
+   the whole story, and a last child paints over the header's opaque rows on DOM order. */
 .gantt-drag-guides {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 40;
+  inset: 0;
   pointer-events: none;
 }
 
-.gantt-drag-guide {
+/* 44px is .gantt-top-header's height and 28px is .gantt-bottom-row's - both fixed, and
+   documented as fixed in custom-rendering (`renderHeaderCell` cannot change them).
+   GanttDragGuides.test.ts fails if either drifts away from this rule. */
+.gantt-drag-range {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--gantt-accent);
-  opacity: 0.9;
+  top: 44px;
+  height: 28px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--gantt-accent) 16%, transparent);
+  /* What survives of the two guide lines: the range edges are still marked, 28px tall on
+     the axis instead of full-height over every row. */
+  box-shadow: inset 0 -2px 0 0 var(--gantt-accent);
 }
 
 .gantt-drag-guide-label {
-  position: absolute;
-  top: 6px;
-  left: 0;
-  transform: translateX(-50%);
+  /* Sits in the 44px month row, directly above the band, anchored to the range start.
+
+     Sticky rather than absolute, and offset by the pinned pane, for the same reason
+     .gantt-top-group-label is: `left` here is in CONTENT space, so dragging a bar
+     leftwards slid the pill under the task list - and since this pill is now the only
+     visible readout a drag produces, losing it loses the whole gesture's feedback.
+     Sticky resolves against the scroll container instead, so the pill slides along its
+     own band to stay in view. It is still clamped to the band, so once the range itself
+     is off-screen the pill goes with it, which is correct - so has the bar.
+
+     The lift into the month row is a transform, not `bottom`, because a transform is
+     visual only: sticky keeps resolving from the in-flow position inside the band. */
+  position: sticky;
+  left: var(--gantt-pane-inset, 0px);
+  display: inline-block;
+  transform: translateY(calc(-100% - 6px));
+  /* Same inversion as the tooltip. #fff on --gantt-accent measured 3.68:1 at 11px/500,
+     under the 4.5:1 AA requirement, and theming could not reach it - --gantt-accent is
+     the one token with no dark override. The accent survives as the left edge. */
   padding: 3px 7px;
-  background: var(--gantt-accent);
-  color: #fff;
+  background: var(--gantt-foreground);
+  color: var(--gantt-background);
+  border-inline-start: 2px solid var(--gantt-accent);
+  box-shadow: var(--gantt-shadow-overlay);
   border-radius: 4px;
   font-family: inherit;
   font-size: 11px;
@@ -594,12 +645,16 @@
 .gantt-header-wrapper {
   position: sticky;
   top: 0;
+  /* Never absorbs the column's shrink - the body below it is what grows and shrinks */
+  flex: none;
   z-index: 30;
+  min-width: 100%;
 }
 
 /* ===== HEADER ===== */
 .gantt-header {
   position: relative;
+  min-width: 100%;
   background: var(--gantt-background);
   border-bottom: 1px solid var(--gantt-border);
 }
@@ -635,10 +690,19 @@
 /* Pin the label, not the group itself - it slides out of the way when the next group arrives instead of covering it */
 .gantt-top-group-label {
   position: sticky;
-  left: var(--top-group-inset);
+  /* Offset by the pinned task list - sticking at the scrollport edge would park the
+     label under the pane, leaving the visible months unlabelled */
+  left: calc(var(--gantt-pane-inset, 0px) + var(--top-group-inset));
   margin: 0;
   padding: 0;
   white-space: nowrap;
+  /* An edge month can be a single cell wide. Without these the label keeps its full
+     text width, spills past its own group and lands on top of the next month's
+     label instead of being clipped away. */
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gantt-bottom-row {
@@ -660,6 +724,7 @@
 /* ===== CONTENT AREA ===== */
 .gantt-content {
   position: relative;
+  min-width: 100%;
   background: var(--gantt-background);
 }
 
@@ -671,7 +736,6 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 0;
 }
 
 .gantt-non-working-range {
@@ -688,8 +752,8 @@
   left: 0;
   width: 100%;
   height: 100%;
-  /* Background layer - on the same layer as the arrows and bars, painted first by DOM order */
-  z-index: 0;
+  /* Background layer - auto, painted first by DOM order. An explicit z-index: 0 ordered
+     nothing here (0 and auto share a painting layer) while costing a stacking context. */
   pointer-events: none;
 }
 
@@ -704,63 +768,26 @@
   pointer-events: none;
 }
 
-/* ===== RANGE BANDS ===== */
-.gantt-range-band-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-}
+/* ===== EMPTY GRID PAST THE LAST ROW =====
+   A chart shorter than its container used to end in a blank slab: every layer the
+   timeline paints - weekend shading, the today marker, the row rules - is sized against
+   .gantt-content, and that box was exactly the rows' height. Both bodies now grow into
+   the leftover space instead (their panes already stretch, .gantt-body is
+   min-height: 100%), so those layers reach the bottom of the canvas on their own.
 
-.gantt-range-band {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: var(--gantt-band-color, var(--gantt-band-bg));
-}
-
-.gantt-range-band-label {
-  position: absolute;
-  top: 2px;
-  left: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--gantt-muted-foreground);
-  white-space: nowrap;
-}
-
-/* ===== DATE MARKERS ===== */
-/* The today line is one of these - its own rule below only swaps the color */
-.gantt-marker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  margin-left: -1px;
-  background: var(--gantt-marker-color, var(--gantt-marker));
-  pointer-events: none;
-  z-index: 2;
-}
-
-.gantt-marker[data-warning="true"] {
-  --gantt-marker-color: var(--gantt-marker-warning);
-}
-
-.gantt-marker-label {
-  position: absolute;
-  top: 2px;
-  left: 3px;
-  padding: 1px 5px;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--gantt-marker-label);
-  background: var(--gantt-marker-color, var(--gantt-marker));
-  border-radius: 3px;
-  white-space: nowrap;
+   The rules past the last row are this one repeating background rather than filler rows:
+   no DOM at any canvas size, no resize measuring, and it starts at the body's own top
+   edge, so it stays in phase with the real row borders above it. */
+.gantt-content,
+.gantt-grid-body {
+  flex: 1 0 auto;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--gantt-row-height) - 1px),
+    var(--gantt-border-subtle) calc(var(--gantt-row-height) - 1px),
+    var(--gantt-border-subtle) var(--gantt-row-height)
+  );
 }
 
 /* ===== TODAY MARKER ===== */
@@ -768,12 +795,15 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
-  margin-left: -1px;
+  width: 1px;
   background: var(--gantt-today-marker);
-  opacity: 0.7;
+  opacity: 0.6;
   pointer-events: none;
-  z-index: 2;
+  /* No z-index on purpose. At 3 this decoration painted over every bar, every arrow and
+     every open hover card - whose only lift is its wrapper's 1 - which is a reference
+     line covering the information it is a reference for. GanttTodayLine renders after
+     the row backgrounds and before the arrows and bars, so DOM order alone now puts it
+     exactly where a date reference belongs: behind them. */
 }
 
 /* ===== DEPENDENCY ARROWS ===== */
@@ -783,21 +813,50 @@
   left: 0;
   width: 100%;
   pointer-events: none;
-  /* The bar wrapper is its own stacking context because of the transform, so a bar's
-     z-index does not reach outside it. Keeping the arrows on the same auto/0 layer means
-     bars later in DOM order are painted on top. */
+  /* Kept explicit only because the .linking rule below overrides it. On the same layer
+     as the resting bars, so bars later in DOM order paint on top. */
   z-index: 0;
 }
 
-/* While a link is being drawn the preview has to be readable over the bars it crosses */
+/* While a link is being drawn the preview has to be readable over the bars it crosses.
+   The old 150 was a fossil: its comment said it was picked to clear the task pane's 50,
+   a comparison .gantt-timeline's isolation made impossible. 45 now only has to beat the
+   header's 30 - the drag readout it used to clear is inside that wrapper. */
 .gantt-dependency-arrows.linking {
-  z-index: 150;
+  z-index: 45;
 }
 
+/* ...but nothing in this layer may take the pointer while it sits on top. The click
+   targets below are 12px wide and invisible, so crossing an existing arrow used to put
+   one under the cursor and the drop landed on nothing. */
+.gantt-dependency-arrows.linking .gantt-dependency-hit,
+.gantt-dependency-arrows.linking .gantt-dependency-delete {
+  pointer-events: none;
+}
+
+/* Arrows are structure, not subject. Unconditional and one per dependency of every
+   visible row, they were the only full-weight element on the canvas - louder than the
+   bars they connect, crossing rows they have nothing to do with. They rest at 45% and
+   come back to full strength only when they are the arrow you asked about.
+
+   Hovering a bar promotes its whole chain, so tracing one costs a pointer move rather
+   than a click per link. .gantt-dependency-hit only renders when the chart allows link
+   deletion, so a read-only chart promotes through hover and selection rather than by
+   aiming at the 1.5px line itself. */
 .gantt-dependency-arrow {
   stroke: var(--gantt-arrow);
   stroke-width: 1.5;
   fill: none;
+  opacity: 0.45;
+}
+
+/* `related` is set by GanttDependencyArrows when either end is the hovered or the
+   selected task, so pointing at or clicking a bar lights the whole of its incoming and
+   outgoing chain. */
+.gantt-dependency-arrow.selected,
+.gantt-dependency-arrow.related,
+.gantt-dependency-hit:hover + .gantt-dependency-arrow {
+  opacity: 1;
 }
 
 .gantt-dependency-arrow.selected {
@@ -846,8 +905,8 @@
 .gantt-link-handle {
   position: absolute;
   top: 50%;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   background: var(--gantt-background);
   border: 2px solid var(--gantt-accent);
   border-radius: 50%;
@@ -859,45 +918,91 @@
   transition: opacity var(--gantt-transition-fast);
 }
 
+/* The dot sits entirely OUTSIDE the bar. Overlapping the edge put its hit pad on top of
+   the resize grip, and the pad wins - it is a later child, and startLink stops the
+   event - so edge resizing was unreachable by mouse on any bar that could be linked
+   from. The gap of dead pixels that moving it out used to open is closed by the pad
+   below rather than by the dot, and the dot is still a child of the bar, so hovering it
+   keeps matching .gantt-task-bar:hover and the dot stays up. */
 .gantt-link-handle.start {
-  left: -14px;
+  left: -18px;
 }
 
 .gantt-link-handle.end {
-  right: -14px;
+  right: -18px;
 }
 
-/* The milestone's diamond is a 16px box at the start of the row, and the rotated
-   vertices stick out about 3px on each side */
-.gantt-milestone .gantt-link-handle.start {
-  left: -9px;
+/* A 12px dot is a 12px target. This pad makes it 26x28 without making the dot bigger,
+   the same trick the progress handle uses on touch. It is asymmetric on purpose: the
+   inner side stops exactly on the bar's edge, so the pad reaches far enough for the
+   pointer to cross without ever covering the EDGE_THRESHOLD grip behind it. */
+.gantt-link-handle::before {
+  content: "";
+  position: absolute;
 }
 
-.gantt-milestone .gantt-link-handle.end {
-  left: 15px;
-  right: auto;
+.gantt-link-handle.start::before {
+  inset: -8px -6px -8px -8px;
+}
+
+.gantt-link-handle.end::before {
+  inset: -8px -8px -8px -6px;
 }
 
 /* Selection reveals them too - a finger has no hover, so tapping the bar is how a
    touch user reaches the connectors */
 .gantt-task-bar:hover .gantt-link-handle,
-.gantt-milestone:hover .gantt-link-handle,
-.gantt-task-bar.selected .gantt-link-handle,
-.gantt-milestone.selected .gantt-link-handle {
+.gantt-task-bar.selected .gantt-link-handle {
   opacity: 1;
   pointer-events: auto;
 }
 
+/* The dot being dragged from stays up for the whole gesture - the pointer left the bar
+   long ago, so hover no longer holds it there */
+.gantt-task-bar.link-source.link-at-start .gantt-link-handle.start,
+.gantt-task-bar.link-source.link-at-end .gantt-link-handle.end {
+  opacity: 1;
+}
+
+/* Touch has no hover at all, and a chart without `selectable` has no tap-to-select
+   either, so without this the connectors are unreachable on a finger */
+@media (hover: none) {
+  .gantt-link-handle {
+    opacity: 0.55;
+    pointer-events: auto;
+  }
+}
+
 /* Drop target highlight while a link is being drawn */
-.gantt-task-bar.link-target,
-.gantt-milestone.link-target .gantt-milestone-diamond {
+.gantt-task-bar.link-valid,
+.gantt-task-bar.link-invalid {
   outline: 2px solid var(--gantt-accent);
   outline-offset: 2px;
 }
 
-.gantt-task-bar.link-target.invalid,
-.gantt-milestone.link-target.invalid .gantt-milestone-diamond {
+/* Beats `.selected`, which is the same outline - otherwise hovering a selected bar as
+   the target looks exactly like not hovering it */
+.gantt-task-bar.link-valid {
+  background: var(--gantt-bar-color-hover, var(--gantt-bar-bg-hover));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gantt-accent) 25%, transparent);
+}
+
+.gantt-task-bar.link-invalid {
   outline-color: var(--gantt-today-marker);
+  box-shadow: none;
+}
+
+/* The end the link would attach to. Which of the four types a drop makes is decided
+   here, so the armed end is marked rather than left to be inferred. */
+.gantt-task-bar.link-valid .gantt-link-handle.start,
+.gantt-task-bar.link-valid .gantt-link-handle.end {
+  opacity: 0;
+}
+
+.gantt-task-bar.link-valid.link-at-start .gantt-link-handle.start,
+.gantt-task-bar.link-valid.link-at-end .gantt-link-handle.end {
+  opacity: 1;
+  background: var(--gantt-accent);
 }
 
 /* Rubber band following the pointer */
@@ -908,12 +1013,30 @@
   fill: none;
 }
 
+/* Settled on a target: solid, because this is the arrow that will be committed */
+.gantt-link-preview-line.armed {
+  stroke-dasharray: none;
+  stroke-width: 2.5;
+}
+
 .gantt-link-preview-line.invalid {
   stroke: var(--gantt-today-marker);
 }
 
 .gantt-link-preview-origin {
   fill: var(--gantt-accent);
+}
+
+.gantt-link-preview-type {
+  fill: var(--gantt-accent);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  paint-order: stroke;
+  stroke: var(--gantt-background);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 
 .gantt-link-preview-reason {
@@ -937,14 +1060,37 @@
   position: absolute;
   top: 0;
   left: 0;
-  height: 19px;
-  margin-top: 9px;
+  /* height and margin-top come from BAR_HEIGHT inline (components/Gantt.tsx) - the two
+     literals that used to live here had drifted to 19/9 against a 28px bar, so the ghost
+     previewed a shorter bar than the one it created */
   background: var(--gantt-accent);
   opacity: 0.35;
   border: 1px dashed var(--gantt-accent);
   border-radius: 6px;
   pointer-events: none;
   z-index: 5;
+}
+
+/* ===== BAR WRAPPER =====
+   One row's worth of bar, positioned by transform (components/GanttBarsLayer). The
+   transform makes it a stacking context for its descendants but leaves it sorting in
+   .gantt-content's context, so these two rules lift the bar AND its tooltip as one
+   subtree over neighbouring rows. This is the entire overlay mechanism - no portal, no
+   overlay layer, no measured coordinates.
+
+   Keyed off `has-tooltip`, which the bar computes from the same tooltipReason that
+   decides whether to render a tooltip at all, rather than off CSS :hover - during a
+   progress drag the pointer routinely leaves the bar while the readout is still up, so
+   :hover and the rendered state would disagree.
+
+   Where :has() is unsupported both rules are ignored and behaviour degrades to exactly
+   what it was before, which is the correct failure mode. */
+.gantt-bar-wrap:has(> .gantt-task-bar.has-tooltip) {
+  z-index: 1;
+}
+
+.gantt-bar-wrap:has(> .gantt-task-bar.dragging) {
+  z-index: 2;
 }
 
 /* ===== TASK BAR ===== */
@@ -954,7 +1100,6 @@
      timeline. A touch drag is lifted by a long press, and suppresses the scroll
      itself from that point on (utils/pointerGesture). A mouse is unaffected. */
   touch-action: pan-x pan-y;
-  z-index: 10;
   display: flex;
   align-items: center;
   /* --gantt-bar-color is set inline from a task's color; without one the theme token decides */
@@ -1004,126 +1149,45 @@
 .gantt-task-bar.dragging {
   cursor: grabbing;
   box-shadow: var(--gantt-bar-shadow-drag);
-  z-index: 100;
 }
 
-.gantt-task-bar.dragging::before,
-.gantt-task-bar.dragging::after {
-  opacity: 0.7;
-}
+/* No `.dragging` grip reveal. It lit BOTH resize grips for the whole of a move - an
+   affordance for a gesture that is not running, at a higher opacity than the hover state
+   that actually offers it. A resize needs no grip glyph either: the pointer is already on
+   the edge, and the header band is showing that edge move. Grips follow hover only. */
 
-/* Summary bar: a flat span over the children's range
-   (its grips are hidden by .no-resize below - summaries resolve to canResize false) */
+/* Summary bar: a flat, thinner span over the children's range. Height is the cue, set
+   inline from SUMMARY_BAR_HEIGHT - a per-task `color` repaints the fill, so a fill-only
+   difference would vanish on any parent that carries one. Its grips are hidden by
+   .no-resize below; summaries resolve to canResize false. */
 .gantt-task-bar.summary {
-  background: var(--gantt-bar-color, var(--gantt-milestone-bg));
+  background: var(--gantt-bar-color, var(--gantt-summary-bg));
   border-radius: 3px;
 }
 
 .gantt-task-bar.summary:hover {
-  background: var(--gantt-bar-color-hover, var(--gantt-milestone-bg-hover));
+  background: var(--gantt-bar-color-hover, var(--gantt-summary-bg-hover));
 }
 
-.gantt-task-bar.summary .gantt-task-name {
-  color: var(--gantt-background);
-}
+/* No summary label overrides. They existed because a roll-up used to be painted in the
+   INVERSE of the theme - a near-black bar in light, a near-white one in dark - so its
+   label had to be inverted back. A roll-up is now one step quieter than the tasks it
+   spans rather than ten times louder, so the base --gantt-bar-text reads correctly on it
+   in both themes and the overrides would only re-break it. */
 
-.gantt-task-bar.summary .gantt-task-name.outside {
-  color: var(--gantt-foreground);
-}
-
+/* A roll-up's own fill, one step quieter than a task's. At 0.35 it composited to within
+   a shade of --gantt-progress-bg in light, so the loudest thing on a summary row was the
+   part that is only a rolled-up average of the rows below it. */
 .gantt-task-bar.summary .gantt-progress-fill {
   background: var(--gantt-progress-color, var(--gantt-foreground));
-  opacity: 0.35;
+  opacity: 0.25;
   border-radius: 3px 0 0 3px;
 }
 
-.gantt-task-bar.summary::before,
-.gantt-task-bar.summary::after,
-.gantt-task-bar.summary:hover::before,
-.gantt-task-bar.summary:hover::after {
-  opacity: 0;
-}
-
-/* ===== BASELINE ===== */
-/* A thin snapshot bar under the live one. It belongs to the row, not to the bar, so
-   dragging slides the live bar across it and the slip is what you see. */
-.gantt-baseline {
-  position: absolute;
-  bottom: 3px;
-  height: 4px;
-  background: var(--gantt-baseline-bg);
-  border-radius: 2px;
-  opacity: 0.65;
-  pointer-events: none;
-}
-
-.gantt-baseline.milestone {
-  width: 8px;
-  height: 8px;
-  bottom: 1px;
-  margin-left: -4px;
-  border-radius: 1px;
-  transform: rotate(45deg);
-}
-
-/* ===== CRITICAL PATH ===== */
-/* Applied only while the criticalPath prop is on: zero-slack tasks and the links between them */
-.gantt-task-bar.critical {
-  background: var(--gantt-critical-bg);
-}
-
-.gantt-task-bar.critical:hover {
-  background: var(--gantt-critical-bg-hover);
-}
-
-.gantt-task-bar.critical .gantt-task-name {
-  color: var(--gantt-critical-text);
-}
-
-.gantt-task-bar.critical .gantt-task-name.outside {
-  color: var(--gantt-foreground);
-}
-
-.gantt-task-bar.critical .gantt-progress-fill {
-  background: var(--gantt-critical);
-  opacity: 0.45;
-}
-
-.gantt-milestone.critical .gantt-milestone-diamond {
-  background: var(--gantt-critical);
-}
-
-.gantt-dependency-arrow.critical {
-  stroke: var(--gantt-critical);
-  stroke-width: 2;
-}
-
-.gantt-dependency-arrow-head.critical {
-  fill: var(--gantt-critical);
-}
-
 /* ===== SELECTION ===== */
-.gantt-task-bar.selected,
-.gantt-milestone.selected .gantt-milestone-diamond {
+.gantt-task-bar.selected {
   outline: 2px solid var(--gantt-accent);
   outline-offset: 2px;
-}
-
-/* ===== VETOED CHANGE ===== */
-/* The bar holds the dropped position while a before-handler runs; when the answer is a
-   veto the offsets drop and this class turns that snap into a move back */
-.gantt-task-bar.reverting,
-.gantt-milestone.reverting {
-  transition: transform var(--gantt-transition-normal),
-    width var(--gantt-transition-normal),
-    background var(--gantt-transition-fast),
-    box-shadow var(--gantt-transition-normal);
-}
-
-.gantt-task-bar.reverting .gantt-progress-fill,
-.gantt-task-bar.reverting .gantt-progress-handle {
-  transition: width var(--gantt-transition-normal),
-    left var(--gantt-transition-normal);
 }
 
 /* Narrow bars and non-resizable tasks: hide the resize grips (no affordance for a
@@ -1205,68 +1269,46 @@
   pointer-events: none;
 }
 
-/* When the bar is narrow, show the label outside its right edge */
+/* When the bar is narrow, show the label outside its right edge.
+
+   Muted, not full foreground: anchored at left:100% of a bar that may be 24px wide, with
+   no backdrop and collisions resolved by nothing but row DOM order, this was the loudest
+   object on the whole canvas - many times the contrast of the bar it names - and it is
+   the "which bar does this label belong to?" half of the clutter. It is a secondary
+   label, so it reads as one, and hover/selection/drag promote it below.
+
+   Muted rather than hidden on purpose: showTaskList={false} is supported, and that is
+   exactly the config where a hidden label would leave a narrow bar with no identity at
+   all on the canvas. */
 .gantt-task-name.outside {
   position: absolute;
   left: 100%;
   flex: none;
   padding: 0 0 0 8px;
+  color: var(--gantt-muted-foreground);
+  /* Bounded, or a long name on a narrow bar runs under whatever is to its right. The
+     full name is in the task list pane and in the bar's aria-label either way. */
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Promoted when the bar is the one you are pointing at, selecting or moving - the label
+   is a child of the bar, so this needs no JS. */
+.gantt-task-bar:hover .gantt-task-name.outside,
+.gantt-task-bar.selected .gantt-task-name.outside,
+.gantt-task-bar.dragging .gantt-task-name.outside {
   color: var(--gantt-foreground);
-  overflow: visible;
-}
-
-/* ===== MILESTONE ===== */
-.gantt-milestone {
-  position: relative;
-  /* Same as the task bar - swipe scrolls, long press drags */
-  touch-action: pan-x pan-y;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  user-select: none;
-  cursor: grab;
-}
-
-.gantt-milestone-diamond {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  background: var(--gantt-bar-color, var(--gantt-milestone-bg));
-  border-radius: 3px;
-  transform: rotate(45deg);
-  box-shadow: var(--gantt-bar-shadow);
-  transition: background var(--gantt-transition-fast),
-    box-shadow var(--gantt-transition-normal);
-}
-
-.gantt-milestone:hover .gantt-milestone-diamond {
-  background: var(--gantt-bar-color-hover, var(--gantt-milestone-bg-hover));
-  box-shadow: var(--gantt-bar-shadow-hover);
-}
-
-.gantt-milestone:active,
-.gantt-milestone.dragging {
-  cursor: grabbing;
-  z-index: 100;
-}
-
-.gantt-milestone.dragging .gantt-milestone-diamond {
-  box-shadow: var(--gantt-bar-shadow-drag);
-}
-
-.gantt-milestone-name {
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--gantt-foreground);
-  white-space: nowrap;
-  pointer-events: none;
 }
 
 /* ===== BAR TOOLTIP ===== */
-/* Shown below the bar - above it, the sticky header would cover it on the topmost row
-   (the tooltip sits inside two nested transform stacking contexts, so no z-index lifts it over the header) */
+/* Shown below the bar, and it stays there: above it, the sticky header at 30 would cover
+   it on any row scrolled under the axis, while the bar itself has to stay below 30.
+   Below-the-bar cannot collide with a header that is above it, at any scroll offset.
+
+   The z-index here has never been the mechanism - it only sorts inside the bar's own
+   transform context, against the progress fill. What lifts this card over a neighbouring
+   row is .gantt-bar-wrap's z-index, which moves the whole subtree. */
 .gantt-bar-tooltip {
   position: absolute;
   top: calc(100% + 8px);
@@ -1281,7 +1323,7 @@
   font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--gantt-shadow-overlay);
   pointer-events: none;
   /* Duration token only - the transition tokens carry easing, which would invalidate this shorthand */
   animation: tooltipFadeIn var(--gantt-duration-fast) ease-out;
@@ -1326,15 +1368,6 @@
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
-  .gantt-toolbar {
-    padding: 8px 12px;
-  }
-
-  .gantt-scale-button {
-    padding: 5px 10px;
-    font-size: 11px;
-  }
-
   .gantt-top-group {
     --top-group-inset: 12px;
     font-size: 12px;
@@ -1418,3 +1451,74 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ===== DETAIL PANEL ===== */
+/* The row that holds the chart and the docked panel side by side.
+   flex/min-height live here because .gantt-main's own were what gave
+   .gantt-scroll-container { height: 100% } a definite height, and inserting a wrapper
+   without them collapses the chart. Deliberately NOT positioned: .gantt-grid-splitter
+   is absolute against .gantt-main, and a positioned wrapper would re-anchor it. */
+.gantt-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.gantt-detail {
+  /* Tier A, above the pinned task list (50) and its splitter (60). position is what
+     makes the z-index apply at all. */
+  position: relative;
+  z-index: 70;
+  flex: 0 0 var(--gantt-detail-width);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  overflow-y: auto;
+  border-left: 1px solid var(--gantt-border);
+  background: var(--gantt-background);
+  color: var(--gantt-foreground);
+}
+
+.gantt-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gantt-detail-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.gantt-detail-close {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--gantt-muted-foreground);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.gantt-detail-close:hover {
+  background: var(--gantt-muted);
+  color: var(--gantt-foreground);
+}
+
+.gantt-detail-close:focus-visible {
+  outline: 2px solid var(--gantt-accent);
+  outline-offset: 1px;
+}
+
+.gantt-detail-meta {
+  margin: 0;
+  color: var(--gantt-muted-foreground);
+  font-size: 12px;
+}
+

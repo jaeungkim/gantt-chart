@@ -1,0 +1,417 @@
+---
+title: "키보드와 스크린 리더"
+description: "키 맵, ARIA 트리, 그리고 빈틈"
+---
+
+누군가 Tab으로 차트에 들어오면 셀 하나에 착지해요. 거기서부터는 `role="treegrid"` 요소에 붙은
+핸들러 하나가 모든 키 입력을 읽어요. 자기가 가져갈 키인지 판단하고, 아닌 키는 그대로
+돌려보내요.
+이 핸들러가 가져가는 키는 열네 개예요. 그중 열 개는 작업 데이터를 써요. 포인터로 할 수 있는 일
+대부분은 대응하는 키가 아예 없어요.
+
+## 키 맵
+
+핸들러는 treegrid 요소에서만 동작해요. 핸들러가 가져가는 키는 어떤 처리가 시작되기 전에 모두
+`preventDefault`돼요. 그래서 `Alt+ArrowLeft`가 브라우저 뒤로 가기를 부르는 일은 없어요.
+가져가지 않는 키는 손대지 않고 그대로 흘려보내요.
+
+| 키 | 조합키 | 동작 |
+|---|---|---|
+| `ArrowDown` | `Ctrl`/`Cmd` 없음, `Alt` 없음 | 같은 열에서 한 행 아래로 포커스를 옮겨요. 마지막 행에서 멈춰요. |
+| `ArrowUp` | `Ctrl`/`Cmd` 없음, `Alt` 없음 | 같은 열에서 한 행 위로 포커스를 옮겨요. 0번 행에서 멈춰요. |
+| `ArrowRight` | `Alt` 없음, `Shift` 없음, `Ctrl`/`Cmd` 없음 | 접혀 있는 확장 가능 행의 0번 열에서는 행을 펼쳐요. 그 밖에는 다음 셀로 이동하고, 행의 마지막 셀에서 멈춰요. |
+| `ArrowLeft` | `Alt` 없음, `Shift` 없음, `Ctrl`/`Cmd` 없음 | 펼쳐진 확장 가능 행의 0번 열에서는 행을 접어요. 그 밖에는 이전 셀로 이동하고, 0번 열에서 멈춰요. |
+| `ArrowLeft` / `ArrowRight` | `Alt` | 포커스된 작업을 한 단계 앞이나 뒤로 옮겨요. 두 날짜가 함께 움직여요. |
+| `ArrowLeft` / `ArrowRight` | `Shift` | 종료일을 한 단계 옮겨요. 오른쪽 가장자리에서 크기를 조절해요. |
+| `ArrowLeft` / `ArrowRight` | `Alt`+`Shift` | 시작일을 한 단계 옮겨요. 왼쪽 가장자리에서 크기를 조절해요. |
+| `ArrowUp` / `ArrowDown` | `Alt` | 포커스된 행을 형제들 사이에서 한 자리 위나 아래로 옮겨요. 형제 목록의 양 끝에서 멈춰요. |
+| `ArrowRight` / `ArrowLeft` | `Ctrl` 또는 `Cmd` | 행을 앞 형제의 마지막 자식으로 들여쓰거나, 자기 부모의 다음 형제로 내어써요. |
+| `ArrowUp` / `ArrowDown` | `Ctrl` 또는 `Cmd` | 타임라인 배율을 한 단계 촘촘하게 또는 성기게 옮겨요. 양 끝에서 멈춰요. |
+| `Home` | `Ctrl`/`Cmd` 없음 | 현재 행의 첫 셀. |
+| `Home` | `Ctrl` 또는 `Cmd` | 첫 행의 첫 셀. |
+| `End` | `Ctrl`/`Cmd` 없음 | 현재 행의 마지막 셀. |
+| `End` | `Ctrl` 또는 `Cmd` | 마지막 행의 마지막 셀. |
+| `Enter` / `Space` | 무관 | 확장 가능 행은 펼침과 접힘을 전환해요. 그 밖의 행은 작업의 라벨을 진행률 없이 읽어 주고, 패널이 켜져 있고 `detailTrigger`가 `'none'`이 아니면 그 작업의 상세 패널을 함께 열어요. |
+| `Delete` / `Backspace` | 무관 | 포커스된 행의 작업과 그 아래 모든 하위 작업을 삭제해요. |
+| `+` / `=` | 무관 | 진행률을 5포인트 올려요. |
+| `-` / `_` | 무관 | 진행률을 5포인트 내려요. |
+| 그 밖의 모든 키 | — | 브라우저로 돌려보내요. `Tab`, `PageUp`, `PageDown`, `F2`와 모든 문자 키는 여기서 처리하지 않아요. `Escape`도 마찬가지예요. 상세 패널이 열려 있는 동안에는 `document` 리스너가 패널을 닫아요. |
+
+화살표 이동은 끝에서 멈추고 절대 순환하지 않아요. 다른 행으로 건너뛰면서 도착한 행에서 열을 다시
+읽는 키는 `Ctrl`+`End` 하나뿐이에요. `ArrowUp`과 `ArrowDown`은 출발한 열을 그대로 들고 가고,
+떠나온 행을 기준으로 범위가 제한돼요.
+
+### 조합키가 붙으면 화살표가 편집이 돼요
+
+핸들러는 가로 화살표를 이동으로 읽기 전에 `Alt`와 `Shift`를 먼저 확인해요. 그래서
+`Shift+ArrowRight`는 범위 선택이 아니라 크기 조절이고, 애초에 닿을 수 있는 범위 선택이 없어요.
+가로 화살표에서 `Ctrl`과 `Cmd`는 들여쓰기와 내어쓰기이고, 세로 화살표에서는 같은 조합키가
+확대·축소예요. 세로 화살표의 `Alt`는 행 순서 바꾸기고요. 이 확인도 전부 화살표를 포커스 이동으로
+읽기 전에 먼저 해요.
+
+### 한 단계가 얼마인지
+
+한 단계는 현재 배율의 드래그 스텝이고, 키를 누르는 순간에 읽어요.
+
+| 배율 | 편집 화살표 한 번 |
+|---|---|
+| `hour` | 15분 |
+| `day` | 1시간 |
+| `week` | 6시간 |
+| `month` | 1일 |
+| `quarter` | 3일 |
+| `year` | 7일 |
+
+같은 스텝이 포인터 드래그도 움직이고, 스냅 규칙도 똑같아요. [작업 편집](editing)을 참고해요.
+배율별 나머지 설정은 [타임라인](timeline)에 있어요. 스텝은 달력 단위로 더해요. 그래서
+서머타임 경계를 넘어가도 작업의 벽시계 시각은 그대로 유지돼요.
+
+확대·축소하면 모든 편집 키의 동작이 달라져요. `Alt+ArrowRight` 한 번은 `hour` 배율에서 15분이고
+`year` 배율에서 7일이에요. 확대·축소는 새 배율만 알려 주고, 새 스텝은 알려 주지 않아요.
+
+### 배율을 한 단계씩 옮기기
+
+`Ctrl`/`Cmd` + `ArrowUp`은 한 단계 촘촘하게, `Ctrl`/`Cmd` + `ArrowDown`은 한 단계 성기게 옮겨요.
+사다리는 `hour` → `day` → `week` → `month` → `quarter` → `year` 순서로 고정돼 있어요. 타임라인
+영역 한가운데의 날짜는 그대로 한가운데에 남아서, 화면이 튀지 않아요.
+
+새 배율은 라이브 영역에 `week scale`로 읽히고, `onScaleChange`도 같은 키로 발생해요. 이 키는
+`zoomOnWheel`과 상관없이 동작해요. 휠 제스처는 기본이 꺼져 있는 선택 기능이지만, 이 키는 항상
+켜져 있어요.
+
+이 키도 treegrid 핸들러의 일부예요. 그래서 포커스가 차트 안에 있어야 하고, 행도 하나는 있어야
+해요. 사다리 양 끝에서는 키가 `preventDefault`되기는 하지만, 바뀌는 것도 알려지는 것도 없어요.
+
+### 행 순서 바꾸기
+
+`Alt` + 세로 화살표는 포커스된 행을 형제들 사이에서 한 자리 옮겨요. `Ctrl`/`Cmd` + `ArrowRight`는 그 행을 앞
+형제의 마지막 자식으로 만들고, `Ctrl`/`Cmd` + `ArrowLeft`는 자기 부모의 다음 형제로 만들어요.
+
+`allowReorder`를 켜지 않으면 네 키 모두 아무 일도 하지 않아요. 순서 바꾸기는 기본으로 꺼져 있는 유일한 제스처예요.
+[작업 편집](editing)을 참고해요. 들여쓰기와 내어쓰기는 `hierarchy`도 함께 필요하고, 없으면 아무 일도 하지 않아요. 다시 쓸
+부모 링크가 없거든요.
+
+행을 최상위까지 내어쓰는 유일한 방법이기도 해요. 드래그는 언제나 다른 행을 기준으로 놓여요. 그 행의 앞이나 뒤, 아니면 그 안이에요. 어떤
+드롭 구역도 "최상위, 맨 뒤"라고 말할 수 없어요. `Ctrl`/`Cmd` + `ArrowLeft`는 누를 때마다 한 단계씩 올라가서, 충분히
+누르면 최상위에 닿아요.
+
+받아들여진 이동은 라이브 영역이 알려요. 차트가 옮기기를 거부하는 행은 [작업 편집](editing)에 정리돼 있어요.
+
+## 읽기 전용 차트가 그래도 받는 키
+
+모든 편집 키는 드래그가 확인하는 것과 같은 작업별 권한을 확인해요. `task.allowX`부터
+`config.readOnly`까지 이어지는 네 단계 우선순위는 [작업 편집](editing)에서 설명해요.
+
+| 키 | 확인하는 권한 |
+|---|---|
+| `Alt`+`ArrowLeft` / `ArrowRight` | `canMove` |
+| `Shift` 및 `Alt`+`Shift` 화살표 | `canResize` |
+| `+` `=` `-` `_` | `canChangeProgress` |
+| `Delete` / `Backspace` | `canMove` |
+| `Alt` 세로 화살표, `Ctrl`/`Cmd` 가로 화살표 | `canReorder` |
+| 화살표, `Home`, `End`, `Enter`, `Space`, 배율 단계 이동 | 없음 — 이동, 펼침/접힘, 확대·축소는 완전히 잠긴 차트에서도 동작해요 |
+
+삭제 권한은 따로 없어요. 옮길 수 있는 작업은 삭제할 수도 있어요.
+
+`canReorder`만 그 네 단계를 따르지 않아요. 바닥이 `!readOnly`가 아니라 `false`라서, 아무 말도 없는
+차트에서는 순서 바꾸기 키가 잠긴 차트에서든 아니든 똑같이 조용해요.
+[`GanttInteractionConfig`](ref/interaction-config)를 참고해요.
+
+요약 행은 크기도 진행률도 바뀌지 않아요. 이 구조 규칙은 모든 플래그를 덮어쓰고, 자세한 내용은
+[작업 편집](editing)에 있어요. `progress` 필드가 없는 작업도 거부돼요. 키보드는 이미 있는 숫자를
+움직일 뿐, 새로 만들지는 않아요.
+
+```tsx title="src/App.tsx"
+import { useState } from 'react';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const initial: Task[] = [
+  {
+    id: 'frozen',
+    name: 'Frozen',
+    startDate: '2026-03-02T00:00:00Z',
+    endDate: '2026-03-06T00:00:00Z',
+    parentId: null,
+    sequence: '1',
+    progress: 0,
+  },
+  {
+    id: 'editable',
+    name: 'Editable',
+    startDate: '2026-03-09T00:00:00Z',
+    endDate: '2026-03-20T00:00:00Z',
+    parentId: null,
+    sequence: '2',
+    progress: 40,
+    allowMove: true,
+    allowProgressChange: true,
+    maxDate: '2026-03-31T00:00:00Z',
+  },
+];
+
+export default function App() {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+
+  // Alt+화살표와 +/-는 'editable'에서만 동작해요. 'frozen'에서는 Alt+화살표가
+  // "Frozen cannot be changed"를, +/-가 "Frozen progress cannot be changed"를 읽어 줘요.
+  // Alt+ArrowRight는 'editable'이 maxDate에서 끝나는 순간 멈추고, 그때부터는
+  // "Editable cannot be changed"를 읽어 줘요.
+  return <ReactGanttChart tasks={tasks} readOnly onTasksChange={setTasks} />;
+}
+```
+
+## 차트는 배율 컨트롤을 제공하지 않아요
+
+차트는 타임라인을 그리고, 작업 목록이 있으면 작업 목록도 그려요. 그 밖에는 아무것도 그리지
+않아요. 툴바가 사라졌어요. `role="group"`과 `aria-pressed`, 자기만의 로빙 tabindex를 갖고 있던
+버튼 여섯 개짜리 배율 선택기도, `aria-expanded`를 달고 있던 작업 목록 접기 버튼도 함께
+사라졌어요. 이제 DOM 어디에도 없어요.
+
+그래서 포인터 없이 배율을 바꾸는 내장 수단은 `Ctrl`/`Cmd` + 세로 화살표 하나뿐이에요. 포인터
+사용자는 직접 만들어 주기 전까지 누를 것이 없어요.
+
+네이티브 `<select>`로 만들고, ref로 조작하고, `onScaleChange`로 상태를 맞춰 주세요.
+
+```tsx title="src/ScalePicker.tsx"
+const chart = useRef<GanttHandle>(null);
+const [scale, setScale] = useState<GanttScaleKey>('month');
+
+<ReactGanttChart
+  ref={chart}
+  tasks={tasks}
+  defaultScale="month"
+  onScaleChange={setScale}
+/>
+
+<select
+  value={scale}
+  onChange={(e) => chart.current?.setScale(e.target.value as GanttScaleKey)}
+>
+  {['day', 'week', 'month', 'quarter', 'year'].map((s) => (
+    <option key={s} value={s}>{s}</option>
+  ))}
+</select>
+```
+
+`<select>`는 키보드, 스크린 리더, 터치 동작을 플랫폼에서 그대로 가져와요. 그리고 옵션 텍스트를
+직접 쓰니까 라벨을 번역할 수 있어요. 사라진 선택기는 둘 다 못 했어요. 헤더 셀도 눈금도 툴팁도
+모두 `Intl`을 거치는 차트 안에서, 그것만 영어 키 여섯 개를 날것 그대로 읽어 줬어요.
+
+무엇을 만들든 그 컨트롤의 접근성은 만든 쪽 책임이에요. 차트가 내놓는 건 `setScale`
+([명령형 API](imperative-api) 참고)과 `onScaleChange`뿐이고, 반대편 컨트롤에 대해서는 아무 의견도
+없어요.
+
+## ARIA 트리
+
+작업 목록과 타임라인은 두 개가 아니라 하나의 treegrid예요. 행은 작업 목록 안에 있고,
+`aria-owns`로 타임라인에 있는 자기 막대들을 가져가요.
+
+```text title="렌더링된 DOM"
+section.gantt-container
+├─ div.gantt-sr-only                  role=status, aria-live=polite
+└─ div.gantt-layout
+   ├─ div.gantt-main
+   │  ├─ div.gantt-scroll-container
+   │  │  └─ div.gantt-body            role=treegrid, aria-label="Gantt chart", aria-rowcount
+   │  │     ├─ div.gantt-grid         role=presentation
+   │  │     │  ├─ div.gantt-grid-header  role=row, aria-rowindex=1
+   │  │     │  │  ├─ div             role=columnheader, "Task name", visually hidden
+   │  │     │  │  └─ span             role=columnheader, "Timeline", visually hidden
+   │  │     │  └─ div.gantt-grid-body role=rowgroup
+   │  │     │     └─ div.gantt-grid-row  role=row, aria-level, aria-posinset, aria-setsize,
+   │  │     │        │                aria-rowindex, aria-expanded?, aria-owns?
+   │  │     │        └─ div          role=gridcell, tabIndex 0 or -1
+   │  │     │           └─ button     expander, tabIndex=-1, aria-hidden=true
+   │  │     └─ div.gantt-timeline     role=presentation
+   │  │        └─ div.gantt-content   role=presentation
+   │  │           ├─ div.gantt-rows   role=presentation
+   │  │           │  └─ div.gantt-task-row  aria-hidden=true, striping only
+   │  │           └─ div#task-<id>    role=gridcell, tabIndex 0 or -1, aria-label
+   │  └─ div.gantt-grid-splitter      role=separator, aria-orientation=vertical, tabIndex=0
+   └─ aside.gantt-detail              role=complementary, aria-label="Task details", 열려 있는 동안만
+```
+
+`aria-level`은 1부터 시작해요. `aria-posinset`과 `aria-setsize`는 접힌 부모가 숨기지 않은 행만
+세요. 그래서 부모를 접으면 형제 행의 번호가 다시 매겨져요. `aria-rowcount`는 그 행 수에 헤더 행
+하나를 더한 값이고, 데이터에 들어 있는 전체 개수가 아니에요.
+
+`aria-expanded`는 펼칠 수 없는 행에서 `false`가 되는 게 아니라 아예 빠져요. 요약 행은
+`hierarchy`가 켜져 있을 때만 확장 가능으로 쳐요. `hierarchy={false}`면 이 속성이 사라지고,
+`Enter`는 행을 전환하는 대신 읽어 줘요. [작업 목록과 계층](task-list)을 참고해요.
+
+`aria-owns`는 행에 막대가 없으면 빠져요. `groupBy`가 만든 그룹 헤더 행에는 막대가 항상 없어요.
+[그룹과 스윔레인](grouping)을 참고해요.
+
+### 작업 목록 창이 없을 때
+
+창은 `showTaskList`가 `true`가 아닌 동안 없어요. 그게 기본값이에요. `showTaskList={false}`는
+예전에 툴바의 접기 버튼이 그리던 것을 그대로 그려요. 이제 차트 안에서 창을 여닫는 건 아무것도 없어요. 그래서 아래 네 가지는 prop을 바꿀 때만
+달라져요.
+
+- 열 헤더 행이 없어요. 그래서 `aria-rowcount`에서 `+1`이 사라지고, 첫 데이터 행이
+  `aria-rowindex={1}`이 돼요.
+- `role="rowgroup"`이 어디에도 없어요. 행은 `role="presentation"` 래퍼 바로 안에 놓여요.
+- 셀의 0번 열이 작업 목록의 첫 열이 아니라 첫 막대가 돼요.
+- 그룹 헤더 행의 유일한 셀이 작업 목록에서 타임라인 행으로 옮겨 가요.
+
+### 절대 나오지 않는 것
+
+차트는 `aria-colindex`, `aria-colcount`, `aria-selected`, `aria-current`,
+`aria-multiselectable`, `aria-describedby`, `aria-labelledby`를 어디에도 설정하지 않고,
+`role="treeitem"`을 다는 요소도 없어요. 그래서 셀은 자기 열 위치를 알리지 않고, 선택 상태는 보조
+기술에 전혀 노출되지 않아요.
+
+막대의 링크 핸들은 `role="button"`에 `tabIndex={-1}`이에요. 진행률 핸들은 `role="slider"`에
+`aria-valuemin`, `aria-valuemax`, `aria-valuenow`를 갖지만 `tabIndex={-1}`이라, 어떤 키보드도
+여기에 닿지 못해요.
+
+## 스크린 리더가 읽는 것
+
+막대의 `aria-label`은 정해진 순서로 네 부분을 이어 붙여요. 이름, 그다음 `summary`, 그다음 날짜
+범위, 마지막이 진행률이에요. `summary` 부분은 요약 행에만 붙어요. 진행률 부분은 작업에 진행률이
+있을 때만 붙어요.
+
+날짜는 현재 배율의 툴팁 포매터로 만들어요. 드래그 툴팁이 쓰는 것과 같은 포매터예요. 그래서 라벨은
+배율에 따라 바뀌고, `formats[scale].tooltip`을 덮어쓰면 읽히는 내용도 바뀌어요.
+[로케일과 날짜 형식](i18n)을 참고해요.
+
+| 작업 | 배율 | 실제 `aria-label` |
+|---|---|---|
+| `Design phase`, 40% | `month` | `Design phase, Mar 3, 2025 to Mar 14, 2025, 40% complete` |
+| `Design phase`, 40% | `day` | `Design phase, Mar 3, 2025 00:00 UTC to Mar 14, 2025 00:00 UTC, 40% complete` |
+| `Phase 1`, `isSummary`, 3월부터 5월까지 | `quarter` | `Phase 1, summary, Mar 2025 to May 2025` |
+
+편집은 `role="status" aria-live="polite"` 영역 하나로 알려요. 이 영역은 컨테이너의 첫 자식이고,
+차트 본문보다 앞에 있어요.
+
+| 키 | 알림 |
+|---|---|
+| `Alt`/`Shift` 화살표, 수락됨 | `Design phase, Mar 3, 2025 to Mar 15, 2025` |
+| `Alt`/`Shift` 화살표, 거부됨 | `Design phase cannot be changed` |
+| `+` 또는 `-`, 수락됨 | `Design phase, 45% complete` |
+| `+` 또는 `-`, 거부됨 | `Design phase progress cannot be changed` |
+| `Delete`, 수락됨 | `Design phase deleted` |
+| `Delete`, 거부됨 | `Design phase cannot be deleted` |
+| 순서 바꾸기 키, 수락됨 | 옮긴 작업의 이름과 새 자리 |
+| 순서 바꾸기 키, 거부됨 | 없음 |
+| 확장할 수 없는 행에서 `Enter` | 진행률을 뺀 전체 라벨 |
+| 확장할 수 있는 행에서 `Enter` | 없음 |
+| `Ctrl`/`Cmd` + 세로 화살표 | `week scale` — 도착한 배율의 키 |
+| 사다리 양 끝에서 같은 키 | 없음 |
+
+## 포커스
+
+treegrid 안의 탭 정지점은 정확히 하나예요. 차트의 포커스 상태와 행·열이 맞는 그 셀이에요. 나머지
+셀은 전부 `tabIndex={-1}`이에요. 렌더링된 컴포넌트는 페이지에 탭 정지점을 최대 네 개 더하고, 커스텀
+`renderDetail` 본문은 거기에 더 얹을 수 있어요.
+
+| # | 요소 | 나타나는 조건 |
+|---|---|---|
+| 1 | 옮겨 다니는 treegrid 셀 | 포커스 상태와 맞는 셀이 렌더링돼 있을 때 |
+| 2 | 작업 목록 스플리터 | 작업 목록 창이 보일 때 |
+| 3 | **Add task** 버튼 | 목록 창이 보이고 작업 생성이 켜져 있을 때 |
+| 4 | 상세 패널의 닫기 버튼 | 기본 본문으로 패널이 열려 있을 때 |
+
+행의 셀은 왼쪽에서 오른쪽으로 번호가 붙어요. 작업 목록의 이름 셀이 먼저고, 그다음이 행 위의 막대마다
+하나씩이에요. 그룹 헤더 행에는 셀이 정확히 하나예요.
+
+셀을 클릭하면 포커스 상태가 그 셀에 맞춰져요. 키보드 이동은 반대로 움직여요. 먼저 상태를 바꾸고,
+맞는 요소를 세 번 찾아요. 한 번은 곧바로, 그다음은 이어지는 두 애니메이션 프레임에서요. 시도
+사이사이에 행과 작업을 화면 안으로 스크롤해요. 세 번째에도 맞는 요소가 없으면 포기하고, DOM
+포커스는 있던 자리에 그대로 남아요.
+
+마운트 직후에는 아무것도 포커스되지 않아요. treegrid에 처음 닿는 `Tab`은 `0:0` 셀에 착지하고,
+`tasks`가 비어 있으면 착지할 셀 자체가 없어요.
+
+### 상세 패널은 그다음 탭 정지점이에요
+
+패널은 treegrid 밖에 있어서 옮겨 다니는 탭 정지점을 건드리지 않아요. 차트는 여전히 정지점 하나이고,
+패널은 DOM 순서상 그 바로 다음이에요. 패널은 다이얼로그가 아니라 `role="complementary"`예요. 포커스
+트랩도 없고, 차트가 다시 키를 받기 전에 빠져나와야 하는 것도 없어요.
+
+패널을 닫으면 포커스는 패널이 열릴 때 그것을 들고 있던 자리로 돌아가요. `Enter`에 응답한 셀이거나
+클릭한 막대예요. 이게 없으면 `Escape`가 포커스를 `<body>`에 떨어뜨리고, 차트의 키보드 이동은 거기서
+끝나요. 패널을 다른 작업으로 옮기는 건 포커스를 전혀 옮기지 않고, 여는 것도 마찬가지예요. 포커스가
+되돌아가는 건 닫을 때뿐이에요.
+
+### 키보드 포커스는 선택이 아니에요
+
+화살표로 막대에 올라가도 그 막대가 선택되지는 않아요. `onTaskSelect`는 발생하지 않고,
+`selectedTaskId`도 바뀌지 않고, `aria-selected`도 쓰이지 않아요. 여기서 선택은 포인터 전용
+개념이에요. [이벤트](events)를 참고해요.
+
+## treegrid 밖에서 처리하는 키
+
+| 키 | 리스너 위치 | 동작 |
+|---|---|---|
+| `ArrowLeft` / `ArrowRight` | 스플리터 | 작업 목록 너비를 16px씩 조절해요. 120px에서 800px 사이로 제한돼요. |
+| `Delete` / `Backspace`, `Escape` | `document`, 의존성 화살표가 선택돼 있는 동안 | 페이지 어디에서든 화살표를 삭제하거나 선택을 풀어요. `input`, `textarea`, `select`, contenteditable 안에서는 건너뛰어요. |
+| `Escape` | `document`, 상세 패널이 열려 있는 동안 | 페이지 어디에서든 상세 패널을 닫아요. 행은 선택된 채로 남고, 닫히는 건 패널뿐이에요. |
+
+## 빈틈
+
+키보드로도 똑같이 된다고 누군가에게 약속하기 전에 읽어야 할 부분이에요.
+
+**포인터 제스처 두 가지에는 대응하는 키가 없어요.** 의존성 화살표 그리기는 닿을 수 없어요. 링크
+핸들이 `tabIndex={-1}`이거든요. 화살표를 선택하려면, 그래서 삭제하려면 클릭이 필요해요.
+[의존성](dependencies)을 참고해요.
+
+마지막 행 아래에 새 작업을 그리는 것도 포인터 전용이지만, 더는 `onTaskCreate`를 발생시키는 유일한
+길이 아니에요. 작업 목록 아래 **Add task** 버튼이 같은 초안을 제안하고, 그건 평범한 탭 정지점이에요.
+목록 창을 숨긴 차트에는 둘 다 없으니, 거기서는 작업 생성이 다시 포인터 전용이에요. 묶인 키는
+없어요. 직접 만든 단축키가 부를 것은 ref의 `addTask()`예요 — [작업 편집](editing)을 보세요.
+
+> [!WARNING]
+> `Delete`는 `hierarchy`가 켜져 있든 아니든 모든 하위 작업까지 제거하고, 이름 셀을 포함해 행의
+> 어느 셀에서든 확인 절차 없이 실행돼요. 차트는 되돌릴 스냅샷을 따로 들고 있지 않아요.
+
+**거부된 키가 전부 알려지지는 않아요.** 권한 확인에서 나온 거부는 알려요. 작업이 없는 행에 떨어진
+키는 알리지 않아요. 핸들러가 `preventDefault`를 부르고, 작업을 찾지 못하고, 조용히 돌아가요. 그룹
+헤더 행이 정확히 이 경우예요. 그래서 `Delete`, `+`, `-`와 편집 화살표가 아무 반응 없이 삼켜져요.
+
+**셀 참조가 아무것도 가리키지 않을 수 있어요.** 행이 바뀔 때 포커스 열은 범위가 제한되지 않아요.
+막대 두 개짜리 행에서 한 개짜리 행으로 내려가면, 그 행에 없는 열 인덱스를 그대로 들고 가요. 맞는
+요소가 없으니 차트는 하나뿐인 탭 정지점을 잃고, 누군가 셀을 클릭할 때까지 그대로예요. 포커스가
+아직 treegrid 안에 있다면 `Home`과 `End`로 되살릴 수 있어요. 막대가 가로로 화면 밖에 밀려났을
+때도 같은 문제가 생겨요. 뷰포트 밖 막대는 렌더링되지 않지만, 행의 `aria-owns`에는 그 id가 여전히
+남아 있어요.
+
+**범위를 벗어난 열은 엉뚱한 막대를 편집해요.** 셀에서 작업을 찾는 데 실패하면 행의 첫 작업으로
+돌아가요. 레인이 여러 개인 행에서는 낡은 열이 아무것도 하지 않는 대신 0번 레인을 조용히 건드려요.
+작업 목록 셀에서 누른 `Delete`가 그 행의 작업을 지우는 것도 같은 대체 동작 때문이에요.
+
+**펼침과 접힘은 알려지지 않아요.** 확장 가능한 행에서 `Enter`를 누르면 포커스가 셀에 있는 채로
+행의 `aria-expanded`만 바뀌고, 라이브 영역에는 아무것도 쓰이지 않아요.
+
+**호버 툴팁은 SC 1.4.13을 절반만 만족해요.** 닫기(dismissible)는 돼요. `Escape`를 누르면 포인터를
+움직이지 않고도 닫혀요. 호버 유지(hoverable)는 안 돼요. 카드에 `pointer-events: none`이 걸려 있어서
+카드 쪽으로 포인터를 옮기면 막대에서 벗어나 카드가 사라져요. 어차피 카드 안에는 닿을 것이 없어요.
+링크도 컨트롤도 없고, 같은 날짜와 진행률은 이미 막대의 `aria-label`에 들어 있어요. 같은 이유로 카드는
+키보드 포커스로도 닿지 않아요.
+
+**터치에서는 호버 툴팁이 뜨지 않아요.** 카드는 `pointerType`이 `"mouse"`일 때만 `pointerenter`에서
+열려요. 탭은 호환용 `mouseenter`를 발생시키고 `mouseleave`는 끝내 발생시키지 않아서, 예전에는 터치로
+카드를 열면 손가락 아래에 그대로 남고 닫을 방법이 없었어요. 드래그 중 표시는 영향을 받지 않아요.
+호버가 아니라 제스처를 따르니까요.
+
+## 한계
+
+- **키 재배치도, 끄는 방법도 없어요.** 키보드 계층에서 패키지 밖으로 내보내는 건 아무것도 없어요.
+  키 바인딩을 바꾸거나, 포인터 편집과 별개로 키보드 편집만 끄거나, treegrid가 아닌 것을 렌더링하는
+  prop은 없어요.
+- **`PageUp` / `PageDown`도, 타입 어헤드도, `F2` 편집 모드도, 다중 선택도, treegrid 안의
+  `Escape`도 없어요.**
+- **포커스 트랩도 건너뛰기 링크도 없어요.** `Tab`은 한 번만 눌러도 treegrid를 벗어나고, 행이 많은
+  차트에서 그 뒤로 건너뛰는 방법은 브라우저가 제공하는 것 말고는 없어요.
+- **고대비 지원이 없어요.** 스타일시트에 `forced-colors`도 `prefers-contrast` 블록도 없어요.
+  `prefers-reduced-motion`은 지켜요. 차트 안에서 트랜지션과 애니메이션이 0.01ms로 줄고,
+  `scroll-behavior`는 `auto`가 돼요.
+- **확인 절차는 직접 만들어야 해요.** `Delete`는 하위 트리를 즉시 제거해요. 여기에 다이얼로그가
+  필요하면 `onTasksChange`에서 직접 스냅샷을 들고 있다가 `tasks`로 다시 넘겨 행을 되돌려요.
+- **알림 문구는 고정이에요.** 위의 문자열은 영어로 하드코딩돼 있어요. 그 안의 날짜만 `locale`과
+  `formats` prop을 따라요.
+- **테스트는 직접 해야 해요.** 이 저장소에서는 실제 스크린 리더로 검증한 게 없어요. 키 해석기와
+  ARIA prop 빌더를 검증하는 단위 테스트가 전부예요.
+
+다음은 [로케일과 날짜 형식](i18n)이에요. 이 라벨과 알림이 거쳐 가는 포매터를 다뤄요.

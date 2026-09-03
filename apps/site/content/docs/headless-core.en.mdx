@@ -1,0 +1,226 @@
+---
+title: "Headless core"
+description: "Tree and calendar math without React or a DOM"
+---
+
+A nightly job rolls the week's timesheets up into parent rows. A test asserts that a grandchild's
+move travels up through its grandparent. An API endpoint returns a phase's finish date before anyone
+opens a browser. None of them want a React tree, a stylesheet, or a DOM. The tree and calendar math
+the chart runs on is a set of plain functions, and those functions are exported.
+
+## The core imports no React and touches no DOM
+
+Everything under `src/core/` is data and pure functions. Its only runtime dependency is `dayjs` plus
+the `utc` plugin. A grep over the directory for `react`, `window`, `document`, `localStorage`,
+`navigator` and `requestAnimationFrame` finds no import and no global — only two prose comments.
+
+The boundary is not a convention. An eslint block scoped to `src/core/**/*.{ts,tsx}` forbids
+importing `react`, `react-dom`, `zustand`, `@tanstack/*`, and every render-side domain folder -
+`shared/`, `timeline/`, `bars/`, `dependencies/`, `rows/`, `task-list/`, `interaction/` and
+`detail/`. A second rule bans the globals `window`, `document`, `navigator`, `localStorage`,
+`sessionStorage` and `requestAnimationFrame`. The rule's own message is "src/core must stay free of
+React, the DOM and pixel math - keep render-side code in the domain folder it belongs to".
+
+A host imports these functions from the package root, the same specifier the component comes from:
+
+```ts
+import { rollUpTasks, createWorkingCalendar, type Task } from '@jaeungkim/gantt-chart';
+```
+
+> [!IMPORTANT]
+> There is no `@jaeungkim/gantt-chart/core` subpath. `package.json` declares `.`, `./style.css` and
+> `./package.json`, and nothing else. The single bundle is built from `src/index.ts`, which pulls in
+> the React component. `react`, `react-dom` and `react/jsx-runtime` are marked external at build
+> time, so a Node script that imports `rollUpTasks` still needs the peer dependencies (`react` and
+> `react-dom`, `^18.0.0 || ^19.0.0`) installed and resolvable. The source is headless. The published
+> artifact is one file.
+
+## The exports, by job
+
+Eight runtime values and six types come out of the core. The functions fall into two groups; the
+rest is the task data model, which is described in [Task data](task-data).
+
+### Walk the tree
+
+`buildTaskTree` and `collectSubtreeIds` read `parentId` and nothing else; `rollUpTasks` also reads
+each child's dates and `progress`. Use `buildTaskTree` when you need parents, children and
+depths normalized once, `collectSubtreeIds` when a bulk operation has to include everything under a
+row, and `rollUpTasks` when a report needs the same summary-row dates the chart draws. All three are
+pure, so a server can produce the exact spans the browser would show.
+
+```ts
+type TaskNode = Pick<Task, 'id' | 'parentId'>;
+
+function buildTaskTree(tasks: TaskNode[]): TaskTree;
+function collectSubtreeIds(tasks: TaskNode[], rootId: string, tree?: TaskTree): string[];
+function rollUpTasks(tasks: Task[], tree?: TaskTree): Task[];
+```
+
+`TaskNode` is structural and is not itself exported, so write the `Pick` above or pass real `Task`
+objects. The optional `tree` argument on the last two defaults to a fresh `buildTaskTree(tasks)`;
+pass a prebuilt tree in a loop instead of paying for a rebuild per call. What a summary row
+overwrites is in [Task list and hierarchy](task-list), and the signatures in full are in
+[Tree helpers](ref/core-tree).
+
+### Build a calendar
+
+Nothing else in the core takes a `WorkingCalendar` — the tree helpers count no days at all. It is an
+object a host calls directly, and it is the same object the chart builds from its `workingCalendar`,
+`holidays` and `isNonWorkingDay` props, so the days a report counts and the days the timeline shades
+cannot drift. `CALENDAR_DAYS` counts all seven days, so it is plain calendar arithmetic.
+`createWorkingCalendar` builds one that skips weekends and holidays, which is what makes a five-day
+span across a weekend count as three.
+
+```ts
+const CALENDAR_DAYS: WorkingCalendar;
+function createWorkingCalendar(options?: WorkingCalendarOptions): WorkingCalendar;
+```
+
+The object it returns is public API: `isWorkingDay`, `addDays`, `daysBetween`, `daysUntil`,
+`daysUpTo`, `snapForward` and the `skipsNonWorkingDays` flag are all callable on their own, which is
+often all a host needs for its own date arithmetic. What a calendar changes in the chart and what it
+leaves alone is covered in [Working calendar](working-calendar); the options and their precedence
+are in [createWorkingCalendar](ref/core-calendar).
+
+## A complete script
+
+One phase and three children go in, the phase carrying dates that do not match what is under it. The
+script rebuilds the phase from its children and prints each row's span in working days.
+
+```ts title="report.ts"
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import {
+  buildTaskTree,
+  collectSubtreeIds,
+  createWorkingCalendar,
+  rollUpTasks,
+  type Task,
+} from '@jaeungkim/gantt-chart';
+
+dayjs.extend(utc);
+
+const tasks: Task[] = [
+  {
+    id: 'P',
+    name: 'Phase 1',
+    startDate: '2025-06-02',
+    endDate: '2025-06-03',
+    parentId: null,
+    sequence: '1',
+  },
+  {
+    id: 'A',
+    name: 'Survey',
+    startDate: '2025-06-02',
+    endDate: '2025-06-05',
+    parentId: 'P',
+    sequence: '1.1',
+    progress: 100,
+  },
+  {
+    id: 'B',
+    name: 'Frame',
+    startDate: '2025-06-05',
+    endDate: '2025-06-10',
+    parentId: 'P',
+    sequence: '1.2',
+    progress: 40,
+  },
+  {
+    id: 'C',
+    name: 'Wiring',
+    startDate: '2025-06-06',
+    endDate: '2025-06-13',
+    parentId: 'P',
+    sequence: '1.3',
+  },
+];
+
+const calendar = createWorkingCalendar({ holidays: ['2025-06-06'] });
+const tree = buildTaskTree(tasks);
+const rolled = rollUpTasks(tasks, tree);
+
+console.log('subtree:', collectSubtreeIds(tasks, 'P', tree).join(', '));
+
+for (const task of rolled) {
+  const days = calendar.daysBetween(
+    dayjs.utc(task.startDate),
+    dayjs.utc(task.endDate)
+  );
+  console.log(
+    [
+      '  '.repeat(tree.depthOf.get(task.id) ?? 0) + task.id,
+      task.startDate.slice(0, 10),
+      task.endDate.slice(0, 10),
+      `${days}wd`,
+      task.progress === undefined ? '-' : `${task.progress}%`,
+    ].join('  ')
+  );
+}
+```
+
+It prints:
+
+```text title="rollUpTasks output"
+subtree: P, A, B, C
+P  2025-06-02  2025-06-13  8wd  33%
+  A  2025-06-02  2025-06-05  3wd  100%
+  B  2025-06-05  2025-06-10  2wd  40%
+  C  2025-06-06  2025-06-13  5wd  -
+```
+
+`P` was declared as ending on `2025-06-03` and comes back ending on `2025-06-13`, because a summary
+row's dates always come from its children. Its 33% is the duration-weighted average of
+100%, 40% and the 0% a child that reports nothing contributes. `B` covers five calendar days but
+only two working ones: `2025-06-06` is in `holidays`, and the weekend after it is not a working day
+either. The `.slice(0, 10)` in the loop is doing real work: `A`, `B` and `C` were left alone, so
+they are the very objects passed in and still carry the short strings, while `P` was rewritten and
+comes back as a full ISO string.
+
+## What the core does not do
+
+**It does not render.** No bar geometry, no arrow paths, no ticks, no shading, no colors. Bar
+positions are computed by the render layer from raw dates, and none of it lives here.
+
+**It does not memoize.** The `tree` argument on `collectSubtreeIds`, `getVisibleTasks` and
+`rollUpTasks` defaults to a fresh `buildTaskTree(tasks)`, so calling any of them in a loop rebuilds
+the tree every time. Build one tree and pass it, as the script above does. Caching anything else is
+the host app's job.
+
+**It does not read dependencies.** `Task.dependencies` is carried through as data; no function in
+the core looks at it. Drawing the arrows is the render layer's job — see
+[Dependencies](dependencies).
+
+**It does not format.** There is no locale and no `Intl`. Dates go in as strings and come out as
+strings. Everything a reader sees is produced by the chart or by you — see
+[Locale and date formats](i18n).
+
+**It does not validate.** An `endDate` before its `startDate`, or an unparseable date string:
+neither is checked or rejected. `rollUpTasks` skips a child date it cannot parse, and leaves a
+parent untouched when no child yields a finite date, so bad input produces a stale summary row
+rather than an error. Check the data before you hand it over.
+
+**It cuts a broken parent link instead of failing.** A `parentId` naming no task in the data, a task
+that is its own parent, and a cyclic parent chain all lose the link and become roots. `parentOf` and
+`childIds` are therefore always acyclic, so a walk up or down cannot loop. Nothing tells you it
+happened.
+
+**A broken calendar degrades instead of failing.** An `isNonWorkingDay` predicate that marks every
+day non-working makes `addDays` fall back to plain calendar days and `snapForward` return its input.
+The numbers come out wrong; nothing throws.
+
+**Some helpers are internal.** `getVisibleTasks`, `normalizeProgress` and the UTC `dayjs` instance
+exist in `src/core` but are not re-exported from the package. Do not plan around importing them — a
+host that has to hand a `Dayjs` to a calendar method brings its own `dayjs`, as the script above
+does.
+
+**Every date is UTC.** The core parses with `dayjs.utc`, so a string carrying no zone
+(`'2025-06-02'`, `'2025-06-02T09:00'`) is a UTC wall clock, not the server's local time — a process
+in Asia/Seoul writing local timestamps without an offset lands nine hours from where it meant to,
+and `holidays` entries are matched against the UTC `YYYY-MM-DD` for the same reason. A summary row
+`rollUpTasks` recomputed comes back as a `toISOString()` string; a task it left alone is returned
+untouched, with whatever string you gave it. The full date contract is in [Task data](task-data).
+
+Next: [Tree helpers](ref/core-tree), where every field of `TaskTree` and every edge case of the
+three tree functions is listed.

@@ -1,0 +1,255 @@
+---
+title: "Events"
+description: "Every callback a click, a drag and a keyboard edit fire"
+---
+
+A user drags a bar three days later and lets go. The chart writes the new dates into its own copy of
+the tasks and calls `onTasksChange` with the whole array. Nothing was asked first and nothing was
+stored anywhere. This page names every callback the chart fires, what each one is handed, and the
+two that can still refuse a change.
+
+## Clicks and selection
+
+Four callbacks and one flag cover pointer attention. The first three are wired to the bar and to that
+task's row in the task list, so a click in either pane is the same event with the same argument.
+`onDetailChange` follows them, because under the default trigger that same click opens the detail
+panel.
+
+| Prop | Signature |
+|---|---|
+| `onTaskClick` | `(task: TaskTransformed, event: React.MouseEvent) => void` |
+| `onTaskDoubleClick` | `(task: TaskTransformed, event: React.MouseEvent) => void` |
+| `onTaskSelect` | `(task: TaskTransformed \| null) => void` |
+| `onDetailChange` | `(task: TaskTransformed \| null) => void` |
+| `selectable` | `boolean` |
+
+`TaskTransformed` is the task plus the layout fields the chart computed for it; its shape is in
+[Task](ref/task).
+
+```tsx title="src/ProjectGantt.tsx"
+import { useState } from 'react';
+import {
+  ReactGanttChart,
+  type Task,
+  type TaskTransformed,
+} from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+export function ProjectGantt({ initial }: { initial: Task[] }) {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+  const [inspected, setInspected] = useState<TaskTransformed | null>(null);
+
+  return (
+    <>
+      <ReactGanttChart
+        tasks={tasks}
+        onTasksChange={setTasks}
+        onTaskClick={(task) => console.log('clicked', task.id)}
+        onTaskDoubleClick={(task) => console.log('open editor for', task.id)}
+        onTaskSelect={setInspected}
+      />
+      <aside>{inspected ? inspected.name : 'Nothing selected'}</aside>
+    </>
+  );
+}
+```
+
+### Selection is on when you ask a question about it
+
+There is no `selectable` default to memorize. Passing `onTaskSelect` turns selection on, so does
+turning the detail panel on, and `selectable` overrides both in either direction.
+
+| `selectable` | `onTaskSelect` | Selection |
+|---|---|---|
+| omitted | omitted | off, unless the detail panel is on |
+| omitted | given | on |
+| `true` | omitted | on, highlight only |
+| `true` | given | on |
+| `false` | given | off, and `onTaskSelect` is never called |
+
+The last row is the one that surprises people. `selectable={false}` does not mean "silent
+selection", it means the whole selection path exits before your handler.
+
+The panel describes the highlighted row, so turning it on turns selection on by itself: with
+`renderDetail` or `showDetail` given and `selectable` omitted, rows select even though `onTaskSelect`
+was never passed. The chart resolves it as `selectable ?? (detailEnabled ? true : undefined)`, so
+`selectable={false}` still wins - the panel keeps opening on a click, it just opens with no row
+highlighted. What turns the panel on is in [Detail panel](detail-panel).
+
+Inside one click the order is fixed: `onTaskClick` fires first, then the selection changes. And
+`onTaskSelect` fires only when the selected id actually changes. Clicking a row that is already
+selected fires `onTaskClick` and nothing else.
+
+The highlight is a class, not a callback. The selected row gets `.gantt-grid-row.selected` and the
+selected bar gets `.gantt-task-bar.selected`.
+
+### Clicking the empty timeline clears the selection
+
+A click that lands on the timeline background itself clears the selection, which calls
+`onTaskSelect(null)` when a task was selected. Clicking the background twice fires once, because the
+id has to change. The row backgrounds and the non-working-day shading do not block
+the click, because neither of them takes pointer events.
+
+Two places do not clear it. A click on the empty area of the task list pane does nothing, and
+neither does a click on a group label drawn in the timeline - it is the one element in that layer
+that takes pointer events back, and it is only rendered while the task list pane is hidden.
+
+### A drag's trailing click is swallowed
+
+The browser fires a click after the pointerup that ended a drag. On a bar the chart drops that
+click, so a finished drag never fires `onTaskClick` and never changes the selection. The flag it
+checks is set only when the snapped drag step count actually changed, so a press and a jiggle that
+never crossed one step is still a click. Drag steps are per scale and are covered in
+[Editing tasks](editing).
+
+Task list rows do not drag at all, so no trailing click ever arrives there. The collapse toggle
+stops the event before it can become a selection, so expanding a row never selects it.
+
+### A double click fires both of its clicks
+
+There is no click-count debounce anywhere in the chart. A double click on a bar fires `onTaskClick`
+twice and then `onTaskDoubleClick` once. If single click does real work and double click opens an
+editor, the real work runs twice before the editor opens.
+
+### The detail panel rides on the same click
+
+`onDetailChange` fires on every open and every close, in controlled and uncontrolled mode alike, and
+it is handed the task or `null`. Under the default `detailTrigger` of `'selection'` the panel opens
+on the click that already selects the row, so `onTaskClick` still fires for that click - first, as
+always - and the panel opens after it. A double click is no different: two `onTaskClick` calls and
+one `onTaskDoubleClick` fire before anything opens, and under `detailTrigger="doubleClick"` that is
+the sequence that opens it.
+
+`Escape`, the panel's close button and a click on empty timeline space all fire
+`onDetailChange(null)`. A task that leaves `tasks` takes its panel with it, and that one fires
+nothing: your own change to the data caused it. What opens the panel, `renderDetail` and the
+controlled `detailTaskId` are in [Detail panel](detail-panel).
+
+## A gesture writes straight through
+
+A move, a resize and a progress drag all commit on pointerup. The chart writes the result into its
+own copy of the tasks and calls `onTasksChange` once with the whole array, however many tasks the
+gesture moved. Dragging a summary bar moves its subtree, and every task in that subtree is in the
+array. Nothing runs before the write, and there is no callback that can stop it.
+
+A gesture that never committed a drag step writes nothing and calls nothing.
+
+`onTasksChange` is handed the array and nothing else: no gesture type, no edge, no list of the ids
+that moved. Diff it against the array you last passed in if you need to know what changed.
+
+Rejecting a change means putting the old data back. The `tasks` prop wins whenever its contents
+differ from what the chart currently holds, so handing back the array you had before the gesture
+returns the bar to where it was.
+
+### An optimistic update with a server round trip
+
+The gesture is already on screen when your handler runs. That is the optimism. The round trip either
+leaves it there or takes it away.
+
+```tsx title="src/ServerBackedGantt.tsx"
+import { useState } from 'react';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+async function save(tasks: Task[]): Promise<void> {
+  const response = await fetch('/api/tasks', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(tasks),
+  });
+
+  if (!response.ok) throw new Error(`save failed: ${response.status}`);
+}
+
+export function ServerBackedGantt({ initial }: { initial: Task[] }) {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <>
+      {error ? <p role="alert">{error}</p> : null}
+      <ReactGanttChart
+        tasks={tasks}
+        onTasksChange={(next) => {
+          // The array the chart is showing right now, before this gesture
+          const previous = tasks;
+
+          setError(null);
+          setTasks(next);
+
+          save(next).catch(() => {
+            setError('Could not reach the server. Your change was undone.');
+            // Contents differ from what the chart holds, so the bar goes back
+            setTasks(previous);
+          });
+        }}
+      />
+    </>
+  );
+}
+```
+
+Two details are worth naming. `onTasksChange` fires once per gesture with the full array, so one
+request covers the grabbed bar and its subtree. And an echo of what `onTasksChange` just handed you
+is recognized as an echo, so the ordinary controlled loop never fights the drag that is still on
+screen.
+
+## What each edit path reports
+
+| Path | Callback | Can it cancel? |
+|---|---|---|
+| Move, resize or progress drag | `onTasksChange` | no |
+| Keyboard nudge, keyboard progress step, keyboard delete | `onTasksChange` | no |
+| The **Add task** button, `addTask()` on the ref, or a range drawn below the last row | `onTaskCreate` | n/a, the chart adds nothing itself |
+| Drawing a dependency arrow | `onDependencyCreate`, return `false` to cancel | yes, sync |
+| Deleting a dependency arrow | `onDependencyDelete`, return `false` to cancel | yes, sync |
+
+The keyboard row edits without a pointer. `Alt` with an arrow key moves a bar, `Shift` resizes it,
+`+` and `-` step its progress, and `Delete` removes it. Every one of those commits straight to the
+tasks and fires `onTasksChange`, exactly like the gesture it replaces. To stop an edit before it
+happens, turn that gesture off through the permission chain in [Editing tasks](editing). The full
+key map is in [Keyboard and screen readers](accessibility).
+
+The two dependency callbacks do cancel, but synchronously: the chart reads the return value
+immediately, so a promise is truthy and the change commits. Returning a promise from
+`onDependencyCreate` in the hope of asking a server first does not work. Their payloads are covered
+in [Dependencies](dependencies).
+
+## Limits
+
+- **Selection is one id, and it is internal.** There is no multi-select and no `selectedTaskId`
+  prop. You cannot set the selection, restore it after a remount, or clear it from your own code.
+  Track it yourself from `onTaskSelect` if you need it outside the chart.
+- **There is no context-menu, hover or focus callback.** Right click is not reported. A context
+  menu means putting your own listener on the chart container and reading `data-task-id` off the
+  event target.
+- **There is no before-change gate.** A gesture is written before your code hears about it, so a
+  rule that must hold for every edit is enforced after the fact, in `onTasksChange`.
+- **Undoing a change is your state, not the chart's.** Passing the old `tasks` array back is the
+  whole mechanism, and nothing animates it - the bar is redrawn at the old dates on the next render.
+- **There are no drag lifecycle callbacks.** No `onDragStart`, `onDragMove` or `onDragEnd`.
+  `onTasksChange` fires at the end of a gesture and nowhere else.
+- **Persistence is yours.** Nothing is stored and nothing is sent anywhere. `onTasksChange` hands
+  you an array and expects it back as the `tasks` prop.
+- **A progress drag cancelled by the browser commits.** A bar drag cancelled the same way reverts.
+  That asymmetry is in [Editing tasks](editing).
+
+## Every event in one table
+
+| The user does this | Callback | Can it cancel? |
+|---|---|---|
+| Clicks a bar or its row | `onTaskClick`, then `onTaskSelect`, then `onDetailChange` under the default detail trigger | no |
+| Double clicks a bar or its row | `onTaskClick` twice, then `onTaskDoubleClick`, then `onDetailChange` under `detailTrigger="doubleClick"` | no |
+| Clicks the empty timeline | `onTaskSelect(null)`, if something was selected, and `onDetailChange(null)`, if the panel was open | no |
+| Finishes a drag on a bar | nothing - the trailing click is dropped | n/a |
+| Moves or resizes a bar | `onTasksChange` | no |
+| Drags the progress handle | `onTasksChange` | no |
+| Edits with the keyboard | `onTasksChange` | no |
+| Clicks **Add task**, calls `addTask()`, or draws a range below the last row | `onTaskCreate` | n/a, the chart writes nothing |
+| Draws a dependency arrow | `onDependencyCreate`, then `onTasksChange` | yes, sync |
+| Deletes a dependency arrow | `onDependencyDelete`, then `onTasksChange` | yes, sync |
+| Opens or closes the detail panel from a key, the close button, `detailTaskId` or the ref | `onDetailChange` | no |
+| Changes the rendered timeline range | `onRangeChange` - see [The timeline](timeline) | no |
+
+Next: [Custom rendering](custom-rendering), which replaces the bar, the tooltip and the header
+cell without giving up any of the behaviour on this page.

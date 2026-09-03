@@ -22,7 +22,7 @@ dist-ssr
 
 .playwright-mcp
 
-# Next.js / fumadocs (apps/docs)
+# Next.js / fumadocs (apps/site)
 .next
 next-env.d.ts
 .source
@@ -31,3 +31,10 @@ next-env.d.ts
 # Vercel CLI link artifact
 .vercel
 .env*.local
+.claude
+# Superpowers working docs (specs, plans)
+docs/superpowers/
+
+# Screenshots dropped at the repo root by agent/debug runs.
+# Real images live in public/ or apps/*/public/, never here.
+/*.png

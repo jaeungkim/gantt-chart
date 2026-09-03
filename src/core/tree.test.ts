@@ -24,11 +24,7 @@ const task = (
   ...extra,
 });
 
-// root
-//  ├ a
-//  │  ├ a1
-//  │  └ a2
-//  └ b
+// root > a (a1, a2), b
 const nested = () => [
   task('root', null),
   task('a', 'root'),
@@ -190,16 +186,6 @@ describe('rollUpTasks', () => {
     expect(byId.get('mid')?.startDate).toBe(dayjs('2025-01-01').toISOString());
     expect(byId.get('root')?.startDate).toBe(dayjs('2025-01-01').toISOString());
     expect(byId.get('root')?.endDate).toBe(dayjs('2025-12-05').toISOString());
-  });
-
-  it('measures a milestone child at its startDate only', () => {
-    const rolled = rollUpTasks([
-      task('p', null),
-      task('c', 'p', '2025-01-10', '2025-01-12'),
-      task('m', 'p', '2025-02-01', '2030-01-01', { type: 'milestone' }),
-    ]);
-
-    expect(rolled[0].endDate).toBe(dayjs('2025-02-01').toISOString());
   });
 
   it('leaves leaves and childless parents untouched', () => {

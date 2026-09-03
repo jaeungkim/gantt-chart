@@ -1,0 +1,191 @@
+---
+title: "Task and task types"
+description: "`Task`, `TaskDependency`, `DependencyType`, `TaskTransformed`"
+---
+
+`Task` is the shape of one row of the `tasks` prop, and `TaskTransformed` is what the chart hands
+back to a renderer after it has measured that row. Both, along with `TaskDependency` and
+`DependencyType`, are type-only exports of the package root.
+
+```ts
+import type {
+  DependencyType,
+  Task,
+  TaskDependency,
+  TaskTransformed,
+} from '@jaeungkim/gantt-chart';
+```
+
+Behaviour lives in the guides: [Task data](../task-data) for dates and `sequence`, and
+[Editing tasks](../editing) for the interaction flags.
+
+## `DependencyType`
+
+```ts
+export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
+```
+
+| Value | First letter | Second letter |
+|---|---|---|
+| `'FS'` | predecessor's finish | successor's start |
+| `'SS'` | predecessor's start | successor's start |
+| `'FF'` | predecessor's finish | successor's finish |
+| `'SF'` | predecessor's start | successor's finish |
+
+## `TaskDependency`
+
+A dependency is stored on the **successor**, and `targetId` names the predecessor.
+
+```ts
+export interface TaskDependency {
+  /** The predecessor's id - a task's `dependencies` list the tasks it waits on */
+  targetId: string;
+  type: DependencyType;
+}
+```
+
+| Field | Type | Required | Meaning | Read when |
+|---|---|---|---|---|
+| `targetId` | `string` | yes | Id of the predecessor. An id that is not in `tasks` is dropped silently — no arrow. An id equal to the owner's own is not dropped; there is no self check, so a self-link draws an arrow back onto the same row. | always |
+| `type` | `DependencyType` | yes | Which end of each task the link anchors to. A value outside the four is skipped; the `console.warn` fires once per distinct value and only in a DEV build. | always |
+
+The four link types and how arrows are drawn and deleted: [Dependencies](../dependencies).
+
+## `Task`
+
+```ts
+export interface Task {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  parentId: string | null;
+  sequence: string;
+  /** Progress 0-100 (%) - omitted means no progress display */
+  progress?: number;
+  /**
+   * Bar color - any CSS color value
+   *
+   * The progress fill and the hover shade are derived from it, so one value colors the
+   * whole bar. Omitted, the `--gantt-*` theme tokens decide as before.
+   */
+  color?: string;
+  /** Extra class name put on this task's bar and its task-list row */
+  className?: string;
+  /**
+   * Swimlane this task shares a row with
+   *
+   * Tasks with the same lane (inside the same group) are drawn side by side on one
+   * row; overlapping ones stack onto extra rows automatically. Omitted, the task
+   * gets a row of its own as before.
+   */
+  lane?: string;
+  dependencies?: TaskDependency[];
+  /** Blocks every gesture on this task - overrides the chart's `readOnly` prop */
+  readOnly?: boolean;
+  /** Allows/blocks moving this task - overrides both `readOnly` settings */
+  allowMove?: boolean;
+  /** Allows/blocks resizing this task - overrides both `readOnly` settings */
+  allowResize?: boolean;
+  /** Allows/blocks dragging this task's progress handle - overrides both `readOnly` settings */
+  allowProgressChange?: boolean;
+  /** Allows/blocks starting a dependency drag from this task - overrides both `readOnly` settings */
+  allowLinkCreate?: boolean;
+  /** Allows/blocks deleting a dependency this task owns - overrides both `readOnly` settings */
+  allowLinkDelete?: boolean;
+  /**
+   * Allows/blocks dragging this row to a new position or a new parent
+   *
+   * Unlike the other flags this one is off unless something turns it on: reordering is
+   * opt-in, so `allowReorder` on the chart (or here) is what enables it.
+   */
+  allowReorder?: boolean;
+  /** Earliest date this task may be dragged to (ISO string) - overrides the chart's `minDate` */
+  minDate?: string;
+  /** Latest date this task may be dragged to (ISO string) - overrides the chart's `maxDate` */
+  maxDate?: string;
+}
+```
+
+Six fields are required: `id`, `name`, `startDate`, `endDate`, `parentId`, `sequence`.
+
+| Field | Type | Required | Meaning | Read when |
+|---|---|---|---|---|
+| `id` | `string` | yes | Unique key for links and roll-up. Uniqueness is not checked; maps keyed by id keep the last occurrence. | always |
+| `name` | `string` | yes | Bar label, task-list cell and ARIA label. | always |
+| `startDate` | `string` | yes | Any string `dayjs.utc()` parses. A bare `'2025-06-01'` is UTC midnight; a zone-less `'2025-06-01T09:00'` is a UTC wall clock. | always |
+| `endDate` | `string` | yes | Same parsing. A task whose `endDate` equals its `startDate` is legal; it draws as a very thin bar. | always |
+| `parentId` | `string \| null` | yes | Id of the parent, or `null` for a root. An orphan, a self-reference or a cycle is cut and the task becomes a root. | `hierarchy` is on |
+| `sequence` | `string` | yes | Dot-separated numbers, e.g. `'2.10'`. Decides row order; segments compare numerically, a missing segment is `0`, a non-numeric segment is `0`. Supplies `depth` when `hierarchy` is off. | always |
+| `progress` | `number` | no | 0–100 (%). Clamped, never rejected: `-10` → `0`, `150` → `100`, `Infinity` → `100`. A non-number or `NaN` means no progress display. No rounding. | always |
+| `color` | `string` | no | Any CSS color. Sets `--gantt-bar-color`, plus a hover shade at 86% and a progress fill at 62% mixed with `#000`. An empty or whitespace-only string is ignored. | always |
+| `className` | `string` | no | Added to both the bar and the task-list row. | always |
+| `lane` | `string` | no | Tasks sharing a lane inside a group pack onto one row; overlapping ones stack onto extra rows. Absent or empty means a row of its own. | always |
+| `dependencies` | `TaskDependency[]` | no | Predecessors of this task. Default `[]`. | always |
+| `readOnly` | `boolean` | no | Blocks every gesture on this task. | always |
+| `allowMove` | `boolean` | no | Overrides `readOnly` on both levels for the move gesture. | always |
+| `allowResize` | `boolean` | no | Same, for resizing. Forced `false` on a summary row. | always |
+| `allowProgressChange` | `boolean` | no | Same, for the progress handle. Forced `false` on a summary row. | always |
+| `allowLinkCreate` | `boolean` | no | Same, for starting a dependency drag. | always |
+| `allowLinkDelete` | `boolean` | no | Same, for deleting a dependency this task owns. | always |
+| `allowReorder` | `boolean` | no | Whether this row may be dragged, or moved with the keyboard, to a new position or a new parent. The one flag whose default is `false` rather than `!readOnly`: unset, it reads the chart's `allowReorder`, which is itself `false` unless set. | always |
+| `minDate` | `string` | no | Earliest drag target, UTC ISO. Falls back to the chart's `minDate`; the capability chain does not apply. | always |
+| `maxDate` | `string` | no | Latest drag target, UTC ISO. Same fallback. | always |
+
+Task-level flags beat `readOnly`, which beats the chart-level equivalents: see
+[`GanttInteractionConfig`](interaction-config) for the full resolution order, and for the shorter
+chain `allowReorder` runs instead.
+
+## `TaskTransformed`
+
+Every added field is computed by the chart and read-only. `TaskTransformed` is output-only —
+`tasks` is always `Task[]`, and a mutated `TaskTransformed` is never read back.
+
+```ts
+export interface TaskTransformed extends Task {
+  barLeft: number;
+  barWidth: number;
+  depth: number;
+  order: number;
+  originalOrder: number;
+  /**
+   * A summary row with children (true only when hierarchy is on)
+   *
+   * Its start/end are recomputed from the children, so resizing and progress editing are
+   * disabled and dragging the bar moves the whole subtree.
+   */
+  isSummary?: boolean;
+  dependencies?: TaskDependency[];
+}
+```
+
+| Field | Type | Computed value | Present when |
+|---|---|---|---|
+| every `Task` field | — | copied through unchanged | always |
+| `barLeft` | `number` | px from the timeline origin; `0` when the timeline has no cells | always |
+| `barWidth` | `number` | px, clamped to a minimum of `1`; `0` only when the timeline has no cells | always |
+| `depth` | `number` | `parentId` chain depth with `hierarchy` on, dot count in `sequence` otherwise | always |
+| `order` | `number` | 1-based row number after grouping and lane packing | always |
+| `originalOrder` | `number` | the 1-based index in the sequence-sorted array, before the `order` rewrite | always |
+| `isSummary` | `boolean` | `true` when the task has children. Always `false` with `hierarchy` off. Typed optional, written on every task. | always |
+
+## Notes
+
+`normalizeProgress` is **not exported from the package root**. It exists in the source and is
+re-exported by `src/shared/task.ts`, but `src/index.ts` does not list it, so
+`import { normalizeProgress } from '@jaeungkim/gantt-chart'` fails. Write
+`Math.min(100, Math.max(0, progress))` in the host app instead. `RenderedDependency` is not
+exported either.
+
+`Task` gets no runtime validation: no required-field check, no date parsing check, no id-uniqueness
+check, no `progress` range check on input. The one runtime diagnostic in the whole model is the
+DEV-only warning for an unrecognized `DependencyType`.
+
+`sequence` is the only field whose absence throws. `sequence.split('.')` runs during layout, so a
+hand-built task without it crashes the chart rather than degrading.
+
+Dates go in as anything `dayjs.utc()` parses and come back out as
+`Dayjs.toISOString()` — `YYYY-MM-DDTHH:mm:ss.sssZ`. There is no local time-zone mode.
+
+Related pages: [`GanttProps`](props), [`GanttInteractionConfig`](interaction-config),
+[Task data](../task-data).

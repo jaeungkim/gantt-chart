@@ -1,16 +1,12 @@
-import { isMilestoneTask, normalizeProgress, Task } from "./types";
+import { normalizeProgress, Task } from "./types";
 import dayjs from "./dates";
 
 /** The minimum a task needs for the tree math - TaskTransformed fits as-is */
 type TaskNode = Pick<Task, "id" | "parentId">;
 
 /**
- * A normalized tree built from parentId
- *
- * Orphans (a parent id that is not in the data), self-references and cyclic chains all get
- * their parent link cut and become roots. The parentOf/childIds that come out are therefore
- * always acyclic, so the functions below - and the render - can walk up or down without
- * risking an infinite loop.
+ * A normalized tree built from parentId. Orphans, self-references and cycles lose their
+ * parent link and become roots, so what comes out is always acyclic.
  */
 export interface TaskTree {
   /** parent id -> child ids (in input order) */
@@ -30,8 +26,7 @@ export function buildTaskTree(tasks: TaskNode[]): TaskTree {
   const depthOf = new Map<string, number>();
   const rootIds: string[] = [];
 
-  // Walking up the ancestor chain and meeting a node already passed means a cycle.
-  // (Every node walked is recorded, so this ends within n steps no matter the data)
+  // Meeting an already-passed node while walking up means a cycle; every node is recorded, so this ends.
   const resolveParent = (task: TaskNode): string | null => {
     const parentId = task.parentId;
     if (!parentId || parentId === task.id || !byId.has(parentId)) return null;
@@ -145,20 +140,15 @@ function rollUpProgress(children: Task[]): number | undefined {
 
   if (!reported) return undefined;
 
-  // With only zero-duration children (milestones and such) there is no weight, so fall back
-  // to a plain average
+  // With only zero-duration children there is no weight, so fall back to a plain average
   const percent =
     totalWeight > 0 ? weightedSum / totalWeight : plainSum / children.length;
   return Math.round(percent);
 }
 
 /**
- * The tasks with every parent recomputed as a summary row
- *
- * Start and end always come from the children, never from what the data says
- * (min(child start)..max(child end); a milestone child counts at its startDate alone).
- * Deepest first, so a grandchild's move travels up through the parent and the grandparent.
- * An explicit progress is left alone; only a missing one is rolled up from the children.
+ * The tasks with every parent recomputed as a summary row: start/end always from the children
+ * (deepest first, so a move travels all the way up); an explicit progress is left alone.
  */
 export function rollUpTasks(
   tasks: Task[],
@@ -188,10 +178,7 @@ export function rollUpTasks(
     let maxEnd = -Infinity;
     for (const child of children) {
       const start = dayjs(child.startDate).valueOf();
-      // A milestone is the single startDate point - its endDate is ignored when rendering too
-      const end = isMilestoneTask(child)
-        ? start
-        : dayjs(child.endDate).valueOf();
+      const end = dayjs(child.endDate).valueOf();
 
       if (!Number.isNaN(start)) minStart = Math.min(minStart, start);
       if (!Number.isNaN(end)) maxEnd = Math.max(maxEnd, end);

@@ -1,15 +1,8 @@
 import type { Dayjs } from 'dayjs';
 
-/**
- * The calendar every piece of date arithmetic in the core routes through.
- *
- * There is exactly one notion of "a day" in the engine: whatever this object says.
- * The default calendar counts every day, so the plain calendar-date behaviour is not a
- * separate code path - it is the same code with a calendar that never skips anything.
- * Turning the working-day calendar on swaps the object; nothing else changes.
- */
+/** The calendar every piece of date arithmetic in the core routes through. */
 export interface WorkingCalendar {
-  /** False for the default calendar (every day counts) - lets callers take the cheap path */
+  /** False for the default calendar (every day counts) */
   readonly skipsNonWorkingDays: boolean;
   isWorkingDay(date: Dayjs): boolean;
   /** Moves `days` days forward (or backward), skipping non-working days */
@@ -42,9 +35,7 @@ const MAX_SPAN = 18_263;
 const HOLIDAY_FORMAT = 'YYYY-MM-DD';
 const DEFAULT_WORKING_WEEKDAYS = [1, 2, 3, 4, 5];
 
-/**
- * @param isOff null means every day is a working day (the default calendar)
- */
+// `isOff` null means every day is a working day (the default calendar).
 function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
   const isWorkingDay = isOff ? (date: Dayjs) => !isOff(date) : () => true;
 
@@ -91,9 +82,7 @@ function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
     addDays,
     daysBetween,
 
-    // daysBetween works at day granularity, so the answer can be one step off once the
-    // time of day is taken into account. Correcting by whole steps keeps every result on
-    // a day boundary the calendar agrees with.
+    // daysBetween is day-granular, so correct by whole steps once time of day is counted.
     daysUntil(from, target) {
       let days = daysBetween(from, target);
       const time = target.valueOf();
@@ -122,19 +111,10 @@ function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
   };
 }
 
-/**
- * The default calendar: every day counts.
- * Date arithmetic through it is plain calendar arithmetic, so it is what keeps the
- * scheduling features behaviour-neutral until a host opts into working days.
- */
+/** The default calendar: every day counts, so arithmetic through it is plain calendar arithmetic. */
 export const CALENDAR_DAYS: WorkingCalendar = build(null);
 
-/**
- * A calendar that skips weekends and holidays.
- *
- * Takes the same configuration the chart already uses to shade non-working days
- * (`holidays` / `isNonWorkingDay`), so what is shaded and what is skipped cannot drift.
- */
+/** A calendar that skips weekends and holidays, configured like the chart's non-working-day shading. */
 export function createWorkingCalendar(
   options: WorkingCalendarOptions = {}
 ): WorkingCalendar {

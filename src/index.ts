@@ -1,81 +1,61 @@
-// Styles
 import './styles.css';
 
-// Main component
-export { default as ReactGanttChart } from './components/Gantt';
+export { default as ReactGanttChart } from './Gantt';
 
-// Type exports
-export type { GanttProps } from './types/props';
+export type { GanttProps } from './props';
 export type {
+  GanttDetailApi,
   GanttHandle,
+  GanttTaskCreateApi,
   GanttScrollApi,
   GanttScrollOptions,
   GanttZoomAnchor,
-} from './hooks/useGanttScrollApi';
-export type { GanttExportApi } from './hooks/useGanttExportApi';
-export type { GanttHistoryApi } from './hooks/useGanttHistoryApi';
-export type {
-  GanttExportOptions,
-  GanttExportRange,
-} from './utils/pngExport';
+} from './timeline/hooks/useGanttScrollApi';
 export type {
   Task,
   TaskDependency,
   DependencyType,
-  TaskType,
   TaskTransformed,
   GanttInteractionConfig,
-} from './types/task';
-export type { GanttDependencyChange } from './hooks/useGanttLinkDrag';
-export type { GanttTaskDraft } from './hooks/useGanttDrawCreate';
+} from './shared/task';
+export type { GanttDependencyChange } from './dependencies/hooks/useGanttLinkDrag';
 export type {
-  GanttColumn,
+  GanttMoveRejection,
+  GanttTaskMove,
+  GanttTaskMoveChange,
+} from './core/reorder';
+export type { GanttTaskDraft } from './bars/hooks/useGanttDrawCreate';
+export type {
   GanttDateRange,
+  GanttDetailRenderProps,
+  GanttDetailRenderer,
+  GanttDetailTrigger,
   GanttFormatOverrides,
   GanttGroupBy,
-  GanttMarker,
-  GanttRangeBand,
-  GanttReorderChange,
   GanttScaleFormat,
   GanttScaleKey,
   GanttTheme,
-  GanttChangeType,
-  GanttTaskChange,
-  GanttBeforeChangeHandler,
-  GanttBarRenderProps,
-  GanttBarRenderer,
   GanttTooltipReason,
   GanttTooltipRenderProps,
   GanttTooltipRenderer,
   GanttHeaderCellRenderProps,
   GanttHeaderCellRenderer,
-} from './types/gantt';
-export type { GanttRow, GanttRowGroup } from './utils/grouping';
+} from './shared/types';
+export type { GanttRow, GanttRowGroup } from './rows/utils/grouping';
 
-// Headless scheduling core - no React, no DOM. Usable on a server or in a worker.
+// Headless core - no React, no DOM. Usable on a server or in a worker.
 export {
-  backwardPass,
-  buildTaskGraph,
   buildTaskTree,
   CALENDAR_DAYS,
-  canLink,
   collectSubtreeIds,
-  computeCriticalPath,
   createWorkingCalendar,
-  findPath,
-  forwardPass,
-  linkKey,
+  moveTask,
   rollUpTasks,
-  scheduleTasks,
+  sortTasksBySequence,
+  validateMove,
 } from './core';
 export type {
-  CriticalPathResult,
-  ScheduleOptions,
-  ScheduleResult,
-  SchedulingLink,
-  SchedulingPolicy,
-  TaskGraph,
-  TaskScheduleMetrics,
+  GanttMoveOptions,
   TaskTree,
   WorkingCalendar,
   WorkingCalendarOptions,

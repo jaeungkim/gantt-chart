@@ -1,0 +1,43 @@
+---
+title: "Documentation"
+description: "Every guide and reference page for @jaeungkim/gantt-chart, in reading order."
+---
+
+Read in order if you are new. Jump straight to a guide if you are not.
+
+## Guides
+
+| Page | What it covers |
+|---|---|
+| [Introduction](introduction) | What the library is, and what it deliberately leaves to you |
+| [Concepts and vocabulary](concepts) | Every term the rest of the docs use, defined once |
+| [Quick start](quick-start) | Install to a working, editable chart |
+| [Task data](task-data) | The `Task` shape, date handling, and how the `tasks` prop is compared |
+| [Task list and hierarchy](task-list) | The left pane and the `parentId` tree |
+| [Grouping and swimlanes](grouping) | `groupBy`, group header rows, and lanes |
+| [The timeline](timeline) | Scales, range, zoom, the today line, and non-working days |
+| [Editing tasks](editing) | Move, resize, progress, permissions, touch, and drawing a task |
+| [Dependencies](dependencies) | The four link types, and drawing and deleting links |
+| [Working calendar](working-calendar) | Keeping a drop off weekends and holidays |
+| [Detail panel](detail-panel) | The docked side panel: what opens it, `renderDetail`, and controlling it |
+| [Events](events) | Every callback a click, a drag and a keyboard edit fire |
+| [Custom rendering](custom-rendering) | Per-task colors and the three render props |
+| [Imperative API](imperative-api) | The `ref` handle: scrolling and zoom |
+| [Keyboard and screen readers](accessibility) | The key map, the ARIA tree, and the gaps |
+| [Locale and date formats](i18n) | `locale`, per-scale overrides, week start |
+| [Theming](theming) | The theme prop and the CSS custom properties |
+| [Headless core](headless-core) | Tree and calendar math without React or a DOM |
+
+## Reference
+
+| Page | Symbols |
+|---|---|
+| [GanttProps](ref/props) | every prop the component accepts |
+| [Task and task types](ref/task) | `Task`, `TaskDependency`, `DependencyType`, `TaskTransformed` |
+| [GanttInteractionConfig](ref/interaction-config) | `GanttInteractionConfig` and the capability order |
+| [Grouping types](ref/grouping) | `GanttGroupBy`, `GanttRow`, `GanttRowGroup` |
+| [Render prop types](ref/renderers) | `GanttTooltipRenderer`, `GanttHeaderCellRenderer`, `GanttDetailRenderer`, `GanttDetailRenderProps` |
+| [GanttHandle](ref/handle) | `GanttHandle`, `GanttScrollApi`, `GanttDetailApi`, `GanttScrollOptions`, `GanttZoomAnchor` |
+| [Scale and theme types](ref/scales) | `GanttScaleKey`, `GanttScaleFormat`, `GanttFormatOverrides`, `GanttTheme` |
+| [Tree helpers](ref/core-tree) | `buildTaskTree`, `collectSubtreeIds`, `rollUpTasks`, `TaskTree` |
+| [Working calendar](ref/core-calendar) | `createWorkingCalendar`, `CALENDAR_DAYS`, `WorkingCalendar` |

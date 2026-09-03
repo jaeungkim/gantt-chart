@@ -31,7 +31,7 @@ jobs:
       - run: pnpm build
       # The docs site consumes the built package through workspace:*, so this runs after
       # `pnpm build`. It is also what catches a page whose MDX no longer parses.
-      - run: pnpm --filter @gantt-chart/docs build
+      - run: pnpm --filter @gantt-chart/site build
       # Every specifier in the emitted .d.ts must resolve for a consumer. The library imports
       # its own modules bare (tsconfig baseUrl), and vite-plugin-dts rewrites those to relative
       # paths - except a directory barrel like `core`, which it used to emit verbatim. A consumer

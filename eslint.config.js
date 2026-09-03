@@ -7,7 +7,7 @@ import react from "eslint-plugin-react";
 
 export default tseslint.config(
   // Build output only. `eslint .` walks the whole workspace, so anything generated has to
-  // be listed here or it gets linted: apps/docs emits .next/ and the fumadocs .source/.
+  // be listed here or it gets linted: apps/site emits .next/ and the fumadocs .source/.
   { ignores: ["dist", "**/dist/**", "**/.next/**", "**/.source/**"] },
   {
     files: ["**/*.{ts,tsx,js,jsx}"],
@@ -72,7 +72,7 @@ export default tseslint.config(
   {
     // Next.js route files export generateStaticParams/generateMetadata alongside the page
     // component by design; fast refresh does not apply to them.
-    files: ["apps/docs/app/**/*.tsx"],
+    files: ["apps/site/app/**/*.tsx"],
     rules: { "react-refresh/only-export-components": "off" },
   },
   {
@@ -80,6 +80,8 @@ export default tseslint.config(
     // src/core/ has to stay runnable in Node and publishable on its own, so nothing in it
     // may reach for React, the store, a component, or anything that thinks in pixels.
     // Catching that here is cheaper than discovering it the day the core ships separately.
+    // Every other src/ folder is a render-side domain, so the list below is simply all of
+    // them - add a new domain folder here the day you create one.
     files: ["src/core/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
@@ -95,21 +97,21 @@ export default tseslint.config(
                 "zustand",
                 "zustand/*",
                 "@tanstack/*",
-                "components/*",
-                "hooks/*",
-                "stores/*",
-                "constants/*",
-                "types/*",
-                "utils/*",
-                "**/components/*",
-                "**/hooks/*",
-                "**/stores/*",
-                "**/constants/*",
-                "**/types/*",
-                "**/utils/*",
+                ...[
+                  "shared",
+                  "timeline",
+                  "bars",
+                  "dependencies",
+                  "rows",
+                  "task-list",
+                  "interaction",
+                  "detail",
+                  // `**` not `*`: a domain nests components/, hooks/ and utils/ inside it,
+                  // so `shared/*` alone would miss `shared/utils/i18n`.
+                ].flatMap((domain) => [`${domain}/**`, `**/${domain}/**`]),
               ],
               message:
-                "src/core must stay free of React, the DOM and pixel math - keep render-side code in src/utils or src/components.",
+                "src/core must stay free of React, the DOM and pixel math - keep render-side code in the domain folder it belongs to.",
             },
           ],
         },

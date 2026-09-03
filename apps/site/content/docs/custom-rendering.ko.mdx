@@ -1,0 +1,266 @@
+---
+title: "커스텀 렌더링"
+description: "작업별 색상과 세 가지 render prop"
+---
+
+디자인에서 스크린샷이 하나 넘어와요. 막힌 작업은 호박색이고, 고객사 작업에는 브랜드 블루가 들어가 있어요. 타임라인 헤더는 월이 바뀌는 자리마다 표시가 있고요. 여기에 포크가 필요한 건 하나도 없어요. 차트는 작업당 색 하나, 작업당 클래스 이름 하나, 그리고 노드를 통째로 갈아 끼우는 렌더 prop 세 개를 받아요. 이 목록을 한 단계 올라갈 때마다 제어권은 늘어나고, 기본 동작은 그만큼 사라져요.
+
+## 작업별 색상
+
+`Task`에는 선택 필드 `color`가 있어요. CSS 색상 값이면 무엇이든 쓸 수 있어요. `var(--brand)`나 `rgb(255 0 0 / 50%)`도 되고요. 문자열은 손대지 않고 그대로 전달돼요. 나머지 필드 목록은 [작업 데이터](task-data)에 있어요.
+
+```tsx title="src/App.tsx"
+import { useState } from 'react';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const initial: Task[] = [
+  {
+    id: 'design',
+    name: 'Design',
+    startDate: '2026-03-02T00:00:00Z',
+    endDate: '2026-03-06T00:00:00Z',
+    parentId: null,
+    sequence: '1',
+    progress: 40,
+    color: '#2563eb',
+  },
+  {
+    id: 'build',
+    name: 'Build',
+    startDate: '2026-03-09T00:00:00Z',
+    endDate: '2026-03-20T00:00:00Z',
+    parentId: null,
+    sequence: '2',
+    progress: 0,
+    color: 'var(--brand-amber)',
+  },
+];
+
+export function App() {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+  return <ReactGanttChart tasks={tasks} onTasksChange={setTasks} />;
+}
+```
+
+값 하나가 막대 전체를 칠해요. 차트는 호버 음영이나 진행률 채움을 위해 두 번째 토큰을 읽지 않아요. 둘 다 지정한 색에서 파생하기 때문에, 색을 준 막대에 테마 회색이 섞이는 일은 없어요. 색이 지정된 작업은 CSS 커스텀 속성을 정확히 세 개, 막대 노드에 인라인으로 설정해요.
+
+| 커스텀 속성 | 값 |
+|---|---|
+| `--gantt-bar-color` | 앞뒤 공백을 없앤 `color`, 그대로 |
+| `--gantt-bar-color-hover` | `color-mix(in srgb, <color> 86%, #000)` |
+| `--gantt-progress-color` | `color-mix(in srgb, <color> 62%, #000)` |
+
+문자열은 쓰이기 전에 앞뒤 공백이 제거돼요. `color`가 `undefined`이거나 `''`이거나 공백뿐이면 속성이 하나도 나가지 않아요. 그 막대는 색을 주지 않은 막대와 똑같이 그려져요.
+
+### 세 속성을 읽는 곳
+
+각 선언은 작업 속성을 먼저 쓰고, 테마 토큰을 `var()` 폴백으로 둬요.
+
+| 요소 | 선언 |
+|---|---|
+| 막대 배경 | `var(--gantt-bar-color, var(--gantt-bar-bg))` |
+| 호버 시 막대 배경 | `var(--gantt-bar-color-hover, var(--gantt-bar-bg-hover))` |
+| 요약 막대 배경 | `var(--gantt-bar-color, var(--gantt-summary-bg))` |
+| 호버 시 요약 막대 | `var(--gantt-bar-color-hover, var(--gantt-summary-bg-hover))` |
+| 진행률 채움 | `var(--gantt-progress-color, var(--gantt-progress-bg))` |
+| 요약 막대의 진행률 채움 | `var(--gantt-progress-color, var(--gantt-foreground))` |
+
+요약 막대는 막대 토큰이 아니라 요약 토큰으로 폴백해요. 작업에 `color`가 없을 때만 눈에 보이는 차이예요.
+
+### 색이 이길 때와 이기지 못할 때
+
+위 표에 있는 모든 테마 토큰보다 색이 우선해요. 토큰은 `var()` 폴백일 뿐이라, 작업 속성이 없을 때만 참조돼요. 테마로 `--gantt-bar-bg`를 차트 전체에 지정해도 작업 자신의 `color`를 덮지 못해요. 토큰 목록은 [테마](theming)에 있어요.
+
+색이 지는 곳은 두 군데예요.
+
+- **배경이 아닌 모든 것.** 막대의 글자 색, 모서리 반경, 그림자, 선택 외곽선, 의존성 화살표는 전부 테마 토큰에서 와요. `color`는 위 표의 배경 선언 여섯 개만 바꾸고, 그 밖에는 아무것도 바꾸지 않아요.
+- **작업 목록.** `color`는 왼쪽 패널까지 가지 않아요. 작업 목록의 행은 테마와 `className`으로 스타일이 정해져요.
+
+## className
+
+작업에 준 `className`은 그 작업의 막대와 작업 목록 행에 붙어요. 두 클래스 문자열 모두 맨 뒤에 덧붙지만, 그게 캐스케이드를 바꾸지는 않아요. `class` 속성 안의 이름 순서는 CSS 우선순위가 아니니까요. 직접 쓴 규칙은 다른 규칙과 똑같은 방식으로 이겨요. 명시도로 이기거나, 명시도가 같다면 뒤에 와서 이겨요. `.gantt-task-bar.blocked`가 `.gantt-task-bar`보다 높고, 예제를 그렇게 쓴 이유가 그거예요.
+
+```tsx
+const task: Task = {
+  id: 'audit',
+  name: 'Security audit',
+  startDate: '2026-04-06T00:00:00Z',
+  endDate: '2026-04-10T00:00:00Z',
+  parentId: null,
+  sequence: '3',
+  className: 'blocked',
+};
+```
+
+```css title="src/gantt-overrides.css"
+.gantt-task-bar.blocked {
+  background: repeating-linear-gradient(
+    45deg,
+    #b45309,
+    #b45309 6px,
+    #92400e 6px,
+    #92400e 12px
+  );
+}
+
+.gantt-grid-row.blocked .gantt-grid-cell {
+  font-style: italic;
+}
+```
+
+## 렌더 prop 세 개
+
+값싼 두 방법 다음에는 탈출구가 세 개 있어요. 각각 노드 하나를 통째로 교체해요.
+
+| Prop | 교체 대상 | 루트에 펼칠 값 |
+|---|---|---|
+| `renderDetail` | 타임라인 옆에 도킹된 상세 패널 본문 | 펼칠 값 없음 |
+| `renderTooltip` | 기본 막대 안의 툴팁 노드 | 펼칠 값 없음 |
+| `renderHeaderCell` | 타임라인 헤더 셀 하나, 두 행 모두 | `cellProps` |
+
+전체 타입 형태는 [렌더러](ref/renderers)에 있어요. `renderDetail`만 자기 문서를 따로 가지고 있어요. 무엇이 패널을 여는지, props 묶음, 제어 방식은 [상세 패널](detail-panel)에서 다뤄요.
+
+### renderTooltip
+
+`renderTooltip`은 기본 막대 안의 툴팁 노드를 교체해요. 호버할 때도, 드래그할 때도 마찬가지예요. props 묶음도 없고 펼칠 것도 없어요.
+
+`reason`은 툴팁이 보이는 이유를 알려 줘요. 더 구체적인 쪽부터 순서대로 결정돼요.
+
+| `reason` | 언제 |
+|---|---|
+| `progress` | 진행률 핸들을 드래그하는 중 |
+| `resize` | 막대의 왼쪽이나 오른쪽 가장자리에서 드래그가 진행 중 |
+| `move` | 막대 몸통에서 드래그가 진행 중 |
+| `hover` | 포인터가 막대 위에 있고 드래그 중이 아닐 때 |
+
+넷 중 어느 것도 아니면 렌더러는 아예 호출되지 않아요.
+
+`startDate`와 `endDate`는 dayjs 객체예요. 제스처가 진행되는 동안에는 `tasks` 배열의 값이 아니라 실시간 미리보기 값이에요. 배열은 손을 뗄 때만 기록되는데, 이건 [작업 편집](editing)에서 다뤄요.
+
+```tsx title="src/App.tsx"
+import { useState } from 'react';
+import {
+  ReactGanttChart,
+  type GanttTooltipRenderProps,
+  type Task,
+} from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const initial: Task[] = [
+  {
+    id: 'design',
+    name: 'Design',
+    startDate: '2026-03-02T00:00:00Z',
+    endDate: '2026-03-06T00:00:00Z',
+    parentId: null,
+    sequence: '1',
+    progress: 40,
+  },
+];
+
+function Tooltip({
+  task,
+  reason,
+  startDate,
+  endDate,
+  durationMs,
+  progress,
+}: GanttTooltipRenderProps) {
+  const days = Math.round(durationMs / 86_400_000);
+  const live = reason !== 'hover';
+
+  return (
+    <div
+      className="gantt-bar-tooltip"
+      role={live ? 'status' : 'tooltip'}
+      aria-live={live ? 'polite' : undefined}
+    >
+      <strong>{task.name}</strong>
+      <div>
+        {startDate.format('MMM D')} – {endDate.format('MMM D')} ({days}d)
+      </div>
+      {progress !== null && <div>{progress}% done</div>}
+    </div>
+  );
+}
+
+export function App() {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      onTasksChange={setTasks}
+      renderTooltip={(props) => <Tooltip {...props} />}
+    />
+  );
+}
+```
+
+반환한 노드는 막대의 마지막 자식으로 붙고, 위치를 잡아 주는 건 `.gantt-bar-tooltip`이에요. `position: absolute`, 막대 아래 8px, 가운데 정렬, 화살표와 페이드인까지 그 클래스가 담당해요. 그 클래스를 빼면 노드는 막대 안에 배치되는 평범한 flex 자식이 돼요. 자기만의 모양을 원하는 교체본은 위치도 스스로 잡아야 해요.
+기본 제스처 툴팁은 `role="status"` 라이브 영역이고, 기본 호버 툴팁은 `role="tooltip"`이에요. 둘 다 빠뜨린 교체본은 스크린 리더에게 아무 말도 하지 않아요.
+
+### renderHeaderCell
+
+헤더의 두 행이 같은 렌더러를 거쳐요. 그래서 교체본이 가장 먼저 할 일은 `row`로 분기하는 거예요. `'top'`은 병합된 그룹 라벨이고, `'bottom'`은 눈금 하나예요. `label`은 기본 구현이 출력했을 문자열이고, 로케일과 포맷 재정의가 이미 적용된 상태예요. [로케일과 날짜 형식](i18n)을 보세요.
+
+```tsx title="src/GanttHeaderCell.tsx"
+import { type GanttHeaderCellRenderProps } from '@jaeungkim/gantt-chart';
+
+// renderHeaderCell={(props) => <HeaderCell {...props} />} 형태로 연결해요
+export function HeaderCell({
+  row,
+  date,
+  label,
+  cellProps,
+}: GanttHeaderCellRenderProps) {
+  if (row === 'top') {
+    return (
+      <div {...cellProps}>
+        <p className="gantt-top-group-label">{label}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      {...cellProps}
+      style={{ ...cellProps.style, fontWeight: date.date() === 1 ? 700 : undefined }}
+      title={date.format('YYYY-MM-DD')}
+    >
+      {label}
+    </div>
+  );
+}
+```
+
+`cellProps`는 `className`과 `style` 두 개예요. 클래스는 상단 행에서 `gantt-top-group`, 하단 행에서 `gantt-bottom-cell`이에요. 스타일은 명시적인 픽셀 너비 하나가 전부고요. 스타일을 직접 추가하려면 하단 분기처럼 `cellProps.style`에 병합해야 하고, 통째로 갈아 끼우면 안 돼요.
+
+`date`는 UTC dayjs 객체예요. 상단 행에서는 병합된 그룹의 시작, 하단 행에서는 눈금의 시작이에요. 차트는 `utc` 플러그인만 등록하기 때문에, `isoWeek()` 같은 플러그인 메서드는 쓸 수 없어요.
+
+| 빠뜨린 값 | 결과 |
+|---|---|
+| `style` | 셀에 너비가 없어요. 두 행 모두 flex 행이라 셀이 자동 크기가 되고 뒤따르는 셀이 전부 밀려요 — 헤더가 아래쪽 막대와 어긋나요 |
+| `className` | 셀은 너비를 지키지만 스타일시트가 주는 테두리와 타이포그래피를 잃어요 |
+
+결과는 차트가 키를 가진 프래그먼트로 감싸요. 그래서 렌더러가 `key`를 넣을 필요는 없어요. 하단 행은 가상화돼 있어서 화면에 보이는 눈금에서만 렌더러가 호출되고, 상단 행의 병합된 그룹 라벨은 항상 존재해요.
+
+## showTooltip
+
+`showTooltip`의 기본값은 `true`예요. `false`로 두면 호버 툴팁과, 이동·리사이즈·진행률 드래그 중의 실시간 툴팁이 모두 사라져요.
+
+`renderTooltip`도 함께 막혀요. 플래그는 이유가 결정되기 전에 확인되기 때문에, 커스텀 툴팁과 `showTooltip={false}`를 같이 쓰면 아무것도 그려지지 않아요. 툴팁을 없애는 게 아니라 조용하게 만드는 게 목적이었다면, 플래그는 그대로 두고 `renderTooltip`에서 더 작은 노드를 반환하세요.
+
+툴팁을 끄면 포인터 드래그가 만들어 내는 유일한 라이브 영역 안내가 사라져요. 그 제스처 툴팁이 바로 `role="status"` 노드예요. 키보드로 날짜를 편집할 때의 안내는 `showTooltip`이 건드리지 않는 별도 라이브 영역이 맡아요. [키보드와 스크린 리더](accessibility)를 보세요.
+
+## 한계
+
+- **렌더 prop은 세 개가 전부예요.** 작업 목록 행, 그룹 헤더, 드래그 readout, 드롭 표시, 의존성 화살표를 위한 렌더러는 없어요. 그것들은 CSS로만 손댈 수 있어요. 교체할 차트 자체의 크롬도 없어요. 툴바도, 배율 선택기도, 타임라인과 작업 목록 창 밖에 있는 것은 아무것도 없어요. 작업 목록은 더 이상 예외가 아니에요. 셀 하나가 `task.name`을 그리고, 자체 렌더러는 없어요. 작업별 상세 정보는 [상세 패널](detail-panel)에 두세요.
+- **`renderHeaderCell`은 헤더 높이를 바꿀 수 없어요.** 44px 그룹 행과 28px 눈금 행은 고정 높이라, 더 높은 셀은 넘쳐요.
+- **색은 대신 계산해 주지 않아요.** 팔레트도, 상태별 색상도, 범례도 없어요. 차트는 `task.color`를 읽어 음영 두 개를 파생할 뿐이고, 나머지 규칙은 전부 직접 정해야 해요.
+- **파생 음영에는 `color-mix`가 필요해요.** 호버와 진행률 음영은 `color-mix(in srgb, …)`로 나가기 때문에, `color-mix`를 해석하지 못하는 브라우저는 둘 다 계산하지 못해요. `--gantt-bar-color`는 평범한 색이라 그런 브라우저에서도 계속 동작해요.
+
+세 가지 선택지를 이 순서대로 꺼내 쓰세요. CSS 커스텀 속성 세 개는 색과 관련된 건 다 해결하고, 작업의 `color`는 값 하나로 그 셋을 모두 설정해요. `className`은 스타일시트로 표현할 수 있는 건 다 해결해요. 패턴이든 테두리든 폰트든요. 렌더 prop은 마지막 수단이에요. 기능을 빼앗아 가는 유일한 선택지예요.
+
+다음: [명령형 API](imperative-api) — `ref` 핸들을 다뤄요. 스크롤과 줌, 그리고 상세 패널 열기가
+여기 있어요.
