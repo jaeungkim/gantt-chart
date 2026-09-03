@@ -55,3 +55,42 @@ describe("drag readout replaces the guide lines", () => {
     expect(guides.match(/gantt-drag-guide-label/g)).toHaveLength(1);
   });
 });
+
+describe("drag readout belongs to the axis, not on top of it", () => {
+  function block(selector: string): string {
+    const start = css.indexOf(`${selector} {`);
+    expect(start, `${selector} not found in styles.css`).toBeGreaterThan(-1);
+    return css.slice(start, css.indexOf("}", start));
+  }
+
+  it("gives the label no shadow, ring or accent edge to float on", () => {
+    expect(block(".gantt-drag-guide-label")).not.toContain("box-shadow");
+    expect(block(".gantt-drag-guide-label")).not.toContain("border-inline-start");
+  });
+
+  it("paints the band and its label as one surface", () => {
+    expect(declaration(".gantt-drag-range", "background")).toBe(
+      declaration(".gantt-drag-guide-label", "background")
+    );
+  });
+
+  it("lifts the label out of a band too narrow to hold it", () => {
+    expect(css).toContain(".gantt-drag-guide-label.lifted {");
+    expect(block(".gantt-drag-guide-label.lifted")).toContain("transform");
+  });
+
+  // The label rests at the band's CENTRE, and a band is routinely wider than the scrollport, so
+  // a left-only sticky parks it off the right of the timeline for the whole gesture
+  it("pins the label to both edges of the scrollport, not just the left one", () => {
+    const label = block(".gantt-drag-guide-label");
+    expect(label).toContain("position: sticky");
+    expect(label).toMatch(/left:\s*var\(--gantt-pane-inset/);
+    expect(label).toMatch(/right:\s*0/);
+  });
+
+  // A px breakpoint would be wrong in any language whose dates are longer than English's
+  it("decides the lift from a measured label, not a fixed width", () => {
+    expect(guides).toContain("offsetWidth");
+    expect(guides).toContain("labelWidth > width");
+  });
+});
