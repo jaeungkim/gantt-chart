@@ -52,7 +52,7 @@ export function TaskDataExample() {
 | `parentId` | `string \| null` | yes | — | Id of the parent task, or `null` for a root. Only read when `hierarchy` is on. |
 | `sequence` | `string` | yes | — | Dot-separated numbers, `'1'`, `'2.1'`, `'2.10'`. Decides row order. |
 | `progress` | `number` | no | none | Percentage 0–100. Omitted means no progress fill. |
-| `color` | `string` | no | theme tokens | Any CSS color. The progress fill and the hover shade are derived from it. |
+| `color` | `string` | no | theme tokens | Any CSS color. The progress fill, the hover shade and the label text color are derived from it. |
 | `className` | `string` | no | none | Extra class on the bar element and on the task list row. |
 | `lane` | `string` | no | own row | Tasks sharing a lane are drawn side by side on one row. An empty string counts as absent. |
 | `dependencies` | `TaskDependency[]` | no | `[]` | The predecessors this task waits on. |
@@ -65,7 +65,7 @@ export function TaskDataExample() {
 | `minDate` | `string` | no | the chart's `minDate` | Earliest date a drag may land on. |
 | `maxDate` | `string` | no | the chart's `maxDate` | Latest date a drag may land on. |
 
-The five `allowX` flags and `readOnly` resolve most-specific-first, `task.allowX` before `task.readOnly` before the chart's config; see [Editing tasks](editing). `minDate` and `maxDate` do not use that chain — the task's value replaces the chart's when present. `color` and `className` and the CSS variables a colored bar sets are covered in [Custom rendering](custom-rendering). `lane` is covered in [Grouping and swimlanes](grouping).
+The five `allowX` flags and `readOnly` resolve most-specific-first, `task.allowX` before `task.readOnly` before the chart's config; see [Editing tasks](editing). `minDate` and `maxDate` do not use that chain — the task's value replaces the chart's when present. `color` and `className` and the four CSS variables a colored bar sets are covered in [Styling](styling). `lane` is covered in [Grouping and swimlanes](grouping).
 
 ### Fields that do nothing on their own
 

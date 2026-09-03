@@ -8,10 +8,8 @@ import {
   GanttDetailTrigger,
   GanttFormatOverrides,
   GanttGroupBy,
-  GanttHeaderCellRenderer,
   GanttScaleKey,
   GanttTheme,
-  GanttTooltipRenderer,
 } from "shared/types";
 import { Task, TaskTransformed } from "shared/task";
 
@@ -124,10 +122,6 @@ export interface GanttProps {
   detailTaskId?: string | null;
   /** Called on every open and close - in controlled and uncontrolled mode alike */
   onDetailChange?: (task: TaskTransformed | null) => void;
-  /** Replaces the default tooltip node entirely - used for hover and for drag alike */
-  renderTooltip?: GanttTooltipRenderer;
-  /** Replaces a timeline header cell entirely - both header rows go through it */
-  renderHeaderCell?: GanttHeaderCellRenderer;
   /** Hover and drag tooltips (default true) - `false` suppresses both */
   showTooltip?: boolean;
   /** Whether Ctrl/Cmd + wheel steps through the scale ladder (default false) - the date under the cursor stays put. */

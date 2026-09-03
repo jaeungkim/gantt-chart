@@ -31,8 +31,7 @@ wants a picker renders it, drives it through `setScale` on the ref, and follows 
 wheel and keyboard included — with `onScaleChange`. See [GanttHandle](handle).
 
 The key appears in several other shapes: `formats` is keyed by it, and
-`GanttTooltipRenderProps.scale` and `GanttHeaderCellRenderProps.scale` both carry it. See
-[Renderers](renderers).
+`GanttDetailRenderProps.scale` carries it. See [Renderers](renderers).
 
 ### Per-scale configuration
 
@@ -208,8 +207,9 @@ CSS custom property.
 - The `formats` object must be memoized or module-scoped. A new object identity on every render
   invalidates the label memos, and with `locale` also set it rebuilds every `Intl.DateTimeFormat`
   instance. Nothing warns.
-- `GanttScaleFormat` functions must return a `string`. There is no `ReactNode` escape hatch here —
-  to render markup in a header cell, use `renderHeaderCell` ([Renderers](renderers)).
+- `GanttScaleFormat` functions must return a `string`. There is no `ReactNode` escape hatch, and no
+  prop replaces a header cell. A header cell is text, and CSS on `.gantt-top-group` and
+  `.gantt-bottom-cell` is the only way to change how one looks.
 - Adjacent top-row groups that format to the **same string** merge into one cell. A `header`
   override returning a constant collapses the entire top row.
 - The chart's UTC `dayjs` instance is not exported from the package. Import `dayjs` and its `utc`

@@ -120,8 +120,6 @@ function GanttChart({
   detailTrigger = "selection",
   detailTaskId,
   onDetailChange,
-  renderTooltip,
-  renderHeaderCell,
   showTooltip,
   zoomOnWheel = false,
   infiniteScroll = false,
@@ -263,16 +261,9 @@ function GanttChart({
       onTasksChange,
       onTaskClick: detail.onTaskClick,
       onTaskDoubleClick: detail.onTaskDoubleClick,
-      renderTooltip,
       showTooltip,
     }),
-    [
-      onTasksChange,
-      detail.onTaskClick,
-      detail.onTaskDoubleClick,
-      renderTooltip,
-      showTooltip,
-    ]
+    [onTasksChange, detail.onTaskClick, detail.onTaskDoubleClick, showTooltip]
   );
 
   const { rows, tasks: rowTasks } = useGanttRowModel({
@@ -491,10 +482,9 @@ function GanttChart({
                     selectedScale={selectedScale}
                     width={totalWidth}
                     virtual={virtual}
-                    renderHeaderCell={renderHeaderCell}
                   />
 
-                  {/* Belongs to the date axis: inherits the wrapper's sticky and width, invisible to renderHeaderCell */}
+                  {/* Belongs to the date axis: inherits the wrapper's sticky and width, not part of the header cells */}
                   <GanttDragGuides />
                 </div>
 

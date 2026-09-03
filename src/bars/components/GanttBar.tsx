@@ -23,10 +23,7 @@ import {
   useMemo,
 } from "react";
 import { useGanttStore, useGanttStoreApi } from "shared/context";
-import {
-  GanttBarOptions,
-  GanttTooltipReason,
-} from "shared/types";
+import { GanttBarOptions } from "shared/types";
 import {
   GanttInteractionConfig,
   resolveTaskColors,
@@ -73,7 +70,6 @@ export default function GanttBar({
     onTasksChange,
     onTaskClick,
     onTaskDoubleClick,
-    renderTooltip,
     showTooltip = true,
   } = options;
 
@@ -244,7 +240,7 @@ export default function GanttBar({
   };
 
   // What the tooltip is for, most specific first - a gesture in progress beats a hover
-  const tooltipReason: GanttTooltipReason | null = !showTooltip
+  const tooltipReason: "hover" | "move" | "resize" | "progress" | null = !showTooltip
     ? null
     : isDraggingProgress
       ? "progress"
@@ -266,7 +262,7 @@ export default function GanttBar({
     return () => document.removeEventListener("keydown", dismiss);
   }, [hovered]);
 
-  const renderTooltipNode = () => {
+  const tooltipNode = () => {
     if (!tooltipReason) return null;
 
     const isGesture = tooltipReason !== "hover";
@@ -279,18 +275,6 @@ export default function GanttBar({
         ? liveOffset.offsetEndDate
         : dayjs(currentTask.endDate);
 
-    if (renderTooltip) {
-      return renderTooltip({
-        task: currentTask,
-        reason: tooltipReason,
-        startDate,
-        endDate,
-        durationMs: endDate.valueOf() - startDate.valueOf(),
-        progress,
-        scale: selectedScale,
-      });
-    }
-
     // Gesture tooltips are a single live line; the hover one is the task's summary
     if (tooltipReason === "progress") {
       return (
@@ -301,8 +285,8 @@ export default function GanttBar({
     }
 
     if (isGesture) {
-      // Hidden, not removed: the only live region a pointer drag produces, and
-      // `reason: "move" | "resize"` is a documented renderTooltip value.
+      // Hidden, not removed: the only live region a pointer drag produces - the visible
+      // readout for a move or a resize is the date the tick row writes at the moving edge.
       // .gantt-sr-only must stay declared after .gantt-bar-tooltip in styles.css - equal
       // specificity, so source order is what hides this and clips the ::after caret.
       return (
@@ -420,7 +404,7 @@ export default function GanttBar({
 
       {linkHandles}
 
-      {renderTooltipNode()}
+      {tooltipNode()}
     </div>
   );
 }

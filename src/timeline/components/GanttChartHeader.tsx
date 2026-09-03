@@ -1,10 +1,6 @@
-import { Fragment, useMemo } from "react";
+import { useMemo } from "react";
 import { useGanttStore } from "shared/context";
-import {
-  GanttBottomRowCell,
-  GanttHeaderCellRenderer,
-  GanttScaleKey,
-} from "shared/types";
+import { GanttBottomRowCell, GanttScaleKey } from "shared/types";
 import type { GanttVirtualization } from "timeline/hooks/useGanttVirtualization";
 import { mergeHeaderGroups } from "timeline/utils/header";
 import { resolveFormatters } from "shared/utils/i18n";
@@ -16,8 +12,6 @@ interface GanttChartHeaderProps {
   width: number;
   // Chart's window; the bottom cells come from it (top groups are CSS-sticky)
   virtual: GanttVirtualization;
-  // Replaces a header cell wholesale; both rows go through it
-  renderHeaderCell?: GanttHeaderCellRenderer;
 }
 
 function GanttChartHeader({
@@ -25,7 +19,6 @@ function GanttChartHeader({
   selectedScale,
   width,
   virtual,
-  renderHeaderCell,
 }: GanttChartHeaderProps) {
   const localeOptions = useGanttStore((store) => store.localeOptions);
   const formatters = useMemo(
@@ -49,29 +42,15 @@ function GanttChartHeader({
       <div className="gantt-header-content">
         <div className="gantt-top-header">
           <div className="gantt-top-groups">
-            {topGroups.map((group, idx) => {
-              const cellProps = {
-                className: "gantt-top-group",
-                style: { width: `${group.widthPx}px` },
-              };
-
-              return renderHeaderCell ? (
-                <Fragment key={`${group.label}-${idx}`}>
-                  {renderHeaderCell({
-                    row: "top",
-                    date: group.startDate,
-                    label: group.label,
-                    width: group.widthPx,
-                    scale: selectedScale,
-                    cellProps,
-                  })}
-                </Fragment>
-              ) : (
-                <div key={`${group.label}-${idx}`} {...cellProps}>
-                  <p className="gantt-top-group-label">{group.label}</p>
-                </div>
-              );
-            })}
+            {topGroups.map((group, idx) => (
+              <div
+                key={`${group.label}-${idx}`}
+                className="gantt-top-group"
+                style={{ width: `${group.widthPx}px` }}
+              >
+                <p className="gantt-top-group-label">{group.label}</p>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -82,26 +61,13 @@ function GanttChartHeader({
             const cell = bottomRowCells[virtualCell.index];
             if (!cell) return null;
 
-            const tickLabel = formatters.tick(cell.startDate);
-            const cellProps = {
-              className: "gantt-bottom-cell",
-              style: { width: `${virtualCell.size}px` },
-            };
-
-            return renderHeaderCell ? (
-              <Fragment key={`bottom-${virtualCell.index}`}>
-                {renderHeaderCell({
-                  row: "bottom",
-                  date: cell.startDate,
-                  label: tickLabel,
-                  width: virtualCell.size,
-                  scale: selectedScale,
-                  cellProps,
-                })}
-              </Fragment>
-            ) : (
-              <div key={`bottom-${virtualCell.index}`} {...cellProps}>
-                {tickLabel}
+            return (
+              <div
+                key={`bottom-${virtualCell.index}`}
+                className="gantt-bottom-cell"
+                style={{ width: `${virtualCell.size}px` }}
+              >
+                {formatters.tick(cell.startDate)}
               </div>
             );
           })}

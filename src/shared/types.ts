@@ -1,9 +1,5 @@
 import { Dayjs } from 'dayjs';
-import type {
-  CSSProperties,
-  MouseEvent as ReactMouseEvent,
-  ReactNode,
-} from 'react';
+import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import type { Task, TaskTransformed } from './task';
 
 /** Chart theme - 'system' follows the OS setting; omit the prop to follow the host page's `color-scheme`. */
@@ -125,51 +121,11 @@ export interface GanttDragOffset {
   offsetEndDate: Dayjs;
 }
 
-/** Why a tooltip is showing */
-export type GanttTooltipReason = 'hover' | 'move' | 'resize' | 'progress';
-
-/** Props handed to a `renderTooltip` override */
-export interface GanttTooltipRenderProps {
-  task: TaskTransformed;
-  reason: GanttTooltipReason;
-  /** Start being previewed - the live drag value while a gesture is running */
-  startDate: Dayjs;
-  /** End being previewed */
-  endDate: Dayjs;
-  /** End minus start in milliseconds */
-  durationMs: number;
-  /** Progress 0-100, or null when the task has none */
-  progress: number | null;
-  scale: GanttScaleKey;
-}
-
-export type GanttTooltipRenderer = (
-  props: GanttTooltipRenderProps
-) => ReactNode;
-
-/** Props handed to a `renderHeaderCell` override */
-export interface GanttHeaderCellRenderProps {
-  /** `'top'` is a merged group label, `'bottom'` a single time tick */
-  row: 'top' | 'bottom';
-  date: Dayjs;
-  /** The label the default header would print */
-  label: string;
-  width: number;
-  scale: GanttScaleKey;
-  /** Spread onto the root node of the replacement to keep the header layout intact */
-  cellProps: { className: string; style: CSSProperties };
-}
-
-export type GanttHeaderCellRenderer = (
-  props: GanttHeaderCellRenderProps
-) => ReactNode;
-
 // Everything a bar needs from the chart's props - one object rather than eight
 export interface GanttBarOptions {
   onTasksChange?: (updatedTasks: Task[]) => void;
   onTaskClick?: (task: TaskTransformed, event: ReactMouseEvent) => void;
   onTaskDoubleClick?: (task: TaskTransformed, event: ReactMouseEvent) => void;
-  renderTooltip?: GanttTooltipRenderer;
   // Hover and drag tooltips, on unless explicitly turned off
   showTooltip?: boolean;
 }

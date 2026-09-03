@@ -1,146 +1,21 @@
 ---
-title: "Render prop types"
-description: "`GanttTooltipRenderer`, `GanttHeaderCellRenderer`, `GanttDetailRenderer`"
+title: "Detail renderer"
+description: "`GanttDetailRenderer` and `GanttDetailRenderProps`, the types behind `renderDetail`"
 ---
 
-Three props replace a piece of the chart's own markup: `renderTooltip`, `renderHeaderCell` and
-`renderDetail`. Their types all come from `@jaeungkim/gantt-chart`. Behaviour and worked examples
-live in [Custom rendering](../custom-rendering).
+`renderDetail` is the chart's one render prop. It replaces the body of the detail panel, and its
+types come from `@jaeungkim/gantt-chart`. Behaviour and worked examples live in
+[Detail panel](../detail-panel).
 
 ```ts
 import type {
-  GanttTooltipRenderer,
-  GanttTooltipRenderProps,
-  GanttTooltipReason,
-  GanttHeaderCellRenderer,
-  GanttHeaderCellRenderProps,
   GanttDetailRenderer,
   GanttDetailRenderProps,
 } from '@jaeungkim/gantt-chart';
 ```
 
 `TaskTransformed` is documented in [Task](task) and `GanttScaleKey` in [Scales](scales).
-`Dayjs` comes from `dayjs`; `ReactNode` and `CSSProperties` come from `react`.
-
-## GanttTooltipRenderer
-
-```ts title="src/shared/types.ts"
-/** Why a tooltip is showing */
-export type GanttTooltipReason = 'hover' | 'move' | 'resize' | 'progress';
-
-/** Props handed to a `renderTooltip` override */
-export interface GanttTooltipRenderProps {
-  task: TaskTransformed;
-  reason: GanttTooltipReason;
-  /** Start being previewed - the live drag value while a gesture is running */
-  startDate: Dayjs;
-  /** End being previewed */
-  endDate: Dayjs;
-  /** End minus start in milliseconds */
-  durationMs: number;
-  /** Progress 0-100, or null when the task has none */
-  progress: number | null;
-  scale: GanttScaleKey;
-}
-
-export type GanttTooltipRenderer = (
-  props: GanttTooltipRenderProps
-) => ReactNode;
-```
-
-### Fields
-
-| Field | Type | Value |
-|---|---|---|
-| `task` | `TaskTransformed` | The task the tooltip belongs to |
-| `reason` | `GanttTooltipReason` | See the table below |
-| `startDate` | `Dayjs` | The live drag start while a gesture runs, otherwise `dayjs(task.startDate)` |
-| `endDate` | `Dayjs` | The live drag end while a gesture runs, otherwise `dayjs(task.endDate)` |
-| `durationMs` | `number` | `endDate.valueOf() - startDate.valueOf()`, in milliseconds |
-| `progress` | `number \| null` | The live value while the progress handle is dragged, otherwise the task's clamped `progress`. `null` when the task has none |
-| `scale` | `GanttScaleKey` | The scale currently selected |
-
-### reason
-
-Resolved most specific first.
-
-| Value | When |
-|---|---|
-| `progress` | The progress handle is being dragged |
-| `resize` | A bar drag is running in mode `left` or `right` |
-| `move` | A bar drag is running in mode `bar` |
-| `hover` | The mouse is over the bar and nothing is being dragged |
-
-None of the above means the renderer is not called at all. Neither is it called while
-`showTooltip` is `false`.
-
-### Constraints
-
-There is no props bag here, so nothing must be spread.
-
-- `showTooltip` defaults to `true`. Setting it to `false` suppresses the hover tooltip, the drag
-  tooltip and `renderTooltip` alike.
-- The returned node is rendered as the last child of the bar node. Positioning comes from the
-  `.gantt-bar-tooltip` class, so a replacement that does not use that class positions itself.
-- The default markup is `<div class="gantt-bar-tooltip gantt-sr-only" role="status" aria-live="polite">`
-  during a gesture and `<div class="gantt-bar-tooltip gantt-bar-tooltip-detail" role="tooltip">` on
-  hover. A replacement without those roles loses the live announcement.
-- The gesture node is visually hidden by `gantt-sr-only`: the visible readout for a move or a resize
-  is the date the tick row writes at the moving edge, so the bar does not print the same dates a
-  second time. It is still mounted and still announced. A `renderTooltip` of your own is not hidden - it is rendered
-  as given, for `reason: "move"` and `"resize"` too.
-
-## GanttHeaderCellRenderer
-
-```ts title="src/shared/types.ts"
-/** Props handed to a `renderHeaderCell` override */
-export interface GanttHeaderCellRenderProps {
-  /** `'top'` is a merged group label, `'bottom'` a single time tick */
-  row: 'top' | 'bottom';
-  date: Dayjs;
-  /** The label the default header would print */
-  label: string;
-  width: number;
-  scale: GanttScaleKey;
-  /** Spread onto the root node of the replacement to keep the header layout intact */
-  cellProps: { className: string; style: CSSProperties };
-}
-
-export type GanttHeaderCellRenderer = (
-  props: GanttHeaderCellRenderProps
-) => ReactNode;
-```
-
-### Fields
-
-| Field | Type | Value |
-|---|---|---|
-| `row` | `'top' \| 'bottom'` | `'top'` for a merged group label, `'bottom'` for one tick |
-| `date` | `Dayjs` | The cell's UTC start — the merged group's start for `'top'`, the tick's start for `'bottom'` |
-| `label` | `string` | Exactly what the default header would print, locale and `formats` overrides already applied |
-| `width` | `number` | The cell's width in px — the merged group width for `'top'`, the virtualized tick size for `'bottom'` |
-| `scale` | `GanttScaleKey` | The scale currently selected |
-| `cellProps` | object | See the table below |
-
-### cellProps
-
-| `row` | `cellProps.className` | `cellProps.style` |
-|---|---|---|
-| `'top'` | `"gantt-top-group"` | `{ width: '<group width>px' }` |
-| `'bottom'` | `"gantt-bottom-cell"` | `{ width: '<tick width>px' }` |
-
-### Constraints
-
-Spread `cellProps` on the root node of the replacement.
-
-- Both header rows go through the same renderer, so a replacement must branch on `row`.
-- Without `cellProps.style` the cell has no explicit width. Both rows are flex rows, and the bottom
-  row starts with a spacer sized to the virtualized cells skipped on the left, so one auto-sized
-  cell shifts every cell after it and the header stops lining up with the bars.
-- Without `cellProps.className` the cell loses the borders and typography the stylesheet gives it.
-- The result is wrapped in a `Fragment` with a key by the chart, so the renderer supplies no key.
-- The default children are not carried: the top row's `<p class="gantt-top-group-label">{label}</p>`
-  and the bottom cell's tick label text.
+`ReactNode` comes from `react`.
 
 ## GanttDetailRenderer
 
@@ -196,8 +71,5 @@ Only the panel's children are the renderer's, so there is no props bag to spread
   all, so it is never called without a task — `detailTrigger="none"` included.
 - The renderer is the only way to put a task's other fields in the panel. The default body shows
   the name and the dates, and there is no prop that adds a row to it.
-
-What opens the panel, controlled mode and the default body are in
-[Detail panel](../detail-panel).
 
 Every prop named here is indexed in [Props](props).

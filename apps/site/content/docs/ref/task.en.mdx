@@ -118,7 +118,7 @@ Six fields are required: `id`, `name`, `startDate`, `endDate`, `parentId`, `sequ
 | `parentId` | `string \| null` | yes | Id of the parent, or `null` for a root. An orphan, a self-reference or a cycle is cut and the task becomes a root. | `hierarchy` is on |
 | `sequence` | `string` | yes | Dot-separated numbers, e.g. `'2.10'`. Decides row order; segments compare numerically, a missing segment is `0`, a non-numeric segment is `0`. Supplies `depth` when `hierarchy` is off. | always |
 | `progress` | `number` | no | 0–100 (%). Clamped, never rejected: `-10` → `0`, `150` → `100`, `Infinity` → `100`. A non-number or `NaN` means no progress display. No rounding. | always |
-| `color` | `string` | no | Any CSS color. Sets `--gantt-bar-color`, plus a hover shade at 86% and a progress fill at 62% mixed with `#000`. An empty or whitespace-only string is ignored. | always |
+| `color` | `string` | no | Any CSS color. Sets `--gantt-bar-color`, plus a hover shade at 86% and a progress fill at 62% mixed with `#000`, and a `--gantt-bar-text-color` that flips the bar label between black and white by the color's own lightness ([Styling](../styling)). An empty or whitespace-only string is ignored. | always |
 | `className` | `string` | no | Added to both the bar and the task-list row. | always |
 | `lane` | `string` | no | Tasks sharing a lane inside a group pack onto one row; overlapping ones stack onto extra rows. Absent or empty means a row of its own. | always |
 | `dependencies` | `TaskDependency[]` | no | Predecessors of this task. Default `[]`. | always |

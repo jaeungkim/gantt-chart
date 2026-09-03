@@ -31,8 +31,7 @@ Ctrl/Cmd + ArrowDown은 한 칸 성기게 옮기고, 양쪽 끝에서 멈춰요.
 따라가요. [GanttHandle](handle)을 참고해 주세요.
 
 이 키는 다른 여러 곳에도 나와요. `formats`가 이 키로 묶이고,
-`GanttTooltipRenderProps.scale`, `GanttHeaderCellRenderProps.scale`이 이 값을 담아요.
-[렌더러](renderers)를 참고해 주세요.
+`GanttDetailRenderProps.scale`이 이 값을 담아요. [렌더러](renderers)를 참고해 주세요.
 
 ### 배율별 설정
 
@@ -203,8 +202,9 @@ export type GanttTheme = 'light' | 'dark' | 'system';
 - `formats` 객체는 메모이즈하거나 모듈 스코프에 둬야 해요. 렌더마다 객체 식별자가 새로 생기면 라벨 메모가
   무효화돼요. `locale`까지 함께 지정했다면 `Intl.DateTimeFormat` 인스턴스도 전부 다시 만들어요. 경고는
   뜨지 않아요.
-- `GanttScaleFormat` 함수는 `string`을 반환해야 해요. 여기에는 `ReactNode` 탈출구가 없어요. 헤더 셀에
-  마크업을 그리려면 `renderHeaderCell`을 써요([렌더러](renderers)).
+- `GanttScaleFormat` 함수는 `string`을 반환해야 해요. `ReactNode` 탈출구도 없고, 헤더 셀을 대체하는
+  prop도 없어요. 헤더 셀은 텍스트고, 생김새를 바꾸려면 `.gantt-top-group`과 `.gantt-bottom-cell`에
+  CSS를 주는 방법뿐이에요.
 - 상단 행에서 서로 이웃한 그룹이 **같은 문자열**로 포맷되면 한 셀로 합쳐져요. 상수를 반환하는 `header`
   재정의는 상단 행 전체를 하나로 접어 버려요.
 - 차트가 쓰는 UTC `dayjs` 인스턴스는 패키지에서 내보내지 않아요. 재정의에서 같은 인스턴스가 필요하면

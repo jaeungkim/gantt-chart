@@ -127,7 +127,7 @@ dash below.
 |---|---|---|---|
 | `--gantt-bar-bg` | `#c7c7cd` | `#3a3a41` | `.gantt-task-bar` background |
 | `--gantt-bar-bg-hover` | `#b4b4bc` | `#47474f` | its hover |
-| `--gantt-bar-text` | `#18181b` | `#fafafa` | the task name inside a bar |
+| `--gantt-bar-text` | `#18181b` | `#fafafa` | the task name inside a bar that carries no `color` of its own |
 | `--gantt-bar-shadow` | `none` | `none` | a resting bar - flat on purpose, so a row of bars keeps its own edges instead of stacking into a haze |
 | `--gantt-bar-shadow-hover` | `0 1px 2px rgba(0, 0, 0, 0.08)` | `0 1px 2px rgba(0, 0, 0, 0.4)` | a hovered bar |
 | `--gantt-bar-shadow-drag` | `0 4px 12px rgba(0, 0, 0, 0.16)` | `0 4px 12px rgba(0, 0, 0, 0.5)` | a bar being dragged |
@@ -257,8 +257,9 @@ over the library's, so it outranks the block it mirrors.
 ### Per-task color wins over the tokens
 
 A task's own `color` is written as an inline `--gantt-bar-color` on that bar, which the bar reads
-ahead of the theme tokens, so a colored task ignores them entirely — see
-[Custom rendering](custom-rendering).
+ahead of the theme tokens, so a colored task ignores them entirely. That color derives the bar's
+label color as well, so `--gantt-bar-text` decides the label only on a bar with no task color — see
+[Styling](styling).
 
 ## Remembering the scale
 
@@ -309,7 +310,7 @@ What the host app does itself:
 - Set `color-scheme` when it flips its own light/dark state, which is what a chart with no `theme`
   prop follows. Pass `theme` explicitly only to override that per chart.
 - Reach for a task's `className` when a token cannot express the change — see
-  [Custom rendering](custom-rendering).
+  [Styling](styling).
 
 Next: [Headless core](headless-core) covers the tree, roll-up and calendar functions that
 run without React.
