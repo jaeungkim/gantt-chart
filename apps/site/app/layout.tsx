@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 const SITE = 'https://gantt.jaeungkim.com';
 
-// `metadataBase` makes the relative OG image path absolute - without it social previews come back blank.
+// `metadataBase` makes the relative OG image path absolute; without it social previews are blank.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: {

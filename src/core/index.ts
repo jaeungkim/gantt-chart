@@ -1,14 +1,4 @@
-// The headless core: plain data and pure functions only, no React/DOM/pixels.
-// The boundary is enforced by an eslint rule in `eslint.config.js`.
-
-export { default as dayjs } from './dates';
-
-export type {
-  DependencyType,
-  Task,
-  TaskDependency,
-} from './types';
-export { normalizeProgress } from './types';
+// Headless core: plain data and pure functions only, no React/DOM/pixels; enforced by eslint.
 
 export {
   CALENDAR_DAYS,
@@ -30,7 +20,4 @@ export {
   sortTasksBySequence,
   validateMove,
   type GanttMoveOptions,
-  type GanttMoveRejection,
-  type GanttTaskMove,
-  type GanttTaskMoveChange,
 } from './reorder';

@@ -225,7 +225,7 @@ The chart reads your array. It does not police it.
 - **No local time zone mode.** UTC is hardcoded. Convert to and from local wall-clock time in the host app if your users need it.
 - **The chart never adds or removes tasks.** The **Add task** button, `addTask()` and a drawn range each propose a draft through `onTaskCreate`, and the host supplies `id`, `parentId` and `sequence`.
 - **There is no metadata field.** Extra properties survive because the type is structural, but they are untyped and they count toward the `tasks` diff.
-- **`TaskTransformed` is output only.** The chart hands it to your renderers and column functions; `tasks` only ever accepts `Task`. Its fields are listed in [Task](ref/task).
+- **`TaskTransformed` is output only.** The chart hands it to your renderers; `tasks` only ever accepts `Task`. Its fields are listed in [Task](ref/task).
 - **Nothing reconciles `sequence` with `parentId`.** A child whose `sequence` sorts above its parent stays drawn above it.
 
 Nothing is written back into the objects you passed. Every change leaves through `onTasksChange` as a new array, and your own copy is untouched until you replace it.

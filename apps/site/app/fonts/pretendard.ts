@@ -1,10 +1,8 @@
 import localFont from 'next/font/local';
 
-// One variable master split into two complementary unicode-ranges, so a page fetches only the half
-// it renders. Two calls rather than one `src` array: `declarations` applies per call.
+// One master split into two unicode-ranges; two calls, not one `src` array, so `declarations`
+// applies per call. Every argument must be a literal - next/font reads the call site's AST.
 // Regenerate both files with scripts/subset-pretendard.sh.
-// Every argument must be a literal - next/font reads the call site's AST, and a value behind a
-// `const` serialises as `undefined`.
 
 // Everything but hangul - 324 kB, and the only face worth preloading.
 export const pretendardLatin = localFont({
@@ -22,8 +20,7 @@ export const pretendardLatin = localFont({
   ],
 });
 
-// Hangul - 1.7 MB. An English page renders no glyph in this range, so the unicode-range keeps the
-// request from being made; preloading or fallback metrics here would defeat that.
+// Hangul - 1.7 MB. The unicode-range keeps an English page from fetching it, so no preload/metrics.
 export const pretendardKorean = localFont({
   src: './PretendardVariable-korean.woff2',
   weight: '45 930',

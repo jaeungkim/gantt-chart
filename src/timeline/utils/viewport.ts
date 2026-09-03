@@ -18,7 +18,6 @@ export function pxPerMs(scale: GanttScaleKey): number {
   return basePxPerDragStep / (dragStepAmount * MS_PER_UNIT[dragStepUnit]);
 }
 
-// Moves `direction` places along the ladder (negative = finer), clamped at both ends
 export function stepScale(
   scale: GanttScaleKey,
   direction: number
@@ -33,7 +32,7 @@ export function stepScale(
   return SCALE_LADDER[next];
 }
 
-// Finest scale where `durationMs` fits `viewportPx`; falls back to the coarsest when none does
+// Finest scale that fits; coarsest when none does
 export function fitScale(
   durationMs: number,
   viewportPx: number
@@ -44,9 +43,7 @@ export function fitScale(
   return SCALE_LADDER[SCALE_LADDER.length - 1];
 }
 
-// Accumulated wheel delta that makes one scale step
 const ZOOM_DELTA_THRESHOLD = 24;
-// A gap this long in the wheel stream ends the gesture
 const ZOOM_GESTURE_GAP_MS = 120;
 
 interface ZoomAccumulator {
@@ -62,14 +59,12 @@ export const INITIAL_ZOOM_ACCUMULATOR: ZoomAccumulator = {
   locked: false,
 };
 
-// `step` is -1 (finer), 0 (nothing yet) or 1 (coarser); one gesture steps once, the rest
-// of its deltas are swallowed until the stream pauses.
+// step is -1 (finer), 0 or 1 (coarser); one gesture steps once, later deltas swallowed until a pause
 export function accumulateZoom(
   state: ZoomAccumulator,
   deltaY: number,
   now: number
 ): { state: ZoomAccumulator; step: number } {
-  // A pause ends the gesture: collected delta is stale, stepping is possible again
   const paused = now - state.lastEventAt >= ZOOM_GESTURE_GAP_MS;
 
   if (!paused && state.locked) {
@@ -82,52 +77,49 @@ export function accumulateZoom(
     return { state: { delta, lastEventAt: now, locked: false }, step: 0 };
   }
 
-  // Wheel down (positive delta) zooms out, the way the browser's own ctrl+wheel does
+  // Wheel down (positive delta) zooms out, matching the browser's ctrl+wheel
   return {
     state: { delta: 0, lastEventAt: now, locked: true },
     step: Math.sign(delta),
   };
 }
 
-// Distance from the edge at which a drag starts auto-scrolling (px)
 const EDGE_SCROLL_THRESHOLD = 48;
-// Fastest the timeline scrolls itself, at the very edge (px per frame)
+// px per frame at the very edge
 const EDGE_SCROLL_MAX_SPEED = 22;
 
-// 0 away from the edges, ramping linearly to `maxSpeed` at the edge; the zone is capped at
-// half the viewport so a narrow timeline does not auto-scroll everywhere.
+// Ramps 0 -> max speed at the edge; the zone caps at half the viewport so a narrow one stays calm
 export function edgeScrollVelocity(
   clientX: number,
   left: number,
-  right: number,
-  threshold: number = EDGE_SCROLL_THRESHOLD,
-  maxSpeed: number = EDGE_SCROLL_MAX_SPEED
+  right: number
 ): number {
   const width = right - left;
   if (width <= 0) return 0;
 
-  const zone = Math.min(threshold, width / 2);
+  const zone = Math.min(EDGE_SCROLL_THRESHOLD, width / 2);
   if (zone <= 0) return 0;
 
   if (clientX < left + zone) {
-    return -maxSpeed * Math.min(1, (left + zone - clientX) / zone);
+    return -EDGE_SCROLL_MAX_SPEED * Math.min(1, (left + zone - clientX) / zone);
   }
   if (clientX > right - zone) {
-    return maxSpeed * Math.min(1, (clientX - (right - zone)) / zone);
+    return (
+      EDGE_SCROLL_MAX_SPEED * Math.min(1, (clientX - (right - zone)) / zone)
+    );
   }
   return 0;
 }
 
 export const NO_RANGE_EXTENSION: GanttRangeExtension = { before: 0, after: 0 };
 
-// Cap on ticks added per side: every task is positioned by walking the tick array, so the
-// walk has to stay bounded. 2000 ticks is years of headroom at every scale.
+// Cap per side: every task is positioned by walking the tick array, so the walk must stay bounded
 export const MAX_RANGE_EXTENSION_TICKS = 2000;
 
 interface ExtendRangeParams {
   current: GanttRangeExtension;
   scrollLeft: number;
-  // Visible timeline width - the task list pane's share already taken off
+  // Visible timeline width, the task list pane's share already taken off
   viewportPx: number;
   totalPx: number;
   // Average px one tick takes at the current scale
@@ -136,9 +128,8 @@ interface ExtendRangeParams {
   canExtend?: { before: boolean; after: boolean };
 }
 
-// Extension the range should grow to, or null when the current one still covers the view.
-// Grows by ~a viewport once within half a viewport of an end, so one extension always
-// clears the trigger zone and this cannot loop.
+// Extension to grow to, or null when the current one still covers the view; grows by ~a viewport
+// so one extension always clears the trigger zone and this cannot loop.
 export function extendRangeForScroll({
   current,
   scrollLeft,

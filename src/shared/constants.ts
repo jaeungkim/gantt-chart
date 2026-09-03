@@ -49,10 +49,8 @@ export const DATE_FORMATS: Record<GanttScaleKey, string> = {
   year: 'MMM YYYY',
 };
 
-// The header readout prints a span, not a point. Day, week and month drop the year, which the
-// top header row directly above the readout is already spelling out. Quarter and year keep
-// DATE_FORMATS' own string: a span at those scales routinely crosses a year boundary, and a
-// bare month would not say which year either end is in.
+// The readout prints a span. Day, week and month drop the year - the top header row above the
+// readout already spells it out. Quarter and year keep it: those spans routinely cross a year.
 export const RANGE_FORMATS: Record<GanttScaleKey, string> = {
   day: 'MMM D, HH:mm [UTC]',
   week: 'MMM D',
@@ -61,9 +59,9 @@ export const RANGE_FORMATS: Record<GanttScaleKey, string> = {
   year: 'MMM YYYY',
 };
 
-// The zoom ladder, finest first - declaration order is the ladder.
-// A header cell stays ~60-130px, so zooming out coarsens `unitPerTick` instead of shrinking the cell.
-// Each step out is 4x the last, in px per calendar day: 288 - 72 - 18 - 4 - 1.
+// The zoom ladder, finest first - declaration order is the ladder, each step out 4x the last
+// in px per calendar day (288-72-18-4-1). Zooming out coarsens `unitPerTick` so a header cell
+// stays ~60-130px rather than shrinking.
 // `dragStepUnit` must divide a tick evenly, or createBottomRowCells truncates the cell width.
 export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
   day: {

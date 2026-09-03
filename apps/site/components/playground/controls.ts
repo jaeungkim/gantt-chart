@@ -4,8 +4,7 @@ import type {
   GanttTheme,
 } from '@jaeungkim/gantt-chart';
 
-// Every switch the playground offers. `view.tsx` renders CONTROLS in one loop and mirrors the
-// settings into the query string, so a scenario is a shareable link (`?scale=week&holidays=1`).
+// Every switch the playground offers; mirrored into the query string (`?scale=week&holidays=1`).
 export interface Settings {
   hierarchy: boolean;
   groupBy: boolean;
@@ -34,17 +33,17 @@ export interface Settings {
   chartHeight: string;
 }
 
-export type BooleanKey = {
+type BooleanKey = {
   [K in keyof Settings]: Settings[K] extends boolean ? K : never;
 }[keyof Settings];
-export type SelectKey = Exclude<keyof Settings, BooleanKey>;
+type SelectKey = Exclude<keyof Settings, BooleanKey>;
 
 // Anything a select can hold; narrowed by the row's own `options` list before it is stored.
 export type SelectValue = GanttScaleKey & GanttTheme & GanttDetailTrigger & string;
 
-export type ControlGroup = 'Data' | 'Editing' | 'Timeline' | 'Detail panel' | 'Presentation';
+type ControlGroup = 'Data' | 'Editing' | 'Timeline' | 'Detail panel' | 'Presentation';
 
-export type Control =
+type Control =
   | { key: BooleanKey; label: string; hint: string; group: ControlGroup; type: 'boolean' }
   | {
       key: SelectKey;
@@ -279,7 +278,7 @@ export const DEFAULTS: Settings = {
   chartHeight: 'fill',
 };
 
-// Settings from the query string, falling back to DEFAULTS. Reads `window` - never call on the server.
+// Query-string settings over DEFAULTS. Reads `window` - never call on the server.
 export function readSettings(): Settings {
   const params = new URLSearchParams(window.location.search);
   const next = { ...DEFAULTS };

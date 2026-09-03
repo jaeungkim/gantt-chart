@@ -30,7 +30,6 @@ export interface NonWorkingRange {
 }
 
 // How far the timeline origin moved, in px - add to scrollLeft to keep the viewed date in place.
-// Positive when cells were added in front, negative when they were removed.
 export function originShiftPx(
   prevTicks: GanttBottomRowCell[],
   nextTicks: GanttBottomRowCell[],
@@ -50,8 +49,7 @@ export function originShiftPx(
   return -(calculateDateOffsetPx(nextOrigin, prevTicks, scaleKey) ?? 0);
 }
 
-// Merges non-working cells into px ranges. Day/hour tick units only; a day-unit cell may hold
-// several days, so each day inside it is measured on its own.
+// Merges non-working cells into px ranges. Day and hour tick units only.
 export function computeNonWorkingRanges(
   timelineTicks: GanttBottomRowCell[],
   scaleKey: GanttScaleKey,
@@ -109,8 +107,7 @@ export function pxBetweenDates(
   return (to.diff(from, dragStepUnit, true) / dragStepAmount) * basePxPerDragStep;
 }
 
-// Clamps a dragged bar into its window. "bar" keeps the length and `min` wins if the bar outgrows
-// the window; "left"/"right" move one edge, kept >= 1 drag step wide by a guard applied last.
+// Clamps a dragged bar into its window; "bar" keeps its length (min wins), an edge stays >= 1 step.
 export function clampDragDates(
   mode: GanttDragMode,
   startDate: Dayjs,
@@ -160,8 +157,7 @@ export function clampDragDates(
   return { startDate, endDate: end };
 }
 
-// Largest shared move keeping every member inside its own window; result stays between 0 and
-// requestedMs, so an already-out-of-window bar refuses to move rather than dragging the group back.
+// Largest shared move keeping every member inside its own window; stays between 0 and requestedMs.
 export function clampMoveDelta(
   members: { start: Dayjs; end: Dayjs; bounds: GanttDragBounds }[],
   requestedMs: number,
@@ -505,9 +501,8 @@ export function createTopHeaderGroups(
   return groups;
 }
 
-// Builds bottomCells + transformedTasks. A `visibleRange` end is used verbatim (no fitting, no
-// buffer); an open end auto-fits to the tasks and is widened by `extension`. Hierarchy rolls up
-// before the range is computed, so child-derived dates also widen an auto-fitted timeline.
+// Builds bottomCells + transformedTasks. A pinned `visibleRange` edge is used verbatim; an open one
+// auto-fits to the rolled-up task dates, buffered and widened by `extension`.
 export function computeTimelineData(
   rawTasks: Task[],
   selectedScale: GanttScaleKey,
@@ -530,7 +525,6 @@ export function computeTimelineData(
   let rangeEnd = fixedEnd;
 
   if (!rangeStart || !rangeEnd) {
-    // From the rolled-up dates, so a summary reaching past its own row widens the timeline
     const { minDate, maxDate } = findDateRangeFromTasks(tasks);
     const { paddedMinDate, paddedMaxDate } = padDateRange(
       minDate,

@@ -23,7 +23,7 @@ export interface GanttInteractionConfig {
   maxDate?: string;
 }
 
-export interface ResolvedTaskInteraction {
+interface ResolvedTaskInteraction {
   canMove: boolean;
   canResize: boolean;
   canChangeProgress: boolean;
@@ -95,14 +95,12 @@ export function canCreateTasks(
 }
 
 // CSS custom properties a colored bar sets - an empty object leaves the theme tokens deciding
-export interface TaskColorVars {
+interface TaskColorVars {
   '--gantt-bar-color'?: string;
   '--gantt-bar-color-hover'?: string;
   '--gantt-progress-color'?: string;
 }
 
-// A blank color resolves to nothing, leaving `--gantt-bar-bg` / `--gantt-progress-bg` in charge.
-// Hover shade and progress fill derive from the bar color, so a colored bar never mixes in theme gray.
 export function resolveTaskColors(color: string | undefined): TaskColorVars {
   const base = color?.trim();
   if (!base) return {};
@@ -119,7 +117,7 @@ export interface TaskTransformed extends Task {
   depth: number;
   order: number;
   originalOrder: number;
-  /** A summary row with children (hierarchy only) - its dates roll up, so resizing and progress editing are off and dragging moves the subtree. */
+  /** Row with children - its dates roll up, so resize and progress editing are off and dragging moves the subtree. */
   isSummary?: boolean;
   dependencies?: TaskDependency[];
 }

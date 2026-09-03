@@ -5,17 +5,14 @@ interface UseGanttTaskListPaneParams {
   showTaskList?: boolean;
 }
 
-export interface GanttTaskListPane {
+interface GanttTaskListPane {
   width: number;
   setWidth: (width: number) => void;
   visible: boolean;
-  // How much of the timeline the pinned pane covers (px) - scroll and zoom math subtracts
-  // it, so a date centred by `scrollToDate` does not land behind the pane
+  // Timeline px the pane covers; scroll and zoom math subtracts it so `scrollToDate` clears it
   inset: number;
 }
 
-// The pane shows the task name and nothing else, so `showTaskList` is the whole
-// configuration - off by default.
 export function useGanttTaskListPane({
   showTaskList,
 }: UseGanttTaskListPaneParams): GanttTaskListPane {

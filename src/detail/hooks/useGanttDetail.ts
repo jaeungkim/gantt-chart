@@ -4,8 +4,7 @@ import { TaskTransformed } from "shared/task";
 
 type TaskMouseHandler = (task: TaskTransformed, event: React.MouseEvent) => void;
 
-/** The two chart interactions that can open the panel */
-export type GanttDetailEvent = "click" | "doubleClick";
+type GanttDetailEvent = "click" | "doubleClick";
 
 /** The open task id an interaction produces, or `undefined` for "leave it alone" */
 // `"selection"` answers to the click, not the selection: `select` returns early on an unchanged id.
@@ -25,11 +24,10 @@ interface ResolvedDetailState<T extends { id: string }> {
   openId: string | null;
   // The task to render, or null when the panel is closed or the id is unknown
   task: T | null;
-  // An open id that no longer names a task; the panel closes by derivation, without firing `onDetailChange`
+  // An open id naming no task; the panel closes by derivation, without firing `onDetailChange`
   stale: boolean;
 }
 
-/** What the panel should be showing */
 // `openId` cannot use `??`: `detailTaskId={null}` means "controlled, and closed", not "uncontrolled".
 export function resolveDetailState<T extends { id: string }>({
   enabled,
@@ -75,7 +73,7 @@ interface GanttDetail {
   onTaskDoubleClick: TaskMouseHandler;
 }
 
-/** Which task the panel is open on - controlled by `detailTaskId`, uncontrolled without it; `onDetailChange` fires in both modes */
+/** Controlled by `detailTaskId`, uncontrolled without it; `onDetailChange` fires in both modes */
 export function useGanttDetail({
   enabled,
   trigger,

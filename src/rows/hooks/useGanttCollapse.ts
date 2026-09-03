@@ -11,7 +11,7 @@ interface UseGanttCollapseParams {
   onCollapsedChange?: (collapsedIds: string[]) => void;
 }
 
-export interface GanttCollapseState {
+interface GanttCollapseState {
   /** Ids of every collapsed parent and group header */
   collapsedIds: ReadonlySet<string>;
   /** Collapses an expanded row and expands a collapsed one */

@@ -36,8 +36,6 @@ export function fullWindow(count: number): VirtualWindow {
   };
 }
 
-// The slice of an axis worth rendering; falls back to the whole axis when content
-// already fits, the viewport is unmeasured, or there are too few items.
 export function windowOf(
   axis: VirtualAxis,
   scroll: number,
@@ -54,7 +52,7 @@ export function windowOf(
     return fullWindow(axis.count);
   }
 
-  // Overscan doubles in the direction of travel - the edge about to be exposed.
+  // Overscan doubles toward the edge about to be exposed.
   const before = overscan + (direction < 0 ? overscan : 0);
   const after = overscan + (direction > 0 ? overscan : 0);
 
@@ -71,7 +69,6 @@ export function windowOf(
   };
 }
 
-// Materializes a window into positioned items.
 export function virtualItemsOf(
   axis: VirtualAxis,
   window: VirtualWindow,
@@ -85,7 +82,7 @@ export function virtualItemsOf(
   return items;
 }
 
-// Pixel bounds of a window - what horizontal culling compares against.
+// What horizontal culling compares against.
 export function windowBounds(
   axis: VirtualAxis,
   window: VirtualWindow,

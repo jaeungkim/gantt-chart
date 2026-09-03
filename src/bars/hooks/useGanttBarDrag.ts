@@ -34,7 +34,7 @@ import { edgeScrollVelocity } from "timeline/utils/viewport";
 
 export type DragMode = GanttDragMode;
 
-export interface GanttBarDragOptions {
+interface GanttBarDragOptions {
   onTasksChange?: (updatedTasks: Task[]) => void;
   /** Scroll the timeline when the drag reaches a viewport edge (default true) */
   autoScroll?: boolean;

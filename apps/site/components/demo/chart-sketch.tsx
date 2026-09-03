@@ -1,6 +1,5 @@
 import type { CSSProperties } from 'react';
 
-// Drawn from a spec, coloured with the chart's own custom properties so it tracks both themes.
 type BarKind = 'bar' | 'summary';
 
 interface Bar {

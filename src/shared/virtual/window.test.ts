@@ -9,7 +9,6 @@ import {
 } from './window';
 import type { VirtualWindow } from './window';
 
-// size of everything the window says to render
 const renderedPx = (axis: VirtualAxis, window: VirtualWindow) => {
   let total = 0;
   for (let i = window.start; i <= window.end; i += 1) total += axis.sizeAt(i);
