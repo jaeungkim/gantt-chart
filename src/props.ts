@@ -24,7 +24,7 @@ export interface GanttProps {
   height?: number | string;
   /** Chart width (px or a CSS value) */
   width?: number | string;
-  /** Theme setting - 'light', 'dark', or 'system' */
+  /** Theme setting - 'light', 'dark', or 'system'. Omitted, the host page's `color-scheme` decides. */
   theme?: GanttTheme;
   /** Scale the chart starts at (default `"month"`) - a mount-time seed; use `setScale` on the ref to change it later. */
   defaultScale?: GanttScaleKey;

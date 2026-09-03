@@ -1,55 +1,66 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 import { GanttTheme } from 'shared/types';
-
-interface UseResolvedThemeResult {
-  containerClassName: string;
-  dataTheme: 'light' | 'dark' | undefined;
-}
 
 const SYSTEM_DARK_QUERY = '(prefers-color-scheme: dark)';
 
 const canMatchMedia = () =>
   typeof window !== 'undefined' && typeof window.matchMedia === 'function';
 
-const subscribeSystemTheme = (onChange: () => void) => {
-  if (!canMatchMedia()) return () => {};
+const prefersDark = () =>
+  canMatchMedia() && window.matchMedia(SYSTEM_DARK_QUERY).matches;
 
-  const mediaQuery = window.matchMedia(SYSTEM_DARK_QUERY);
-  mediaQuery.addEventListener('change', onChange);
-  return () => mediaQuery.removeEventListener('change', onChange);
+// `color-scheme` is the platform's own light/dark signal and it inherits, so reading it off the
+// root is how the chart follows a host that flips themes with a class - next-themes, Tailwind and
+// fumadocs all write it there. A media query cannot see that choice, only the OS behind it.
+const hostScheme = (): 'light' | 'dark' => {
+  if (typeof document === 'undefined') return 'light';
+
+  const used = getComputedStyle(document.documentElement).colorScheme;
+  const light = used.includes('light');
+  const dark = used.includes('dark');
+
+  // Both means "either is fine, ask the user" - the same thing `theme="system"` asks.
+  if (light && dark) return prefersDark() ? 'dark' : 'light';
+  return dark ? 'dark' : 'light';
 };
 
-const getSystemTheme = (): 'light' | 'dark' | null => {
-  if (!canMatchMedia()) return null;
-  return window.matchMedia(SYSTEM_DARK_QUERY).matches ? 'dark' : 'light';
-};
+// Two sources to watch: the OS setting, and the root's own class/style, which is what a host
+// theme switch actually mutates.
+const subscribe = (onChange: () => void) => {
+  if (typeof window === 'undefined') return () => {};
 
-const getServerSystemTheme = (): 'light' | 'dark' | null => null;
+  const media = canMatchMedia() ? window.matchMedia(SYSTEM_DARK_QUERY) : null;
+  media?.addEventListener('change', onChange);
 
-// 'system' stays null until after hydration, then flips to the real setting - no hydration mismatch.
-export function useResolvedTheme(
-  theme?: GanttTheme,
-  baseClassName = 'gantt-container'
-): UseResolvedThemeResult {
-  const systemTheme = useSyncExternalStore(
-    subscribeSystemTheme,
-    getSystemTheme,
-    getServerSystemTheme
-  );
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class', 'style', 'data-theme'],
+  });
 
-  // No theme prop means the host manages theming, so nothing is attached
-  const resolvedTheme = useMemo((): 'light' | 'dark' | null => {
-    if (!theme) return null;
-    return theme === 'system' ? systemTheme : theme;
-  }, [theme, systemTheme]);
-
-  const containerClassName = useMemo(
-    () => (resolvedTheme ? `${baseClassName} ${resolvedTheme}` : baseClassName),
-    [baseClassName, resolvedTheme]
-  );
-
-  return {
-    containerClassName,
-    dataTheme: resolvedTheme ?? undefined,
+  return () => {
+    media?.removeEventListener('change', onChange);
+    observer.disconnect();
   };
+};
+
+// Server renders light: the host's color-scheme is only readable once there is a document. A host
+// that themes before paint (next-themes' blocking script) is already correct on the first client
+// render, so only static HTML shows the light frame.
+const getServerSnapshot = (): 'light' | 'dark' => 'light';
+
+/**
+ * Resolves the `theme` prop to the value written to `data-theme`.
+ *
+ * 'light' / 'dark' are taken as given, 'system' asks the OS, and no prop at all follows the
+ * host page's `color-scheme`.
+ */
+export function useResolvedTheme(theme?: GanttTheme): 'light' | 'dark' {
+  const ambient = useSyncExternalStore(
+    subscribe,
+    theme === 'system' ? () => (prefersDark() ? 'dark' : 'light') : hostScheme,
+    getServerSnapshot
+  );
+
+  return theme === 'light' || theme === 'dark' ? theme : ambient;
 }

@@ -1,5 +1,9 @@
 /* Tokens are scoped to .gantt-container, not :root, where they would collide with the host's. */
 .gantt-container {
+  /* Declared next to the tokens so UA chrome - scrollbars, form controls, the caret - is painted
+     to match instead of staying light on a dark chart. */
+  color-scheme: light;
+
   --gantt-detail-width: 320px;
 
   --gantt-font-sans: "Pretendard Variable", Pretendard, -apple-system,
@@ -38,13 +42,20 @@
 
   --gantt-non-working-bg: rgba(0, 0, 0, 0.035);
 
+  /* Consumed by .gantt-drag-range. Declared here so the documented container-level override
+     reaches it - a declaration on the element itself would beat an inherited one. */
+  --gantt-drag-band: color-mix(in srgb, var(--gantt-accent) 14%, var(--gantt-muted));
+
   --gantt-duration-fast: 150ms;
   --gantt-transition-fast: 150ms ease;
   --gantt-transition-normal: 200ms ease;
 }
 
-.gantt-container.dark,
+/* `data-theme` is always written by the component - see useResolvedTheme, which takes the prop
+   when there is one and otherwise follows the host page's own `color-scheme`. */
 .gantt-container[data-theme="dark"] {
+  color-scheme: dark;
+
   --gantt-background: #09090b;
   --gantt-foreground: #fafafa;
 
@@ -67,7 +78,6 @@
 
   --gantt-today-marker: #fb7185;
 
-
   --gantt-summary-bg: #2a2a2f;
   --gantt-summary-bg-hover: #35353c;
 
@@ -75,43 +85,6 @@
   --gantt-progress-handle: #a1a1aa;
 
   --gantt-non-working-bg: rgba(255, 255, 255, 0.03);
-}
-
-/* With no theme prop, follow the OS setting (an explicit light choice is kept) */
-@media (prefers-color-scheme: dark) {
-  .gantt-container:not(.light):not([data-theme="light"]) {
-    --gantt-background: #09090b;
-    --gantt-foreground: #fafafa;
-
-    --gantt-muted: #18181b;
-    --gantt-muted-foreground: #a1a1aa;
-
-    --gantt-border: #27272a;
-    --gantt-border-subtle: rgba(255, 255, 255, 0.04);
-
-    --gantt-bar-bg: #3a3a41;
-    --gantt-bar-bg-hover: #47474f;
-    --gantt-bar-text: #fafafa;
-    --gantt-bar-shadow: none;
-    --gantt-bar-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --gantt-bar-shadow-drag: 0 4px 12px rgba(0, 0, 0, 0.5);
-    --gantt-shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.55),
-      0 0 0 1px rgba(255, 255, 255, 0.08);
-
-    --gantt-arrow: #71717a;
-
-    --gantt-today-marker: #fb7185;
-
-
-    --gantt-summary-bg: #2a2a2f;
-    --gantt-summary-bg-hover: #35353c;
-
-
-      --gantt-progress-bg: #6c6c76;
-    --gantt-progress-handle: #a1a1aa;
-
-    --gantt-non-working-bg: rgba(255, 255, 255, 0.03);
-  }
 }
 
 /* Scoped border-box so layout math holds with or without the host's reset, without trampling it. */
@@ -473,9 +446,8 @@
 /* 44px is .gantt-top-header's height and 28px .gantt-bottom-row's; GanttDragGuides.test.ts guards it */
 .gantt-drag-range {
   /* Opaque rather than a wash: the band stands IN for the tick numerals it covers instead of
-     tinting them, so no date is ever read through it. The label inherits this custom
-     property, so it is the same surface whether it sits in the band or has lifted out. */
-  --gantt-drag-band: color-mix(in srgb, var(--gantt-accent) 14%, var(--gantt-muted));
+     tinting them, so no date is ever read through it. --gantt-drag-band is inherited from the
+     container, so the band and a label that has lifted out of it are the same surface. */
   position: absolute;
   top: 44px;
   height: 28px;

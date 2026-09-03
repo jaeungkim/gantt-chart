@@ -26,7 +26,8 @@ export interface Settings {
   autoScrollOnDrag: boolean;
   showDetail: boolean;
   detailTrigger: GanttDetailTrigger;
-  theme: GanttTheme;
+  // 'host' passes no `theme` prop at all, so the chart inherits the site's color-scheme.
+  theme: GanttTheme | 'host';
   locale: string;
   firstDayOfWeek: string;
   showTooltip: boolean;
@@ -204,10 +205,10 @@ export const CONTROLS: readonly Control[] = [
   {
     key: 'theme',
     label: 'Theme',
-    hint: 'Chart only - "system" follows the site',
+    hint: '"host" inherits the site, "system" the OS',
     group: 'Presentation',
     type: 'select',
-    options: ['system', 'light', 'dark'],
+    options: ['host', 'system', 'light', 'dark'],
   },
   {
     key: 'locale',
@@ -271,7 +272,7 @@ export const DEFAULTS: Settings = {
   autoScrollOnDrag: true,
   showDetail: false,
   detailTrigger: 'selection',
-  theme: 'system',
+  theme: 'host',
   locale: 'en-US',
   firstDayOfWeek: '1',
   showTooltip: true,

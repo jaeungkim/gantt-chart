@@ -309,10 +309,7 @@ function GanttChart({
     scrollRef,
   });
 
-  const { containerClassName, dataTheme } = useResolvedTheme(
-    theme,
-    className ? `gantt-container ${className}` : "gantt-container"
-  );
+  const resolvedTheme = useResolvedTheme(theme);
 
   const syncedTasksRef = useRef<string | null>(null);
 
@@ -437,8 +434,8 @@ function GanttChart({
 
   return (
     <section
-      className={containerClassName}
-      data-theme={dataTheme}
+      className={className ? `gantt-container ${className}` : "gantt-container"}
+      data-theme={resolvedTheme}
       style={containerStyle}
     >
       {/* Live region - date changes made from the keyboard are announced here */}

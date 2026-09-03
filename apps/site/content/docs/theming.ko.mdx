@@ -7,7 +7,7 @@ description: "theme prop과 CSS 커스텀 속성"
 컴포넌트를 import해도 함께 딸려오지 않아요. 스타일시트를 불러오고 나면 차트는 27개의 CSS
 커스텀 속성과 `theme` prop 하나로 테마가 정해져요.
 
-차트의 색, 그림자, 트랜지션은 거의 전부 `--gantt-*` 변수를 읽어요. 그렇지 않은 세 가지는 한계
+차트의 색, 그림자, 트랜지션은 거의 전부 `--gantt-*` 변수를 읽어요. 그렇지 않은 것들은 한계
 절에 이름을 적어 뒀어요. JS 테마 객체도 없고 `tokens` prop도 없어요. CSS가 메커니즘의 전부예요.
 
 ## 스타일시트
@@ -49,59 +49,63 @@ export function DarkChart() {
 }
 ```
 
-컨테이너 요소에 실제로 붙는 값은 이래요.
+컨테이너에는 언제나 결정된 `data-theme`이 붙고, 스타일시트가 읽는 것도 이 값 하나뿐이에요.
+무엇이 이 값을 정하는지는 이래요.
 
-| `theme` | 컨테이너 클래스 | `data-theme` |
+| `theme` | `data-theme` | 결정하는 것 |
 |---|---|---|
-| *(생략)* | `gantt-container` | *없음* |
-| `'light'` | `gantt-container light` | `"light"` |
-| `'dark'` | `gantt-container dark` | `"dark"` |
-| `'system'`, OS 라이트 | `gantt-container light` | `"light"` |
-| `'system'`, OS 다크 | `gantt-container dark` | `"dark"` |
-| `'system'`, 서버 렌더와 첫 하이드레이션 렌더 | `gantt-container` | *없음* |
-| `'system'`, `window.matchMedia` 없음 | `gantt-container` | *없음* |
+| `'light'` | `"light"` | prop |
+| `'dark'` | `"dark"` | prop |
+| `'system'` | `"light"` / `"dark"` | `prefers-color-scheme`, 즉 OS |
+| *(생략)* | `"light"` / `"dark"` | 호스트 페이지의 `color-scheme` |
+| 값과 무관, 서버 렌더와 첫 하이드레이션 렌더 | `"light"` | 하이드레이션 불일치를 피하려고 고정 |
 
-클래스와 속성이 둘 다 쓰이기 때문에, 호스트 앱은 원하는 쪽에 자기 CSS를 걸 수 있어요.
+`className`은 클래스 속성에 따로 합쳐지고, 더 이상 테마 의미를 갖지 않아요. `className="my-chart"`는
+`gantt-container my-chart`가 되고 테마는 `data-theme`에만 실려요. 그래서 `dark`나 `light`라는 이름의
+호스트 클래스가 prop과 싸우는 일도 없어요.
 
-`className`은 테마 클래스보다 앞에 붙어요. `className="my-chart"`와 `theme="dark"`를 주면
-속성 값은 `gantt-container my-chart dark`가 돼요. 호스트 클래스가 맨 뒤에 오는 일은 없으니, 맨
-뒤라고 가정한 선택자는 쓰지 마세요.
+### theme prop이 없을 때: 호스트가 결정해요
+
+`theme`을 생략하는 것과 `theme="light"`는 달라요. prop이 없으면 차트는 `<html>`에서 읽은 페이지의
+`color-scheme`을 따라가요.
+
+```css title="호스트 앱"
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+```
+
+`color-scheme`은 플랫폼이 정한 라이트/다크 신호이고, 상속되며, 주요 테마 스위치는 이미 이 값을 써요.
+`next-themes`는 `<html>`에 이 값을 쓰고, 그 위에 올린 Tailwind나 fumadocs 구성도 마찬가지예요. 그래서
+`theme` prop이 없는 차트는 별도 배선 없이 앱의 토글을 따라 움직여요.
+
+```tsx
+// 앱이 가진 스위치가 이미 이 차트를 움직여요.
+<ReactGanttChart tasks={tasks} height={480} />
+```
+
+`MutationObserver`가 `<html>`의 `class`, `style`, `data-theme` 변화를 지켜보기 때문에, 토글을 누르면
+다음 렌더에서 차트가 다시 칠해져요. 새로고침도 리마운트도 필요 없어요.
+
+페이지의 `color-scheme`이 `light dark`거나, 아예 없거나, `normal`이면 따라갈 호스트 설정이 없으니
+OS가 결정해요. `color-scheme`을 한 번도 언급하지 않은 페이지는 라이트로 읽히는데, 그런 페이지는
+실제로 라이트예요.
 
 ### system을 감지하는 방법
 
 `theme="system"`은 `useSyncExternalStore`로 `window.matchMedia('(prefers-color-scheme: dark)')`를
-읽어요. `change` 리스너가 계속 붙어 있어서, OS 외형을 바꾸면 다음 렌더에서 클래스가 교체돼요.
-새로고침은 필요 없어요.
+읽고, 호스트 페이지는 무시해요. 앱 테마가 고정된 화면 안에서도 차트만 OS를 따라가야 할 때 쓰는 값이에요.
+차트를 앱에 맞추고 싶다면 `theme`을 넘기지 마세요.
 
-서버 스냅샷은 "unknown"으로 고정돼요. 그래서 서버 렌더와 첫 하이드레이션 렌더에서는 `theme="system"`이
-클래스도 속성도 내보내지 않아요. 하이드레이션 불일치를 피하려고 의도한 동작이에요. 그래도 첫 페인트는
-제대로 보이는데, 스타일시트가 자체 `prefers-color-scheme` 폴백을 갖고 있기 때문이에요. 다만
-`useLayoutEffect`에서 `data-theme`을 읽는 호스트 앱은 그 첫 패스에서 `undefined`를 받아요.
-
-미디어 쿼리는 `theme` 값이 무엇이든 구독돼요. `'light'`와 `'dark'`일 때도 마찬가지예요. 리스너는 차트
-인스턴스마다 하나씩 존재하고, 결정된 값을 바꾸지는 않아요.
-
-### theme prop이 없을 때
-
-`theme`을 생략하는 것과 `theme="light"`는 달라요. prop이 없으면 컴포넌트는 아무것도 내보내지 않고,
-스타일시트가 알아서 OS를 따라가요.
-
-```css
-@media (prefers-color-scheme: dark) {
-  .gantt-container:not(.light):not([data-theme="light"]) { /* 다크 토큰 */ }
-}
-```
-
-그래서 테마를 지정하지 않은 차트는 다크 OS 환경에서 어두워져요. OS와 무관하게 라이트로 고정하려면
-`theme="light"`를 넘기세요. `light` 클래스가 하는 일은 그게 전부예요. 자체 토큰은 하나도 없고,
-라이트는 기본 `.gantt-container` 선언이에요.
+서버 스냅샷은 `"light"`로 고정돼요. 문서가 없으면 호스트의 `color-scheme`도 OS도 읽을 수 없기
+때문이에요. 페인트 전에 테마를 정하는 호스트, 예를 들어 블로킹 스크립트를 넣는 `next-themes`는 첫
+클라이언트 렌더부터 이미 정확하고, 정적 HTML만 라이트 상태를 잠깐 보여줘요.
 
 ## 커스텀 속성
 
 27개 토큰은 모두 `.gantt-container`에 선언되고, `:root`에는 절대 선언되지 않아요. `:root`에 두면 호스트
 앱이 가진 `--background`나 `--border`와 충돌하니까요.
 
-그중 21개는 다크용으로 다시 정의돼요. 나머지 6개는 두 테마가 함께 쓰고, 아래 표에 대시로 표시했어요.
+그중 20개는 다크용으로 다시 정의돼요. 나머지 7개는 두 테마가 함께 쓰고, 아래 표에 대시로 표시했어요.
 
 ### 배경과 텍스트
 
@@ -197,16 +201,15 @@ export function DarkChart() {
 }
 ```
 
-다크 블록이 건드리지 않는 6개 토큰은 이걸로 충분해요. `--gantt-font-sans`, `--gantt-accent`,
-`--gantt-detail-width`, 그리고 모션 토큰 세 개예요. 나머지 21개는 그렇지 않아요.
+다크 블록이 건드리지 않는 7개 토큰은 이걸로 충분해요. `--gantt-font-sans`, `--gantt-accent`,
+`--gantt-detail-width`, `--gantt-drag-band`, 그리고 모션 토큰 세 개예요. 나머지 20개는 그렇지 않아요.
 
 > [!WARNING]
 > `.gantt-container`에 한 줄로 쓴 덮어쓰기는 라이트 모드에서는 이기고 다크 모드에서는 져요.
-> 라이브러리의 다크 규칙은 `.gantt-container.dark, .gantt-container[data-theme="dark"]`이고 명시도가
-> `(0,2,0)`이에요. OS 폴백은 `.gantt-container:not(.light):not([data-theme="light"])`이고 명시도는
-> `(0,3,0)`이에요. 그냥 `.gantt-container` 규칙은 `(0,1,0)`이라 둘 다에게 밀려요.
+> 라이브러리의 다크 규칙은 `.gantt-container[data-theme="dark"]`이고 명시도가 `(0,2,0)`이에요.
+> 그냥 `.gantt-container` 규칙은 `(0,1,0)`이라 여기에 밀려요.
 
-테마가 적용된 토큰을 바꾸려면 라이브러리의 선택자 세 개에 모두 대응해야 해요.
+테마가 적용된 토큰 하나에는 규칙 두 개, 테마당 하나씩이 필요해요.
 
 ```css title="app.css"
 .gantt-container {
@@ -214,22 +217,18 @@ export function DarkChart() {
   --gantt-bar-bg-hover: #bfdbfe;
 }
 
-.gantt-container.dark,
 .gantt-container[data-theme="dark"] {
   --gantt-bar-bg: #1e3a5f;
   --gantt-bar-bg-hover: #2b4f7d;
-}
-
-@media (prefers-color-scheme: dark) {
-  .gantt-container:not(.light):not([data-theme="light"]) {
-    --gantt-bar-bg: #1e3a5f;
-    --gantt-bar-bg-hover: #2b4f7d;
-  }
 }
 ```
 
 토큰을 `:root`에 설정하면 아무 일도 일어나지 않아요. 토큰은 `.gantt-container` 자신에게 선언돼 있고,
 요소에 직접 붙은 선언은 조상에서 상속된 값을 언제나 이겨요.
+
+소스 순서는 명시도가 같을 때만, 그것도 같은 캐스케이드 레이어 안에서만 승자를 정해요. 라이브러리
+스타일시트를 레이어로 가져오면, 예를 들어 `@import '@jaeungkim/gantt-chart/style.css' layer(gantt)`처럼
+쓰면 그때부터는 레이어 순서가 결정하고, 레이어 없이 쓴 규칙은 그냥 이겨요.
 
 ### 차트 하나에만 적용하기
 
@@ -245,15 +244,8 @@ export function DarkChart() {
   --gantt-bar-bg: #dbeafe;
 }
 
-.gantt-container.planning-chart.dark,
 .gantt-container.planning-chart[data-theme="dark"] {
   --gantt-bar-bg: #1e3a5f;
-}
-
-@media (prefers-color-scheme: dark) {
-  .gantt-container.planning-chart:not(.light):not([data-theme="light"]) {
-    --gantt-bar-bg: #1e3a5f;
-  }
 }
 ```
 
@@ -291,10 +283,12 @@ export function DarkChart() {
   `13px`이에요. 행 높이는 JS 상수고요. 어느 것도 변수가 아니에요.
 - **`--top-group-inset`은 손이 닿지 않아요.** 컨테이너가 아니라 `.gantt-top-group`에 선언돼 있고,
   `--gantt-` 접두사도 없어요. 호스트 앱은 `.gantt-container`에서 이 값을 설정할 수 없어요.
-- **라이트 모드 토큰 블록은 없어요.** `light` 클래스는 OS 미디어 쿼리를 막기만 해요. 그래서 호스트 앱이
-  쓴 `.gantt-container.light { … }`는 기존 규칙의 확장이 아니라 새 규칙이에요.
-- **프로바이더는 없어요.** `theme`은 차트마다 넘기는 prop이에요. 페이지 단위로 한 번에 설정하는 장치가
-  없어서, 페이지의 모든 차트에 값을 따로 넘겨야 해요.
+- **`light`와 `dark` 클래스는 아무 의미가 없어요.** 예전 버전은 결정된 테마를 컨테이너 클래스로도
+  썼어요. 지금은 `data-theme`만 읽으니, `.gantt-container.dark { … }`처럼 쓴 규칙은 라이브러리가
+  설정하는 어떤 것과도 맞지 않아요.
+- **프로바이더는 없지만, 흔한 경우에는 필요하지도 않아요.** `theme`은 차트마다 넘기는 prop이에요.
+  다만 `theme`을 생략한 차트는 모두 페이지의 `color-scheme`을 따라가서, `color-scheme` 규칙 하나로
+  전부 테마가 정해져요.
 - **아무것도 저장되지 않아요.** 결정된 테마도, 배율도 어디에도 저장되지 않아요. 차트는 이제
   `sessionStorage`를 아예 건드리지 않아요.
 - **RTL은 없어요.** `dir`을 읽지도 설정하지도 않고, 스타일시트는 전부 물리 속성을 써요.
@@ -303,10 +297,11 @@ export function DarkChart() {
 호스트 앱이 직접 해야 하는 일이에요.
 
 - `@jaeungkim/gantt-chart/style.css`를 import하고, 자기 스타일시트보다 앞에 두세요.
-- 테마가 적용된 덮어쓰기는 라이브러리의 선택자 세 개 아래에 모두 반복해서 쓰세요.
+- 테마가 적용된 덮어쓰기는 라이브러리의 선택자 두 개 아래에 모두 반복해서 쓰세요.
 - 새로고침해도 배율을 유지해야 한다면 직접 저장하세요. `onScaleChange`로 받고 `defaultScale`로
   돌려주면 돼요.
-- 앱에 토글이 있다면 `theme`을 앱의 라이트/다크 상태로 몰아주세요. 차트는 앱이 아니라 OS를 읽어요.
+- 앱이 자체 라이트/다크 상태를 바꿀 때 `color-scheme`도 함께 설정하세요. `theme` prop이 없는 차트가
+  따라가는 값이에요. 차트별로 이를 덮어써야 할 때만 `theme`을 명시적으로 넘기세요.
 - 토큰으로 표현할 수 없는 변경은 작업의 `className`으로 처리하세요 —
   [커스텀 렌더링](custom-rendering)을 참고하세요.
 

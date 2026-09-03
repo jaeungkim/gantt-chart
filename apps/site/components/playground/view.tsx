@@ -213,7 +213,8 @@ export function PlaygroundView() {
           initialScrollTo={DEMO_ANCHOR}
           // Keeps the console's `scale` row honest when ctrl+wheel or zoomToFit moves the scale.
           onScaleChange={(scale) => update('scale', scale)}
-          theme={settings.theme}
+          // 'host' means "no prop" - the chart then inherits the site's color-scheme.
+          theme={settings.theme === 'host' ? undefined : settings.theme}
           locale={settings.locale}
           firstDayOfWeek={Number(settings.firstDayOfWeek)}
           hierarchy={settings.hierarchy}

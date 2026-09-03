@@ -56,8 +56,8 @@ peer dependency로 받고, `^18` 또는 `^19`예요. 모든 prop은 선택이고
 
 ### 테마
 
-- `theme`은 `'light'`, `'dark'`, `'system'`을 받아요. 생략하면 테마 클래스가 붙지 않고, 직접 쓴 CSS가 결정해요 — [테마](theming) 참고.
-- 테마 토큰은 `--gantt-*` 커스텀 속성이고, `:root`가 아니라 `.gantt-container`에 한정돼요. 그래서 앱의 변수와 충돌하지 않아요. box-shadow 두 개와 `#fff` 값 두 개는 리터럴로 남아 있어요.
+- `theme`은 `'light'`, `'dark'`, `'system'`을 받아요. 생략하면 호스트 페이지의 `color-scheme`을 따라가는데, 앱의 라이트/다크 토글이 이미 설정하는 값이에요 — [테마](theming) 참고.
+- 테마 토큰은 `--gantt-*` 커스텀 속성이고, `:root`가 아니라 `.gantt-container`에 한정돼요. 그래서 앱의 변수와 충돌하지 않아요. `#fff` 값 하나는 리터럴로 남아 있어요.
 - 작업별 `color` 값 하나로 막대와 진행률 채움, 호버 음영 색이 정해져요 — [커스텀 렌더링](custom-rendering) 참고.
 - `renderTooltip`과 `renderHeaderCell`이 기본 요소를 대체해요.
 - `locale`은 헤더와 툴팁, 드래그 readout 날짜를 `Intl.DateTimeFormat`으로 그려요. `formats`는 그 셋을 배율마다 덮어써요 — [로케일과 날짜 형식](i18n) 참고.

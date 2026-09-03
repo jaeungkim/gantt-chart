@@ -176,25 +176,13 @@ export default function QuarterHeader() {
 ## GanttTheme
 
 ```ts
-/** 테마 타입 - 'light', 'dark', 또는 'system' (OS 설정을 따라요) */
+/** 차트 테마 - 'light'와 'dark'는 명시적이고 'system'은 OS 설정을 따라요.
+ *  생략하면 호스트 페이지의 `color-scheme`을 따라가요. */
 export type GanttTheme = 'light' | 'dark' | 'system';
 ```
 
-`theme` prop의 타입이 이거고, 기본값은 없어요. 각 값이 차트의 컨테이너 요소에 무엇을 붙이는지 볼게요.
-
-| `theme` | 컨테이너 클래스 | `data-theme` |
-|---|---|---|
-| *(생략)* | `gantt-container` | 없음 |
-| `'light'` | `gantt-container light` | `"light"` |
-| `'dark'` | `gantt-container dark` | `"dark"` |
-| `'system'`, OS 라이트 | `gantt-container light` | `"light"` |
-| `'system'`, OS 다크 | `gantt-container dark` | `"dark"` |
-| `'system'`, 서버 렌더와 첫 하이드레이션 렌더 | `gantt-container` | 없음 |
-| `'system'`, `window.matchMedia` 없음 | `gantt-container` | 없음 |
-
-`'system'`은 `(prefers-color-scheme: dark)`를 읽고 OS 설정이 바뀌면 다시 렌더해요. 새로고침은 필요
-없어요. `theme`을 생략해도 OS를 따라가는데, JavaScript가 아니라 스타일시트의 `prefers-color-scheme`
-규칙을 거쳐요. 그래서 컨테이너에는 어느 쪽이든 클래스가 붙지 않아요. 이 클래스들이 고르는 팔레트는
+`theme` prop의 타입이 이거고, 기본값은 없어요. 어떤 값으로 풀리든 컨테이너의 `data-theme`에 쓰이고,
+스타일시트가 읽는 것도 그 속성이에요. 값마다 어떻게 풀리는지와 그 뒤의 팔레트는
 [테마](../theming)에 있어요.
 
 테마 객체도 없고 토큰 prop도 없어요. `GanttTheme`은 값이 셋인 유니온이고, 모든 색은 CSS 커스텀
