@@ -129,7 +129,7 @@ Two reasons for a `<select>` rather than six buttons. The host writes the option
 
 ## The rendered range
 
-With no range props, the chart fits the timeline to the data. It scans every task for the minimum of `startDate` and `baselineStart`, and the maximum of `endDate` and `baselineEnd`. Baselines count, so a baseline hanging outside its bar is not clipped. Roll-up runs first, so a summary row widened by its children widens the range too.
+With no range props, the chart fits the timeline to the data. It scans every task for the minimum `startDate` and the maximum `endDate`. Roll-up runs first, so a summary row widened by its children widens the range too.
 
 Then it pads. The buffer is five ticks of the current scale on each side:
 

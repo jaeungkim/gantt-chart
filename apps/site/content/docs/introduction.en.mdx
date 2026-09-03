@@ -35,7 +35,7 @@ and takes `react` and `react-dom` as peer dependencies, `^18` or `^19`. Every pr
 - A task list pane on the left, listing task names behind a draggable splitter — see [Task list and hierarchy](task-list).
 - Six timeline scales, hour through year, each with its own tick unit, drag step and label formats — see [The timeline](timeline).
 - Dependency arrows routed as elbows, for all four link types — see [Dependencies](dependencies).
-- A today line, non-working-day shading and baseline bars — see [The timeline](timeline).
+- A today line and non-working-day shading — see [The timeline](timeline).
 
 ### Editing
 
@@ -62,7 +62,7 @@ and takes `react` and `react-dom` as peer dependencies, `^18` or `^19`. Every pr
 - `theme` takes `'light'`, `'dark'` or `'system'`; omitted, no theme class is attached and your own CSS decides — see [Theming](theming).
 - Theme tokens are `--gantt-*` custom properties scoped to `.gantt-container`, not `:root`, so they cannot collide with your app's variables. Two box-shadows and two `#fff` values stay literal.
 - A per-task `color` derives the bar, its progress fill and its hover shade from one value — see [Custom rendering](custom-rendering).
-- `renderTooltip`, `renderHeaderCell` and `renderBaseline` replace the default elements.
+- `renderTooltip` and `renderHeaderCell` replace the default elements.
 - `locale` renders the header, tooltip and drag-readout dates through `Intl.DateTimeFormat`, and `formats` overrides those three per scale — see [Locale and date formats](i18n).
 
 ## What it does not do

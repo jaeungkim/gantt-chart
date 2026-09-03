@@ -1,11 +1,11 @@
 ---
 title: "Custom rendering"
-description: "Per-task colors and the four render props"
+description: "Per-task colors and the three render props"
 ---
 
 Design hands back a screenshot where blocked tasks are amber, the client's tasks carry a brand blue,
 and the timeline header marks every month boundary. None of that needs a fork. The chart
-takes a color per task, a class name per task, and four render props that replace a node outright.
+takes a color per task, a class name per task, and three render props that replace a node outright.
 Each step up that list buys more control and costs more of the default behaviour.
 
 ## Per-task color
@@ -127,16 +127,15 @@ const task: Task = {
 }
 ```
 
-## The four render props
+## The three render props
 
-Past the two cheap options there are four escape hatches. Each replaces one node completely.
+Past the two cheap options there are three escape hatches. Each replaces one node completely.
 
 | Prop | Replaces | Spread onto your root |
 |---|---|---|
 | `renderDetail` | the detail panel body docked beside the timeline | nothing to spread |
 | `renderTooltip` | the tooltip node inside the default bar | nothing to spread |
 | `renderHeaderCell` | one timeline header cell, both rows | `cellProps` |
-| `renderBaseline` | the baseline bar | nothing to spread |
 
 The complete type shapes are in [Renderers](ref/renderers). `renderDetail` is the only one with a
 page of its own: what opens the panel, its props bag and how to control it are in
@@ -283,14 +282,6 @@ The result is wrapped in a keyed fragment by the chart, so the renderer does not
 `key`. The bottom row is virtualized: the renderer is called for visible ticks only, and the top
 row's merged group labels are always present.
 
-### renderBaseline
-
-`renderBaseline` is the odd one out: a plain `(task: TaskTransformed) => ReactNode` with no props
-bag, nothing to spread and no `left` or `width` argument, so the renderer positions the element
-horizontally from `task.baselineLeft` and `task.baselineWidth` itself. It runs only for tasks that
-carry `baselineStart`, and returning `null` renders the default baseline instead of hiding it;
-baselines are covered in [Working calendar](working-calendar).
-
 ## showTooltip
 
 `showTooltip` defaults to `true`. Setting it to `false` suppresses the hover tooltip and the live
@@ -306,7 +297,7 @@ that `showTooltip` does not touch; see [Keyboard and screen readers](accessibili
 
 ## Limits
 
-- **There are four render props, and no more.** There is no renderer for a task-list row, a group
+- **There are three render props, and no more.** There is no renderer for a task-list row, a group
   header, the drag readout, the drop indicator or the dependency arrows — those are
   reachable through CSS only. The chart renders no chrome of its own to replace: no toolbar, no
   scale picker, nothing outside the timeline and the task list pane. The task list is not an

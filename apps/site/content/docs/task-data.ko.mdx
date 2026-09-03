@@ -64,20 +64,17 @@ export function TaskDataExample() {
 | `allowLinkDelete` | `boolean` | 아니요 | 없음 | 이 작업이 가진 의존성을 지우는 것을 허용하거나 막아요. |
 | `minDate` | `string` | 아니요 | 차트의 `minDate` | 드래그가 도달할 수 있는 가장 이른 날짜예요. |
 | `maxDate` | `string` | 아니요 | 차트의 `maxDate` | 드래그가 도달할 수 있는 가장 늦은 날짜예요. |
-| `baselineStart` | `string` | 아니요 | 없음 | 계획된 시작일 스냅샷이에요. 실제 막대 아래에 얇은 띠로 그려져요. 이 값만 있으면 짧은 토막만 그려요. |
-| `baselineEnd` | `string` | 아니요 | 없음 | 계획된 종료일 스냅샷이에요. `baselineStart`가 없으면 완전히 무시돼요. |
 
 `allowX` 플래그 다섯 개와 `readOnly`는 구체적인 쪽이 먼저 이겨요. `task.allowX`, `task.readOnly`, 차트 설정 순서예요. [작업 편집](editing)에 자세히 나와요. `minDate`와 `maxDate`는 이 순서를 쓰지 않아요. 작업에 값이 있으면 차트 값을 그대로 대체해요. `color`와 `className`, 그리고 색이 지정된 막대가 설정하는 CSS 변수는 [커스텀 렌더링](custom-rendering)에서 다뤄요. `lane`은 [그룹과 스윔레인](grouping)에서 다뤄요.
 
 ### 혼자서는 아무 일도 하지 않는 필드
 
-필드 하나는 특정 prop을 켰을 때만 읽혀요. `lane`과 베이스라인 필드 두 개는 prop이 필요 없어요.
+필드 하나는 특정 prop을 켰을 때만 읽혀요. `lane`은 prop이 필요 없어요.
 
 | 필드 | 필요한 조건 |
 |---|---|
 | `parentId` | `hierarchy` — 없으면 트리를 만들지 않고, 깊이는 `sequence`에서 나오고, 요약 행도 생기지 않아요. [작업 목록과 계층](task-list)을 참고하세요. |
 | `lane` | 없어요. 패킹은 `groupBy`가 있든 없든 동작해요. `groupBy`를 켜면 레인은 자기 그룹 안에서만 묶여요. [그룹과 스윔레인](grouping)을 참고하세요. |
-| `baselineStart` / `baselineEnd` | **없어요.** `baselineStart`가 있기만 하면 베이스라인이 바로 그려지고, 타임라인 범위도 넓어져요. 이를 막는 prop은 없고, 필드를 지우는 것 말고는 끌 방법도 없어요. [근무일 달력](working-calendar)을 참고하세요. |
 
 ### TaskDependency 필드
 

@@ -43,34 +43,6 @@ describe('transformTasks', () => {
     expect(out.map((t) => t.depth)).toEqual([1, 1, 0]);
     expect(out.map((t) => t.order)).toEqual([1, 2, 3]);
   });
-
-  it('leaves the baseline geometry off tasks that carry no baseline', () => {
-    const [t] = transformTasks(
-      [task('a', '1')],
-      ticks('2025-01-01', '2025-01-02', '2025-01-03'),
-      'week',
-    );
-    expect(t.baselineLeft).toBeUndefined();
-    expect(t.baselineWidth).toBeUndefined();
-  });
-
-  it('measures the baseline bar independently of the live one', () => {
-    const [t] = transformTasks(
-      [
-        {
-          ...task('a', '1', '2025-01-02', '2025-01-03'),
-          baselineStart: '2025-01-01',
-          baselineEnd: '2025-01-03',
-        },
-      ],
-      ticks('2025-01-01', '2025-01-02', '2025-01-03'),
-      'week',
-    );
-    expect(t.barLeft).toBe(TICK);
-    expect(t.baselineLeft).toBe(0);
-    expect(t.baselineWidth).toBe(TICK * 2);
-  });
-
 });
 
 describe('calculateDateOffsets', () => {
@@ -247,24 +219,6 @@ describe('computeTimelineData', () => {
       ),
     ).toBe(28 * 4);
     expect(transformedTasks[0]).toMatchObject({ barLeft: 648, barWidth: 112 }); // 28 days
-  });
-});
-
-describe('computeTimelineData with baselines', () => {
-  it('widens the timeline so a baseline outside the live bar is not clipped', () => {
-    const withBaseline = computeTimelineData(
-      [
-        {
-          ...task('a', '1', '2025-03-10', '2025-03-12'),
-          baselineStart: '2025-03-01',
-          baselineEnd: '2025-03-04',
-        },
-      ],
-      'week',
-    );
-    const first = withBaseline.bottomCells[0].startDate;
-    expect(first.valueOf()).toBeLessThanOrEqual(dayjs('2025-03-01').valueOf());
-    expect(withBaseline.transformedTasks[0].baselineLeft).toBeGreaterThanOrEqual(0);
   });
 });
 

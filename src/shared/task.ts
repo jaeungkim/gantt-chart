@@ -122,9 +122,6 @@ export interface TaskTransformed extends Task {
   /** A summary row with children (hierarchy only) - its dates roll up, so resizing and progress editing are off and dragging moves the subtree. */
   isSummary?: boolean;
   dependencies?: TaskDependency[];
-  /** Baseline bar geometry - present only when the task carries baseline dates */
-  baselineLeft?: number;
-  baselineWidth?: number;
 }
 
 export interface RenderedDependency extends TaskDependency {

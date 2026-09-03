@@ -17,8 +17,7 @@ import type {
 ```
 
 동작은 가이드에서 다뤄요. 날짜와 `sequence`는 [작업 데이터](../task-data), 상호작용 플래그는
-[작업 편집](../editing), 베이스라인은 [근무일 달력](../working-calendar)을
-보세요.
+[작업 편집](../editing)을 보세요.
 
 ## `DependencyType`
 
@@ -104,10 +103,6 @@ export interface Task {
   minDate?: string;
   /** 이 작업을 드래그할 수 있는 가장 늦은 날짜 (ISO 문자열) - 차트의 `maxDate`보다 우선해요 */
   maxDate?: string;
-  /** 계획 시작 스냅샷 - 실제 막대 아래에 얇은 막대로 그려요 (UTC ISO 문자열) */
-  baselineStart?: string;
-  /** 계획 종료 스냅샷 (UTC ISO 문자열) */
-  baselineEnd?: string;
 }
 ```
 
@@ -135,8 +130,6 @@ export interface Task {
 | `allowReorder` | `boolean` | 아니요 | 이 행을 끌어 옮기는 것만 다른 사슬을 타요. 바닥이 `!readOnly`가 아니라 `false`인 유일한 플래그예요. 여기 `true`를 두면 차트가 아무 말도 하지 않아도 이 행 하나만 옮길 수 있어요. | 항상 |
 | `minDate` | `string` | 아니요 | 드래그할 수 있는 가장 이른 지점이에요. UTC ISO고요. 없으면 차트의 `minDate`로 돌아가요. 권한 체인은 적용되지 않아요. | 항상 |
 | `maxDate` | `string` | 아니요 | 드래그할 수 있는 가장 늦은 지점이에요. UTC ISO고요. 폴백도 같아요. | 항상 |
-| `baselineStart` | `string` | 아니요 | 계획 시작이에요. UTC ISO고요. 이 값이 있기만 하면 베이스라인 막대를 그리고 타임라인 범위도 넓혀요. | 항상 |
-| `baselineEnd` | `string` | 아니요 | 계획 종료예요. UTC ISO고요. `baselineStart`가 없으면 무시해요. `baselineStart`만 있고 `baselineEnd`가 없으면 베이스라인은 최소 막대 너비의 짧은 토막이 돼요. | 항상 |
 
 작업 단위 플래그가 `readOnly`를 이기고, `readOnly`가 차트 단위의 같은 설정을 이겨요. `allowReorder`만
 그 사슬의 바닥이 달라요. 다른 플래그는 아무도 말이 없으면 허용으로 끝나지만, 이것은 차단으로 끝나요.
@@ -162,9 +155,6 @@ export interface TaskTransformed extends Task {
    */
   isSummary?: boolean;
   dependencies?: TaskDependency[];
-  /** 베이스라인 막대의 좌표 - 작업에 베이스라인 날짜가 있을 때만 들어와요 */
-  baselineLeft?: number;
-  baselineWidth?: number;
 }
 ```
 
@@ -177,8 +167,6 @@ export interface TaskTransformed extends Task {
 | `order` | `number` | 그룹과 레인 패킹을 마친 뒤의 1부터 시작하는 행 번호 | 항상 |
 | `originalOrder` | `number` | `order`를 다시 쓰기 전, sequence로 정렬한 배열에서의 1부터 시작하는 인덱스 | 항상 |
 | `isSummary` | `boolean` | 작업에 자식이 있으면 `true`. `hierarchy`가 꺼지면 항상 `false`. 타입은 선택이지만 모든 작업에 써 넣어요. | 항상 |
-| `baselineLeft` | `number` | 베이스라인 막대의, 타임라인 원점에서 떨어진 px | 키는 항상 써요. `baselineStart`가 없으면 값이 `undefined` |
-| `baselineWidth` | `number` | 베이스라인 막대의 px 너비 | 같아요 |
 
 ## 참고 사항
 

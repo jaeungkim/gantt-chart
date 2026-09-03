@@ -1,5 +1,4 @@
 import { Dayjs } from "dayjs";
-import { ReactNode } from "react";
 import { GanttTaskMoveChange } from "core/reorder";
 import { GanttTaskDraft } from "bars/hooks/useGanttDrawCreate";
 import { GanttDependencyChange } from "dependencies/hooks/useGanttLinkDrag";
@@ -139,6 +138,4 @@ export interface GanttProps {
   autoScrollOnDrag?: boolean;
   /** Snap a drag result forward off non-working days (default false) - uses the same `holidays` / `isNonWorkingDay` config that shades the timeline; bars still span them visually. */
   workingCalendar?: boolean;
-  /** Replaces the default baseline bar - called only for tasks carrying `baselineStart`; the row still positions the element. */
-  renderBaseline?: (task: TaskTransformed) => ReactNode;
 }

@@ -64,20 +64,17 @@ export function TaskDataExample() {
 | `allowLinkDelete` | `boolean` | no | none | Allows or blocks deleting a dependency this task owns. |
 | `minDate` | `string` | no | the chart's `minDate` | Earliest date a drag may land on. |
 | `maxDate` | `string` | no | the chart's `maxDate` | Latest date a drag may land on. |
-| `baselineStart` | `string` | no | none | Planned start snapshot, drawn as a thin strip below the live bar. Alone, it draws a short stub. |
-| `baselineEnd` | `string` | no | none | Planned end snapshot. Without `baselineStart` it is ignored entirely. |
 
 The five `allowX` flags and `readOnly` resolve most-specific-first, `task.allowX` before `task.readOnly` before the chart's config; see [Editing tasks](editing). `minDate` and `maxDate` do not use that chain — the task's value replaces the chart's when present. `color` and `className` and the CSS variables a colored bar sets are covered in [Custom rendering](custom-rendering). `lane` is covered in [Grouping and swimlanes](grouping).
 
 ### Fields that do nothing on their own
 
-One field is read only under a prop. `lane` and the two baseline fields need no prop at all.
+One field is read only under a prop. `lane` needs no prop at all.
 
 | Field | What it needs |
 |---|---|
 | `parentId` | `hierarchy` — without it no tree is built, depth comes from `sequence`, and nothing is a summary row. See [Task list and hierarchy](task-list). |
 | `lane` | nothing. Packing runs with or without `groupBy`; with `groupBy` on, a lane packs inside its own group only. See [Grouping and swimlanes](grouping). |
-| `baselineStart` / `baselineEnd` | **nothing.** A baseline renders as soon as `baselineStart` is present, and it widens the timeline range. There is no prop gate and no way to switch it off other than removing the field. See [Working calendar](working-calendar). |
 
 ### TaskDependency fields
 

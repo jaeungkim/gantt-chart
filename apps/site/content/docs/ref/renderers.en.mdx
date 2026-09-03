@@ -3,10 +3,9 @@ title: "Render prop types"
 description: "`GanttTooltipRenderer`, `GanttHeaderCellRenderer`, `GanttDetailRenderer`"
 ---
 
-Four props replace a piece of the chart's own markup: `renderTooltip`, `renderHeaderCell`,
-`renderDetail` and `renderBaseline`. Their types come from `@jaeungkim/gantt-chart`, except
-`renderBaseline`, which is declared inline on `GanttProps` and has no exported named type.
-Behaviour and worked examples live in [Custom rendering](../custom-rendering).
+Three props replace a piece of the chart's own markup: `renderTooltip`, `renderHeaderCell` and
+`renderDetail`. Their types all come from `@jaeungkim/gantt-chart`. Behaviour and worked examples
+live in [Custom rendering](../custom-rendering).
 
 ```ts
 import type {
@@ -190,8 +189,7 @@ Only the panel's children are the renderer's, so there is no props bag to spread
   (`320px`), not from the renderer.
 - The close button is not carried over. `close` is the same function the built-in one calls, and
   `Escape` closes the panel from anywhere whether or not a replacement renders a control of its own.
-- Returning `null` or `undefined` renders an **empty** panel, not the default body. Unlike
-  `renderBaseline`, there is no fallback to the built-in markup here.
+- Returning `null` or `undefined` renders an **empty** panel, not the default body.
 - Passing the renderer turns the panel on when `showDetail` is omitted, the way `showTaskList`
   turns the task list on. An explicit `showDetail={false}` still wins.
 - The renderer runs only while a task is open. With nothing open there is no `<aside>` in the DOM at
@@ -202,52 +200,4 @@ Only the panel's children are the renderer's, so there is no props bag to spread
 What opens the panel, controlled mode and the default body are in
 [Detail panel](../detail-panel).
 
-## renderBaseline
-
-Declared inline on `GanttProps` — there is no exported renderer type for it, so it cannot be
-imported by name.
-
-```ts title="src/props.ts"
-/**
- * Replaces the default baseline bar
- *
- * Called only for tasks that carry `baselineStart`. Return whatever you like - the
- * element is positioned by the row, not by the renderer.
- */
-renderBaseline?: (task: TaskTransformed) => ReactNode;
-```
-
-The default it replaces:
-
-```tsx title="src/bars/components/GanttBarsLayer.tsx"
-<div
-  className="gantt-baseline"
-  style={{
-    left: `${task.baselineLeft}px`,
-    width: `${Math.max(task.baselineWidth ?? 0, MIN_BAR_WIDTH)}px`,
-  }}
-  aria-hidden="true"
-/>
-```
-
-### Constraints
-
-There is no props bag and no `left` / `width` argument, so nothing must be spread — and nothing is
-positioned for you horizontally.
-
-- The renderer runs only when `task.baselineLeft !== undefined`. The JSDoc names `baselineStart`;
-  the code reads the derived geometry field, which today is set only when `baselineStart` is
-  present.
-- Read `task.baselineLeft` and `task.baselineWidth` off the task yourself. Both are
-  `number | undefined` on `TaskTransformed`. `baselineWidth` is the measured width, not the drawn
-  one - the default element clamps it to `MIN_BAR_WIDTH` (14px), and a renderer that wants a
-  point baseline to be visible has to do the same.
-- The node renders inside the bar's wrapper, which supplies the vertical placement only. Horizontal
-  placement is the renderer's job.
-- Returning `null` or `undefined` renders the **default** baseline element, not nothing. There is
-  no way to hide a baseline through this prop.
-- A bar culled from the viewport takes its baseline with it, so the renderer is not called for
-  off-screen rows.
-
-Baselines themselves are covered in [Working calendar](../working-calendar). Every prop named here is
-indexed in [Props](props).
+Every prop named here is indexed in [Props](props).

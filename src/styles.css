@@ -57,9 +57,6 @@
 
   /* Critical path */
 
-  /* Baseline (planned vs actual) */
-  --gantt-baseline-bg: #a1a1aa;
-
   /* Progress */
   --gantt-progress-bg: #8e8e97;
   --gantt-progress-handle: #52525b;
@@ -102,10 +99,6 @@
   --gantt-summary-bg: #2a2a2f;
   --gantt-summary-bg-hover: #35353c;
 
-
-  /* Baseline (planned vs actual) */
-  --gantt-baseline-bg: #71717a;
-
   --gantt-progress-bg: #6c6c76;
   --gantt-progress-handle: #a1a1aa;
 
@@ -142,10 +135,7 @@
     --gantt-summary-bg-hover: #35353c;
 
 
-    /* Baseline (planned vs actual) */
-    --gantt-baseline-bg: #71717a;
-
-    --gantt-progress-bg: #6c6c76;
+      --gantt-progress-bg: #6c6c76;
     --gantt-progress-handle: #a1a1aa;
 
     --gantt-non-working-bg: rgba(255, 255, 255, 0.03);
@@ -1166,8 +1156,10 @@
    that actually offers it. A resize needs no grip glyph either: the pointer is already on
    the edge, and the header band is showing that edge move. Grips follow hover only. */
 
-/* Summary bar: a flat span over the children's range
-   (its grips are hidden by .no-resize below - summaries resolve to canResize false) */
+/* Summary bar: a flat, thinner span over the children's range. Height is the cue, set
+   inline from SUMMARY_BAR_HEIGHT - a per-task `color` repaints the fill, so a fill-only
+   difference would vanish on any parent that carries one. Its grips are hidden by
+   .no-resize below; summaries resolve to canResize false. */
 .gantt-task-bar.summary {
   background: var(--gantt-bar-color, var(--gantt-summary-bg));
   border-radius: 3px;
@@ -1192,26 +1184,6 @@
   border-radius: 3px 0 0 3px;
 }
 
-/* ===== BASELINE ===== */
-/* A thin snapshot bar under the live one. It belongs to the row, not to the bar, so
-   dragging slides the live bar across it and the slip is what you see.
-
-   The row is NODE_HEIGHT - 1 = 37px and the 28px bar is centred in it, which leaves
-   4.5px of clear space below the bar. The strip has to fit inside that: at bottom: 3px
-   it sat under the bar with 1.5px showing, so a task sitting on its baseline looked
-   like it had none at all. */
-.gantt-baseline {
-  position: absolute;
-  bottom: 1px;
-  height: 3px;
-  background: var(--gantt-baseline-bg);
-  border-radius: 1.5px;
-  opacity: 0.65;
-  pointer-events: none;
-}
-
-
-
 /* ===== SELECTION ===== */
 .gantt-task-bar.selected {
   outline: 2px solid var(--gantt-accent);
@@ -1233,41 +1205,6 @@
 .gantt-task-bar.no-resize.dragging::before,
 .gantt-task-bar.no-resize.dragging::after {
   opacity: 0;
-}
-
-/* Summary end caps - the span is held between two feet, the way a Project summary
-   bracket is.
-
-   These are the resize grips, which a summary never uses (resolveTaskInteraction
-   returns canResize false for a derived row), so they are already-paid-for boxes on
-   the one element that needs them. What they buy is a cue that is not a color: the
-   fill was the only thing separating a summary from a task bar, and `.summary` reads
-   that fill from --gantt-bar-color first, so a per-task `color` on a parent repaints
-   it into an ordinary bar and leaves 3px of border-radius as the whole difference.
-
-   Anchored to the bar's bottom edge rather than hanging below it: the 4.5px under the
-   bar belongs to .gantt-baseline, and feet drawn down there would sit on a task's
-   baseline strip. Drawn in the muted foreground, not in --gantt-background: a roll-up's
-   fill is the quietest bar on the canvas, so background-colored notches punched out of
-   it were a 1.1:1 step - the shape cue disappeared into exactly the fill it was there to
-   explain. Two dark ticks read as a bracket at any fill lightness.
-
-   This block has to stay BELOW the .no-resize reset above it. A summary always carries
-   .no-resize too (GanttBar adds it whenever canResize is false), the two selectors have
-   the same specificity, and while this one sat first the reset won every time - the
-   whole bracket was dead CSS. */
-.gantt-task-bar.summary::before,
-.gantt-task-bar.summary::after,
-.gantt-task-bar.summary:hover::before,
-.gantt-task-bar.summary:hover::after,
-.gantt-task-bar.summary.dragging::before,
-.gantt-task-bar.summary.dragging::after {
-  top: auto;
-  bottom: 0;
-  height: 10px;
-  background: var(--gantt-muted-foreground);
-  opacity: 1;
-  transform: none;
 }
 
 /* ===== PROGRESS ===== */

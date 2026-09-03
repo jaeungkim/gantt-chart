@@ -1,6 +1,6 @@
 ---
 title: "근무일 달력"
-description: "드롭이 주말과 휴일에 앉지 않게 하기, 그리고 베이스라인"
+description: "드롭이 주말과 휴일에 앉지 않게 하기"
 ---
 
 드래그는 포인터를 놓은 자리에서 끝나요. 막대를 하루만 더 끌어다 놓으면 작업이 토요일에 시작해요.
@@ -65,68 +65,6 @@ export function WorkWeek({ tasks, setTasks }: {
 드래그 단계 자체는 여전히 달력일 기준이에요. 포인터를 날짜로 바꾸는 계산은 모든 날을 세요. 달력은 그
 위에 앞으로 미는 스냅만 얹어요. 그래서 이동은 막대의 근무일 폭이 아니라 달력일 폭을 지켜요.
 
-## 베이스라인
-
-베이스라인은 오늘의 날짜와 비교하고 싶은 계획이에요. 작업의 두 필드가 이를 담고, 둘 다 UTC ISO
-문자열이에요:
-
-```ts
-import type { Task } from '@jaeungkim/gantt-chart';
-
-const audit: Task = {
-  id: 'audit',
-  name: 'Content audit',
-  startDate: '2026-09-01T09:00:00Z',
-  endDate: '2026-09-04T17:00:00Z',
-  parentId: null,
-  sequence: '2',
-  baselineStart: '2026-09-01T09:00:00Z',
-  baselineEnd: '2026-09-03T17:00:00Z',
-};
-```
-
-베이스라인을 켜는 prop은 없어요. `baselineStart`를 가진 작업이면 다른 무엇이 켜져 있든 실제 막대
-아래에 얇은 막대를 그려요. `baselineEnd`는 선택이에요. 없으면 베이스라인은 최소 막대 너비의 짧은
-토막으로 줄어들어요. 실제 막대와 같은 하한이라, 마일스톤의 계획도 눈에 보여요.
-
-베이스라인 요소는 막대가 아니라 행에 속해요. 그래서 막대를 끌면 제자리에 남은 베이스라인 위를
-미끄러져 지나가요. 그게 이 기능의 핵심이에요. 타임라인 범위는 베이스라인 날짜까지 덮도록 넓어져요.
-그래서 실제 막대 밖에 있는 베이스라인도 잘려 나가지 않아요.
-
-`renderBaseline`은 기본 요소를 대체해요:
-
-```tsx
-import {
-  ReactGanttChart,
-  type Task,
-  type TaskTransformed,
-} from '@jaeungkim/gantt-chart';
-
-export function Plan({ tasks, setTasks }: {
-  tasks: Task[];
-  setTasks: (next: Task[]) => void;
-}) {
-  return (
-    <ReactGanttChart
-      tasks={tasks}
-      onTasksChange={setTasks}
-      renderBaseline={(task: TaskTransformed) => (
-        <div
-          className="my-baseline"
-          style={{ left: `${task.baselineLeft}px`, width: `${task.baselineWidth}px` }}
-          title={`Planned: ${task.baselineStart} - ${task.baselineEnd}`}
-        />
-      )}
-    />
-  );
-}
-```
-
-이 함수는 `baselineStart`를 가진 작업에만 호출돼요. 인자로는 `baselineLeft`와
-`baselineWidth`가 이미 계산된 변환 작업을 받아요. 절대 위치 지정은 여전히 직접 해야 해요. 좌표 공간은
-행이 제공하기 때문이에요. 기본 요소는 `aria-hidden="true"`지만 커스텀 요소는 그렇지 않아요. 필요한
-라벨은 직접 붙여 주세요. 렌더러의 정확한 타입은 [Render prop 타입](ref/renderers)에 있어요.
-
 ## 예제로 따라가기
 
 작업 하나, 시각은 전부 UTC예요. `workingCalendar`는 켜져 있고 휴일은 없어요.
@@ -165,10 +103,6 @@ export const tasks: Task[] = [
 스냅은 앞으로만 가고, 다른 규칙에 밀릴 수 있어요. `minDate` / `maxDate` 제한이 그 뒤에 실행되고
 이겨요. 그래서 경계에 고정된 막대는 토요일에 앉을 수 있어요. 이 경계는 [작업 편집](editing)에서
 설명해요.
-
-베이스라인은 차트 입장에서 읽기 전용이에요. 차트는 `baselineStart` / `baselineEnd`를 그릴 뿐 그 이상은
-하지 않아요. 계획을 스냅샷으로 남기고, 저장하고, 언제 다시 베이스라인을 잡을지 정하는 일은 모두 호스트
-앱의 몫이에요.
 
 근무일 달력은 차트에서 편집할 수 없어요. 직접 넘기는 데이터예요.
 

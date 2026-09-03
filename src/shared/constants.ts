@@ -4,6 +4,9 @@ import { quarterOfYear } from 'core/dates';
 export const NODE_HEIGHT = 38;
 // Bar height (px), centred in the NODE_HEIGHT row - connector dots, progress handle and grips sit inside it
 export const BAR_HEIGHT = 28;
+// A summary row's bar is thinner than a task's - the shape is what says "roll-up", so the
+// cue survives a per-task `color` that repaints the fill
+export const SUMMARY_BAR_HEIGHT = 18;
 // 44 top group + 28 bottom cell + 1 border (px) - the grid header matches it
 export const HEADER_HEIGHT = 73;
 // Grid pane width limits (px)

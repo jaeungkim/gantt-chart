@@ -3,9 +3,8 @@ title: "Render prop 타입"
 description: "`GanttTooltipRenderer`, `GanttHeaderCellRenderer`, `GanttDetailRenderer`"
 ---
 
-네 개의 prop이 차트가 직접 그리는 마크업의 일부를 대체해요. `renderTooltip`,
-`renderHeaderCell`, `renderDetail`, `renderBaseline`이에요. 타입은 `@jaeungkim/gantt-chart`에서 가져와요. 다만
-`renderBaseline`은 `GanttProps`에 인라인으로 선언돼 있어서 이름으로 export된 타입이 없어요.
+세 개의 prop이 차트가 직접 그리는 마크업의 일부를 대체해요. `renderTooltip`,
+`renderHeaderCell`, `renderDetail`이에요. 타입은 모두 `@jaeungkim/gantt-chart`에서 가져와요.
 동작과 실제 예제는 [커스텀 렌더링](../custom-rendering)에 있어요.
 
 ```ts
@@ -191,8 +190,7 @@ const renderDetail: GanttDetailRenderer = ({ task, close, scale }) => (
   정해요.
 - 닫기 버튼은 딸려오지 않아요. `close`는 내장 버튼이 호출하는 것과 같은 함수예요. 대체 노드가 닫기
   컨트롤을 직접 그리든 안 그리든 `Escape`는 어디서나 패널을 닫아요.
-- `null`이나 `undefined`를 반환하면 기본 본문이 아니라 **빈** 패널이 렌더링돼요. `renderBaseline`과
-  달리 여기에는 내장 마크업으로 돌아가는 fallback이 없어요.
+- `null`이나 `undefined`를 반환하면 기본 본문이 아니라 **빈** 패널이 렌더링돼요.
 - `showDetail`을 생략했다면 이 렌더러를 넘기는 것이 패널을 켜는 스위치예요. `showTaskList`가 작업
   목록을 켜는 것과 같아요. 명시한 `showDetail={false}`가 항상 이겨요.
 - 렌더러는 작업이 열려 있는 동안에만 실행돼요. 아무것도 열려 있지 않으면 DOM에 `<aside>` 자체가
@@ -202,50 +200,4 @@ const renderDetail: GanttDetailRenderer = ({ task, close, scale }) => (
 
 무엇이 패널을 여는지, controlled 모드, 기본 본문은 [상세 패널](../detail-panel)에 있어요.
 
-## renderBaseline
-
-`GanttProps`에 인라인으로 선언돼 있어요. export된 렌더러 타입이 없어서 이름으로 import할 수 없어요.
-
-```ts title="src/props.ts"
-/**
- * 기본 베이스라인 막대를 대체해요
- *
- * `baselineStart`를 가진 작업에만 호출돼요. 무엇을 반환하든 상관없어요 - 요소의
- * 위치는 렌더러가 아니라 행이 잡아요.
- */
-renderBaseline?: (task: TaskTransformed) => ReactNode;
-```
-
-이 prop이 대체하는 기본값이에요.
-
-```tsx title="src/bars/components/GanttBarsLayer.tsx"
-<div
-  className="gantt-baseline"
-  style={{
-    left: `${task.baselineLeft}px`,
-    width: `${Math.max(task.baselineWidth ?? 0, MIN_BAR_WIDTH)}px`,
-  }}
-  aria-hidden="true"
-/>
-```
-
-### 제약
-
-props 묶음도 없고 `left` / `width` 인자도 없어요. 그래서 spread 할 것은 없지만, 가로 위치도 아무도
-잡아 주지 않아요.
-
-- 렌더러는 `task.baselineLeft !== undefined`일 때만 실행돼요. JSDoc은 `baselineStart`라고 적어
-  뒀지만, 코드는 파생된 지오메트리 필드를 읽어요. 그 필드는 지금은 `baselineStart`가 있을 때만
-  채워져요.
-- `task.baselineLeft`와 `task.baselineWidth`는 작업에서 직접 읽으세요. 둘 다 `TaskTransformed`에서
-  `number | undefined`예요. `baselineWidth`는 측정된 너비지 그려지는 너비가 아니에요. 기본 요소는
-  `MIN_BAR_WIDTH`(14px)로 하한을 잡으니, 점 하나짜리 베이스라인을 보이게 하려면 렌더러도 똑같이
-  해야 해요.
-- 노드는 막대 래퍼 안에 렌더링돼요. 래퍼는 세로 배치만 잡아 줘요. 가로 배치는 렌더러의 몫이에요.
-- `null`이나 `undefined`를 반환하면 아무것도 안 그려지는 게 아니라 **기본** 베이스라인 요소가
-  렌더링돼요. 이 prop으로 베이스라인을 숨길 방법은 없어요.
-- 뷰포트에서 걸러진 막대는 베이스라인도 함께 데려가요. 그래서 화면 밖 행에는 렌더러가 호출되지
-  않아요.
-
-베이스라인 자체는 [근무일 달력](../working-calendar)에서 다뤄요. 여기 나온 모든 prop은
-[Props](props)에 정리돼 있어요.
+여기 나온 모든 prop은 [Props](props)에 정리돼 있어요.

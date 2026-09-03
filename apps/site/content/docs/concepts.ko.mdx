@@ -68,8 +68,6 @@ const initialTasks: Task[] = [
     lane: 'Ana',
     progress: 40,
     dependencies: [{ targetId: 'design', type: 'FS' }],
-    baselineStart: '2026-03-09',
-    baselineEnd: '2026-03-18',
   },
   {
     id: 'ship',
@@ -118,10 +116,6 @@ import type { TaskDependency } from '@jaeungkim/gantt-chart';
 // 이건 후행 작업인 "build"에 놓여요. build는 design이 끝나기를 기다린다는 뜻이에요.
 const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
 ```
-
-**베이스라인(baseline).** 계획 시점의 스냅샷이에요. `baselineStart`와 `baselineEnd`로 주고, 실제 막대
-아래에 얇은 막대로 그려져요. 데이터가 바뀔 때만 움직여요. 실제 막대를 끌면 제자리에 있는 베이스라인
-위를 미끄러져 지나가요. [근무일 달력](working-calendar)을 참고해요.
 
 ## 근무일 달력
 
@@ -189,9 +183,6 @@ const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
 | 그룹 헤더 행, 스윔레인 | `groupBy` | 설정 없음 |
 | 레인 행 | 작업 두 개 이상에 붙은 `lane` 값 | prop 없음 |
 | 놓은 막대가 주말이나 휴일에서 밀려나기 | `workingCalendar` | `false` |
-| 베이스라인 막대 | 없음 — 작업에 `baselineStart`만 있으면 돼요 | 항상 켜짐 |
-
-베이스라인만 결이 달라요. 끄는 prop이 없어서, `baselineStart`를 가진 작업은 무조건 하나를 그려요.
 
 ## 한계
 
@@ -209,8 +200,6 @@ const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
   속성을 붙여 그걸로 그룹을 지을 수는 있어요. 다만 타입이 없고, `tasks` 비교에도 포함돼요 —
   [작업 데이터](task-data)가 그 비교를 설명해요.
 - **차트 하나에 달력 하나예요.** 작업별 근무일 달력도, 작업별 시간대도 없어요. 모든 날짜는 UTC예요.
-- **베이스라인은 그려진 스냅샷이지 비교가 아니에요.** 베이스라인과 실제 날짜의 차이를 계산하는 건
-  아무것도 없어요. 숫자가 필요하면 호스트가 그 계산을 해요.
 - **행은 레이아웃 API가 아니에요.** 행 높이를 정하거나, 작업이 없는 그룹을 억지로 만들거나, 그룹을 다른
   그룹 안에 넣을 수 없어요.
 

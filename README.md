@@ -16,7 +16,7 @@ you need working-day calendars or task-tree roll-up in a server, worker, or test
 
 ## Highlights
 
-- Virtualized rows, task list columns, hierarchy, grouping, baselines, dependency arrows, and a
+- Virtualized rows, task list columns, hierarchy, grouping, dependency arrows, and a
   today line.
 - Move, resize, and set progress by drag; create and delete dependencies; add a task from the
   button under the task list, from `addTask()` on the ref, or by drawing on empty row space.
@@ -136,7 +136,7 @@ deliberately does not do.
 | [Task data](https://gantt.jaeungkim.com/docs/task-data) | the `Task` shape, date handling, and how the `tasks` prop is compared |
 | [Editing tasks](https://gantt.jaeungkim.com/docs/editing) | gestures, permissions, touch, and task creation |
 | [Dependencies](https://gantt.jaeungkim.com/docs/dependencies) | the four link types and dependency drawing |
-| [Working calendar](https://gantt.jaeungkim.com/docs/working-calendar) | non-working days, working-day arithmetic, and baselines |
+| [Working calendar](https://gantt.jaeungkim.com/docs/working-calendar) | non-working days and working-day arithmetic |
 | [Imperative API](https://gantt.jaeungkim.com/docs/imperative-api) | scrolling and zoom through the chart ref |
 | [Headless core](https://gantt.jaeungkim.com/docs/headless-core) | using the calendar and tree helpers without React or a DOM |
 | [Theming](https://gantt.jaeungkim.com/docs/theming) | theme modes, CSS tokens, and render props |

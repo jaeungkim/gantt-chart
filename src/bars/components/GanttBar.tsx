@@ -6,6 +6,7 @@ import {
   MIN_LABEL_INSIDE_WIDTH,
   MIN_RESIZABLE_WIDTH,
   PROGRESS_HANDLE_INSET,
+  SUMMARY_BAR_HEIGHT,
 } from "shared/constants";
 import { useGanttBarDrag, DragMode } from "bars/hooks/useGanttBarDrag";
 import {
@@ -334,7 +335,7 @@ export default function GanttBar({
   const barStyle: CSSProperties = {
     transform: `translateX(${finalLeft}px)`,
     width: finalWidth,
-    height: BAR_HEIGHT,
+    height: currentTask.isSummary ? SUMMARY_BAR_HEIGHT : BAR_HEIGHT,
     cursor: barCursor,
     ...colorVars,
   };

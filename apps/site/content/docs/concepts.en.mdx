@@ -68,8 +68,6 @@ const initialTasks: Task[] = [
     lane: 'Ana',
     progress: 40,
     dependencies: [{ targetId: 'design', type: 'FS' }],
-    baselineStart: '2026-03-09',
-    baselineEnd: '2026-03-18',
   },
   {
     id: 'ship',
@@ -118,10 +116,6 @@ import type { TaskDependency } from '@jaeungkim/gantt-chart';
 // This sits on "build", the successor. It reads: build waits for design to finish.
 const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
 ```
-
-**Baseline.** A planned snapshot, `baselineStart` and `baselineEnd`, drawn as a thin bar under the
-live one. It moves only when the data changes. Dragging the live bar slides it across a baseline
-that stays put. See [Working calendar](working-calendar).
 
 ## The working calendar
 
@@ -190,10 +184,6 @@ Half of the vocabulary above describes nothing until you switch something on.
 | group header row, swimlane | `groupBy` | none set |
 | lane row | a `lane` value on two or more tasks | no prop |
 | a drop moving off a weekend or a holiday | `workingCalendar` | `false` |
-| baseline bar | nothing — a `baselineStart` on the task is enough | always on |
-
-Baselines are the odd one out. There is no prop to turn them off, so any task carrying
-`baselineStart` draws one.
 
 ## Limits
 
@@ -214,8 +204,6 @@ with the host app.
   count toward the `tasks` diff — [Task data](task-data) explains that diff.
 - **One calendar per chart.** There is no per-task working calendar and no per-task time zone. All
   dates are UTC.
-- **A baseline is a drawn snapshot, not a comparison.** Nothing computes variance between the
-  baseline and the live dates. The host does that arithmetic if it wants a number.
 - **Rows are not a layout API.** You cannot set a row's height, force a group to exist with no
   tasks in it, or nest one group inside another.
 

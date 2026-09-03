@@ -1,6 +1,6 @@
 ---
 title: "Working calendar"
-description: "Keeping a drop off weekends and holidays, and drawing baselines"
+description: "Keeping a drop off weekends and holidays"
 ---
 
 A drag ends wherever the pointer let go. Drop a bar one day too far and the task starts on a
@@ -68,70 +68,6 @@ The drag step itself is still calendar-day based. The pointer-to-date conversion
 the calendar only adds the forward snap on top of it, so a move preserves the bar's calendar-day span
 rather than its working-day span.
 
-## Baselines
-
-A baseline is the plan you want to compare today's dates against. Two fields on the task carry it,
-both UTC ISO strings:
-
-```ts
-import type { Task } from '@jaeungkim/gantt-chart';
-
-const audit: Task = {
-  id: 'audit',
-  name: 'Content audit',
-  startDate: '2026-09-01T09:00:00Z',
-  endDate: '2026-09-04T17:00:00Z',
-  parentId: null,
-  sequence: '2',
-  baselineStart: '2026-09-01T09:00:00Z',
-  baselineEnd: '2026-09-03T17:00:00Z',
-};
-```
-
-No prop turns baselines on. Any task carrying `baselineStart` draws a thin bar under the live one,
-whatever else is switched on. `baselineEnd` is optional: without it the baseline collapses to a
-short stub at the minimum bar width - the same clamp the live bar gets, so a plan for a milestone
-stays visible.
-
-The baseline element belongs to the row, not to the bar, so dragging the bar slides it across a
-baseline that stays put. That is the whole point of the feature. The timeline range is widened to
-cover baseline dates as well, so a baseline that falls outside the live bar is not clipped away.
-
-`renderBaseline` replaces the default element:
-
-```tsx
-import {
-  ReactGanttChart,
-  type Task,
-  type TaskTransformed,
-} from '@jaeungkim/gantt-chart';
-
-export function Plan({ tasks, setTasks }: {
-  tasks: Task[];
-  setTasks: (next: Task[]) => void;
-}) {
-  return (
-    <ReactGanttChart
-      tasks={tasks}
-      onTasksChange={setTasks}
-      renderBaseline={(task: TaskTransformed) => (
-        <div
-          className="my-baseline"
-          style={{ left: `${task.baselineLeft}px`, width: `${task.baselineWidth}px` }}
-          title={`Planned: ${task.baselineStart} - ${task.baselineEnd}`}
-        />
-      )}
-    />
-  );
-}
-```
-
-It is called only for tasks that carry `baselineStart`, and it receives the transformed task with
-`baselineLeft` and `baselineWidth` already worked out. Absolute positioning stays your job, since the
-row provides the coordinate space. The default element is `aria-hidden="true"`; a custom one is not,
-so give it whatever labelling it needs. The renderer's exact type sits in
-[Renderers](ref/renderers).
-
 ## A worked example
 
 One task, all times UTC, `workingCalendar` on and no holidays.
@@ -171,9 +107,6 @@ date in a form all leave the dates exactly where you put them, weekend or not.
 It is forward-only, and it can be overruled. The `minDate` / `maxDate` clamp runs after it and wins,
 so a bar pinned to a bound can sit on a Saturday. Those bounds are described in
 [Editing tasks](editing).
-
-Baselines are read-only to the chart. It draws `baselineStart` / `baselineEnd` and nothing else:
-snapshotting the plan, storing it, and deciding when to re-baseline are all the host app's job.
 
 The working calendar cannot be edited from the chart. It is data you pass in.
 

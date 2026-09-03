@@ -38,7 +38,6 @@ const HEADING = 'text-[11px] font-semibold uppercase tracking-wider text-fd-mute
 
 export function PlaygroundView() {
   const ref = useRef<GanttHandle>(null);
-  const root = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
   // Seeded straight from the query string - this module never renders on the server.
   const [settings, setSettings] = useState<Settings>(readSettings);
@@ -49,14 +48,24 @@ export function PlaygroundView() {
   const logId = useRef(0);
   useEffect(() => writeSettings(settings), [settings]);
 
-  // The browser owns fullscreen; this only mirrors it so the button knows which icon to show.
+  // Ours, not the browser's. requestFullscreen took over the whole screen, hid the navbar and
+  // left Esc as the only way out - on a page whose point is that you can keep reading around it.
+  // This just pins the root over the viewport, so the exit control stays visible and Esc is a
+  // convenience rather than the escape hatch.
   useEffect(() => {
-    const sync = () => setFullscreen(document.fullscreenElement === root.current);
-    document.addEventListener('fullscreenchange', sync);
-    return () => document.removeEventListener('fullscreenchange', sync);
-  }, []);
-  const toggleFullscreen = () =>
-    fullscreen ? document.exitFullscreen() : root.current?.requestFullscreen();
+    if (!fullscreen) return;
+    const close = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false);
+    };
+    document.addEventListener('keydown', close);
+    // The page behind must not scroll while the overlay is up.
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', close);
+      document.body.style.overflow = previous;
+    };
+  }, [fullscreen]);
 
   // The store's equality guard makes a scale change that came from the chart a no-op, not a loop.
   useEffect(() => {
@@ -101,8 +110,15 @@ export function PlaygroundView() {
   const todayInRange = Boolean(rangeEnd) && rangeStart <= today && today <= rangeEnd;
 
   return (
-    // 3.5rem is HomeLayout's `h-14` navbar; in fullscreen the UA stylesheet overrides the height.
-    <div ref={root} className="relative h-[calc(100svh-3.5rem)] w-full overflow-hidden bg-fd-background">
+    // 3.5rem is HomeLayout's `h-14` navbar. Fullscreen drops the navbar allowance and lifts the
+    // root over it - z-50 clears Fumadocs' sticky nav, which sits at z-40.
+    <div
+      className={
+        fullscreen
+          ? 'fixed inset-0 z-50 w-full overflow-hidden bg-fd-background'
+          : 'relative h-[calc(100svh-3.5rem)] w-full overflow-hidden bg-fd-background'
+      }
+    >
       <div
         className="bg-fd-card"
         style={{
@@ -181,34 +197,33 @@ export function PlaygroundView() {
       </div>
 
       {/* z-index clears every chart layer and stays under Agentation's 100000 */}
-      {document.fullscreenEnabled && (
-        <button
-          type="button"
-          data-testid="fullscreen-toggle"
-          title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
-          aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-          className="fixed bottom-16 left-4 z-[1000] grid size-10 place-items-center rounded-full border border-fd-border bg-fd-card text-fd-foreground shadow-lg transition-colors hover:bg-fd-accent"
-          onClick={toggleFullscreen}
+      <button
+        type="button"
+        data-testid="fullscreen-toggle"
+        aria-pressed={fullscreen}
+        title={fullscreen ? 'Leave fullscreen (Esc)' : 'Fill the window'}
+        className="absolute bottom-16 left-4 z-[1000] flex items-center gap-2 rounded-full border border-fd-border bg-fd-card py-2 pl-3 pr-4 text-[13px] font-medium text-fd-foreground shadow-lg transition-colors hover:bg-fd-accent"
+        onClick={() => setFullscreen((current) => !current)}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="size-4"
+          aria-hidden="true"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="size-4"
-            aria-hidden="true"
-          >
-            {fullscreen ? (
-              <path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" />
-            ) : (
-              <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
-            )}
-          </svg>
-        </button>
-      )}
+          {fullscreen ? (
+            <path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" />
+          ) : (
+            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
+          )}
+        </svg>
+        {fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+      </button>
       {/* A native <details>: the controls are in the DOM but hidden while closed, so a test must
           click `console-toggle` before touching any control testid. */}
       <details data-testid="console" className="fixed bottom-4 left-4 z-[1000]">

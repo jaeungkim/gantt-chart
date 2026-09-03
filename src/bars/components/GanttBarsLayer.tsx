@@ -1,14 +1,9 @@
 import type { VirtualItem } from "shared/virtual/window";
 import GanttBar from "bars/components/GanttBar";
-import { MIN_BAR_WIDTH } from "shared/constants";
-import { ReactNode } from "react";
 import { GanttDependencyChange } from "dependencies/hooks/useGanttLinkDrag";
 import { GanttBarOptions } from "shared/types";
 import type { WorkingCalendar } from "../../core";
-import {
-  GanttInteractionConfig,
-  TaskTransformed,
-} from "shared/task";
+import { GanttInteractionConfig } from "shared/task";
 import { GanttFocus } from "interaction/utils/a11y";
 import { GanttRow } from "rows/utils/grouping";
 
@@ -26,25 +21,9 @@ interface GanttBarsLayerProps {
   calendar?: WorkingCalendar;
   autoScrollOnDrag: boolean;
   onDependencyCreate?: (change: GanttDependencyChange) => boolean | void;
-  renderBaseline?: (task: TaskTransformed) => ReactNode;
 }
 
-// Width is clamped like the live bar's - a `baselineStart` with no `baselineEnd` measures 1px
-function defaultBaseline(task: TaskTransformed) {
-  return (
-    <div
-      className="gantt-baseline"
-      style={{
-        left: `${task.baselineLeft}px`,
-        width: `${Math.max(task.baselineWidth ?? 0, MIN_BAR_WIDTH)}px`,
-      }}
-      aria-hidden="true"
-    />
-  );
-}
-
-// One bar per lane. The baseline is drawn by the row, not the bar, so a drag slides
-// the live bar across it instead of taking it along.
+// One bar per lane.
 export default function GanttBarsLayer({
   rows,
   virtualItems,
@@ -56,7 +35,6 @@ export default function GanttBarsLayer({
   calendar,
   autoScrollOnDrag,
   onDependencyCreate,
-  renderBaseline,
 }: GanttBarsLayerProps) {
   return virtualItems.flatMap((virtualRow) => {
     const row = rows[virtualRow.index];
@@ -83,9 +61,6 @@ export default function GanttBarsLayer({
             alignItems: "center",
           }}
         >
-          {task.baselineLeft !== undefined &&
-            (renderBaseline?.(task) ?? defaultBaseline(task))}
-
           <GanttBar
             currentTask={task}
             options={options}

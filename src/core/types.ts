@@ -42,10 +42,6 @@ export interface Task {
   minDate?: string;
   /** Latest date this task may be dragged to (ISO string) - overrides the chart's `maxDate` */
   maxDate?: string;
-  /** Planned start snapshot - drawn as a thin bar under the live one (UTC ISO string) */
-  baselineStart?: string;
-  /** Planned end snapshot (UTC ISO string) */
-  baselineEnd?: string;
 }
 
 /** Normalizes progress into the 0-100 range; null when the value is missing or invalid */

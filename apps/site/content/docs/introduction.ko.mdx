@@ -32,7 +32,7 @@ peer dependency로 받고, `^18` 또는 `^19`예요. 모든 prop은 선택이고
 - 왼쪽에는 작업 목록 패널이 있고, 끌 수 있는 분할선 뒤에 작업 이름을 나열해요 — [작업 목록과 계층](task-list) 참고.
 - 타임라인 배율은 시간부터 연까지 여섯 가지이고, 배율마다 눈금 단위와 드래그 단위, 라벨 형식이 따로 있어요 — [타임라인](timeline) 참고.
 - 의존성 화살표는 꺾은선으로 그려지고, 네 가지 링크 타입을 모두 지원해요 — [의존성](dependencies) 참고.
-- 오늘 선, 비근무일 음영, 베이스라인 막대를 그려요 — [타임라인](timeline) 참고.
+- 오늘 선과 비근무일 음영을 그려요 — [타임라인](timeline) 참고.
 
 ### 편집
 
@@ -59,7 +59,7 @@ peer dependency로 받고, `^18` 또는 `^19`예요. 모든 prop은 선택이고
 - `theme`은 `'light'`, `'dark'`, `'system'`을 받아요. 생략하면 테마 클래스가 붙지 않고, 직접 쓴 CSS가 결정해요 — [테마](theming) 참고.
 - 테마 토큰은 `--gantt-*` 커스텀 속성이고, `:root`가 아니라 `.gantt-container`에 한정돼요. 그래서 앱의 변수와 충돌하지 않아요. box-shadow 두 개와 `#fff` 값 두 개는 리터럴로 남아 있어요.
 - 작업별 `color` 값 하나로 막대와 진행률 채움, 호버 음영 색이 정해져요 — [커스텀 렌더링](custom-rendering) 참고.
-- `renderTooltip`, `renderHeaderCell`, `renderBaseline`이 기본 요소를 대체해요.
+- `renderTooltip`과 `renderHeaderCell`이 기본 요소를 대체해요.
 - `locale`은 헤더와 툴팁, 드래그 readout 날짜를 `Intl.DateTimeFormat`으로 그려요. `formats`는 그 셋을 배율마다 덮어써요 — [로케일과 날짜 형식](i18n) 참고.
 
 ## 하지 않는 것

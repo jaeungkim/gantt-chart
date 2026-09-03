@@ -15,7 +15,7 @@ const FEATURES = [
   },
   {
     title: 'Working-day dates',
-    body: 'A working-day calendar that skips weekends and holidays, and baselines to show the plan against the plan you had.',
+    body: 'A working-day calendar that skips weekends and holidays, so a drop never lands on a Saturday.',
   },
   {
     title: 'Headless core',
@@ -60,12 +60,6 @@ export default async function HomePage({
             className="rounded-lg bg-fd-primary px-5 py-2.5 text-sm font-medium text-fd-primary-foreground transition-opacity hover:opacity-90"
           >
             Get started
-          </Link>
-          <Link
-            href={`${prefix}/playground`}
-            className="rounded-lg border border-fd-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-fd-accent"
-          >
-            Playground
           </Link>
         </div>
 

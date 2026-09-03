@@ -16,9 +16,8 @@ import type {
 } from '@jaeungkim/gantt-chart';
 ```
 
-Behaviour lives in the guides: [Task data](../task-data) for dates and `sequence`,
-[Editing tasks](../editing) for the interaction flags, [Working calendar](../working-calendar)
-for the baselines.
+Behaviour lives in the guides: [Task data](../task-data) for dates and `sequence`, and
+[Editing tasks](../editing) for the interaction flags.
 
 ## `DependencyType`
 
@@ -105,10 +104,6 @@ export interface Task {
   minDate?: string;
   /** Latest date this task may be dragged to (ISO string) - overrides the chart's `maxDate` */
   maxDate?: string;
-  /** Planned start snapshot - drawn as a thin bar under the live one (UTC ISO string) */
-  baselineStart?: string;
-  /** Planned end snapshot (UTC ISO string) */
-  baselineEnd?: string;
 }
 ```
 
@@ -136,8 +131,6 @@ Six fields are required: `id`, `name`, `startDate`, `endDate`, `parentId`, `sequ
 | `allowReorder` | `boolean` | no | Whether this row may be dragged, or moved with the keyboard, to a new position or a new parent. The one flag whose default is `false` rather than `!readOnly`: unset, it reads the chart's `allowReorder`, which is itself `false` unless set. | always |
 | `minDate` | `string` | no | Earliest drag target, UTC ISO. Falls back to the chart's `minDate`; the capability chain does not apply. | always |
 | `maxDate` | `string` | no | Latest drag target, UTC ISO. Same fallback. | always |
-| `baselineStart` | `string` | no | Planned start, UTC ISO. Its presence alone draws the baseline bar and widens the timeline range. | always |
-| `baselineEnd` | `string` | no | Planned end, UTC ISO. Without `baselineStart` it is ignored; with `baselineStart` and no `baselineEnd` the baseline is a short stub at the minimum bar width. | always |
 
 Task-level flags beat `readOnly`, which beats the chart-level equivalents: see
 [`GanttInteractionConfig`](interaction-config) for the full resolution order, and for the shorter
@@ -163,9 +156,6 @@ export interface TaskTransformed extends Task {
    */
   isSummary?: boolean;
   dependencies?: TaskDependency[];
-  /** Baseline bar geometry - present only when the task carries baseline dates */
-  baselineLeft?: number;
-  baselineWidth?: number;
 }
 ```
 
@@ -178,8 +168,6 @@ export interface TaskTransformed extends Task {
 | `order` | `number` | 1-based row number after grouping and lane packing | always |
 | `originalOrder` | `number` | the 1-based index in the sequence-sorted array, before the `order` rewrite | always |
 | `isSummary` | `boolean` | `true` when the task has children. Always `false` with `hierarchy` off. Typed optional, written on every task. | always |
-| `baselineLeft` | `number` | px from the timeline origin for the baseline bar | key always written; value `undefined` without `baselineStart` |
-| `baselineWidth` | `number` | px width of the baseline bar | same |
 
 ## Notes
 

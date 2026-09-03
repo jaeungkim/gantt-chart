@@ -102,7 +102,6 @@ function GanttChart({
   groupBy,
   ungroupedLabel,
   workingCalendar = false,
-  renderBaseline,
   allowLinkCreate,
   allowLinkDelete,
   allowTaskCreate,
@@ -558,7 +557,6 @@ function GanttChart({
                     calendar={calendar}
                     autoScrollOnDrag={autoScrollOnDrag}
                     onDependencyCreate={onDependencyCreate}
-                    renderBaseline={renderBaseline}
                   />
                 </div>
               </div>

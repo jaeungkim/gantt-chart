@@ -33,23 +33,10 @@ export function transformTasks(
       selectedScale
     );
 
-    const baseline = task.baselineStart
-      ? calculateDateOffsets(
-          dayjs(task.baselineStart),
-          task.baselineEnd
-            ? dayjs(task.baselineEnd)
-            : dayjs(task.baselineStart),
-          timelineTicks,
-          selectedScale
-        )
-      : null;
-
     return {
       ...task,
       barLeft: barMarginLeftAmount,
       barWidth: barWidthSize,
-      baselineLeft: baseline?.barMarginLeftAmount,
-      baselineWidth: baseline?.barWidthSize,
       depth,
       isSummary,
       order,

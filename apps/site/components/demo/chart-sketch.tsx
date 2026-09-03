@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 
 // Drawn from a spec, coloured with the chart's own custom properties so it tracks both themes.
-type BarKind = 'bar' | 'summary' | 'baseline';
+type BarKind = 'bar' | 'summary';
 
 interface Bar {
   // Both ends are a percentage of the frame's full width.
@@ -39,7 +39,6 @@ interface SketchSpec {
 const BAR_STYLE: Record<BarKind, CSSProperties> = {
   bar: { background: 'var(--gantt-bar-bg, #4f7cff)', height: 14, borderRadius: 4 },
   summary: { background: 'var(--gantt-summary-bg, #64748b)', height: 10, borderRadius: 3 },
-  baseline: { background: 'var(--gantt-baseline-bg, #94a3b8)', height: 5, borderRadius: 2 },
 };
 
 // Legend copy carries only `code spans`, so a split beats pulling in a parser.
@@ -163,11 +162,6 @@ function SketchRow({ row }: { row: Row }) {
       >
         {bars.map((bar, i) => {
           const kind = bar.kind ?? 'bar';
-          // Baselines sit under the live bar, so they hug the row's bottom while the rest centres.
-          const vertical: CSSProperties =
-            kind === 'baseline'
-              ? { bottom: 4 }
-              : { top: '50%', transform: 'translateY(-50%)' };
           return (
             <div
               key={`${bar.from}-${kind}-${i}`}
@@ -176,7 +170,8 @@ function SketchRow({ row }: { row: Row }) {
                 left: `${bar.from}%`,
                 width: `${bar.to - bar.from}%`,
                 ...BAR_STYLE[kind],
-                ...vertical,
+                top: '50%',
+                transform: 'translateY(-50%)',
               }}
               className="flex items-center overflow-hidden px-1.5"
             >
@@ -229,8 +224,8 @@ const PRESETS = {
     paneLabel: lang === 'ko' ? '작업 목록' : 'task list',
     caption:
       lang === 'ko'
-        ? '차트 정지 화면이에요. 왼쪽은 작업 목록 패널, 오른쪽은 타임라인이고, 요약 행 하나와 두 작업·베이스라인이 실린 레인 행 하나, 보통 행 하나가 있어요.'
-        : 'A still of the chart: the task list pane on the left, the timeline on the right, holding a summary row, a lane row carrying two tasks and a baseline, and an ordinary row.',
+        ? '차트 정지 화면이에요. 왼쪽은 작업 목록 패널, 오른쪽은 타임라인이고, 요약 행 하나와 두 작업이 실린 레인 행 하나, 보통 행 하나가 있어요.'
+        : 'A still of the chart: the task list pane on the left, the timeline on the right, holding a summary row, a lane row carrying two tasks, and an ordinary row.',
     months: [
       { label: 'March 2026', width: day42(30), note: 1 },
       { label: 'April 2026', width: day42(12) },
@@ -255,7 +250,6 @@ const PRESETS = {
         bars: [
           { from: day42(0), to: day42(5), label: 'Design' },
           { from: day42(7), to: day42(19), label: 'Build', arrow: true },
-          { from: day42(7), to: day42(17), kind: 'baseline' },
         ],
       },
       {
@@ -270,14 +264,14 @@ const PRESETS = {
             '위쪽 헤더 행이에요. 화면에 들어오는 기간을 스케일 한 단위씩 묶어서 보여줘요.',
             '눈금 행이에요. 눈금 하나가 덮는 기간은 스케일이 정하고, 폭이 모자라면 라벨을 솎아내요.',
             '요약 행이에요. `hierarchy`가 켜져 있고 `parentId`로 자식이 달린 작업이고, 날짜는 자식에게서 와요.',
-            '레인 행이에요. `lane` 값이 같고 기간이 겹치지 않는 두 작업이 한 행에 실렸어요. `Build` 아래 얇은 막대가 베이스라인이에요.',
+            '레인 행이에요. `lane` 값이 같고 기간이 겹치지 않는 두 작업이 한 행에 실렸어요.',
             '보통 행이에요. 작업 하나가 막대 하나로 그려져요.',
           ]
         : [
             'Top header row: the visible span, bucketed one unit of the scale at a time.',
             'Tick row: how much time one tick covers is the scale, and labels thin out when the width runs short.',
             'Summary row: a task with children under `parentId`, with `hierarchy` on. Its dates come from the children.',
-            'Lane row: two tasks sharing a `lane` and not overlapping in time, packed onto one row. The thin bar under `Build` is its baseline.',
+            'Lane row: two tasks sharing a `lane` and not overlapping in time, packed onto one row.',
             'Ordinary row: one task, one bar.',
           ],
   }),

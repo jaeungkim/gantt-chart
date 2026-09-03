@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { BAR_HEIGHT, NODE_HEIGHT } from "shared/constants";
+import { BAR_HEIGHT, SUMMARY_BAR_HEIGHT } from "shared/constants";
 
 // .gantt-bar-wrap takes the z-index lift for the open tooltip, so its whole subtree sorts with it
 const layer = readFileSync("src/bars/components/GanttBarsLayer.tsx", "utf8");
@@ -30,27 +30,6 @@ describe("bar wrapper stacking", () => {
   });
 });
 
-describe("baseline strip", () => {
-  it("fits in the clearance below the bar", () => {
-    // The wrapper is NODE_HEIGHT - 1 tall with the bar centred, so that is all the room the strip has
-    const start = css.indexOf(".gantt-baseline {");
-    const rule = css.slice(start, css.indexOf("}", start));
-    const bottom = Number(/bottom:\s*([\d.]+)px/.exec(rule)?.[1]);
-    const height = Number(/height:\s*([\d.]+)px/.exec(rule)?.[1]);
-
-    expect(bottom + height).toBeLessThanOrEqual(
-      (NODE_HEIGHT - 1 - BAR_HEIGHT) / 2
-    );
-  });
-
-  it("clamps a point baseline to a width that can be seen", () => {
-    // baselineStart with no baselineEnd measures 1px
-    expect(layer).toContain(
-      "Math.max(task.baselineWidth ?? 0, MIN_BAR_WIDTH)"
-    );
-  });
-});
-
 describe("bar geometry has one source of truth", () => {
   it("leaves the draw ghost's height to BAR_HEIGHT", () => {
     const ghost = css.slice(
@@ -59,5 +38,18 @@ describe("bar geometry has one source of truth", () => {
     );
     expect(ghost).not.toMatch(/height:\s*\d+px/);
     expect(ghost).not.toMatch(/margin-top:\s*\d+px/);
+  });
+
+  it("says roll-up with height, and leaves the fill free to be recolored", () => {
+    // The only cue left after the end caps went; a `color` on a parent repaints the fill
+    expect(SUMMARY_BAR_HEIGHT).toBeLessThan(BAR_HEIGHT);
+    expect(bar).toContain(
+      "currentTask.isSummary ? SUMMARY_BAR_HEIGHT : BAR_HEIGHT"
+    );
+    const summary = css.slice(
+      css.indexOf(".gantt-task-bar.summary {"),
+      css.indexOf("}", css.indexOf(".gantt-task-bar.summary {"))
+    );
+    expect(summary).not.toMatch(/height:/);
   });
 });

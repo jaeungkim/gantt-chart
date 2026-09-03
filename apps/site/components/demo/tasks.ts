@@ -39,8 +39,6 @@ export const demoTasks: Task[] = [
     parentId: 'p1',
     sequence: '1.2',
     progress: 70,
-    baselineStart: at(1, 9),
-    baselineEnd: at(3, 17),
     dependencies: [{ targetId: 't1', type: 'FS' }],
   },
   {
@@ -78,8 +76,6 @@ export const demoTasks: Task[] = [
     parentId: 'p2',
     sequence: '2.1',
     progress: 30,
-    baselineStart: at(5, 9),
-    baselineEnd: at(9, 17),
     dependencies: [{ targetId: 't2', type: 'FS' }],
   },
   {
