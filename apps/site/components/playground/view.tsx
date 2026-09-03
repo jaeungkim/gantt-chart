@@ -248,7 +248,7 @@ export function PlaygroundView() {
                   title={
                     todayInRange
                       ? undefined
-                      : `The demo data is pinned to ${DEMO_ANCHOR}, so today is off the rendered range and scrollToToday() is a documented no-op`
+                      : 'Today is outside the rendered range, so scrollToToday() is a documented no-op'
                   }
                   onClick={() => ref.current?.scrollToToday()}
                 >

@@ -1,7 +1,12 @@
 import type { Task } from '@jaeungkim/gantt-chart';
 
-// Fixed, not `new Date()`: a shifting demo is unreproducible. A Monday, so weekends land predictably.
-const ANCHOR = Date.UTC(2026, 0, 5);
+// Relative to today, not a fixed date: a pinned fixture drifts into the past and takes today off
+// the rendered range with it. Last week's Monday, so weekends land predictably and today sits
+// mid-fixture -- finished tasks behind it, in-progress straddling it, unstarted ahead.
+const NOW = new Date();
+const ANCHOR =
+  Date.UTC(NOW.getUTCFullYear(), NOW.getUTCMonth(), NOW.getUTCDate()) -
+  (((NOW.getUTCDay() + 6) % 7) + 7) * 86_400_000;
 
 // The fixture's first day, so a demo opens framed on its own data rather than on today.
 export const DEMO_ANCHOR = new Date(ANCHOR).toISOString().slice(0, 10);
