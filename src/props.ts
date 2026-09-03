@@ -5,7 +5,6 @@ import { GanttDependencyChange } from "dependencies/hooks/useGanttLinkDrag";
 import {
   GanttDateRange,
   GanttDetailRenderer,
-  GanttDetailTrigger,
   GanttFormatOverrides,
   GanttGroupBy,
   GanttScaleKey,
@@ -112,12 +111,10 @@ export interface GanttProps {
   renderDetail?: GanttDetailRenderer;
   /**
    * Whether the detail panel is available (omitted, it exists exactly when `renderDetail` is given;
-   * `true` alone shows a built-in name-and-dates body). Turning it on also turns row selection on
-   * unless `selectable` says otherwise.
+   * `true` alone shows the built-in field list). A click on a bar or row opens it, `Enter` on a
+   * focused row too. Turning it on also turns row selection on unless `selectable` says otherwise.
    */
   showDetail?: boolean;
-  /** What opens the detail panel (default `"selection"`) - `"doubleClick"` waits for a double click, `"none"` leaves it to `detailTaskId` and `openDetail` on the ref. */
-  detailTrigger?: GanttDetailTrigger;
   /** Id of the task whose detail is open, `null` for closed (controlled - given, this value is what the chart shows) */
   detailTaskId?: string | null;
   /** Called on every open and close - in controlled and uncontrolled mode alike */

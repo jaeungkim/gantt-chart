@@ -34,7 +34,7 @@ import dayjs from "core/dates";
 import type { WorkingCalendar } from "../../core";
 import { formatTaskAriaLabel } from "interaction/utils/a11y";
 import { LinkAnchor } from "dependencies/utils/link";
-import { resolveFormatters } from "shared/utils/i18n";
+import { formatDuration, resolveFormatters } from "shared/utils/i18n";
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
@@ -49,11 +49,6 @@ interface GanttBarProps {
   /** Scroll the timeline when the drag reaches a viewport edge; Gantt.tsx owns the default */
   autoScrollOnDrag: boolean;
   onDependencyCreate?: (change: GanttDependencyChange) => boolean | void;
-}
-
-function formatDuration(durationMs: number): string {
-  const hours = Math.max(0, Math.round(durationMs / 3_600_000));
-  return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
 }
 
 export default function GanttBar({

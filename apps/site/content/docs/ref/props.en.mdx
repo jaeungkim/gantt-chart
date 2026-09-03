@@ -120,7 +120,6 @@ Every prop is optional. The Default column carries the value the component actua
 |---|---|---|---|
 | `renderDetail` | `GanttDetailRenderer` | none — the built-in panel body is used | Replaces the docked panel's body and turns the panel on. See [Detail panel](../detail-panel) and [GanttDetailRenderer](renderers). |
 | `showDetail` | `boolean` | `renderDetail !== undefined` | Shows the panel docked to the right of the timeline. See [Detail panel](../detail-panel). |
-| `detailTrigger` | `GanttDetailTrigger` | `"selection"` | `'selection'`, `'doubleClick'` or `'none'` — the gesture that opens the panel. See [Detail panel](../detail-panel) and [GanttDetailTrigger](../detail-panel#what-opens-it). |
 | `detailTaskId` | `string \| null` | none — the chart keeps its own open task | Controlled open task, `null` for closed. See [Detail panel](../detail-panel). |
 | `onDetailChange` | `(task: TaskTransformed \| null) => void` | none | Fires on every open and close, controlled or not. See [Detail panel](../detail-panel). |
 
@@ -142,9 +141,6 @@ Every prop is optional. The Default column carries the value the component actua
   `renderDetail` is given — the renderer is the switch. Turning the panel on
   also turns row selection on, unless `selectable` says otherwise. See
   [Detail panel](../detail-panel).
-- **`detailTrigger`** defaults to `'selection'`, and that is a single click, not the double click
-  other gantt libraries open a task editor with. Pass `'doubleClick'` for that, or `'none'` to leave
-  opening to `detailTaskId` and the ref. See [Detail panel](../detail-panel).
 - **`allowMove`, `allowResize`, `allowProgressChange`, `allowTaskCreate`, `allowLinkCreate`,
   `allowLinkDelete`** default to `!readOnly`, not to `true`. A task's own flag of the same name
   wins over the chart-level one, and a task's own `readOnly` sits between them. See

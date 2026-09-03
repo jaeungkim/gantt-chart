@@ -1,32 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { detailIdAfter, resolveDetailState } from './useGanttDetail';
+import { resolveDetailState } from './useGanttDetail';
 
 const tasks = [{ id: 'a' }, { id: 'b' }];
-
-describe('detailIdAfter', () => {
-  it('opens on a click under the default trigger', () => {
-    expect(detailIdAfter('click', 'selection', true, 'a')).toBe('a');
-  });
-
-  it('ignores a click when the trigger waits for a double click', () => {
-    expect(detailIdAfter('click', 'doubleClick', true, 'a')).toBeUndefined();
-  });
-
-  it('opens on a double click only under that trigger', () => {
-    expect(detailIdAfter('doubleClick', 'doubleClick', true, 'a')).toBe('a');
-    expect(detailIdAfter('doubleClick', 'selection', true, 'a')).toBeUndefined();
-  });
-
-  it('leaves the panel alone under "none", whatever happened', () => {
-    expect(detailIdAfter('click', 'none', true, 'a')).toBeUndefined();
-    expect(detailIdAfter('doubleClick', 'none', true, 'a')).toBeUndefined();
-  });
-
-  it('does nothing at all while the panel is off', () => {
-    expect(detailIdAfter('click', 'selection', false, 'a')).toBeUndefined();
-    expect(detailIdAfter('doubleClick', 'doubleClick', false, 'a')).toBeUndefined();
-  });
-});
 
 describe('resolveDetailState', () => {
   it('stays closed while the panel is off, whatever is open', () => {

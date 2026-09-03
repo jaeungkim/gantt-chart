@@ -180,13 +180,13 @@ export function ChartWithDetail({ tasks }: { tasks: Task[] }) {
         ))}
       </ul>
 
-      <ReactGanttChart ref={ganttRef} tasks={tasks} showDetail detailTrigger="none" />
+      <ReactGanttChart ref={ganttRef} tasks={tasks} showDetail />
     </>
   );
 }
 ```
 
-`detailTrigger="none"` is what makes the ref the only way in: the feature stays on, but nothing inside the chart opens the panel. Under the default `"selection"` the panel also opens on the click that selects a row, and on `Enter` on the focused row, so your button joins the chart's own triggers instead of replacing them.
+With `showDetail` on, the panel also opens on the click that selects a row and on `Enter` on the focused row, so your button joins the chart's own triggers rather than replacing them. To make your code the only way in, hold `detailTaskId` yourself and set it from the button: a chart click then only reports through `onDetailChange`, and you decide whether to follow it.
 
 `Escape` closes the panel from anywhere, whatever holds focus, and leaves the row selected. There is no opening key to match it, so a keyboard shortcut of your own is `openDetail` again.
 

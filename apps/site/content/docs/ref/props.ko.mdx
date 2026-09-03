@@ -120,7 +120,6 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 |---|---|---|---|
 | `renderDetail` | `GanttDetailRenderer` | 없음 — 내장 패널 본문을 써요 | 고정 패널의 본문을 바꾸고, 넘기면 패널이 켜져요. [상세 패널](../detail-panel)과 [GanttDetailRenderer](renderers) 참고. |
 | `showDetail` | `boolean` | `renderDetail !== undefined` | 타임라인 오른쪽에 붙는 패널을 보여줘요. [상세 패널](../detail-panel) 참고. |
-| `detailTrigger` | `GanttDetailTrigger` | `"selection"` | `'selection'`, `'doubleClick'`, `'none'` 중 하나이고, 패널을 여는 제스처를 정해요. [상세 패널](../detail-panel)과 [GanttDetailTrigger](../detail-panel#무엇이-패널을-여는가) 참고. |
 | `detailTaskId` | `string \| null` | 없음 — 차트가 열린 작업을 자체적으로 들고 있어요 | 제어 방식으로 열 작업이고, `null`이면 닫혀요. [상세 패널](../detail-panel) 참고. |
 | `onDetailChange` | `(task: TaskTransformed \| null) => void` | 없음 | 제어 여부와 상관없이 열고 닫을 때마다 호출돼요. [상세 패널](../detail-panel) 참고. |
 
@@ -140,10 +139,6 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 - **`showDetail`**도 같은 방식이에요. 생략하면 `renderDetail`을 준 경우에만 상세 패널이 켜져요.
   렌더러가 곧 스위치예요. 패널을 켜면 `selectable`로 따로 끄지 않는 한
   행 선택도 함께 켜져요. [상세 패널](../detail-panel) 참고.
-- **`detailTrigger`**의 기본값 `'selection'`은 더블 클릭이 아니라 한 번 클릭이에요. 다른 간트
-  라이브러리가 작업 편집기를 더블 클릭으로 여는 것과 달라요. 더블 클릭으로 열려면 `'doubleClick'`을,
-  차트에서 아예 열지 않고 `detailTaskId`와 ref에만 맡기려면 `'none'`을 넘겨요.
-  [상세 패널](../detail-panel) 참고.
 - **`allowMove`, `allowResize`, `allowProgressChange`, `allowTaskCreate`, `allowLinkCreate`,
   `allowLinkDelete`**의 기본값은 `true`가 아니라 `!readOnly`예요. 같은 이름의 작업별 플래그가 차트
   쪽 설정보다 우선하고, 작업 자신의 `readOnly`는 그 둘 사이에 놓여요.

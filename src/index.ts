@@ -29,7 +29,6 @@ export type {
   GanttDateRange,
   GanttDetailRenderProps,
   GanttDetailRenderer,
-  GanttDetailTrigger,
   GanttFormatOverrides,
   GanttGroupBy,
   GanttScaleFormat,

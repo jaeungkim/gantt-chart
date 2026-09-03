@@ -110,10 +110,9 @@ export function ProjectGantt({ initial }: { initial: Task[] }) {
 ### 상세 패널은 같은 클릭을 타고 열려요
 
 `onDetailChange`는 패널이 열릴 때마다, 닫힐 때마다 실행돼요. 제어 모드든 비제어 모드든 똑같고,
-작업이나 `null`을 받아요. `detailTrigger` 기본값인 `'selection'`에서는 행을 선택하는 바로 그 클릭이
-패널을 열어요. 그래서 패널을 여는 클릭에서도 `onTaskClick`은 늘 그렇듯 가장 먼저 실행되고, 패널은 그
-뒤에 열려요. 더블 클릭도 다르지 않아요. `onTaskClick` 두 번과 `onTaskDoubleClick` 한 번이 먼저
-실행되고 나서야 무언가 열려요. `detailTrigger="doubleClick"`에서는 그 묶음이 패널을 여는 동작이에요.
+작업이나 `null`을 받아요. 행을 선택하는 바로 그 클릭이 패널을 열어요. 그래서 패널을 여는 클릭에서도
+`onTaskClick`은 늘 그렇듯 가장 먼저 실행되고, 패널은 그 뒤에 열려요. 더블 클릭도 다르지 않아요.
+`onTaskClick` 두 번과 `onTaskDoubleClick` 한 번이 실행되고, 패널은 첫 번째 클릭에서 이미 열려 있어요.
 
 `Escape`와 패널의 닫기 버튼, 빈 타임라인 공간 클릭은 모두 `onDetailChange(null)`을 실행해요.
 `tasks`에서 사라진 작업은 자기 패널을 함께 데려가는데, 그때는 아무것도 실행되지 않아요. 직접 바꾼
@@ -231,8 +230,8 @@ export function ServerBackedGantt({ initial }: { initial: Task[] }) {
 
 | 사용자의 동작 | 콜백 | 취소할 수 있나요? |
 |---|---|---|
-| 막대나 그 행을 클릭 | `onTaskClick`, 그다음 `onTaskSelect`, 기본 상세 트리거에서는 그다음 `onDetailChange` | 아니오 |
-| 막대나 그 행을 더블 클릭 | `onTaskClick` 두 번, 그다음 `onTaskDoubleClick`, `detailTrigger="doubleClick"`에서는 그다음 `onDetailChange` | 아니오 |
+| 막대나 그 행을 클릭 | `onTaskClick`, 그다음 `onTaskSelect`, 패널이 켜져 있으면 그다음 `onDetailChange` | 아니오 |
+| 막대나 그 행을 더블 클릭 | `onTaskClick` 두 번, 그다음 `onTaskDoubleClick`. 패널은 첫 번째 클릭에서 열려요 | 아니오 |
 | 빈 타임라인을 클릭 | 선택된 게 있었다면 `onTaskSelect(null)`, 패널이 열려 있었다면 `onDetailChange(null)` | 아니오 |
 | 막대에서 드래그를 끝냄 | 없음 - 뒤따르는 클릭은 버려져요 | 해당 없음 |
 | 막대를 이동하거나 크기를 조절 | `onTasksChange` | 아니오 |

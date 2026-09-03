@@ -201,3 +201,9 @@ function localeFormatters(
     return null;
   }
 }
+
+/** Span label shared by the hover tooltip and the detail panel - hours under a day, whole days from there */
+export function formatDuration(durationMs: number): string {
+  const hours = Math.max(0, Math.round(durationMs / 3_600_000));
+  return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
+}

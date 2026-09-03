@@ -180,13 +180,13 @@ export function ChartWithDetail({ tasks }: { tasks: Task[] }) {
         ))}
       </ul>
 
-      <ReactGanttChart ref={ganttRef} tasks={tasks} showDetail detailTrigger="none" />
+      <ReactGanttChart ref={ganttRef} tasks={tasks} showDetail />
     </>
   );
 }
 ```
 
-ref를 유일한 입구로 만드는 건 `detailTrigger="none"`이에요. 기능은 켜진 채로 있지만, 차트 안의 무엇도 패널을 열지 않아요. 기본값인 `"selection"`에서는 행을 선택하는 그 클릭과 포커스된 행에서 누른 `Enter`도 패널을 열어요. 그러니 직접 만든 버튼은 차트의 트리거를 대체하는 게 아니라 거기에 하나 더 얹히는 셈이에요.
+`showDetail`을 켜면 행을 선택하는 그 클릭과 포커스된 행에서 누른 `Enter`도 패널을 열어요. 그러니 직접 만든 버튼은 차트의 트리거를 대체하는 게 아니라 거기에 하나 더 얹히는 셈이에요. 호스트의 코드만 패널을 열게 하려면 `detailTaskId`를 직접 들고 버튼에서 그 상태를 바꾸면 돼요. 그러면 차트의 클릭은 `onDetailChange`로 알려질 뿐이고, 따를지는 호스트가 정해요.
 
 `Escape`는 포커스가 어디에 있든 패널을 닫고, 행 선택은 그대로 남겨요. 짝이 되는 여는 키는 없어요. 그래서 직접 만든 단축키가 부를 것도 결국 `openDetail`이에요.
 

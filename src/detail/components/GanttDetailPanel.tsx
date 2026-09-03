@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef } from "react";
 import dayjs from "core/dates";
 import {
   GanttDetailRenderer,
@@ -6,10 +6,12 @@ import {
   GanttScaleKey,
 } from "shared/types";
 import { normalizeProgress, TaskTransformed } from "shared/task";
-import { resolveFormatters } from "shared/utils/i18n";
+import { formatDuration, resolveFormatters } from "shared/utils/i18n";
 
 interface GanttDetailPanelProps {
   task: TaskTransformed;
+  /** Every task, so a dependency's target id can be printed by name */
+  tasks: TaskTransformed[];
   scale: GanttScaleKey;
   localeOptions?: GanttLocaleOptions;
   onClose: () => void;
@@ -22,6 +24,7 @@ interface GanttDetailPanelProps {
 // `complementary` and not a dialog on purpose - the chart behind it stays interactive.
 export default function GanttDetailPanel({
   task,
+  tasks,
   scale,
   localeOptions,
   onClose,
@@ -68,6 +71,21 @@ export default function GanttDetailPanel({
   );
 
   const progress = normalizeProgress(task.progress);
+  const start = dayjs(task.startDate);
+  const end = dayjs(task.endDate);
+  // Predecessors by name; an id naming no task falls back to the id itself
+  const predecessors = (task.dependencies ?? []).map(
+    (dep) => tasks.find((entry) => entry.id === dep.targetId)?.name ?? dep.targetId
+  );
+
+  // Captions are fixed English: the only words the panel prints, and `renderDetail` replaces them
+  const fields: [string, string][] = [
+    ["Start", tooltip(start)],
+    ["End", tooltip(end)],
+    ["Duration", formatDuration(end.valueOf() - start.valueOf())],
+  ];
+  if (progress !== null) fields.push(["Progress", `${progress}%`]);
+  if (predecessors.length > 0) fields.push(["Depends on", predecessors.join(", ")]);
 
   return (
     <aside
@@ -92,10 +110,14 @@ export default function GanttDetailPanel({
             </button>
           </div>
 
-          <p className="gantt-detail-meta">
-            {tooltip(dayjs(task.startDate))} → {tooltip(dayjs(task.endDate))}
-            {progress !== null && ` · ${progress}%`}
-          </p>
+          <dl className="gantt-detail-fields">
+            {fields.map(([caption, value]) => (
+              <Fragment key={caption}>
+                <dt>{caption}</dt>
+                <dd>{value}</dd>
+              </Fragment>
+            ))}
+          </dl>
         </>
       )}
     </aside>
