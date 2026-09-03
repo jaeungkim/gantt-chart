@@ -15,6 +15,7 @@ const ReactGanttChart = dynamic<GanttProps>(
 const PRESETS = {
   basic: { hierarchy: false, showTaskList: true },
   hierarchy: { hierarchy: true, showTaskList: true },
+  rowNumbers: { hierarchy: true, showTaskList: true, showRowNumbers: true },
   dependencies: { hierarchy: true, showTaskList: false },
   workingCalendar: {
     hierarchy: true,

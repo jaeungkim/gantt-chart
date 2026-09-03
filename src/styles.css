@@ -276,6 +276,20 @@
   flex: none;
 }
 
+/* Outside the indent, so the number keeps the same x whatever the row's depth */
+.gantt-grid-no {
+  flex: none;
+  min-width: 2.25rem;
+  margin-right: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--gantt-muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .gantt-grid-expander {
   flex: none;
   display: inline-flex;

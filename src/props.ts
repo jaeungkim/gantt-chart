@@ -64,6 +64,8 @@ export interface GanttProps {
   firstDayOfWeek?: number;
   /** Whether to show the task list pane on the left (default false) - names only, per-task detail belongs in `renderDetail`. */
   showTaskList?: boolean;
+  /** Whether the task list prints each row's `sequence` as a leading number column (default false) - swimlane bands stay blank. */
+  showRowNumbers?: boolean;
   /** Whether to use the parentId hierarchy (default false) - parents become summary rows (dates and progress rolled up, dragging moves the subtree); row order still comes from `sequence`. */
   hierarchy?: boolean;
   /** Ids of collapsed parents (controlled - given, this value is what the chart shows) */

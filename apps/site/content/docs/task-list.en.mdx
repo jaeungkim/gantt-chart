@@ -48,15 +48,31 @@ export function ProjectChart() {
 
 ## What the pane shows
 
-One thing: `task.name`, in one column, at a starting pane width of 220px.
+Names, in one column, at a starting pane width of 220px.
 
-There is no prop for a second column, and adding one is not a planned feature. The bars already
+`showRowNumbers` puts a narrow number column in front of them. It prints `task.sequence`, the
+outline path the chart already orders rows by, so the second child of task 2 reads `2.1`. Swimlane
+bands carry no sequence and stay blank, so their labels still line up with the names below them.
+
+| `showRowNumbers` | Number column |
+|---|---|
+| omitted | hidden |
+| `true` | shown, printing `task.sequence` |
+| `false` | hidden |
+
+<GanttDemo preset="rowNumbers" />
+
+The number is the task's own field rather than a count of the rows on screen, so collapsing a
+parent renumbers nothing. Reordering a row does change it, because a move rewrites `sequence` —
+see [Editing tasks](editing).
+
+There is no prop for a date column, and adding one is not a planned feature. The bars already
 say when a task runs, so a date column beside them repeats the chart and costs the name half the
 pane. Everything else about a task — dates in your own format, an owner, a status, a custom
 widget — belongs in the detail panel on the right, where there is room for it and where it does
 not compete with the name. See [Detail panel](detail-panel).
 
-The column carries no visible header caption. Its header cell is named for screen readers only, so
+Neither column carries a visible header caption. Its header cell is named for screen readers only, so
 the one string the pane renders for the eye is the **Add task** button's label — hardcoded English,
 like the rest of the chart's chrome, see [Localization](i18n).
 
@@ -68,8 +84,11 @@ two ways to propose the same thing, are in [Editing tasks](editing).
 
 ## The name cell
 
-The one cell is the tree cell. Four things live inside it:
+The one cell is the tree cell — the number, where it is on, is drawn inside it rather than as a
+second cell, so the row keeps its single grid cell. Up to five things live inside it:
 
+- the row's `sequence`, with `showRowNumbers` on, ahead of the indent so the column sits at the
+  same x whatever the row's depth;
 - an indent spacer of `depth * 16` pixels;
 - the expander button on an expandable row, or a 20px spacer on every other row;
 - a `+N` badge counting the extra tasks when a row holds more than one, which happens with lanes —
