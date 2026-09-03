@@ -989,7 +989,6 @@
 .gantt-task-bar.summary .gantt-progress-fill {
   background: var(--gantt-progress-color, var(--gantt-foreground));
   opacity: 0.25;
-  border-radius: 3px 0 0 3px;
 }
 
 .gantt-task-bar.selected {
@@ -1020,7 +1019,9 @@
   bottom: 0;
   /* Derived from the bar color when there is one, so a colored bar never mixes in the theme gray */
   background: var(--gantt-progress-color, var(--gantt-progress-bg));
-  border-radius: 6px 0 0 6px;
+  /* Inherited, not squared on the right: at 100% the fill covers the whole bar, and a squared
+     right edge painted over the bar's own rounded corners. One shape, both radii. */
+  border-radius: inherit;
   pointer-events: none;
 }
 
