@@ -1,0 +1,155 @@
+---
+title: "스타일링"
+description: "작업별 색상과 클래스 이름"
+---
+
+디자인에서 스크린샷이 하나 넘어와요. 막힌 작업은 호박색이고, 고객사 작업에는 브랜드 블루가 들어가 있어요. 여기에 포크도, 렌더 prop도 필요하지 않아요. 차트는 작업당 색 하나와 작업당 클래스 이름 하나를 받고, 이 두 필드면 막대에서 바꾸고 싶은 곳은 모두 닿아요. `color`로 시작하고, 답이 색이 아닐 때 `className`을 꺼내세요.
+
+## 작업별 색상
+
+`Task`에는 선택 필드 `color`가 있어요. CSS 색상 값이면 무엇이든 쓸 수 있어요. `var(--brand)`나 `rgb(255 0 0 / 50%)`도 되고요. 문자열은 손대지 않고 그대로 전달돼요. 나머지 필드 목록은 [작업 데이터](task-data)에 있어요.
+
+```tsx title="src/App.tsx"
+import { useState } from 'react';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+const initial: Task[] = [
+  {
+    id: 'design',
+    name: 'Design',
+    startDate: '2026-03-02T00:00:00Z',
+    endDate: '2026-03-06T00:00:00Z',
+    parentId: null,
+    sequence: '1',
+    progress: 40,
+    color: '#2563eb',
+  },
+  {
+    id: 'build',
+    name: 'Build',
+    startDate: '2026-03-09T00:00:00Z',
+    endDate: '2026-03-20T00:00:00Z',
+    parentId: null,
+    sequence: '2',
+    progress: 0,
+    color: 'var(--brand-amber)',
+  },
+];
+
+export function App() {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+  return <ReactGanttChart tasks={tasks} onTasksChange={setTasks} />;
+}
+```
+
+값 하나가 막대 전체를 칠해요. 차트는 호버 음영이나 진행률 채움, 라벨을 위해 두 번째 토큰을 읽지 않아요. 셋 다 지정한 색에서 파생하기 때문에, 색을 준 막대에 테마 회색이 섞이는 일은 없어요. 색이 지정된 작업은 CSS 커스텀 속성을 정확히 네 개, 막대 노드에 인라인으로 설정해요.
+
+| 커스텀 속성 | 값 |
+|---|---|
+| `--gantt-bar-color` | 앞뒤 공백을 없앤 `color`, 그대로 |
+| `--gantt-bar-color-hover` | `color-mix(in srgb, <color> 86%, #000)` |
+| `--gantt-progress-color` | `color-mix(in srgb, <color> 62%, #000)` |
+| `--gantt-bar-text-color` | `oklch(from <color> clamp(0, (l / 0.5637 - 1) * -infinity, 1) 0 h)` |
+
+문자열은 쓰이기 전에 앞뒤 공백이 제거돼요. `color`가 `undefined`이거나 `''`이거나 공백뿐이면 속성이 하나도 나가지 않아요. 그 막대는 색을 주지 않은 막대와 똑같이 그려져요.
+
+### 네 속성을 읽는 곳
+
+각 선언은 작업 속성을 먼저 쓰고, 테마 토큰을 `var()` 폴백으로 둬요.
+
+| 요소 | 선언 |
+|---|---|
+| 막대 배경 | `var(--gantt-bar-color, var(--gantt-bar-bg))` |
+| 호버 시 막대 배경 | `var(--gantt-bar-color-hover, var(--gantt-bar-bg-hover))` |
+| 요약 막대 배경 | `var(--gantt-bar-color, var(--gantt-summary-bg))` |
+| 호버 시 요약 막대 | `var(--gantt-bar-color-hover, var(--gantt-summary-bg-hover))` |
+| 진행률 채움 | `var(--gantt-progress-color, var(--gantt-progress-bg))` |
+| 요약 막대의 진행률 채움 | `var(--gantt-progress-color, var(--gantt-foreground))` |
+| 막대 안의 작업 이름 | `var(--gantt-bar-text-color, var(--gantt-bar-text))` |
+
+요약 막대는 막대 토큰이 아니라 요약 토큰으로 폴백해요. 작업에 `color`가 없을 때만 눈에 보이는 차이예요.
+
+### 라벨 색
+
+마지막 행 하나만 섞는 게 아니라 계산해서 나와요. `#fde68a`로 칠한 막대에 테마의 거의 흰 라벨이 얹히면 읽을 수 없으니까, 라벨은 테마가 아니라 색에서 파생해요. `l`이 그 색 자신의 밝기이고, 이 값을 임계값으로 나눈 뒤 `-infinity`를 곱하면 양 끝 중 한쪽으로 무너져요. 밝은 막대에는 검은 라벨이, 어두운 막대에는 흰 라벨이 붙어요.
+
+임계값 `0.5637`은 아무렇게나 고른 값이 아니에요. 검정과 흰색의 WCAG 대비가 같아지는 상대 휘도를 OKLab 밝기로 옮긴 값이라, 라벨은 항상 둘 중 대비가 높은 쪽이 돼요. 더 높은 값이 그럴듯해 보이지만 그렇지 않아요. `0.7`에서는 Tailwind `#ef4444` 막대가 흰 라벨을 받아 3.76:1이 되는데, 검정이었다면 5.58:1이었어요.
+
+이 계산을 JavaScript가 아니라 CSS에서 하는 이유가 있어요. `var(--brand)`도 `color`에 쓸 수 있는 값인데, 브라우저가 치환하기 전에는 그 밝기를 알 방법이 없거든요. 대신 라벨 전환에는 상대 색상 문법이 필요해요. Chrome 125, Firefox 128, Safari 18부터고, 음영 두 개가 쓰는 `color-mix`보다 높은 기준선이에요. 그 아래에서는 속성이 계산되지 않아서 라벨이 `--gantt-bar-text`로 폴백해요. 이 기능이 생기기 전 모든 막대가 그랬던 모습 그대로예요.
+
+알아 둘 만한 경계가 둘 있어요. 라벨은 순수한 검정 아니면 순수한 흰색이고 그 사이는 없어요. 그래서 경계 근처에 있는 막대는 4.5:1을 넘기긴 해도 여유가 크지 않아요. `#2277d3`은 4.65:1이에요. 그리고 라벨은 `#000` 쪽으로 62% 섞인 진행률 채움 위에 놓이기 때문에, 밝은 막대에서는 채워진 구간에서 검은 라벨의 대비가 떨어져요.
+
+빠져나가려면 명시도를 쓰세요. 작업에 `className`을 주고 직접 규칙을 쓰면 돼요.
+
+```css title="src/gantt-overrides.css"
+.gantt-task-bar.mine .gantt-task-name {
+  color: #fff;
+}
+```
+
+### 색이 이길 때와 이기지 못할 때
+
+위 표에 있는 모든 테마 토큰보다 색이 우선해요. 토큰은 `var()` 폴백일 뿐이라, 작업 속성이 없을 때만 참조돼요. 테마로 `--gantt-bar-bg`를 차트 전체에 지정해도 작업 자신의 `color`를 덮지 못해요. 토큰 목록은 [테마](theming)에 있어요.
+
+색이 지는 곳은 두 군데예요.
+
+- **배경도 라벨도 아닌 모든 것.** 막대의 모서리 반경, 그림자, 선택 외곽선, 의존성 화살표는 전부 테마 토큰에서 와요. `color`는 위 표의 선언 일곱 개만 바꾸고, 그 밖에는 아무것도 바꾸지 않아요.
+- **작업 목록.** `color`는 왼쪽 패널까지 가지 않아요. 작업 목록의 행은 테마와 `className`으로 스타일이 정해져요.
+
+## className
+
+작업에 준 `className`은 그 작업의 막대와 작업 목록 행에 붙어요. 두 클래스 문자열 모두 맨 뒤에 덧붙지만, 그게 캐스케이드를 바꾸지는 않아요. `class` 속성 안의 이름 순서는 CSS 우선순위가 아니니까요. 직접 쓴 규칙은 다른 규칙과 똑같은 방식으로 이겨요. 명시도로 이기거나, 명시도가 같다면 뒤에 와서 이겨요. `.gantt-task-bar.blocked`가 `.gantt-task-bar`보다 높고, 예제를 그렇게 쓴 이유가 그거예요.
+
+```tsx
+const task: Task = {
+  id: 'audit',
+  name: 'Security audit',
+  startDate: '2026-04-06T00:00:00Z',
+  endDate: '2026-04-10T00:00:00Z',
+  parentId: null,
+  sequence: '3',
+  className: 'blocked',
+};
+```
+
+```css title="src/gantt-overrides.css"
+.gantt-task-bar.blocked {
+  background: repeating-linear-gradient(
+    45deg,
+    #b45309,
+    #b45309 6px,
+    #92400e 6px,
+    #92400e 12px
+  );
+}
+
+.gantt-grid-row.blocked .gantt-grid-cell {
+  font-style: italic;
+}
+```
+
+## 노드 교체
+
+렌더 prop은 `renderDetail` 하나뿐이고, 도킹된 상세 패널의 본문을 교체해요. 스타일링용 훅은 아니에요. 기본 본문이 이름과 날짜 둘만 보여주는데 거기에 행을 더하는 prop이 없어서 존재하는 거예요. 무엇이 패널을 여는지, props 묶음, 제어 방식은 [상세 패널](detail-panel)에 있고, 타입은 [렌더러](ref/renderers)에 있어요.
+
+차트의 나머지는 교체할 수 없어요. 막대, 툴팁, 헤더 셀, 작업 목록 행, 그룹 헤더, 드래그 readout, 드롭 표시, 의존성 화살표는 전부 CSS로만 손댈 수 있어요.
+
+## showTooltip
+
+`showTooltip`의 기본값은 `true`예요. `false`로 두면 호버 툴팁과, 이동·리사이즈·진행률 드래그 중의 실시간 툴팁이 모두 사라져요.
+
+툴팁을 끄면 포인터 드래그가 만들어 내는 유일한 라이브 영역 안내가 사라져요. 그 제스처 툴팁이 바로 `role="status"` 노드예요. 키보드로 날짜를 편집할 때의 안내는 `showTooltip`이 건드리지 않는 별도 라이브 영역이 맡아요. [키보드와 스크린 리더](accessibility)를 보세요.
+
+## 한계
+
+- **색을 대신 계산해 주지 않아요.** 팔레트도, 상태별 색상도, 범례도 없어요. 차트는 `task.color`를 읽어 값 세 개를 파생할 뿐이고, 나머지 규칙은 전부 직접 정해야 해요. 작업을 넘기기 전에 상태를 색으로 매핑하세요. `tasks.map((t) => ({ ...t, color: PALETTE[t.status] }))` 정도면 돼요. 비슷한 스케줄링 라이브러리들도 이걸 기대해요.
+- **음영 두 개에는 `color-mix`가 필요해요.** 호버와 진행률 음영은 `color-mix(in srgb, …)`로 나가기 때문에, 이걸 해석하지 못하는 브라우저는 둘 다 계산하지 못해요. `--gantt-bar-color`는 평범한 색이라 그런 브라우저에서도 계속 동작해요.
+- **라벨에는 상대 색상 문법이 필요해요.** `color-mix`보다 기준선이 높고, 그 아래에서는 라벨이 `--gantt-bar-text` 그대로예요.
+- **헤더 셀은 텍스트예요.** 거기에 마크업을 넣을 방법은 없어요. `formats`가 내용을 바꾸고 `.gantt-top-group`과 `.gantt-bottom-cell`에 건 CSS가 모양을 바꿔요. 그게 전부예요. 44px 그룹 행과 28px 눈금 행은 고정 높이고요.
+- **작업 목록은 작업별 상세 정보를 받지 않아요.** 셀 하나가 `task.name`을 그려요. 나머지는 [상세 패널](detail-panel)에 두세요.
+
+두 가지 선택지를 이 순서대로 꺼내 쓰세요. `color`는 색과 관련된 건 다 해결하고, 값 하나로 속성 네 개를 모두 설정해요. `className`은 스타일시트로 표현할 수 있는 건 다 해결해요. 패턴이든 테두리든 폰트든요. 그리고 명시도로 차트 자신의 규칙을 이겨요.
+
+다음: [명령형 API](imperative-api) — `ref` 핸들을 다뤄요. 스크롤과 줌, 그리고 상세 패널 열기가
+여기 있어요.

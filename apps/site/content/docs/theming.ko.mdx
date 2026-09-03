@@ -125,7 +125,7 @@ OS가 결정해요. `color-scheme`을 한 번도 언급하지 않은 페이지�
 |---|---|---|---|
 | `--gantt-bar-bg` | `#c7c7cd` | `#3a3a41` | `.gantt-task-bar` 배경 |
 | `--gantt-bar-bg-hover` | `#b4b4bc` | `#47474f` | 그 호버 |
-| `--gantt-bar-text` | `#18181b` | `#fafafa` | 막대 안의 작업 이름 |
+| `--gantt-bar-text` | `#18181b` | `#fafafa` | 자체 `color`가 없는 막대 안의 작업 이름 |
 | `--gantt-bar-shadow` | `none` | `none` | 가만히 있는 막대 - 일부러 평평해요. 막대가 줄지어 있어도 그림자가 겹쳐 뿌옇게 되지 않고 각자의 경계를 지켜요 |
 | `--gantt-bar-shadow-hover` | `0 1px 2px rgba(0, 0, 0, 0.08)` | `0 1px 2px rgba(0, 0, 0, 0.4)` | 호버된 막대 |
 | `--gantt-bar-shadow-drag` | `0 4px 12px rgba(0, 0, 0, 0.16)` | `0 4px 12px rgba(0, 0, 0, 0.5)` | 드래그 중인 막대 |
@@ -252,8 +252,8 @@ OS가 결정해요. `color-scheme`을 한 번도 언급하지 않은 페이지�
 ### 작업별 색이 토큰보다 우선해요
 
 작업이 가진 `color`는 해당 막대에 인라인 `--gantt-bar-color`로 쓰여요. 막대는 테마 토큰보다 이 값을
-먼저 읽어서, 색을 지정한 작업은 토큰을 완전히 무시해요 — [커스텀 렌더링](custom-rendering)을
-참고하세요.
+먼저 읽어서, 색을 지정한 작업은 토큰을 완전히 무시해요. 이 색은 막대 라벨 색까지 함께 만들기 때문에,
+`--gantt-bar-text`는 색이 없는 막대의 라벨만 정해요 — [스타일링](styling)을 참고하세요.
 
 ## 배율 기억하기
 
@@ -303,6 +303,6 @@ OS가 결정해요. `color-scheme`을 한 번도 언급하지 않은 페이지�
 - 앱이 자체 라이트/다크 상태를 바꿀 때 `color-scheme`도 함께 설정하세요. `theme` prop이 없는 차트가
   따라가는 값이에요. 차트별로 이를 덮어써야 할 때만 `theme`을 명시적으로 넘기세요.
 - 토큰으로 표현할 수 없는 변경은 작업의 `className`으로 처리하세요 —
-  [커스텀 렌더링](custom-rendering)을 참고하세요.
+  [스타일링](styling)을 참고하세요.
 
 다음: [헤드리스 코어](headless-core)에서 React 없이 도는 트리, 롤업, 캘린더 함수를 다뤄요.

@@ -52,7 +52,7 @@ export function TaskDataExample() {
 | `parentId` | `string \| null` | 예 | — | 부모 작업의 id예요. 최상위면 `null`이에요. `hierarchy`를 켰을 때만 읽어요. |
 | `sequence` | `string` | 예 | — | 점으로 구분한 숫자예요. `'1'`, `'2.1'`, `'2.10'` 같은 값이 행 순서를 정해요. |
 | `progress` | `number` | 아니요 | 없음 | 0에서 100 사이의 백분율이에요. 빼면 진행률 채움이 그려지지 않아요. |
-| `color` | `string` | 아니요 | 테마 토큰 | CSS 색상이면 무엇이든 돼요. 진행률 채움과 호버 음영이 이 값에서 파생돼요. |
+| `color` | `string` | 아니요 | 테마 토큰 | CSS 색상이면 무엇이든 돼요. 진행률 채움과 호버 음영, 레이블 글자색이 이 값에서 파생돼요. |
 | `className` | `string` | 아니요 | 없음 | 막대 요소와 작업 목록 행에 덧붙는 클래스예요. |
 | `lane` | `string` | 아니요 | 자기 행 | 같은 레인을 쓰는 작업들은 한 행에 나란히 그려져요. 빈 문자열은 없는 것으로 쳐요. |
 | `dependencies` | `TaskDependency[]` | 아니요 | `[]` | 이 작업이 기다리는 선행 작업(predecessor) 목록이에요. |
@@ -65,7 +65,7 @@ export function TaskDataExample() {
 | `minDate` | `string` | 아니요 | 차트의 `minDate` | 드래그가 도달할 수 있는 가장 이른 날짜예요. |
 | `maxDate` | `string` | 아니요 | 차트의 `maxDate` | 드래그가 도달할 수 있는 가장 늦은 날짜예요. |
 
-`allowX` 플래그 다섯 개와 `readOnly`는 구체적인 쪽이 먼저 이겨요. `task.allowX`, `task.readOnly`, 차트 설정 순서예요. [작업 편집](editing)에 자세히 나와요. `minDate`와 `maxDate`는 이 순서를 쓰지 않아요. 작업에 값이 있으면 차트 값을 그대로 대체해요. `color`와 `className`, 그리고 색이 지정된 막대가 설정하는 CSS 변수는 [커스텀 렌더링](custom-rendering)에서 다뤄요. `lane`은 [그룹과 스윔레인](grouping)에서 다뤄요.
+`allowX` 플래그 다섯 개와 `readOnly`는 구체적인 쪽이 먼저 이겨요. `task.allowX`, `task.readOnly`, 차트 설정 순서예요. [작업 편집](editing)에 자세히 나와요. `minDate`와 `maxDate`는 이 순서를 쓰지 않아요. 작업에 값이 있으면 차트 값을 그대로 대체해요. `color`와 `className`, 그리고 색이 지정된 막대가 설정하는 CSS 변수 네 개는 [스타일링](styling)에서 다뤄요. `lane`은 [그룹과 스윔레인](grouping)에서 다뤄요.
 
 ### 혼자서는 아무 일도 하지 않는 필드
 

@@ -61,8 +61,8 @@ and takes `react` and `react-dom` as peer dependencies, `^18` or `^19`. Every pr
 
 - `theme` takes `'light'`, `'dark'` or `'system'`; omitted, the chart follows the host page's `color-scheme`, which is what an app's own light/dark toggle already sets — see [Theming](theming).
 - Theme tokens are `--gantt-*` custom properties scoped to `.gantt-container`, not `:root`, so they cannot collide with your app's variables. One `#fff` stays literal.
-- A per-task `color` derives the bar, its progress fill and its hover shade from one value — see [Custom rendering](custom-rendering).
-- `renderTooltip` and `renderHeaderCell` replace the default elements.
+- A per-task `color` derives the bar, its progress fill, its hover shade and a readable label color from one value — see [Styling](styling).
+- `renderDetail` replaces the detail panel body, the one node the chart lets you swap — see [Detail panel](detail-panel).
 - `locale` renders the header, tooltip and drag-readout dates through `Intl.DateTimeFormat`, and `formats` overrides those three per scale — see [Locale and date formats](i18n).
 
 ## What it does not do
@@ -137,7 +137,7 @@ After that, go to the page for the thing you are building.
 | a plan with links and a work week | [Dependencies](dependencies), then [Working calendar](working-calendar) |
 | a WBS-style outline | [Task list and hierarchy](task-list) |
 | a per-team or per-phase board | [Grouping and swimlanes](grouping) |
-| a chart that matches your design system | [Theming](theming), then [Custom rendering](custom-rendering) |
+| a chart that matches your design system | [Theming](theming), then [Styling](styling) |
 | date math with no chart | [Headless core](headless-core) |
 
 Every prop is listed in one place, in [Props](ref/props).

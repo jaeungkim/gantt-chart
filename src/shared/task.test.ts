@@ -1,5 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { normalizeProgress, resolveTaskInteraction, type Task } from './task';
+import {
+  normalizeProgress,
+  resolveTaskColors,
+  resolveTaskInteraction,
+  type Task,
+} from './task';
 
 const task = (overrides: Partial<Task> = {}): Task => ({
   id: 'a',
@@ -106,5 +112,57 @@ describe('resolveTaskInteraction - flag precedence (#37)', () => {
         maxDate: '2025-12-31',
       })
     ).toMatchObject({ minDate: '2025-06-01', maxDate: '2025-12-31' });
+  });
+});
+
+describe('resolveTaskColors', () => {
+  it('emits nothing when there is no usable color, leaving the theme tokens to decide', () => {
+    expect(resolveTaskColors(undefined)).toEqual({});
+    expect(resolveTaskColors('')).toEqual({});
+    expect(resolveTaskColors('   ')).toEqual({});
+  });
+
+  it('derives a hover shade, a progress shade and a label color from one value', () => {
+    expect(resolveTaskColors('  #fde68a  ')).toEqual({
+      '--gantt-bar-color': '#fde68a',
+      '--gantt-bar-color-hover': 'color-mix(in srgb, #fde68a 86%, #000)',
+      '--gantt-progress-color': 'color-mix(in srgb, #fde68a 62%, #000)',
+      '--gantt-bar-text-color':
+        'oklch(from #fde68a clamp(0, (l / 0.5637 - 1) * -infinity, 1) 0 h)',
+    });
+  });
+
+  // A string test would happily accept a wrong threshold, and the wrong one still looks plausible:
+  // MUI ships 0.7, which puts a white label on Tailwind #ef4444 at 3.76:1 when black gives 5.58:1.
+  it('cuts at the lightness where black and white tie on WCAG contrast', () => {
+    expect(Math.cbrt(0.1791).toFixed(4)).toBe('0.5637');
+    expect(resolveTaskColors('#000')['--gantt-bar-text-color']).toContain('l / 0.5637');
+  });
+
+  // The case JS luminance math cannot serve: the value is only a color once CSS substitutes it.
+  it('passes a custom property through untouched', () => {
+    const vars = resolveTaskColors('var(--brand)');
+    expect(vars['--gantt-bar-color']).toBe('var(--brand)');
+    expect(vars['--gantt-bar-text-color']).toBe(
+      'oklch(from var(--brand) clamp(0, (l / 0.5637 - 1) * -infinity, 1) 0 h)'
+    );
+  });
+});
+
+describe('the bar label reads the derived color', () => {
+  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+
+  it('falls back to the theme token when the task has no color', () => {
+    expect(css).toContain(
+      'color: var(--gantt-bar-text-color, var(--gantt-bar-text));'
+    );
+  });
+
+  // A label pushed outside a narrow bar sits on the chart background, not on the task
+  // color, so its own rule must stay declared later to win at equal-or-higher specificity.
+  it('keeps .outside declared after the base rule', () => {
+    expect(css.indexOf('.gantt-task-name.outside')).toBeGreaterThan(
+      css.indexOf('.gantt-task-name {')
+    );
   });
 });

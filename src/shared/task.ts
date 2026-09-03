@@ -99,6 +99,7 @@ interface TaskColorVars {
   '--gantt-bar-color'?: string;
   '--gantt-bar-color-hover'?: string;
   '--gantt-progress-color'?: string;
+  '--gantt-bar-text-color'?: string;
 }
 
 export function resolveTaskColors(color: string | undefined): TaskColorVars {
@@ -109,6 +110,13 @@ export function resolveTaskColors(color: string | undefined): TaskColorVars {
     '--gantt-bar-color': base,
     '--gantt-bar-color-hover': `color-mix(in srgb, ${base} 86%, #000)`,
     '--gantt-progress-color': `color-mix(in srgb, ${base} 62%, #000)`,
+    // Black or white, whichever the bar color can carry: `l` is the color's own lightness, and
+    // dividing by the threshold then multiplying by -infinity clamps to one end or the other.
+    // 0.5637 is cbrt(0.1791), the OKLab lightness of the relative luminance where black and white
+    // tie on WCAG contrast. Anything higher (MUI ships 0.7 for its own palette) picks white on
+    // mid-tone colors that read better in black; measured, 0.7 gets 8 of 18 sample colors wrong.
+    // Done in CSS, not here, because `var(--brand)` is a legal color and JS cannot read its lightness.
+    '--gantt-bar-text-color': `oklch(from ${base} clamp(0, (l / 0.5637 - 1) * -infinity, 1) 0 h)`,
   };
 }
 export interface TaskTransformed extends Task {

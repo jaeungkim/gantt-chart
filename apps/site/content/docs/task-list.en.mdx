@@ -273,8 +273,9 @@ of indent.
 
 The pane shows the name and cannot be made to show anything else: there is no column API, no
 sorting and no filtering. The name cell is a read-only node — there is no inline editor and no
-`onCellChange` — and there is no renderer for a grid row or a group header, since the render props
-cover the timeline side only, in [Custom rendering](custom-rendering).
+`onCellChange` — and there is no renderer for a grid row or a group header. `renderDetail` is the
+chart's only render prop, and it draws the detail panel, not a row. The most a row takes from a
+task is `className`, in [Styling](styling).
 
 Pane width has no prop and is not persisted. It opens at 220px every time and the splitter is the
 only thing that changes it. The layout constants — row height, that starting width, the 120–800

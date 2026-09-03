@@ -35,11 +35,6 @@ export type {
   GanttScaleFormat,
   GanttScaleKey,
   GanttTheme,
-  GanttTooltipReason,
-  GanttTooltipRenderProps,
-  GanttTooltipRenderer,
-  GanttHeaderCellRenderProps,
-  GanttHeaderCellRenderer,
 } from './shared/types';
 export type { GanttRow, GanttRowGroup } from './rows/utils/grouping';
 

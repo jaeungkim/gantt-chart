@@ -24,7 +24,8 @@ you need working-day calendars or task-tree roll-up in a server, worker, or test
 - Headless exports: `createWorkingCalendar`, `buildTaskTree`, `rollUpTasks`, and
   `collectSubtreeIds`.
 - Keyboard-first ARIA treegrid, scoped `--gantt-*` theme tokens, light/dark/system theming,
-  per-task colors, and four render props.
+  per-task colors that also decide whether the bar label is black or white, and one render prop,
+  `renderDetail`.
 - Renders the chart, not the chrome. The scale control is yours — drive it with `setScale` on
   the ref and follow it with `onScaleChange`, so the labels are in your language and your
   design system.
@@ -139,7 +140,8 @@ deliberately does not do.
 | [Working calendar](https://gantt.jaeungkim.com/docs/working-calendar) | non-working days and working-day arithmetic |
 | [Imperative API](https://gantt.jaeungkim.com/docs/imperative-api) | scrolling and zoom through the chart ref |
 | [Headless core](https://gantt.jaeungkim.com/docs/headless-core) | using the calendar and tree helpers without React or a DOM |
-| [Theming](https://gantt.jaeungkim.com/docs/theming) | theme modes, CSS tokens, and render props |
+| [Styling](https://gantt.jaeungkim.com/docs/styling) | per-task color and class names |
+| [Theming](https://gantt.jaeungkim.com/docs/theming) | theme modes and the CSS custom properties |
 | [Props](https://gantt.jaeungkim.com/docs/ref/props) | every prop, in one table |
 
 Full docs: **[English](https://gantt.jaeungkim.com/docs)** · **[한국어](https://gantt.jaeungkim.com/ko/docs)**

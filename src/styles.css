@@ -1076,7 +1076,8 @@
   font-family: inherit;
   font-size: 12px;
   font-weight: 500;
-  color: var(--gantt-bar-text);
+  /* Derived from the task color when there is one, so a pale bar does not keep a pale label */
+  color: var(--gantt-bar-text-color, var(--gantt-bar-text));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
