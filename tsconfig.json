@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    // ES2021.Intl alone, not all of ES2021: the header drag readout formats a span with
+    // Intl.DateTimeFormat.formatRange, and nothing else here needs a post-ES2020 runtime.
+    "lib": ["ES2020", "ES2021.Intl", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
     "moduleResolution": "bundler",

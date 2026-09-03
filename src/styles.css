@@ -549,11 +549,11 @@
 }
 
 /* ===== DRAG READOUT (on the date axis) =====
-   A move or resize reports itself on the header, not over the grid: one translucent band
-   riding the tick row for the EXTENT, one pill above it for the exact dates. This is
-   Frappe's `.date-range-highlight` model, and it replaced two full-height accent rules
-   that ran the whole content height plus a pill on each one - which collided with each
-   other on a short bar and covered the month label they sat on.
+   A move or resize reports itself on the header, not over the grid, and the band on the tick
+   row IS the readout: it stands in for the numerals under the dragged range and carries the
+   dates itself, the way a calendar marks a selected range. That replaced two full-height
+   accent rules plus a floating pill, which collided on a short bar and covered the month
+   label they sat on.
 
    The layer lives inside .gantt-header-wrapper, which is already `position: sticky` (so it
    is the containing block, and the readout is pinned to the viewport top for free) and
@@ -570,46 +570,61 @@
    documented as fixed in custom-rendering (`renderHeaderCell` cannot change them).
    GanttDragGuides.test.ts fails if either drifts away from this rule. */
 .gantt-drag-range {
+  /* Opaque rather than a wash: the band stands IN for the tick numerals it covers instead of
+     tinting them, so no date is ever read through it. The label inherits this custom
+     property, so it is the same surface whether it sits in the band or has lifted out. */
+  --gantt-drag-band: color-mix(in srgb, var(--gantt-accent) 14%, var(--gantt-muted));
   position: absolute;
   top: 44px;
   height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--gantt-accent) 16%, transparent);
-  /* What survives of the two guide lines: the range edges are still marked, 28px tall on
-     the axis instead of full-height over every row. */
-  box-shadow: inset 0 -2px 0 0 var(--gantt-accent);
+  background: var(--gantt-drag-band);
 }
 
 .gantt-drag-guide-label {
-  /* Sits in the 44px month row, directly above the band, anchored to the range start.
-
-     Sticky rather than absolute, and offset by the pinned pane, for the same reason
+  /* Sticky rather than absolute, and offset by the pinned pane, for the same reason
      .gantt-top-group-label is: `left` here is in CONTENT space, so dragging a bar
-     leftwards slid the pill under the task list - and since this pill is now the only
-     visible readout a drag produces, losing it loses the whole gesture's feedback.
-     Sticky resolves against the scroll container instead, so the pill slides along its
-     own band to stay in view. It is still clamped to the band, so once the range itself
-     is off-screen the pill goes with it, which is correct - so has the bar.
+     leftwards slid the label under the task list - and since this is the only visible
+     readout a drag produces, losing it loses the whole gesture's feedback. Sticky resolves
+     against the scroll container instead, so the label slides along its own band to stay in
+     view. It is still clamped to the band, so once the range itself is off-screen the label
+     goes with it, which is correct - so has the bar.
 
-     The lift into the month row is a transform, not `bottom`, because a transform is
-     visual only: sticky keeps resolving from the in-flow position inside the band. */
+     BOTH edges are pinned, and `right` is not optional: the label rests at the CENTRE of its
+     band, and a band is routinely wider than the scrollport (day scale draws 288px per
+     calendar day, so a four-day task already overflows it). A left-only sticky can shift a
+     box rightwards only, so on a wide band the centre - and the label with it - sat off the
+     right of the timeline for the whole gesture.
+
+     No shadow, no ring and no accent edge: the band already places it, and stacking chrome
+     on an 11px label is what made this read as a floating tooltip rather than part of the
+     axis. `flex: none` lets it keep its natural width and overflow the band evenly on both
+     sides while the centring keeps it on the range. */
   position: sticky;
   left: var(--gantt-pane-inset, 0px);
-  display: inline-block;
-  transform: translateY(calc(-100% - 6px));
-  /* Same inversion as the tooltip. #fff on --gantt-accent measured 3.68:1 at 11px/500,
-     under the 4.5:1 AA requirement, and theming could not reach it - --gantt-accent is
-     the one token with no dark override. The accent survives as the left edge. */
-  padding: 3px 7px;
-  background: var(--gantt-foreground);
-  color: var(--gantt-background);
-  border-inline-start: 2px solid var(--gantt-accent);
-  box-shadow: var(--gantt-shadow-overlay);
+  right: 0;
+  flex: none;
+  padding: 0 6px;
   border-radius: 4px;
+  background: var(--gantt-drag-band);
+  color: var(--gantt-foreground);
   font-family: inherit;
   font-size: 11px;
   font-weight: 500;
+  line-height: 20px;
   white-space: nowrap;
+}
+
+/* A range too narrow to hold its own label: the label lifts into the month row above,
+   still centred on the range, leaving the band as a bare marker of the extent. The lift is
+   a transform, not `bottom`, because a transform is visual only: sticky keeps resolving
+   from the in-flow position inside the band. The class is set from a measured label width,
+   not a px breakpoint - see GanttDragGuides.tsx. */
+.gantt-drag-guide-label.lifted {
+  transform: translateY(calc(-100% - 7px));
 }
 
 /* Prefer the standard properties (Chrome 121+, Firefox). Only browsers without support fall back to the webkit rules below */

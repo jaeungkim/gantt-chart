@@ -192,3 +192,49 @@ describe('createTopHeaderGroups with locale options', () => {
     ).toMatchObject([{ label: '2025년 9월 1일', widthPx: 64 }]);
   });
 });
+
+// The header drag readout is the only visible feedback a pointer drag produces, so the span it
+// prints has to hold up on every layer and on a range dragged backwards.
+describe('range formatter', () => {
+  const start = dayjs('2026-01-15T00:00:00Z');
+  const end = dayjs('2026-01-17T00:00:00Z');
+
+  it('joins the built-in labels without repeating the year the header carries', () => {
+    expect(resolveFormatters('month').range(start, end)).toBe('Jan 15 – Jan 17');
+  });
+
+  it('merges what the two ends share when a locale is set', () => {
+    // Intl wording varies by ICU build; what matters is that the second month name is dropped
+    expect(resolveFormatters('month', { locale: 'en-US' }).range(start, end)).toMatch(
+      /^Jan 15\s*.\s*17$/,
+    );
+  });
+
+  it('prints one label when both ends land on the same value', () => {
+    expect(resolveFormatters('month').range(start, start)).toBe('Jan 15');
+    expect(resolveFormatters('month', { locale: 'en-US' }).range(start, start)).toBe('Jan 15');
+  });
+
+  // Some ICU builds throw on a backwards range, others merge it; either way a resize dragged
+  // past its own start must not take the readout down mid-gesture
+  it('survives a range dragged backwards past its own start', () => {
+    const { range } = resolveFormatters('month', { locale: 'en-US' });
+    expect(() => range(end, start)).not.toThrow();
+    expect(range(end, start)).toContain('17');
+    expect(range(end, start)).toContain('15');
+  });
+
+  it('formats both ends through a tooltip override, which owns the readout', () => {
+    const { range } = resolveFormatters('month', {
+      locale: 'ko-KR',
+      formats: { month: { tooltip: (date) => date.format('YY/MM/DD') } },
+    });
+    expect(range(start, end)).toBe('26/01/15 – 26/01/17');
+  });
+
+  it('falls back to the built-ins when the locale tag is unusable', () => {
+    expect(resolveFormatters('month', { locale: 'en_US' }).range(start, end)).toBe(
+      'Jan 15 – Jan 17',
+    );
+  });
+});

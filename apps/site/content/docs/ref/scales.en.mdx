@@ -89,16 +89,20 @@ replaced, and no prop adds a sixth scale. Tick widths are derived from
 `formatTickLabel` and `formatHeaderLabel` are the last layer of the label chain — what renders when
 no `formats` override and no `locale` applies.
 
-| scale | `formatTickLabel` | `formatHeaderLabel` | tooltip format string |
-|---|---|---|---|
-| `day` | `d.format('HH')` | `d.format('MMM D, YYYY')` | `'MMM D, YYYY HH:mm [UTC]'` |
-| `week` | `d.format('D')` | `d.format('MMM YYYY')` | `'MMM D, YYYY'` |
-| `month` | `d.format('MMM D')` | `d.format('MMM YYYY')` | `'MMM D, YYYY'` |
-| `quarter` | `d.format('MMM')` | `` `Q${quarterOfYear(d)} ${d.format('YYYY')}` `` | `'MMM YYYY'` |
-| `year` | `d.format('MMM')` | `d.format('YYYY')` | `'MMM YYYY'` |
+| scale | `formatTickLabel` | `formatHeaderLabel` | tooltip format string | readout format string |
+|---|---|---|---|---|
+| `day` | `d.format('HH')` | `d.format('MMM D, YYYY')` | `'MMM D, YYYY HH:mm [UTC]'` | `'MMM D, HH:mm [UTC]'` |
+| `week` | `d.format('D')` | `d.format('MMM YYYY')` | `'MMM D, YYYY'` | `'MMM D'` |
+| `month` | `d.format('MMM D')` | `d.format('MMM YYYY')` | `'MMM D, YYYY'` | `'MMM D'` |
+| `quarter` | `d.format('MMM')` | `` `Q${quarterOfYear(d)} ${d.format('YYYY')}` `` | `'MMM YYYY'` | `'MMM YYYY'` |
+| `year` | `d.format('MMM')` | `d.format('YYYY')` | `'MMM YYYY'` | `'MMM YYYY'` |
 
-The tooltip strings live in a separate `DATE_FORMATS` constant, also not exported. `[UTC]` in the
-hour and day strings is a dayjs escaped literal, not a resolved zone name.
+The tooltip and readout strings live in separate `DATE_FORMATS` and `RANGE_FORMATS` constants,
+neither exported. `[UTC]` in the hour and day strings is a dayjs escaped literal, not a resolved
+zone name. The readout formats both ends of the dragged range and joins them with an en dash,
+unless the two ends format identically, in which case it prints the one label. The shorter
+strings drop the year, which the header row above the readout is already showing; `quarter` and
+`year` keep it, because a span at those scales can cross a year boundary.
 
 ## GanttScaleFormat
 

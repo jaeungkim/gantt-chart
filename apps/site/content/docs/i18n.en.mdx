@@ -17,6 +17,8 @@ Every scale prints dates in exactly three places. Each place has its own formatt
 
 The `tooltip` slot is therefore what a screen reader reads out, the live-region announcement a keyboard edit produces included. Those announcements are covered in [Keyboard and screen readers](accessibility).
 
+The header drag readout is the one place that layer prints a span rather than a point. With a `locale` set it merges what the two ends share, so a three-day move reads `Jan 15 – 17`; otherwise it joins two compact built-in labels with an en dash. Your own `tooltip` function formats both ends and is joined the same way. Two ends that format identically print one label, not the same label twice.
+
 Each slot is filled from the first of three layers that has something for it:
 
 1. `formats[scale][slot]` — your own function.

@@ -77,11 +77,14 @@ export interface GanttLocaleOptions {
   firstDayOfWeek?: number;
 }
 
-// The three label formatters resolved for one scale
+// The label formatters resolved for one scale. `range` is not a slot of its own: it is
+// derived from the same layer that filled `tooltip`, because the header drag readout shows
+// one span rather than two dates.
 export interface GanttFormatters {
   tick: (date: Dayjs) => string;
   header: (date: Dayjs) => string;
   tooltip: (date: Dayjs) => string;
+  range: (start: Dayjs, end: Dayjs) => string;
 }
 
 export interface GanttBottomRowCell {

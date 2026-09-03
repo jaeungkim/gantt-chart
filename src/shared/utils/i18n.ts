@@ -1,4 +1,4 @@
-import { DATE_FORMATS, GANTT_SCALE_CONFIG } from 'shared/constants';
+import { DATE_FORMATS, GANTT_SCALE_CONFIG, RANGE_FORMATS } from 'shared/constants';
 import { Dayjs } from 'dayjs';
 import {
   GanttFormatters,
@@ -54,6 +54,19 @@ const TOOLTIP_OPTIONS: Record<GanttScaleKey, Intl.DateTimeFormatOptions> = {
   year: UTC_MONTH,
 };
 
+// Header drag readout - one span. Mirrors RANGE_FORMATS: the year goes where the row above
+// the readout already shows it, and stays where a span can cross a year boundary.
+const RANGE_OPTIONS: Record<GanttScaleKey, Intl.DateTimeFormatOptions> = {
+  day: { month: 'short', day: 'numeric', ...CLOCK, timeZoneName: 'short' },
+  week: { month: 'short', day: 'numeric' },
+  month: { month: 'short', day: 'numeric' },
+  quarter: UTC_MONTH,
+  year: UTC_MONTH,
+};
+
+// En dash, not an arrow: this is a span between two dates, and the arrow read as direction
+const RANGE_SEPARATOR = ' \u2013 ';
+
 // Locales already reported, so a bad prop does not log on every render
 const warnedLocales = new Set<string>();
 
@@ -63,6 +76,25 @@ function formatterFor(
 ): (date: Dayjs) => string {
   const intl = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options });
   return (date) => intl.format(date.toDate());
+}
+
+// `formatRange` drops what the two ends share ('Jan 15 - 17'), which is the whole reason the
+// readout uses it. It throws on a range that runs backwards - reachable by resizing an end
+// past its own start - so that case falls back to printing both ends.
+function rangeFormatterFor(
+  intl: Intl.DateTimeFormat
+): (start: Dayjs, end: Dayjs) => string {
+  return (start, end) => {
+    try {
+      return intl.formatRange(start.toDate(), end.toDate());
+    } catch {
+      return joinRange(intl.format(start.toDate()), intl.format(end.toDate()));
+    }
+  };
+}
+
+function joinRange(start: string, end: string): string {
+  return start === end ? start : `${start}${RANGE_SEPARATOR}${end}`;
 }
 
 // Intl has no quarter field: the number goes first for a year ending in a digit, last otherwise
@@ -102,7 +134,21 @@ export function resolveFormatters(
     ? localeFormatters(options.locale, scale, headerScale)
     : null;
 
+  // The readout's range follows `tooltip` down the same three layers: an override formats
+  // both ends, a locale merges them through `formatRange`, and the built-ins join two
+  // compact labels.
+  const overrideTooltip = override?.tooltip;
+  const range: GanttFormatters['range'] = overrideTooltip
+    ? (start, end) => joinRange(overrideTooltip(start), overrideTooltip(end))
+    : (intl?.range ??
+      ((start, end) =>
+        joinRange(
+          start.format(RANGE_FORMATS[scale]),
+          end.format(RANGE_FORMATS[scale])
+        )));
+
   return {
+    range,
     tick:
       override?.tick ??
       intl?.tick ??
@@ -133,6 +179,12 @@ function localeFormatters(
           ? quarterHeaderFor(locale)
           : formatterFor(locale, HEADER_OPTIONS[headerScale]),
       tooltip: formatterFor(locale, TOOLTIP_OPTIONS[scale]),
+      range: rangeFormatterFor(
+        new Intl.DateTimeFormat(locale, {
+          timeZone: 'UTC',
+          ...RANGE_OPTIONS[scale],
+        })
+      ),
     };
   } catch {
     if (!warnedLocales.has(locale)) {
