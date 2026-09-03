@@ -54,8 +54,8 @@ const TOOLTIP_OPTIONS: Record<GanttScaleKey, Intl.DateTimeFormatOptions> = {
   year: UTC_MONTH,
 };
 
-// Header drag readout - one span. Mirrors RANGE_FORMATS: the year goes where the row above
-// the readout already shows it, and stays where a span can cross a year boundary.
+// Header drag readout - one end of the dragged span. Mirrors RANGE_FORMATS: the year goes
+// where the row above the readout already shows it, and stays where a span can cross a year.
 const RANGE_OPTIONS: Record<GanttScaleKey, Intl.DateTimeFormatOptions> = {
   day: { month: 'short', day: 'numeric', ...CLOCK, timeZoneName: 'short' },
   week: { month: 'short', day: 'numeric' },
@@ -134,20 +134,24 @@ export function resolveFormatters(
     ? localeFormatters(options.locale, scale, headerScale)
     : null;
 
-  // The readout's range follows `tooltip` down the same three layers: an override formats
-  // both ends, a locale merges them through `formatRange`, and the built-ins join two
-  // compact labels.
+  // The readout labels each end on its own, so `edge` is the primitive and `range` is two
+  // edges joined. Both follow `tooltip` down the same three layers: an override formats an
+  // end, a locale runs it through Intl, and the built-ins use the compact per-scale string.
   const overrideTooltip = override?.tooltip;
-  const range: GanttFormatters['range'] = overrideTooltip
-    ? (start, end) => joinRange(overrideTooltip(start), overrideTooltip(end))
-    : (intl?.range ??
-      ((start, end) =>
-        joinRange(
-          start.format(RANGE_FORMATS[scale]),
-          end.format(RANGE_FORMATS[scale])
-        )));
+  const edge: GanttFormatters['edge'] =
+    overrideTooltip ??
+    intl?.edge ??
+    ((date) => date.format(RANGE_FORMATS[scale]));
+
+  // A locale merges what the two ends share ('Jan 15 - 17'); the other two layers can only
+  // join what `edge` produced, collapsing to one label when both ends read alike.
+  const range: GanttFormatters['range'] =
+    !overrideTooltip && intl?.range
+      ? intl.range
+      : (start, end) => joinRange(edge(start), edge(end));
 
   return {
+    edge,
     range,
     tick:
       override?.tick ??
@@ -179,6 +183,7 @@ function localeFormatters(
           ? quarterHeaderFor(locale)
           : formatterFor(locale, HEADER_OPTIONS[headerScale]),
       tooltip: formatterFor(locale, TOOLTIP_OPTIONS[scale]),
+      edge: formatterFor(locale, RANGE_OPTIONS[scale]),
       range: rangeFormatterFor(
         new Intl.DateTimeFormat(locale, {
           timeZone: 'UTC',

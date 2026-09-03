@@ -238,3 +238,46 @@ describe('range formatter', () => {
     );
   });
 });
+
+// The readout writes one end at a time, so `edge` is what it actually calls; `range` only steps
+// in for a span whose two ends read alike. Both must follow the same three layers.
+describe('edge formatter', () => {
+  const start = dayjs('2026-01-15T09:00:00Z');
+  const end = dayjs('2026-01-17T17:00:00Z');
+
+  it('prints one end at the readout precision, with no year', () => {
+    const { edge } = resolveFormatters('month');
+    expect(edge(start)).toBe('Jan 15');
+    expect(edge(end)).toBe('Jan 17');
+  });
+
+  it('keeps the year where a span can cross one', () => {
+    expect(resolveFormatters('quarter').edge(start)).toBe('Jan 2026');
+  });
+
+  it('spells the clock out at the scale whose ticks are hours', () => {
+    expect(resolveFormatters('day').edge(start)).toBe('Jan 15, 09:00 UTC');
+  });
+
+  it('goes through the locale when one is set', () => {
+    expect(resolveFormatters('month', { locale: 'ko-KR' }).edge(start)).toBe(
+      '1월 15일',
+    );
+  });
+
+  it('is the tooltip override when one is given, the same function range uses', () => {
+    const options = {
+      locale: 'ko-KR',
+      formats: { month: { tooltip: (date: typeof start) => date.format('YY/MM/DD') } },
+    };
+    expect(resolveFormatters('month', options).edge(start)).toBe('26/01/15');
+    expect(resolveFormatters('month', options).range(start, end)).toBe(
+      '26/01/15 – 26/01/17',
+    );
+  });
+
+  it('is what range collapses to when both ends read alike', () => {
+    const { edge, range } = resolveFormatters('month');
+    expect(range(start, start)).toBe(edge(start));
+  });
+});

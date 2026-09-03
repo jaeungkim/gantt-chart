@@ -237,6 +237,7 @@ export function useGanttBarDrag(
     };
 
     storeApi.getState().setCurrentTask(task);
+    storeApi.getState().setDragMode(mode);
     // A touch press does not focus the bar; without this the keyboard loses it after a touch drag
     element.focus({ preventScroll: true });
     try {
@@ -481,6 +482,7 @@ export function useGanttBarDrag(
       dragContextRef.current = null;
       dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);
+      storeApi.getState().setDragMode(null);
       storeApi.getState().clearDragOffsets(ctx.taskIds);
     };
 
@@ -553,6 +555,7 @@ export function useGanttBarDrag(
       dragContextRef.current = null;
       dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);
+      storeApi.getState().setDragMode(null);
 
       const edited = new Map(
         draggedTasks.filter((t) => movedIds.has(t.id)).map((t) => [t.id, t])

@@ -6,24 +6,35 @@ const css = readFileSync("src/styles.css", "utf8");
 const guides = readFileSync("src/bars/components/GanttDragGuides.tsx", "utf8");
 const gantt = readFileSync("src/Gantt.tsx", "utf8");
 
-function declaration(selector: string, property: string): string {
+function block(selector: string): string {
   const start = css.indexOf(`${selector} {`);
   expect(start, `${selector} not found in styles.css`).toBeGreaterThan(-1);
-  const block = css.slice(start, css.indexOf("}", start));
-  const match = block.match(new RegExp(`(?:^|[;{]\\s*)${property}:\\s*([^;]+)`, "m"));
+  return css.slice(start, css.indexOf("}", start));
+}
+
+function declaration(selector: string, property: string): string {
+  const match = block(selector).match(
+    new RegExp(`(?:^|[;{]\\s*)${property}:\\s*([^;]+)`, "m")
+  );
   expect(match, `${property} not found in ${selector}`).not.toBeNull();
   return match![1].trim();
 }
 
 describe("drag readout geometry", () => {
-  it("starts the band exactly below the top header row", () => {
+  it("starts the span exactly below the top header row", () => {
     expect(declaration(".gantt-drag-range", "top")).toBe(
       declaration(".gantt-top-header", "height")
     );
   });
 
-  it("makes the band exactly as tall as the tick row", () => {
+  it("makes the span exactly as tall as the tick row", () => {
     expect(declaration(".gantt-drag-range", "height")).toBe(
+      declaration(".gantt-bottom-row", "height")
+    );
+  });
+
+  it("fills the tick row's height with a label, so it occludes cleanly", () => {
+    expect(declaration(".gantt-drag-edge", "line-height")).toBe(
       declaration(".gantt-bottom-row", "height")
     );
   });
@@ -32,13 +43,11 @@ describe("drag readout geometry", () => {
 describe("drag readout replaces the guide lines", () => {
   it("draws no full-height guide rule any more", () => {
     expect(css).not.toContain(".gantt-drag-guide {");
-    expect(guides).not.toContain("gantt-drag-guide\"");
+    expect(guides).not.toContain('gantt-drag-guide"');
   });
 
   it("needs no stacking rung, because it rides the header wrapper's", () => {
-    const start = css.indexOf(".gantt-drag-guides {");
-    expect(start).toBeGreaterThan(-1);
-    expect(css.slice(start, css.indexOf("}", start))).not.toContain("z-index");
+    expect(block(".gantt-drag-guides")).not.toContain("z-index");
   });
 
   it("mounts inside the header wrapper, not over the grid", () => {
@@ -49,48 +58,80 @@ describe("drag readout replaces the guide lines", () => {
     // ...and before the content layer starts, i.e. still inside the header wrapper
     expect(mount).toBeLessThan(gantt.indexOf("gantt-content", wrapper));
   });
+});
 
-  it("reports one range, not one label per edge", () => {
-    expect(guides).toContain("gantt-drag-range");
-    expect(guides.match(/gantt-drag-guide-label/g)).toHaveLength(1);
+describe("drag readout is the tick row, not a panel on it", () => {
+  it("draws no band, ring, shadow or accent behind the span", () => {
+    const range = block(".gantt-drag-range");
+    expect(range).not.toContain("background");
+    expect(range).not.toContain("box-shadow");
+    expect(range).not.toContain("border");
+  });
+
+  it("gives a label the tick row's own surface, so it blanks only what it covers", () => {
+    expect(declaration(".gantt-drag-edge", "background")).toBe(
+      declaration(".gantt-bottom-row", "background")
+    );
+    expect(block(".gantt-drag-edge")).not.toContain("box-shadow");
+    expect(block(".gantt-drag-edge")).not.toContain("border-radius");
+  });
+
+  it("types a label exactly like the tick beside it", () => {
+    for (const property of ["font-size", "font-weight", "letter-spacing"]) {
+      expect(declaration(".gantt-drag-edge", property)).toBe(
+        declaration(".gantt-bottom-cell", property)
+      );
+    }
+  });
+
+  it("never lifts a label into the month row - the span grows instead", () => {
+    expect(css).not.toContain(".gantt-drag-guide-label");
+    expect(declaration(".gantt-drag-range", "min-width")).toBe("max-content");
+    // No lift means nothing to measure, so the component keeps no ref and runs no layout effect
+    expect(guides).not.toContain("useRef");
+    expect(guides).not.toContain("useLayoutEffect");
   });
 });
 
-describe("drag readout belongs to the axis, not on top of it", () => {
-  function block(selector: string): string {
-    const start = css.indexOf(`${selector} {`);
-    expect(start, `${selector} not found in styles.css`).toBeGreaterThan(-1);
-    return css.slice(start, css.indexOf("}", start));
-  }
-
-  it("gives the label no shadow, ring or accent edge to float on", () => {
-    expect(block(".gantt-drag-guide-label")).not.toContain("box-shadow");
-    expect(block(".gantt-drag-guide-label")).not.toContain("border-inline-start");
+describe("drag readout reports the edge the gesture moves", () => {
+  it("labels each end on its own, not one merged string", () => {
+    expect(guides).toContain("edge(offset.offsetStartDate)");
+    expect(guides).toContain("edge(offset.offsetEndDate)");
   });
 
-  it("paints the band and its label as one surface", () => {
-    expect(declaration(".gantt-drag-range", "background")).toBe(
-      declaration(".gantt-drag-guide-label", "background")
+  it("writes both ends for a move and only the dragged one for a resize", () => {
+    expect(guides).toContain('dragMode === "left"');
+    expect(guides).toContain('dragMode === "right"');
+    // the move branch is the one that lists both sides
+    expect(guides).toMatch(/side: "start".*\n?.*side: "end"/s);
+  });
+
+  it("collapses to one merged label when both ends read alike", () => {
+    expect(guides).toContain("startLabel === endLabel");
+    expect(guides).toContain('side: "start end"');
+  });
+
+  // A span is routinely wider than the scrollport - day scale draws 288px per calendar day - so
+  // an unpinned label would sit off-screen for the whole gesture
+  it("pins each label to the side it reports", () => {
+    expect(declaration(".gantt-drag-edge.start", "position")).toBe("sticky");
+    expect(declaration(".gantt-drag-edge.start", "left")).toMatch(
+      /var\(--gantt-pane-inset/
     );
+    expect(declaration(".gantt-drag-edge.end", "position")).toBe("sticky");
+    expect(declaration(".gantt-drag-edge.end", "right")).toBe("0");
   });
 
-  it("lifts the label out of a band too narrow to hold it", () => {
-    expect(css).toContain(".gantt-drag-guide-label.lifted {");
-    expect(block(".gantt-drag-guide-label.lifted")).toContain("transform");
-  });
-
-  // The label rests at the band's CENTRE, and a band is routinely wider than the scrollport, so
-  // a left-only sticky parks it off the right of the timeline for the whole gesture
-  it("pins the label to both edges of the scrollport, not just the left one", () => {
-    const label = block(".gantt-drag-guide-label");
-    expect(label).toContain("position: sticky");
-    expect(label).toMatch(/left:\s*var\(--gantt-pane-inset/);
-    expect(label).toMatch(/right:\s*0/);
-  });
-
-  // A px breakpoint would be wrong in any language whose dates are longer than English's
-  it("decides the lift from a measured label, not a fixed width", () => {
-    expect(guides).toContain("offsetWidth");
-    expect(guides).toContain("labelWidth > width");
+  // Two labels pinned to opposite sides of the same box slide into each other once the visible
+  // slice of the span is narrower than they are; a half per label is what stops that
+  it("bounds each label's travel to its own half of the span", () => {
+    expect(guides).toContain("gantt-drag-side");
+    expect(declaration(".gantt-drag-side", "min-width")).toBe("max-content");
+    expect(declaration(".gantt-drag-side.start", "justify-content")).toBe(
+      "flex-start"
+    );
+    expect(declaration(".gantt-drag-side.end", "justify-content")).toBe(
+      "flex-end"
+    );
   });
 });

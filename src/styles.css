@@ -460,57 +460,78 @@
   stroke-linecap: round;
 }
 
-/* The band on the tick row IS the readout - it stands in for the numerals under the dragged
-   range and carries the dates itself. Lives inside .gantt-header-wrapper: already sticky (so
-   it is the containing block) and already totalWidth wide (so `left` is in a bar's barLeft
-   space), and it rides the wrapper's z-index 30. */
+/* The tick row IS the readout - it says what the dragged edge lands on for the length of one
+   gesture, then goes back to numerals. Lives inside .gantt-header-wrapper: already sticky (so it
+   is the containing block) and already totalWidth wide (so `left` is in a bar's barLeft space),
+   and it rides the wrapper's z-index 30. */
 .gantt-drag-guides {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
 
-/* 44px is .gantt-top-header's height and 28px .gantt-bottom-row's; GanttDragGuides.test.ts guards it */
+/* Spans the dragged range across the tick row and paints nothing: it exists to put a label at the
+   edge it reports. 44px is .gantt-top-header's height and 28px .gantt-bottom-row's - the tests
+   guard both. min-width keeps two labels legible on a span narrower than they are, which is why
+   there is no lift into the month row any more. */
 .gantt-drag-range {
-  /* Opaque rather than a wash: the band stands IN for the tick numerals it covers instead of
-     tinting them, so no date is ever read through it. The label inherits this custom
-     property, so it is the same surface whether it sits in the band or has lifted out. */
-  --gantt-drag-band: color-mix(in srgb, var(--gantt-accent) 14%, var(--gantt-muted));
   position: absolute;
   top: 44px;
   height: 28px;
+  min-width: max-content;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  background: var(--gantt-drag-band);
+  gap: 12px;
 }
 
-.gantt-drag-guide-label {
-  /* Sticky, not absolute, and offset by the pinned pane: `left` is content space, so an
-     absolute label slid under the task list. BOTH edges are pinned - the label rests at the
-     band's centre and a band is routinely wider than the scrollport (288px per day at day
-     scale), and a left-only sticky can only shift rightwards. */
-  position: sticky;
-  left: var(--gantt-pane-inset, 0px);
-  right: 0;
+/* One half of the span per label, and the reason two pinned labels can never overlap: a sticky
+   label is bounded by its own half, so the far end leaves the screen with the edge it reports
+   instead of sliding into its neighbour. Paints nothing itself. */
+.gantt-drag-side {
+  flex: 1 1 auto;
+  min-width: max-content;
+  display: flex;
+}
+
+.gantt-drag-side.start {
+  justify-content: flex-start;
+}
+
+.gantt-drag-side.end {
+  justify-content: flex-end;
+}
+
+/* A merged label stands for both ends, so it takes the whole span and centres */
+.gantt-drag-side.start.end {
+  justify-content: center;
+}
+
+/* The tick row's own type and its own surface: no band, no ring, no shadow, no accent. Painting
+   the row's background means a label blanks exactly the numerals it covers and leaves the rest of
+   the ruler standing, so the date reads as the row being precise rather than a panel on top. */
+.gantt-drag-edge {
   flex: none;
   padding: 0 6px;
-  border-radius: 4px;
-  background: var(--gantt-drag-band);
+  background: var(--gantt-muted);
   color: var(--gantt-foreground);
   font-family: inherit;
   font-size: 11px;
   font-weight: 500;
-  line-height: 20px;
+  line-height: 28px;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
-/* Too narrow to hold its own label: it lifts into the month row above, still centred. The lift
-   is a transform, not `bottom`, so sticky keeps resolving from the in-flow position. Set from
-   a measured label width, not a px breakpoint - see GanttDragGuides.tsx. */
-.gantt-drag-guide-label.lifted {
-  transform: translateY(calc(-100% - 7px));
+/* Each label pins to the side it reports, so a span wider than the viewport - day scale draws
+   288px per calendar day - keeps its date in view for the whole gesture. `left` is content space,
+   so the start offsets by the pinned task list or it slides under the pane. */
+.gantt-drag-edge.start {
+  position: sticky;
+  left: var(--gantt-pane-inset, 0px);
+}
+
+.gantt-drag-edge.end {
+  position: sticky;
+  right: 0;
 }
 
 /* Standard properties first (Chrome 121+, Firefox); browsers without them use the webkit rules */
