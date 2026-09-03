@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-// Nothing at runtime ties .gantt-drag-range's top/height to the header row heights - these assertions do
+// Nothing at runtime ties the readout's top/height to the header row heights - these assertions do
 const css = readFileSync("src/styles.css", "utf8");
 const guides = readFileSync("src/bars/components/GanttDragGuides.tsx", "utf8");
 const gantt = readFileSync("src/Gantt.tsx", "utf8");
@@ -21,31 +21,37 @@ function declaration(selector: string, property: string): string {
 }
 
 describe("drag readout geometry", () => {
-  it("starts the span exactly below the top header row", () => {
-    expect(declaration(".gantt-drag-range", "top")).toBe(
+  it("lines the written cell up with the tick row it stands in for", () => {
+    expect(declaration(".gantt-drag-cell", "top")).toBe(
       declaration(".gantt-top-header", "height")
     );
-  });
-
-  it("makes the span exactly as tall as the tick row", () => {
-    expect(declaration(".gantt-drag-range", "height")).toBe(
+    expect(declaration(".gantt-drag-cell", "height")).toBe(
       declaration(".gantt-bottom-row", "height")
     );
   });
 
-  it("fills the tick row's height with a label, so it occludes cleanly", () => {
-    expect(declaration(".gantt-drag-edge", "line-height")).toBe(
+  it("fills the tick row's height with the date, so it occludes cleanly", () => {
+    expect(declaration(".gantt-drag-cell > span", "line-height")).toBe(
       declaration(".gantt-bottom-row", "height")
+    );
+  });
+
+  it("centres the footprint in the tick row", () => {
+    const rowTop = parseInt(declaration(".gantt-top-header", "height"), 10);
+    const rowHeight = parseInt(declaration(".gantt-bottom-row", "height"), 10);
+    const top = parseInt(declaration(".gantt-drag-footprint", "top"), 10);
+    const height = parseInt(declaration(".gantt-drag-footprint", "height"), 10);
+    expect(top - rowTop).toBe((rowHeight - height) / 2);
+  });
+
+  it("gives the footprint the bar's own radius, so it reads as the bar's shadow", () => {
+    expect(declaration(".gantt-drag-footprint", "border-radius")).toBe(
+      declaration(".gantt-task-bar", "border-radius")
     );
   });
 });
 
-describe("drag readout replaces the guide lines", () => {
-  it("draws no full-height guide rule any more", () => {
-    expect(css).not.toContain(".gantt-drag-guide {");
-    expect(guides).not.toContain('gantt-drag-guide"');
-  });
-
+describe("drag readout mounts in the header", () => {
   it("needs no stacking rung, because it rides the header wrapper's", () => {
     expect(block(".gantt-drag-guides")).not.toContain("z-index");
   });
@@ -60,40 +66,67 @@ describe("drag readout replaces the guide lines", () => {
   });
 });
 
-describe("drag readout is the tick row, not a panel on it", () => {
-  it("draws no band, ring, shadow or accent behind the span", () => {
-    const range = block(".gantt-drag-range");
-    expect(range).not.toContain("background");
-    expect(range).not.toContain("box-shadow");
-    expect(range).not.toContain("border");
-  });
-
-  it("gives a label the tick row's own surface, so it blanks only what it covers", () => {
-    expect(declaration(".gantt-drag-edge", "background")).toBe(
+describe("drag readout is the tick row being precise, not a panel on it", () => {
+  it("gives the written cell the tick row's own surface, so only its numeral steps aside", () => {
+    expect(declaration(".gantt-drag-cell", "background")).toBe(
       declaration(".gantt-bottom-row", "background")
     );
-    expect(block(".gantt-drag-edge")).not.toContain("box-shadow");
-    expect(block(".gantt-drag-edge")).not.toContain("border-radius");
+    expect(declaration(".gantt-drag-cell > span", "background")).toBe(
+      declaration(".gantt-bottom-row", "background")
+    );
+    for (const selector of [".gantt-drag-cell", ".gantt-drag-cell > span"]) {
+      expect(block(selector)).not.toContain("box-shadow");
+      expect(block(selector)).not.toContain("border");
+    }
   });
 
-  it("types a label exactly like the tick beside it", () => {
+  it("centres the date in its cell, exactly like the tick it replaces", () => {
+    expect(declaration(".gantt-drag-cell", "justify-content")).toBe(
+      declaration(".gantt-bottom-cell", "justify-content")
+    );
     for (const property of ["font-size", "font-weight", "letter-spacing"]) {
-      expect(declaration(".gantt-drag-edge", property)).toBe(
+      expect(declaration(".gantt-drag-cell > span", property)).toBe(
         declaration(".gantt-bottom-cell", property)
       );
     }
   });
 
-  it("never lifts a label into the month row - the span grows instead", () => {
-    expect(css).not.toContain(".gantt-drag-guide-label");
-    expect(declaration(".gantt-drag-range", "min-width")).toBe("max-content");
-    // No lift means nothing to measure, so the component keeps no ref and runs no layout effect
+  // The footprint is the one shape on the axis: a tint of the foreground, no edge, no accent
+  it("tints the footprint from the foreground and draws no edge around it", () => {
+    const background = declaration(".gantt-drag-footprint", "background");
+    expect(background).toContain("color-mix(");
+    expect(background).toContain("var(--gantt-foreground)");
+    const footprint = block(".gantt-drag-footprint");
+    expect(footprint).not.toContain("border:");
+    expect(footprint).not.toContain("box-shadow");
+    expect(footprint).not.toContain("--gantt-accent");
+  });
+
+  it("leaves no mask, floating label or band token behind", () => {
+    for (const selector of [
+      ".gantt-drag-mask",
+      ".gantt-drag-range",
+      ".gantt-drag-edge",
+      ".gantt-drag-side",
+      ".gantt-drag-guide {",
+    ]) {
+      expect(css).not.toContain(selector);
+    }
+    expect(css).not.toContain("--gantt-drag-band");
+    // Cell-anchored, so nothing pins and nothing is measured
+    expect(block(".gantt-drag-cell")).not.toContain("sticky");
     expect(guides).not.toContain("useRef");
     expect(guides).not.toContain("useLayoutEffect");
   });
 });
 
-describe("drag readout reports the edge the gesture moves", () => {
+describe("drag readout writes the cell the moving edge lands in", () => {
+  it("finds each edge's cell off the cells' own widths", () => {
+    expect(guides).toContain("tickBoundaries(bottomRowCells)");
+    expect(guides).toContain("tickCellAt(boundaries, startX)");
+    expect(guides).toContain("tickCellAt(boundaries, endX)");
+  });
+
   it("labels each end on its own, not one merged string", () => {
     expect(guides).toContain("edge(offset.offsetStartDate)");
     expect(guides).toContain("edge(offset.offsetEndDate)");
@@ -102,70 +135,18 @@ describe("drag readout reports the edge the gesture moves", () => {
   it("writes both ends for a move and only the dragged one for a resize", () => {
     expect(guides).toContain('dragMode === "left"');
     expect(guides).toContain('dragMode === "right"');
-    // the move branch is the one that lists both sides
-    expect(guides).toMatch(/side: "start".*\n?.*side: "end"/s);
   });
 
-  it("collapses to one merged label when both ends read alike", () => {
-    expect(guides).toContain("startLabel === endLabel");
-    expect(guides).toContain('side: "start end"');
-  });
-
-  // A span is routinely wider than the scrollport - day scale draws 288px per calendar day - so
-  // an unpinned label would sit off-screen for the whole gesture
-  it("pins each label to the side it reports", () => {
-    expect(declaration(".gantt-drag-edge.start", "position")).toBe("sticky");
-    expect(declaration(".gantt-drag-edge.start", "left")).toMatch(
-      /var\(--gantt-pane-inset/
-    );
-    expect(declaration(".gantt-drag-edge.end", "position")).toBe("sticky");
-    expect(declaration(".gantt-drag-edge.end", "right")).toBe("0");
-  });
-
-  // Two labels pinned to opposite sides of the same box slide into each other once the visible
-  // slice of the span is narrower than they are; a half per label is what stops that
-  it("bounds each label's travel to its own half of the span", () => {
-    expect(guides).toContain("gantt-drag-side");
-    expect(declaration(".gantt-drag-side", "min-width")).toBe("max-content");
-    expect(declaration(".gantt-drag-side.start", "justify-content")).toBe(
-      "flex-start"
-    );
-    expect(declaration(".gantt-drag-side.end", "justify-content")).toBe(
-      "flex-end"
-    );
-  });
-});
-
-// A tick numeral is centred in its cell, so a mask edge landing anywhere inside a cell clips that
-// numeral mid-glyph. Snapping the mask out to whole cells is what keeps the ruler readable.
-describe("drag readout never slices a tick numeral", () => {
-  it("masks the covered numerals with the tick row's own colour, not a tint", () => {
-    expect(declaration(".gantt-drag-mask", "background")).toBe(
-      declaration(".gantt-bottom-row", "background")
-    );
-    const mask = block(".gantt-drag-mask");
-    expect(mask).not.toContain("border");
-    expect(mask).not.toContain("box-shadow");
-    expect(mask).not.toContain("opacity");
-  });
-
-  it("lines the mask up with the tick row it stands in for", () => {
-    expect(declaration(".gantt-drag-mask", "top")).toBe(
-      declaration(".gantt-top-header", "height")
-    );
-    expect(declaration(".gantt-drag-mask", "height")).toBe(
-      declaration(".gantt-bottom-row", "height")
+  it("writes one range label when both ends land in the same cell", () => {
+    expect(guides).toContain("startCell.index === endCell.index");
+    expect(guides).toContain(
+      "range(offset.offsetStartDate, offset.offsetEndDate)"
     );
   });
 
-  it("snaps the mask out to whole cells, off the cells' own widths", () => {
-    expect(guides).toContain("snapDown(boundaries, startX)");
-    expect(guides).toContain("snapUp(boundaries, endX)");
-    expect(guides).toContain("tickBoundaries(bottomRowCells)");
-  });
-
-  // The band token was the last thing painting a colour of its own on the axis
-  it("leaves no band token behind for a container override to reach", () => {
-    expect(css).not.toContain("--gantt-drag-band");
+  it("paints the footprint after the cells, so it reaches the bar's pixel edge", () => {
+    expect(guides.indexOf("gantt-drag-footprint")).toBeGreaterThan(
+      guides.indexOf("gantt-drag-cell")
+    );
   });
 });

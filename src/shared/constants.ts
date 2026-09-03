@@ -49,10 +49,12 @@ export const DATE_FORMATS: Record<GanttScaleKey, string> = {
   year: 'MMM YYYY',
 };
 
-// The readout prints one end of the dragged span. Day, week and month drop the year - the top
-// header row above it already spells it out. Quarter and year keep it: those spans cross a year.
+// The readout prints one end of the dragged span in the tick cell it lands in. Day, week and
+// month drop the year - the top header row above it already spells it out. Quarter and year keep
+// it: those spans cross a year. Day drops the date too: its header row is the date and its ticks
+// are hours, so the readout is the clock.
 export const RANGE_FORMATS: Record<GanttScaleKey, string> = {
-  day: 'MMM D, HH:mm [UTC]',
+  day: 'HH:mm [UTC]',
   week: 'MMM D',
   month: 'MMM D',
   quarter: 'MMM YYYY',
