@@ -14,7 +14,7 @@ export default defineConfig({
     }),
   ],
   build: {
-    copyPublicDir: false, // public/ holds README artwork only; keep it out of dist/ and the npm tarball
+    copyPublicDir: false, // public/ holds README artwork only
     lib: {
       entry: 'src/index.ts',
       name: '@jaeungkim/gantt-chart',

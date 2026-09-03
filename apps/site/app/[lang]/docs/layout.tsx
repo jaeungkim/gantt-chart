@@ -15,8 +15,7 @@ export default async function Layout({
   const { lang } = await params;
   const options = baseOptions(lang);
 
-  // HomeLayout wraps the docs too, so the navbar never changes shape between landing and docs; the
-  // docs header slot keeps the one control it cannot carry - the small-screen page-tree trigger.
+  // HomeLayout wraps docs too so the navbar keeps one shape; the header slot adds the mobile nav.
   // ponytail: HomeLayout brings its own <main>, so docs pages now nest two of them (the landing
   // page already did); replace the docs container slot if an a11y audit ever flags the landmark.
   return (

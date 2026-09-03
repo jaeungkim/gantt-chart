@@ -7,7 +7,7 @@ import { buildTaskTree, getVisibleTasks } from "core/tree";
 interface UseGanttRowModelParams {
   /** Raw data - the parentId tree is built from it */
   rawTasks: Task[];
-  /** The positioned rows to lay out - CPM metrics included */
+  /** The positioned rows to lay out */
   tasks: TaskTransformed[];
   hierarchy: boolean;
   collapsedIds: ReadonlySet<string>;

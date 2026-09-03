@@ -174,7 +174,7 @@ export function resolveTaskInteraction(
 **export되지 않아요**. 필드 이름이 소스와 이 표에 나오기 때문에 여기 옮겨 적었어요.
 
 ```ts title="src/shared/task.ts"
-export interface ResolvedTaskInteraction {
+interface ResolvedTaskInteraction {
   canMove: boolean;
   canResize: boolean;
   canChangeProgress: boolean;

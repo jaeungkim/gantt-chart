@@ -86,17 +86,13 @@ export function PlaygroundView() {
   const logId = useRef(0);
   useEffect(() => writeSettings(settings), [settings]);
 
-  // Ours, not the browser's. requestFullscreen took over the whole screen, hid the navbar and
-  // left Esc as the only way out - on a page whose point is that you can keep reading around it.
-  // This just pins the root over the viewport, so the exit control stays visible and Esc is a
-  // convenience rather than the escape hatch.
+  // An overlay pinned over the viewport, not requestFullscreen, so the exit control stays visible.
   useEffect(() => {
     if (!fullscreen) return;
     const close = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setFullscreen(false);
     };
     document.addEventListener('keydown', close);
-    // The page behind must not scroll while the overlay is up.
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
@@ -141,15 +137,13 @@ export function PlaygroundView() {
 
   const first = tasks.find((task) => task.parentId !== null) ?? tasks[0];
 
-  // `scrollToToday()` silently no-ops when today is off the rendered range, so the button is
-  // disabled with a reason. Both sides must stay UTC `YYYY-MM-DD` for the string compare to hold.
+  // `scrollToToday()` no-ops off-range; both sides stay UTC `YYYY-MM-DD` so the string compare holds.
   const [rangeStart, rangeEnd] = range.split(' .. ');
   const today = new Date().toISOString().slice(0, 10);
   const todayInRange = Boolean(rangeEnd) && rangeStart <= today && today <= rangeEnd;
 
   return (
-    // 3.5rem is HomeLayout's `h-14` navbar. Fullscreen drops the navbar allowance and lifts the
-    // root over it - z-50 clears Fumadocs' sticky nav, which sits at z-40.
+    // 3.5rem is HomeLayout's `h-14` navbar; z-50 clears Fumadocs' sticky nav, which sits at z-40.
     <div
       className={
         fullscreen
@@ -174,7 +168,7 @@ export function PlaygroundView() {
           onDependencyDelete={(change) => push('onDependencyDelete', change)}
           onTaskCreate={(draft) => {
             push('onTaskCreate', draft);
-            // The chart adds nothing itself - the host decides, here by appending a row
+            // The chart adds nothing itself - the host appends the row.
             setTasks((current) => [
               ...current,
               {

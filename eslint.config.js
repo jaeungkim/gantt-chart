@@ -6,8 +6,7 @@ import tseslint from "typescript-eslint";
 import react from "eslint-plugin-react";
 
 export default tseslint.config(
-  // Build output only. `eslint .` walks the whole workspace, so anything generated has to
-  // be listed here or it gets linted: apps/site emits .next/ and the fumadocs .source/.
+  // `eslint .` walks the whole workspace, so anything generated has to be listed here.
   { ignores: ["dist", "**/dist/**", "**/.next/**", "**/.source/**"] },
   {
     files: ["**/*.{ts,tsx,js,jsx}"],
@@ -35,53 +34,38 @@ export default tseslint.config(
       },
     },
     rules: {
-      // Base JavaScript rules
       ...js.configs.recommended.rules,
-
-      // TypeScript rules
       ...tseslint.configs.recommended.rules,
-
-      // React Hooks rules
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },
       ],
 
-      // Essential React rules
       "react/react-in-jsx-scope": "off", // Not needed with React 17+
       "react/prop-types": "off", // Using TypeScript instead
       "react/display-name": "off", // React.memo, React.forwardRef
-      "react-hooks/exhaustive-deps": "warn", // Warn instead of error for better DX
-      // v7 compiler rule flags pre-existing latest-ref patterns in drag hooks;
-      // keep as warning until those are refactored
+      "react-hooks/exhaustive-deps": "warn",
+      // v7 flags pre-existing latest-ref patterns in the drag hooks; warn until refactored.
       "react-hooks/refs": "warn",
 
-      // General rules
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
       "no-unused-vars": "off", // Let TypeScript handle this
       "no-undef": "off", // Let TypeScript handle this
     },
   },
   {
-    // The package barrel deliberately re-exports the headless core's functions alongside
-    // the component, so the fast-refresh "components only" rule does not apply to it.
+    // The barrel re-exports the core's functions alongside the component.
     files: ["src/index.ts"],
     rules: { "react-refresh/only-export-components": "off" },
   },
   {
-    // Next.js route files export generateStaticParams/generateMetadata alongside the page
-    // component by design; fast refresh does not apply to them.
+    // Route files export generateStaticParams/generateMetadata alongside the page component.
     files: ["apps/site/app/**/*.tsx"],
     rules: { "react-refresh/only-export-components": "off" },
   },
   {
-    // ===== Headless core boundary =====
-    // src/core/ has to stay runnable in Node and publishable on its own, so nothing in it
-    // may reach for React, the store, a component, or anything that thinks in pixels.
-    // Catching that here is cheaper than discovering it the day the core ships separately.
-    // Every other src/ folder is a render-side domain, so the list below is simply all of
-    // them - add a new domain folder here the day you create one.
+    // src/core must stay Node-runnable; the list below is every other src/ folder - add new ones.
     files: ["src/core/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
@@ -106,8 +90,7 @@ export default tseslint.config(
                   "task-list",
                   "interaction",
                   "detail",
-                  // `**` not `*`: a domain nests components/, hooks/ and utils/ inside it,
-                  // so `shared/*` alone would miss `shared/utils/i18n`.
+                  // `**` not `*`: domains nest subfolders, so `shared/*` misses `shared/utils/i18n`.
                 ].flatMap((domain) => [`${domain}/**`, `**/${domain}/**`]),
               ],
               message:

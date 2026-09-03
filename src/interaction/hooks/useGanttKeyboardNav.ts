@@ -39,7 +39,6 @@ interface UseGanttKeyboardNavParams {
   onActivate?: (taskId: string) => void;
   onToggleCollapse: (rowId: string) => void;
   onTasksChange?: (updatedTasks: Task[]) => void;
-  // The one commit path for a move - the row drag uses the same one
   move: GanttTaskMoveApi;
   // Brings a culled row back into view before the focus lands on it
   scrollToRow: (index: number, align?: ScrollAlign) => void;
@@ -48,7 +47,7 @@ interface UseGanttKeyboardNavParams {
   bodyRef: RefObject<HTMLDivElement | null>;
 }
 
-export interface GanttKeyboardNav {
+interface GanttKeyboardNav {
   // The cell that carries the roving tabindex, clamped to the rows that exist
   focus: GanttFocus;
   // Text for the live region - what a keyboard edit just did
@@ -57,7 +56,7 @@ export interface GanttKeyboardNav {
   onFocusCapture: (event: React.FocusEvent<HTMLDivElement>) => void;
 }
 
-// One roving tabindex across both panes; a keyboard edit writes through `setRawTasks`, as a drag does
+// One roving tabindex across both panes; keyboard edits write through `setRawTasks`
 export function useGanttKeyboardNav({
   rows,
   rawTasks,
@@ -142,10 +141,9 @@ export function useGanttKeyboardNav({
       const action = resolveKeyboardAction(event, safeFocus, keyboardRows);
       if (!action) return;
 
-      // Claimed before any work: alt+arrow is the browser's back/forward, and an early exit would navigate away
+      // alt+arrow is the browser's back/forward, so claim it before any early exit
       event.preventDefault();
 
-      // Scale is chart-wide - handled before a row or task is looked up
       if (action.kind === "zoom") {
         const next = stepScale(selectedScale, action.direction);
         if (next !== selectedScale) {
@@ -174,7 +172,6 @@ export function useGanttKeyboardNav({
 
         case "activate":
           if (task) {
-            // Enter is the keyboard's double click: the same row, the same panel
             onActivate?.(task.id);
             setAnnouncement(formatTaskAriaLabel(task, announceDate, null));
           }
@@ -335,7 +332,6 @@ export function useGanttKeyboardNav({
     []
   );
 
-  // Move the DOM focus after a keyboard move
   useEffect(() => {
     if (!focusNonce) return;
 

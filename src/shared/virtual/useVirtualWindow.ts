@@ -8,12 +8,8 @@ export type ScrollAlign = 'start' | 'center' | 'end' | 'auto';
 
 interface UseVirtualWindowParams {
   scrollRef: RefObject<HTMLElement | null>;
-  /** Vertical axis - rows */
   row: VirtualAxis;
-  /** Horizontal axis - time cells */
   col: VirtualAxis;
-  rowOverscan?: number;
-  colOverscan?: number;
 }
 
 interface VirtualWindows {
@@ -22,14 +18,11 @@ interface VirtualWindows {
   scrollToRow: (index: number, align?: ScrollAlign) => void;
 }
 
-// Both axes of one scroll container from one subscription, so header and bars can never
-// disagree. Reads on an animation frame, and only re-renders when the indices move.
+// Both axes from one subscription, so header and bars can never disagree.
 export function useVirtualWindow({
   scrollRef,
   row,
   col,
-  rowOverscan = 5,
-  colOverscan = 5,
 }: UseVirtualWindowParams): VirtualWindows {
   const [windows, setWindows] = useState(() => ({
     row: fullWindow(row.count),
@@ -49,8 +42,8 @@ export function useVirtualWindow({
     lastScroll.current = { top: scrollTop, left: scrollLeft };
 
     const next = {
-      row: windowOf(row, scrollTop, clientHeight, rowOverscan, rowDirection),
-      col: windowOf(col, scrollLeft, clientWidth, colOverscan, colDirection),
+      row: windowOf(row, scrollTop, clientHeight, 5, rowDirection),
+      col: windowOf(col, scrollLeft, clientWidth, 5, colDirection),
     };
 
     setWindows((prev) =>
@@ -58,7 +51,7 @@ export function useVirtualWindow({
         ? prev
         : next,
     );
-  }, [scrollRef, row, col, rowOverscan, colOverscan]);
+  }, [scrollRef, row, col]);
 
   const onScroll = useCallback(() => {
     if (frame.current !== 0) return;
@@ -69,8 +62,7 @@ export function useVirtualWindow({
     });
   }, [sync]);
 
-  // Layout effect: the scroll element only exists after commit, and re-running on an axis
-  // change re-measures without waiting for a scroll that may never come.
+  // Layout effect: the element exists only after commit; an axis change re-measures here.
   useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element) return;

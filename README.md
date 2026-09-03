@@ -16,7 +16,7 @@ you need working-day calendars or task-tree roll-up in a server, worker, or test
 
 ## Highlights
 
-- Virtualized rows, task list columns, hierarchy, grouping, dependency arrows, and a
+- Virtualized rows, hierarchy, grouping, dependency arrows, and a
   today line.
 - Move, resize, and set progress by drag; create and delete dependencies; add a task from the
   button under the task list, from `addTask()` on the ref, or by drawing on empty row space.

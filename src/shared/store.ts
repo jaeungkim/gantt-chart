@@ -9,8 +9,8 @@ import { GanttDropMode, GanttMoveRejection, GanttTaskMove } from "core/reorder";
 import { LinkAnchor, LinkRejection } from "dependencies/utils/link";
 import { createStore } from "zustand";
 
-// Live state of a dependency drag - pointer px is in the timeline content's space (where bars live)
-export interface GanttLinkDraft {
+// Live state of a dependency drag - pointer px is in the timeline content's space
+interface GanttLinkDraft {
   /** Task the drag started on - it becomes the predecessor */
   fromTaskId: string;
   fromAnchor: LinkAnchor;
@@ -24,7 +24,7 @@ export interface GanttLinkDraft {
   rejection: LinkRejection | null;
 }
 
-// Live state of a row drag - the indicator is anchored to a row, not to px, so a reflow cannot strand it
+// Live state of a row drag - the indicator anchors to a row, not px, so a reflow cannot strand it
 export interface GanttReorderDraft {
   /** Row being dragged */
   taskId: string;
@@ -41,15 +41,14 @@ export interface GanttReorderDraft {
 }
 
 /** Identifies one dependency: the successor that owns it and the predecessor it points at */
-export interface GanttDependencyRef {
+interface GanttDependencyRef {
   sourceId: string;
   targetId: string;
 }
 
 export interface GanttState {
   rawTasks: Task[];
-  // Every rendered row's task, flattened, with `order` rewritten to its row number - the link
-  // drag resolves its target from this, so a row culled by virtualization is still a valid drop.
+  // Every rendered row's task, flattened, `order` rewritten to its row number - culled rows included.
   rowTasks: TaskTransformed[];
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
@@ -66,8 +65,7 @@ export interface GanttState {
   selectedDependency: GanttDependencyRef | null;
   /** The selected row, or null - drives the highlight on the bar and on its grid row */
   selectedTaskId: string | null;
-  // The bar the pointer is on - kept in the store because the arrow layer, a sibling of every
-  // bar, is what reads it. Set on contact, not after HOVER_CARD_DELAY_MS.
+  // Bar under the pointer, set on contact - lives in the store because the sibling arrow layer reads it.
   hoveredTaskId: string | null;
 
   setSelectedScale: (scale: GanttScaleKey) => void;
@@ -94,9 +92,7 @@ export interface GanttState {
 
 export type GanttStoreApi = ReturnType<typeof createGanttStore>;
 
-// One store per Gantt instance - a module singleton would make two charts on a page share
-// task, scale and drag state. `initialScale` seeds the scale at construction, so the first
-// paint is already at the scale the host asked for.
+// One store per Gantt instance - a module singleton would make two charts share task and drag state.
 export function createGanttStore(initialScale: GanttScaleKey = "month") {
   return createStore<GanttState>()((set, get) => ({
     rawTasks: [],
@@ -147,8 +143,6 @@ export function createGanttStore(initialScale: GanttScaleKey = "month") {
 
     setRawTasks: (raw) => set({ rawTasks: raw }),
 
-    // The host owns the data, so anything it hands in that the chart does not already have
-    // supersedes what the user did. An echo of what the chart just wrote is not that.
     syncTasksFromProps: (raw) =>
       set((state) =>
         JSON.stringify(state.rawTasks) === JSON.stringify(raw)
@@ -179,8 +173,7 @@ export function createGanttStore(initialScale: GanttScaleKey = "month") {
         return removed ? { dragOffsets: rest } : state;
       }),
 
-    // Keeps an in-progress drag's offset, so a drag started right after a drop is not swept
-    // away by the timeline recomputation
+    // Keeps an in-progress drag's offset, so a drag started right after a drop is not swept away.
     clearAllDragOffsets: () =>
       set((state) => {
         const activeId = state.currentTask?.id;

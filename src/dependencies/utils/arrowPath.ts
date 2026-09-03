@@ -6,7 +6,7 @@ import {
 import { LinkAnchor } from "dependencies/utils/link";
 
 // Live offset of the task being dragged (0 when it is not being dragged)
-export interface DragOffset {
+interface DragOffset {
   offsetX: number;
   offsetWidth: number;
 }
@@ -289,8 +289,7 @@ function anchorX(task: TaskTransformed, offset: DragOffset) {
   };
 }
 
-// Where one end of a bar sits, in content coordinates - the dots, the drag preview and the
-// committed arrow all have to land on the same points
+// Where one end of a bar sits, in content coordinates
 export function anchorPoint(
   task: TaskTransformed,
   anchor: LinkAnchor,
@@ -304,7 +303,6 @@ export function anchorPoint(
   };
 }
 
-// Warn once per unknown type, in development only
 const warnedDepTypes = new Set<string>();
 
 // targetTask is the predecessor, sourceTask the successor; null means an unknown type, arrow skipped
@@ -364,15 +362,13 @@ export function buildTaskIndex(
 // Slack for arrow culling - the elbowed path runs a little past the endpoints (px)
 const ARROW_BLEED = 32;
 
-// Visible area used for arrow culling
 export interface ArrowViewport {
   topPx: number;
   bottomPx: number;
-  // Reuses the column virtualization's bar visibility check
   isBarVisible: (left: number, width: number) => boolean;
 }
 
-// Bounding box of both endpoints, so an arrow crossing the viewport with both ends off-screen still draws
+// Bounding box of both endpoints, so an arrow crossing the viewport with both ends off-screen draws
 export function isArrowVisible(
   dep: Pick<RenderedDependency, "fromX" | "fromY" | "toX" | "toY">,
   viewport: ArrowViewport

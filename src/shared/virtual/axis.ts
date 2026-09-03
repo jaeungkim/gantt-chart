@@ -10,7 +10,6 @@ export interface VirtualAxis {
   indexAt: (px: number) => number;
 }
 
-// Uniform items: no prefix table, O(1) arithmetic.
 export function fixedAxis(count: number, size: number): VirtualAxis {
   const safeSize = Math.max(1, size);
 
@@ -23,7 +22,7 @@ export function fixedAxis(count: number, size: number): VirtualAxis {
   };
 }
 
-// Items of differing sizes: prefix-sum table built per data change, O(log n) exact lookups.
+// Prefix-sum table, rebuilt per data change; O(log n) lookups.
 export function variableAxis(
   count: number,
   sizeAt: (index: number) => number,
@@ -54,7 +53,6 @@ export function variableAxis(
   };
 }
 
-// A number gives a fixed axis, a list of sizes a variable one.
 export function axisOf(
   count: number,
   size: number | ArrayLike<number>,

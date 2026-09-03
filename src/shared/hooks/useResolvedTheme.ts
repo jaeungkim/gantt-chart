@@ -24,11 +24,9 @@ const getSystemTheme = (): 'light' | 'dark' | null => {
   return window.matchMedia(SYSTEM_DARK_QUERY).matches ? 'dark' : 'light';
 };
 
-// The system setting is unknowable during server rendering and the first hydration render
 const getServerSystemTheme = (): 'light' | 'dark' | null => null;
 
-// 'system' stays null through server render and first hydration, then switches to the real
-// setting - no hydration mismatch, and no getting stuck on the wrong theme
+// 'system' stays null until after hydration, then flips to the real setting - no hydration mismatch.
 export function useResolvedTheme(
   theme?: GanttTheme,
   baseClassName = 'gantt-container'

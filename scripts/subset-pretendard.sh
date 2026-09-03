@@ -1,10 +1,6 @@
 #!/bin/sh
 # Regenerate the vendored Pretendard subsets from the upstream variable master.
-#
-# One master, two subsets whose unicode-ranges are exact complements: together they keep the
-# master's full cmap, so nothing is dropped - the glyphs are only partitioned into two
-# requests the browser makes independently. The site is bilingual, so it ships both.
-#
+# Two subsets with complementary unicode-ranges; the site is bilingual and ships both.
 # Requires: curl, and pyftsubset (fontTools) built with brotli - `pip install fonttools[woff]`.
 set -e
 cd "$(dirname "$0")/.."

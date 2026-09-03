@@ -9,7 +9,7 @@ interface UseGanttSelectionParams {
   onTaskClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
 }
 
-export interface GanttSelection {
+interface GanttSelection {
   // Selects a row, or clears the selection with null
   select: (task: TaskTransformed | null) => void;
   onTaskClick: (task: TaskTransformed, event: React.MouseEvent) => void;

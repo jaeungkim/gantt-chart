@@ -13,7 +13,7 @@ import { clampDragDates, clampMoveDelta, shiftByDragSteps } from "timeline/utils
 import { collectSubtreeIds } from "core/tree";
 
 // One `+`/`-` press moves the progress by this many percentage points
-export const PROGRESS_STEP = 5;
+const PROGRESS_STEP = 5;
 
 // Which cell of which row has the roving tabindex
 export interface GanttFocus {
@@ -59,8 +59,7 @@ interface GanttKeyEvent {
 const clamp = (value: number, max: number) =>
   Math.min(Math.max(value, 0), Math.max(max, 0));
 
-// The chart's whole keyboard map, pure so it is testable without a DOM. Null for a key it does not
-// handle, so the event is left alone.
+// The chart's whole keyboard map; null for a key it does not handle, so the event is left alone.
 export function resolveKeyboardAction(
   event: GanttKeyEvent,
   focus: GanttFocus,
@@ -203,8 +202,7 @@ export function formatTaskAriaLabel(
   return parts.join(", ");
 }
 
-// What a keyboard move did, e.g. "Wireframes moved to 2 of 4 under Design phase". `position` is
-// 1-based, the way `aria-posinset` counts.
+// What a keyboard move did; `position` is 1-based, the way `aria-posinset` counts.
 export function formatMovedAnnouncement(
   name: string,
   position: number,
@@ -216,7 +214,7 @@ export function formatMovedAnnouncement(
 }
 
 // ARIA attributes of a treegrid row - spread straight onto the element
-export interface GanttRowAria {
+interface GanttRowAria {
   role: "row";
   "aria-level": number;
   "aria-posinset": number;
@@ -261,9 +259,7 @@ function toDragBounds(
   return { min: min ? dayjs(min) : undefined, max: max ? dayjs(max) : undefined };
 }
 
-// Moves or resizes a task by whole drag steps, enforcing what a drag does: `resolveTaskInteraction`
-// gates it, a summary carries its subtree, each moving task's own min/max clamps the shared delta.
-// Null when nothing may or did change, so the caller fires no change event.
+// Moves or resizes a task by whole drag steps under drag rules; null when nothing may or did change.
 export function nudgeTaskDates(
   rawTasks: Task[],
   target: TaskTransformed,
@@ -382,8 +378,7 @@ export function stepTaskProgress(
   );
 }
 
-// Removes a task and its subtree, hierarchy on or off - orphans would move to the root instead.
-// Null when the task is read-only or is not in the data.
+// Removes a task and its subtree - orphans would move to the root; null when read-only or absent.
 export function deleteTask(
   rawTasks: Task[],
   target: TaskTransformed,

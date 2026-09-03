@@ -5,8 +5,7 @@ import { provider } from '@/lib/i18n';
 import { pretendardKorean, pretendardLatin } from '../fonts/pretendard';
 import { Analytics } from '@vercel/analytics/next';
 
-// Dev-only annotation toolbar. The import must stay in the dead branch of this ternary: a top-level
-// `import` keeps it in the module graph and Turbopack ships the 440 kB toolbar to production.
+// Dev-only: a top-level import would ship the 440 kB toolbar to prod, so it stays in this ternary.
 const Agentation =
   process.env.NODE_ENV === 'development'
     ? dynamic(() => import('agentation').then((m) => m.Agentation))

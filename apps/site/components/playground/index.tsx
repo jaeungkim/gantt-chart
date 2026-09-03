@@ -2,8 +2,7 @@
 
 import dynamic from 'next/dynamic';
 
-// `view.tsx` seeds its state from the query string, which a server render cannot see; `ssr: false`
-// is only legal from a client component, which is why this boundary is its own file.
+// `view.tsx` seeds state from the query string; `ssr: false` is only legal from a client component.
 const PlaygroundView = dynamic(
   () => import('@/components/playground/view').then((m) => m.PlaygroundView),
   {

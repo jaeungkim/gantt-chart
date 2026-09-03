@@ -67,11 +67,7 @@ a calendar built with all three uses only the predicate.
 ## `CALENDAR_DAYS`
 
 ```ts title="src/core/calendar.ts"
-/**
- * The default calendar: every day counts.
- * Date arithmetic through it is plain calendar arithmetic, so it is what keeps the
- * scheduling features behaviour-neutral until a host opts into working days.
- */
+/** The default calendar: every day counts, so arithmetic through it is plain calendar arithmetic. */
 export const CALENDAR_DAYS: WorkingCalendar
 ```
 
@@ -195,8 +191,7 @@ that long.
 `daysBetween` returns `0`, never `-0`, for a backwards span that contains no working day.
 
 `daysUntil` and `daysUpTo` correct the `daysBetween` answer by at most two steps in each direction.
-They are exact for the day-length spans the scheduler produces, not for arbitrary sub-day
-arithmetic.
+They are exact for day-length spans, not for arbitrary sub-day arithmetic.
 
 The calendar carries no notion of hours. A task from `09:00` to `17:00` on one date measures
 `daysBetween` of `0`.

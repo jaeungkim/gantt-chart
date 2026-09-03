@@ -23,7 +23,6 @@ import {
 
 const DAY_MS = 86_400_000;
 
-// month scale: one 32px tick per day
 const ticks = (...days: string[]) =>
   days.map((d) => ({ startDate: dayjs(d), widthPx: 32 }));
 
@@ -117,7 +116,6 @@ describe('accumulateZoom', () => {
     let state = INITIAL_ZOOM_ACCUMULATOR;
     let steps = 0;
 
-    // A trackpad pinch: 20 events, 16ms apart, well over the threshold each
     for (let i = 0; i < 20; i++) {
       const result = accumulateZoom(state, 40, 1000 + i * 16);
       state = result.state;
@@ -144,7 +142,6 @@ describe('accumulateZoom', () => {
     const partial = accumulateZoom(INITIAL_ZOOM_ACCUMULATOR, 20, 1000);
     expect(partial.step).toBe(0);
 
-    // Same delta a second later - a new gesture, so the 20 does not carry over
     const later = accumulateZoom(partial.state, 20, 2000);
     expect(later.step).toBe(0);
     expect(later.state.delta).toBe(20);
@@ -153,26 +150,26 @@ describe('accumulateZoom', () => {
 
 describe('edgeScrollVelocity', () => {
   it('is zero away from the edges', () => {
-    expect(edgeScrollVelocity(500, 0, 1000, 48, 20)).toBe(0);
+    expect(edgeScrollVelocity(500, 0, 1000)).toBe(0);
   });
 
   it('accelerates towards the edge and reverses on the left', () => {
-    const near = edgeScrollVelocity(970, 0, 1000, 48, 20);
-    const nearer = edgeScrollVelocity(990, 0, 1000, 48, 20);
+    const near = edgeScrollVelocity(970, 0, 1000);
+    const nearer = edgeScrollVelocity(990, 0, 1000);
     expect(near).toBeGreaterThan(0);
     expect(nearer).toBeGreaterThan(near);
-    expect(edgeScrollVelocity(30, 0, 1000, 48, 20)).toBeLessThan(0);
+    expect(edgeScrollVelocity(30, 0, 1000)).toBeLessThan(0);
   });
 
-  it('caps at maxSpeed past the edge', () => {
-    expect(edgeScrollVelocity(1200, 0, 1000, 48, 20)).toBe(20);
-    expect(edgeScrollVelocity(-200, 0, 1000, 48, 20)).toBe(-20);
+  it('caps at EDGE_SCROLL_MAX_SPEED past the edge', () => {
+    expect(edgeScrollVelocity(1200, 0, 1000)).toBe(22);
+    expect(edgeScrollVelocity(-200, 0, 1000)).toBe(-22);
   });
 
   it('never lets the two zones cover more than the viewport', () => {
-    // 40px wide with a 48px threshold - the zones stop at half each, so the midpoint is still quiet
-    expect(edgeScrollVelocity(20, 0, 40, 48, 20)).toBe(0);
-    expect(edgeScrollVelocity(0, 0, 0, 48, 20)).toBe(0);
+    // 40px wide against the 48px threshold - each zone stops at half, so the midpoint is quiet
+    expect(edgeScrollVelocity(20, 0, 40)).toBe(0);
+    expect(edgeScrollVelocity(0, 0, 0)).toBe(0);
   });
 });
 

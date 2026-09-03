@@ -10,8 +10,7 @@ interface PointerGestureStart {
   clientY: number;
 }
 
-// Starts a drag: immediately for a mouse, after a long press within the slop for touch/pen
-// so a swipe over a bar still scrolls. Returns the abort for a pending press, null for a mouse.
+// Mouse starts at once; touch/pen wait out a long press within the slop. Returns the abort, null for mouse.
 export function armPointerGesture(
   start: PointerGestureStart,
   onStart: (clientX: number, clientY: number) => void,
@@ -70,10 +69,9 @@ export function armPointerGesture(
   return cancel;
 }
 
-// Bars must allow panning, so `touch-action` cannot block the scroll once a long press lifts
-// one - preventDefault does it instead, and the listener has to be non-passive to be allowed to
-export function suppressTouchScroll(target: EventTarget = document): () => void {
+// Bars stay pannable, so scroll is blocked with preventDefault - which needs a non-passive listener.
+export function suppressTouchScroll(): () => void {
   const block = (event: Event) => event.preventDefault();
-  target.addEventListener('touchmove', block, { passive: false });
-  return () => target.removeEventListener('touchmove', block);
+  document.addEventListener('touchmove', block, { passive: false });
+  return () => document.removeEventListener('touchmove', block);
 }

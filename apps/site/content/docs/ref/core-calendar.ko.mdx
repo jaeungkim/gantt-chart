@@ -65,11 +65,7 @@ export interface WorkingCalendarOptions {
 ## `CALENDAR_DAYS`
 
 ```ts title="src/core/calendar.ts"
-/**
- * 기본 달력이에요. 모든 날을 세요.
- * 이 달력을 거친 날짜 계산은 평범한 달력 계산이에요. 그래서 호스트 앱이 근무일을 켜기
- * 전까지 스케줄링 기능의 동작을 그대로 유지해 줘요.
- */
+/** 기본 달력이에요. 모든 날을 세니 이 달력을 거친 날짜 계산은 평범한 달력 계산이에요. */
 export const CALENDAR_DAYS: WorkingCalendar
 ```
 
@@ -190,8 +186,8 @@ calendar.skipsNonWorkingDays; // true
 
 근무일이 하나도 없는 역방향 구간에서 `daysBetween`은 `-0`이 아니라 언제나 `0`을 돌려줘요.
 
-`daysUntil`과 `daysUpTo`는 `daysBetween`의 답을 방향마다 최대 두 걸음까지만 보정해요. 스케줄러가
-만드는 하루 길이 구간에서는 정확하지만, 임의의 하루 미만 계산에서는 그렇지 않아요.
+`daysUntil`과 `daysUpTo`는 `daysBetween`의 답을 방향마다 최대 두 걸음까지만 보정해요. 하루 길이
+구간에서는 정확하지만, 임의의 하루 미만 계산에서는 그렇지 않아요.
 
 달력에는 시간 개념이 없어요. 같은 날짜에서 `09:00`부터 `17:00`까지인 작업은 `daysBetween`이
 `0`으로 나와요.
