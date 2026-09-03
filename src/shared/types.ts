@@ -6,7 +6,7 @@ import type {
 } from 'react';
 import type { Task, TaskTransformed } from './task';
 
-/** Chart theme - 'system' follows the OS setting. */
+/** Chart theme - 'system' follows the OS setting; omit the prop to follow the host page's `color-scheme`. */
 export type GanttTheme = 'light' | 'dark' | 'system';
 
 export type GanttScaleKey = 'day' | 'week' | 'month' | 'quarter' | 'year';

@@ -59,8 +59,8 @@ and takes `react` and `react-dom` as peer dependencies, `^18` or `^19`. Every pr
 
 ### Theming
 
-- `theme` takes `'light'`, `'dark'` or `'system'`; omitted, no theme class is attached and your own CSS decides — see [Theming](theming).
-- Theme tokens are `--gantt-*` custom properties scoped to `.gantt-container`, not `:root`, so they cannot collide with your app's variables. Two box-shadows and two `#fff` values stay literal.
+- `theme` takes `'light'`, `'dark'` or `'system'`; omitted, the chart follows the host page's `color-scheme`, which is what an app's own light/dark toggle already sets — see [Theming](theming).
+- Theme tokens are `--gantt-*` custom properties scoped to `.gantt-container`, not `:root`, so they cannot collide with your app's variables. One `#fff` stays literal.
 - A per-task `color` derives the bar, its progress fill and its hover shade from one value — see [Custom rendering](custom-rendering).
 - `renderTooltip` and `renderHeaderCell` replace the default elements.
 - `locale` renders the header, tooltip and drag-readout dates through `Intl.DateTimeFormat`, and `formats` overrides those three per scale — see [Locale and date formats](i18n).

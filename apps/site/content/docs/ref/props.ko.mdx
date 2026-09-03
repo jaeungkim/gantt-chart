@@ -133,7 +133,7 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 | `locale` | `string` | 없음 — 내장 영어 라벨을 써요 | 모든 날짜 라벨에 쓰는 BCP 47 태그예요. [로케일과 날짜 형식](../i18n) 참고. |
 | `formats` | `GanttFormatOverrides` | 없음 — 로케일의 라벨을 써요 | 배율별 `tick` / `header` / `tooltip` 라벨을 덮어써요. [로케일과 날짜 형식](../i18n) 참고. |
 | `firstDayOfWeek` | `number` | 없음 — 주 단위 묶음이 꺼져요 | `0` = 일요일 .. `6` = 토요일이고, week 배율의 상단 헤더를 묶어요. [로케일과 날짜 형식](../i18n) 참고. |
-| `theme` | `GanttTheme` | 없음 — 테마 클래스를 붙이지 않아요 | `'light'`, `'dark'`, `'system'` 중 하나예요. [테마](../theming) 참고. |
+| `theme` | `GanttTheme` | 없음 — 호스트 페이지의 `color-scheme`이 결정해요 | `'light'`, `'dark'`, `'system'` 중 하나예요. [테마](../theming) 참고. |
 
 ## 보이는 것과 다른 기본값
 
@@ -161,8 +161,10 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
   값이 없어서 다시 마운트하면 시작 값에서 다시 출발해요.
 - **`collapsedIds`**와 **`defaultCollapsedIds`**는 한 값의 제어 쪽과 비제어 쪽이에요. `collapsedIds`를
   넘기면 차트는 그 목록을 보여주고 자체 추적을 멈춰요. `onCollapsedChange`는 두 방식 모두에서 호출돼요.
-- **`theme`**을 생략하면 테마 클래스가 전혀 붙지 않고, 호스트 앱이 정해요. `'system'`은 서버 렌더링과
-  첫 하이드레이션 렌더에서 `null`로 풀리고, 그다음에 실제 설정으로 바뀌어요.
+- **`theme`**을 생략하면 `<html>`에서 읽은 호스트 페이지의 `color-scheme`을 따라가고 그 변화도
+  지켜봐요. 그래서 앱의 라이트/다크 토글에 차트가 함께 움직여요. `'system'`은 호스트를 무시하고 OS에
+  물어요. 어떤 값이든 서버 렌더링과 첫 하이드레이션 렌더에서는 `'light'`로 풀리고, 그다음에 실제
+  설정으로 바뀌어요.
 - **`visibleStart`**와 **`visibleEnd`**는 서로 독립이에요. 한쪽 끝을 고정하면 그쪽으로는
   `infiniteScroll`이 범위를 늘리지 못하고, 반대쪽은 계속 늘어나요.
 - **`workingCalendar`**는 `holidays`와 `isNonWorkingDay`로 캘린더를 만들어요. `showNonWorkingDays`

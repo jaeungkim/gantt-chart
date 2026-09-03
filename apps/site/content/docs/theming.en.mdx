@@ -7,7 +7,7 @@ You render the chart and get a column of unpositioned divs with no colors. The s
 separate file, and importing the component does not pull it in. Once it is loaded the chart is
 themed by 27 CSS custom properties and one `theme` prop.
 
-Nearly every color, shadow and transition in the chart reads a `--gantt-*` variable; the three
+Nearly every color, shadow and transition in the chart reads a `--gantt-*` variable; the ones
 that do not are named under Limits. There is no theme object in JS and no `tokens` prop. CSS is
 the whole mechanism.
 
@@ -50,60 +50,63 @@ export function DarkChart() {
 }
 ```
 
-What lands on the container element:
+The container always ends up with a resolved `data-theme`, which is the only thing the stylesheet
+reads. What decides it:
 
-| `theme` | Container class | `data-theme` |
+| `theme` | `data-theme` | Decided by |
 |---|---|---|
-| *(omitted)* | `gantt-container` | *absent* |
-| `'light'` | `gantt-container light` | `"light"` |
-| `'dark'` | `gantt-container dark` | `"dark"` |
-| `'system'`, OS light | `gantt-container light` | `"light"` |
-| `'system'`, OS dark | `gantt-container dark` | `"dark"` |
-| `'system'`, server render and first hydration render | `gantt-container` | *absent* |
-| `'system'`, no `window.matchMedia` | `gantt-container` | *absent* |
+| `'light'` | `"light"` | the prop |
+| `'dark'` | `"dark"` | the prop |
+| `'system'` | `"light"` / `"dark"` | `prefers-color-scheme` — the OS |
+| *(omitted)* | `"light"` / `"dark"` | the host page's `color-scheme` |
+| any value, server render and first hydration render | `"light"` | fixed, to avoid a hydration mismatch |
 
-Both the class and the attribute are written, so a host can hook its own CSS onto either one.
+`className` is folded into the class attribute separately and no longer carries any theme meaning.
+`className="my-chart"` yields `gantt-container my-chart`; the theme rides on `data-theme` alone, so
+a host class named `dark` or `light` no longer fights the prop.
 
-`className` is folded in ahead of the theme class. With `className="my-chart"` and `theme="dark"`
-the attribute reads `gantt-container my-chart dark`. A host class is never last, so do not write
-selectors that assume it is.
+### With no theme prop: the host decides
+
+Omitting `theme` is not the same as `theme="light"`. With no prop the chart follows the page's
+`color-scheme`, read off `<html>`:
+
+```css title="your app"
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+```
+
+`color-scheme` is the platform's own light/dark signal, it inherits, and every mainstream theme
+switch already writes it — `next-themes` sets it on `<html>`, and so do Tailwind and fumadocs
+setups built on it. So a chart with no `theme` prop moves with your app's toggle, with no wiring:
+
+```tsx
+// The app's own switch already drives this.
+<ReactGanttChart tasks={tasks} height={480} />
+```
+
+A `MutationObserver` watches `<html>` for `class`, `style` and `data-theme` changes, so flipping
+the switch repaints the chart on the next render. No reload, no remount.
+
+If the page's `color-scheme` is `light dark` — or unset, or `normal` — there is no host preference
+to follow, so the OS decides. A page that never mentions `color-scheme` reads as light, which is
+what such a page is.
 
 ### How system is detected
 
 `theme="system"` reads `window.matchMedia('(prefers-color-scheme: dark)')` through
-`useSyncExternalStore`. A `change` listener stays attached, so flipping the OS appearance swaps
-the class on the next render. No reload is needed.
+`useSyncExternalStore`, and ignores the host page. It is for a chart that should track the OS even
+inside an app whose own theme is pinned. If you want the chart to match the app, leave `theme` out.
 
-The server snapshot is fixed at "unknown". On a server render and on the first hydration render
-`theme="system"` therefore emits no class and no attribute, deliberately, to avoid a hydration
-mismatch. The chart still looks correct on that first paint, because the stylesheet carries its
-own `prefers-color-scheme` fallback. A host reading `data-theme` in a `useLayoutEffect` will read
-`undefined` on that first pass.
-
-The media query is subscribed to whatever `theme` is set to, including `'light'` and `'dark'`.
-The listener exists per chart instance; it does not change the resolved value.
-
-### With no theme prop
-
-Omitting `theme` is not the same as `theme="light"`. With no prop the component emits nothing,
-and the stylesheet follows the OS on its own:
-
-```css
-@media (prefers-color-scheme: dark) {
-  .gantt-container:not(.light):not([data-theme="light"]) { /* dark tokens */ }
-}
-```
-
-So an unthemed chart goes dark on a dark-OS machine. To pin a chart to light regardless of the
-OS, pass `theme="light"` — that is the only thing the `light` class does. It carries no tokens of
-its own; light is the base `.gantt-container` declaration.
+The server snapshot is fixed at `"light"`: neither the host's `color-scheme` nor the OS is readable
+without a document. A host that themes before paint — `next-themes` injects a blocking script that
+does — is already correct on the first client render, so only static HTML shows the light frame.
 
 ## The custom properties
 
 All 27 tokens are declared on `.gantt-container`, never on `:root`. On `:root` they would collide
 with a host app's own `--background` and `--border`.
 
-21 of them are redefined for dark. The other 6 are shared by both themes and are marked with a
+20 of them are redefined for dark. The other 7 are shared by both themes and are marked with a
 dash below.
 
 ### Surface and text
@@ -201,16 +204,16 @@ and the library's base rule have the same specificity, so source order is what d
 }
 ```
 
-That is enough for the 6 tokens the dark blocks never touch: `--gantt-font-sans`,
-`--gantt-accent`, `--gantt-detail-width`, and the three motion tokens. For the other 21 it is not.
+That is enough for the 7 tokens the dark block never touches: `--gantt-font-sans`,
+`--gantt-accent`, `--gantt-detail-width`, `--gantt-drag-band`, and the three motion tokens. For
+the other 20 it is not.
 
 > [!WARNING]
 > A one-line override on `.gantt-container` wins in light mode and loses in dark. The library's
-> dark rule is `.gantt-container.dark, .gantt-container[data-theme="dark"]` at specificity
-> `(0,2,0)`, and its OS fallback is `.gantt-container:not(.light):not([data-theme="light"])` at
-> `(0,3,0)`. A plain `.gantt-container` rule is `(0,1,0)` and is outranked by both.
+> dark rule is `.gantt-container[data-theme="dark"]` at specificity `(0,2,0)`; a plain
+> `.gantt-container` rule is `(0,1,0)` and is outranked by it.
 
-To change a themed token you have to answer all three of the library's selectors.
+A themed token takes two rules, one per theme.
 
 ```css title="app.css"
 .gantt-container {
@@ -218,22 +221,19 @@ To change a themed token you have to answer all three of the library's selectors
   --gantt-bar-bg-hover: #bfdbfe;
 }
 
-.gantt-container.dark,
 .gantt-container[data-theme="dark"] {
   --gantt-bar-bg: #1e3a5f;
   --gantt-bar-bg-hover: #2b4f7d;
-}
-
-@media (prefers-color-scheme: dark) {
-  .gantt-container:not(.light):not([data-theme="light"]) {
-    --gantt-bar-bg: #1e3a5f;
-    --gantt-bar-bg-hover: #2b4f7d;
-  }
 }
 ```
 
 Setting the tokens on `:root` does nothing. They are declared on `.gantt-container` itself, and a
 declaration on the element beats anything inherited from an ancestor.
+
+Source order only settles a tie in specificity, and only between rules in the same cascade layer.
+If you import the library's stylesheet into a layer — `@import '@jaeungkim/gantt-chart/style.css'
+layer(gantt)` — that layer's order decides instead, and an unlayered rule of yours beats it
+outright.
 
 ### Scoping to one chart
 
@@ -249,15 +249,8 @@ over the library's, so it outranks the block it mirrors.
   --gantt-bar-bg: #dbeafe;
 }
 
-.gantt-container.planning-chart.dark,
 .gantt-container.planning-chart[data-theme="dark"] {
   --gantt-bar-bg: #1e3a5f;
-}
-
-@media (prefers-color-scheme: dark) {
-  .gantt-container.planning-chart:not(.light):not([data-theme="light"]) {
-    --gantt-bar-bg: #1e3a5f;
-  }
 }
 ```
 
@@ -296,10 +289,12 @@ What theming does not cover:
   font size `13px`, and the row height is a JS constant. None of them are variables.
 - **`--top-group-inset` is out of reach.** It is declared on `.gantt-top-group`, not on the
   container, and it carries no `--gantt-` prefix. A host cannot set it from `.gantt-container`.
-- **No light-mode token block exists.** The `light` class only suppresses the OS media query, so
-  a host rule written as `.gantt-container.light { … }` is a new rule, not an extension of one.
-- **No provider.** `theme` is a per-chart prop. Nothing sets it once for a page, so every chart
-  on a page has to be passed the value.
+- **The `light` and `dark` classes carry nothing.** Earlier versions also wrote the resolved theme
+  as a class on the container. Only `data-theme` is read now; a rule written as
+  `.gantt-container.dark { … }` matches nothing the library sets.
+- **No provider, and none is needed for the common case.** `theme` is a per-chart prop, but every
+  chart that omits it follows the page's `color-scheme`, so one `color-scheme` rule themes them
+  all.
 - **Nothing is persisted.** Neither the resolved theme nor the scale is stored anywhere. The
   chart no longer touches `sessionStorage` at all.
 - **No RTL.** Nothing reads or sets `dir`, and the stylesheet uses physical properties throughout.
@@ -308,11 +303,11 @@ What theming does not cover:
 What the host app does itself:
 
 - Import `@jaeungkim/gantt-chart/style.css`, and import it before its own stylesheet.
-- Repeat every themed override under all three of the library's selectors.
+- Repeat every themed override under both of the library's selectors.
 - Persist the scale itself, if a reload should keep it — `onScaleChange` out, `defaultScale`
   back in.
-- Drive `theme` from its own light/dark state if the app has a toggle. The chart reads the OS, not
-  the app.
+- Set `color-scheme` when it flips its own light/dark state, which is what a chart with no `theme`
+  prop follows. Pass `theme` explicitly only to override that per chart.
 - Reach for a task's `className` when a token cannot express the change — see
   [Custom rendering](custom-rendering).
 

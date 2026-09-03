@@ -180,27 +180,14 @@ Which layer wins for each of the three labels is documented in
 ## GanttTheme
 
 ```ts
-/** Theme type - 'light', 'dark', or 'system' (follows the OS setting) */
+/** Chart theme - 'light' and 'dark' are explicit, 'system' follows the OS setting.
+ *  Omitted, the chart follows the host page's `color-scheme`. */
 export type GanttTheme = 'light' | 'dark' | 'system';
 ```
 
-This is the type of the `theme` prop, which has no default. What each value puts on the chart's
-container element:
-
-| `theme` | container class | `data-theme` |
-|---|---|---|
-| *(omitted)* | `gantt-container` | absent |
-| `'light'` | `gantt-container light` | `"light"` |
-| `'dark'` | `gantt-container dark` | `"dark"` |
-| `'system'`, OS light | `gantt-container light` | `"light"` |
-| `'system'`, OS dark | `gantt-container dark` | `"dark"` |
-| `'system'`, server render and first hydration render | `gantt-container` | absent |
-| `'system'`, no `window.matchMedia` | `gantt-container` | absent |
-
-`'system'` reads `(prefers-color-scheme: dark)` and re-renders on OS changes; no reload is needed.
-Omitting `theme` also follows the OS, but through a `prefers-color-scheme` rule in the stylesheet
-rather than through JavaScript — so the container carries no class either way. The palette those
-classes select is in [Theming](../theming).
+This is the type of the `theme` prop, which has no default. Whatever it resolves to is written to
+`data-theme` on the container, and that attribute is what the stylesheet reads. How each value
+resolves, and what the palette behind it is, are in [Theming](../theming).
 
 There is no theme object and no token prop. `GanttTheme` is a three-value union; every color is a
 CSS custom property.

@@ -133,7 +133,7 @@ Every prop is optional. The Default column carries the value the component actua
 | `locale` | `string` | none — the built-in English labels are used | BCP 47 tag for every date label. See [Locale and date formats](../i18n). |
 | `formats` | `GanttFormatOverrides` | none — the locale's labels are used | Per-scale `tick` / `header` / `tooltip` label overrides. See [Locale and date formats](../i18n). |
 | `firstDayOfWeek` | `number` | none — week grouping is off | `0` = Sunday .. `6` = Saturday, groups the week scale's top header. See [Locale and date formats](../i18n). |
-| `theme` | `GanttTheme` | none — no theme class is attached | `'light'`, `'dark'` or `'system'`. See [Theming](../theming). |
+| `theme` | `GanttTheme` | none — the host page's `color-scheme` decides | `'light'`, `'dark'` or `'system'`. See [Theming](../theming). |
 
 ## Defaults that are not what they look like
 
@@ -164,8 +164,10 @@ Every prop is optional. The Default column carries the value the component actua
 - **`collapsedIds`** and **`defaultCollapsedIds`** are the controlled and uncontrolled halves of
   one value. Passing `collapsedIds` makes the chart show that list and stop tracking its own;
   `onCollapsedChange` still fires in both modes.
-- **`theme`** left out attaches no theme class at all — the host app decides. `'system'` resolves
-  to `null` during server rendering and the first hydration render, then to the real setting.
+- **`theme`** left out follows the host page's `color-scheme`, read off `<html>` and watched for
+  changes, so the chart moves with an app's own light/dark toggle. `'system'` ignores the host and
+  asks the OS instead. Every value resolves to `'light'` during server rendering and the first
+  hydration render, then to the real setting.
 - **`visibleStart`** and **`visibleEnd`** are independent. Pinning one end also stops
   `infiniteScroll` from extending the range on that side; the other side still extends.
 - **`workingCalendar`** builds its calendar from `holidays` and `isNonWorkingDay`, the same
