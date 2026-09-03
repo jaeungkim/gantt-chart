@@ -44,8 +44,7 @@ scenario is a shareable link (`/playground?groupBy=1&theme=dark`) that still tog
 loaded.
 
 The action bar at the top of the console is the only place the imperative ref API is reachable
-from the UI, and the event log at the bottom prints every callback the chart fires with its
-payload - the fastest way to see what a gesture actually emitted.
+from the UI.
 
 The `chart height` switch exists for layout bugs: a short container is where overflow problems
 show.
