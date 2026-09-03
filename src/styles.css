@@ -42,10 +42,6 @@
 
   --gantt-non-working-bg: rgba(0, 0, 0, 0.035);
 
-  /* Consumed by .gantt-drag-range. Declared here so the documented container-level override
-     reaches it - a declaration on the element itself would beat an inherited one. */
-  --gantt-drag-band: color-mix(in srgb, var(--gantt-accent) 14%, var(--gantt-muted));
-
   --gantt-duration-fast: 150ms;
   --gantt-transition-fast: 150ms ease;
   --gantt-transition-normal: 200ms ease;
@@ -95,7 +91,8 @@
   box-sizing: border-box;
 }
 
-/* Two isolated z-index tiers: .gantt-container and .gantt-timeline; numbers compare within a tier. */
+/* Three stacking contexts hold z-index: .gantt-container and .gantt-timeline, which isolate
+   below, and .gantt-grid, which its own 50 makes one. Numbers compare within a context. */
 .gantt-container {
   display: flex;
   flex-direction: column;
@@ -462,9 +459,6 @@
    guard both. min-width keeps two labels legible on a span narrower than they are, which is why
    there is no lift into the month row any more. */
 .gantt-drag-range {
-  /* Opaque rather than a wash: the band stands IN for the tick numerals it covers instead of
-     tinting them, so no date is ever read through it. --gantt-drag-band is inherited from the
-     container, so the band and a label that has lifted out of it are the same surface. */
   position: absolute;
   top: 44px;
   height: 28px;
@@ -1105,13 +1099,12 @@
 }
 
 /* Below the bar, always: above it the sticky header (30) would cover it on a scrolled row.
-   This z-index only sorts inside the bar's transform context; .gantt-bar-wrap does the lifting. */
+   No rung of its own - the bar's transform seals it in, and .gantt-bar-wrap does the lifting. */
 .gantt-bar-tooltip {
   position: absolute;
   top: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 200;
   padding: 8px 12px;
   background: var(--gantt-foreground);
   color: var(--gantt-background);
@@ -1253,9 +1246,9 @@
 }
 
 .gantt-detail {
-  /* Tier A, above the task list (50) and its splitter (60); position is what makes z-index apply */
+  /* No rung: a flex sibling of .gantt-main, which is overflow: hidden, so the pane and its
+     splitter cannot reach it. position is the containing block a renderDetail body may want. */
   position: relative;
-  z-index: 70;
   flex: 0 0 var(--gantt-detail-width);
   display: flex;
   flex-direction: column;
