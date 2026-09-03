@@ -458,6 +458,17 @@
    edge it reports. 44px is .gantt-top-header's height and 28px .gantt-bottom-row's - the tests
    guard both. min-width keeps two labels legible on a span narrower than they are, which is why
    there is no lift into the month row any more. */
+/* The numerals the dragged span covers step aside for the dates that replace them. This is the
+   tick row's own colour, so no shape appears - the ruler goes quiet under the bar and comes back
+   when the pointer lifts. GanttDragGuides snaps it out to whole tick cells, because an edge
+   landing mid-numeral would otherwise slice that numeral down the middle. */
+.gantt-drag-mask {
+  position: absolute;
+  top: 44px;
+  height: 28px;
+  background: var(--gantt-muted);
+}
+
 .gantt-drag-range {
   position: absolute;
   top: 44px;
