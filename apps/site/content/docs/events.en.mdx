@@ -114,11 +114,10 @@ editor, the real work runs twice before the editor opens.
 ### The detail panel rides on the same click
 
 `onDetailChange` fires on every open and every close, in controlled and uncontrolled mode alike, and
-it is handed the task or `null`. Under the default `detailTrigger` of `'selection'` the panel opens
-on the click that already selects the row, so `onTaskClick` still fires for that click - first, as
-always - and the panel opens after it. A double click is no different: two `onTaskClick` calls and
-one `onTaskDoubleClick` fire before anything opens, and under `detailTrigger="doubleClick"` that is
-the sequence that opens it.
+it is handed the task or `null`. The panel opens on the click that already selects the row, so
+`onTaskClick` still fires for that click - first, as always - and the panel opens after it. A double
+click is no different: two `onTaskClick` calls and one `onTaskDoubleClick` fire, and the panel opened
+on the first of them.
 
 `Escape`, the panel's close button and a click on empty timeline space all fire
 `onDetailChange(null)`. A task that leaves `tasks` takes its panel with it, and that one fires
@@ -238,8 +237,8 @@ in [Dependencies](dependencies).
 
 | The user does this | Callback | Can it cancel? |
 |---|---|---|
-| Clicks a bar or its row | `onTaskClick`, then `onTaskSelect`, then `onDetailChange` under the default detail trigger | no |
-| Double clicks a bar or its row | `onTaskClick` twice, then `onTaskDoubleClick`, then `onDetailChange` under `detailTrigger="doubleClick"` | no |
+| Clicks a bar or its row | `onTaskClick`, then `onTaskSelect`, then `onDetailChange` when the panel is on | no |
+| Double clicks a bar or its row | `onTaskClick` twice, then `onTaskDoubleClick`; the panel opened on the first click | no |
 | Clicks the empty timeline | `onTaskSelect(null)`, if something was selected, and `onDetailChange(null)`, if the panel was open | no |
 | Finishes a drag on a bar | nothing - the trailing click is dropped | n/a |
 | Moves or resizes a bar | `onTasksChange` | no |

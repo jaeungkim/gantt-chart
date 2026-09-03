@@ -1308,9 +1308,20 @@
   outline-offset: 1px;
 }
 
-.gantt-detail-meta {
+.gantt-detail-fields {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
   margin: 0;
-  color: var(--gantt-muted-foreground);
   font-size: 12px;
+}
+
+.gantt-detail-fields dt {
+  color: var(--gantt-muted-foreground);
+}
+
+.gantt-detail-fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 

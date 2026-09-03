@@ -180,7 +180,6 @@ export function PlaygroundView() {
           showTaskList={settings.showTaskList}
           showRowNumbers={settings.showRowNumbers}
           showDetail={settings.showDetail}
-          detailTrigger={settings.detailTrigger}
           defaultScale={DEFAULTS.scale}
           initialScrollTo={DEMO_ANCHOR}
           // Keeps the console's `scale` row honest when ctrl+wheel or zoomToFit moves the scale.

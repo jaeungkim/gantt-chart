@@ -1,8 +1,4 @@
-import type {
-  GanttDetailTrigger,
-  GanttScaleKey,
-  GanttTheme,
-} from '@jaeungkim/gantt-chart';
+import type { GanttScaleKey, GanttTheme } from '@jaeungkim/gantt-chart';
 
 // Every switch the playground offers; mirrored into the query string (`?scale=week&holidays=1`).
 export interface Settings {
@@ -26,7 +22,6 @@ export interface Settings {
   workingCalendar: boolean;
   autoScrollOnDrag: boolean;
   showDetail: boolean;
-  detailTrigger: GanttDetailTrigger;
   // 'host' passes no `theme` prop at all, so the chart inherits the site's color-scheme.
   theme: GanttTheme | 'host';
   locale: string;
@@ -41,9 +36,9 @@ type BooleanKey = {
 type SelectKey = Exclude<keyof Settings, BooleanKey>;
 
 // Anything a select can hold; narrowed by the row's own `options` list before it is stored.
-export type SelectValue = GanttScaleKey & GanttTheme & GanttDetailTrigger & string;
+export type SelectValue = GanttScaleKey & GanttTheme & string;
 
-type ControlGroup = 'Data' | 'Editing' | 'Timeline' | 'Detail panel' | 'Presentation';
+type ControlGroup = 'Data' | 'Editing' | 'Timeline' | 'Presentation';
 
 type Control =
   | { key: BooleanKey; label: string; hint: string; group: ControlGroup; type: 'boolean' }
@@ -83,6 +78,13 @@ export const CONTROLS: readonly Control[] = [
     key: 'showRowNumbers',
     label: 'Row numbers',
     hint: 'Prints each row’s sequence ("2.1") in front of the name',
+    group: 'Data',
+    type: 'boolean',
+  },
+  {
+    key: 'showDetail',
+    label: 'Detail panel',
+    hint: 'Opens on a click; narrows the timeline, never covers it',
     group: 'Data',
     type: 'boolean',
   },
@@ -196,22 +198,6 @@ export const CONTROLS: readonly Control[] = [
   },
 
   {
-    key: 'showDetail',
-    label: 'Detail panel',
-    hint: 'Narrows the timeline, never covers it',
-    group: 'Detail panel',
-    type: 'boolean',
-  },
-  {
-    key: 'detailTrigger',
-    label: 'Opens on',
-    hint: '"none" leaves it to the ref',
-    group: 'Detail panel',
-    type: 'select',
-    options: ['selection', 'doubleClick', 'none'],
-  },
-
-  {
     key: 'theme',
     label: 'Theme',
     hint: '"host" inherits the site, "system" the OS',
@@ -256,13 +242,14 @@ export const GROUPS: readonly ControlGroup[] = [
   'Data',
   'Editing',
   'Timeline',
-  'Detail panel',
   'Presentation',
 ];
 
+// Every feature on, so the page shows the whole chart before a single switch is touched;
+// `readOnly` is the one exception, being a restriction rather than a feature.
 export const DEFAULTS: Settings = {
   hierarchy: true,
-  groupBy: false,
+  groupBy: true,
   showTaskList: true,
   showRowNumbers: true,
   readOnly: false,
@@ -272,16 +259,15 @@ export const DEFAULTS: Settings = {
   allowLinkCreate: true,
   allowLinkDelete: true,
   allowTaskCreate: true,
-  reorder: false,
+  reorder: true,
   scale: 'week',
   zoomOnWheel: true,
   infiniteScroll: true,
   showNonWorkingDays: true,
-  holidays: false,
-  workingCalendar: false,
+  holidays: true,
+  workingCalendar: true,
   autoScrollOnDrag: true,
-  showDetail: false,
-  detailTrigger: 'selection',
+  showDetail: true,
   theme: 'host',
   locale: 'en-US',
   firstDayOfWeek: '1',

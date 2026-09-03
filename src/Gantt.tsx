@@ -117,7 +117,6 @@ function GanttChart({
   selectable,
   renderDetail,
   showDetail,
-  detailTrigger = "selection",
   detailTaskId,
   onDetailChange,
   showTooltip,
@@ -248,22 +247,20 @@ function GanttChart({
   // Wraps the selection click handler, so a click still selects and reaches the host first
   const detail = useGanttDetail({
     enabled: detailEnabled,
-    trigger: detailTrigger,
     tasks: transformedTasks,
     detailTaskId,
     onDetailChange,
     onTaskClick: selection.onTaskClick,
-    onTaskDoubleClick,
   });
 
   const barOptions = useMemo(
     () => ({
       onTasksChange,
       onTaskClick: detail.onTaskClick,
-      onTaskDoubleClick: detail.onTaskDoubleClick,
+      onTaskDoubleClick,
       showTooltip,
     }),
-    [onTasksChange, detail.onTaskClick, detail.onTaskDoubleClick, showTooltip]
+    [onTasksChange, detail.onTaskClick, onTaskDoubleClick, showTooltip]
   );
 
   const { rows, tasks: rowTasks } = useGanttRowModel({
@@ -382,9 +379,8 @@ function GanttChart({
   );
 
   const keyboard = useGanttKeyboardNav({
-    // Enter opens the panel; under "none" the host drives it, so the key stays an announcement
-    onActivate:
-      detailEnabled && detailTrigger !== "none" ? detail.open : undefined,
+    // Enter opens the panel, the way a click does
+    onActivate: detailEnabled ? detail.open : undefined,
     rows,
     rawTasks,
     gridColumnCount,
@@ -464,7 +460,7 @@ function GanttChart({
                   focus={keyboard.focus}
                   selectedTaskId={selectedTaskId}
                   onRowClick={detail.onTaskClick}
-                  onRowDoubleClick={detail.onTaskDoubleClick}
+                  onRowDoubleClick={onTaskDoubleClick}
                   reorderEnabled={reorderEnabled}
                   interaction={interaction}
                   move={move}
@@ -569,6 +565,7 @@ function GanttChart({
         {detail.task && (
           <GanttDetailPanel
             task={detail.task}
+            tasks={transformedTasks}
             scale={selectedScale}
             localeOptions={localeOptions}
             onClose={detail.close}

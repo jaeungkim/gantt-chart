@@ -34,43 +34,38 @@ highlighted. What selection is and which callbacks it fires is in [Events](event
 
 ## What the default body renders
 
-With the panel on and no `renderDetail`, the built-in body renders two things:
+With the panel on and no `renderDetail`, the built-in body is a heading, `task.name`, over a short
+field list.
 
-- a **heading**, `task.name`;
-- a **meta line**, `start → end · progress`. The dates go through the current scale's own tooltip
-  formatter — the one the hover tooltip uses — so `locale` and `formats` already control them, and
-  the progress is dropped when the task carries none.
+| Caption | Value | Shown |
+|---|---|---|
+| Start, End | the dates, through the current scale's tooltip formatter — the one the hover tooltip uses, so `locale` and `formats` already control them | always |
+| Duration | the span between them, in the units the hover tooltip uses | always |
+| Progress | `task.progress`, clamped to 0–100 | when the task carries one |
+| Depends on | the names of the tasks its `dependencies` point at | when it has any |
 
-That is the whole default. It shows no other field of the task, and there is no prop that adds
-one: a field needs a caption, and only the host knows what that caption should say. Anything
-further is `renderDetail`, below.
-
-The reason the default stops there is that it can then carry no user-visible English at all. A
-name is your data and the dates follow [Locale and date formats](i18n), so the panel needs no
-translation of its own. The only fixed strings are the accessible name of the panel and of its
-close button.
+That is the whole default. It shows no other field of the task, and there is no prop that adds a
+row: a field needs a caption, and only the host knows what that caption should say. The captions
+above are fixed English strings, like the accessible names of the panel and its close button, and
+there is no prop that translates them. A host that must localize them, or wants any other field,
+renders the body itself with `renderDetail`, below.
 
 ## What opens it
 
-`detailTrigger` picks the gesture. It defaults to `'selection'`.
+A single click on a bar or on a task-list row, and `Enter` on the focused row. That is the whole
+gesture set: there is no double-click mode and no prop that picks another trigger.
 
-| `detailTrigger` | Opens on | Keyboard |
-|---|---|---|
-| `'selection'` (default) | a single click on a bar or on a task-list row | `Enter` on the focused row |
-| `'doubleClick'` | a double click on a bar or on a task-list row | `Enter` on the focused row |
-| `'none'` | nothing in the chart | — |
+A single click, because a double click is the convention of the *modal* task editors: Bryntum's
+TaskEdit defaults to `triggerEvent: 'eventdblclick'`, DHTMLX opens its lightbox on `dblclick`. Those
+open a form you have to finish or cancel, so they are expensive and ask for a deliberate gesture. A
+docked panel is cheap in both directions — it opens on the click that already selects the row and
+closes with `Escape` — and frappe-gantt's `popup_trigger` does not even offer a double click, only
+`'click'` and `'hover'`.
 
-`'none'` does not turn the panel off. The feature stays enabled — the `<aside>` is mounted only while
-a task is open, and under `'none'` only `detailTaskId` and the ref open one, which is what a host
-wants when the chart's own clicks already drive some other pane.
-
-A single click is the default because a double click is the convention of the *modal* task editors:
-Bryntum's TaskEdit defaults to `triggerEvent: 'eventdblclick'`, DHTMLX opens its lightbox on
-`dblclick`. Those open a form you have to finish or cancel, so they are expensive and ask for a
-deliberate gesture. A docked panel is cheap in both directions — it opens on the click that already
-selects the row and closes with `Escape` — and frappe-gantt's `popup_trigger` does not even offer a
-double click, only `'click'` and `'hover'`. `'doubleClick'` is there for hosts that want the panel
-out of the way of ordinary selection.
+`onTaskClick` still fires for that click — first, as always — and the panel opens after it. Clicking
+the row whose panel is already open changes nothing. To let only your own code open it, hold
+`detailTaskId` yourself, as in the controlled mode below: a click then only reports through
+`onDetailChange`, and you decide whether to follow it.
 
 The panel is an `<aside role="complementary" aria-label="Task details">`, not a dialog: no focus
 trap, no backdrop. It sits outside the treegrid, so the chart keeps exactly one tab stop and the
@@ -209,7 +204,7 @@ holds, not against the visible rows, so a hidden row keeps its panel.
 **Clicking another row while the panel is open.** The panel switches to that task in place and does
 not pull focus back — focus is restored only when the panel unmounts.
 
-**Under `'selection'` the panel answers to the click, not to the selection changing.** That is
+**The panel answers to the click, not to the selection changing.** That is
 deliberate. Selection ignores a click on the already-selected row, so a panel driven by the selection
 would stay shut after `Escape` however often you clicked the same row.
 

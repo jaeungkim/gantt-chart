@@ -130,9 +130,6 @@ export interface GanttBarOptions {
   showTooltip?: boolean;
 }
 
-/** What opens the detail panel - `'none'` leaves it to `detailTaskId` and the imperative handle. */
-export type GanttDetailTrigger = 'selection' | 'doubleClick' | 'none';
-
 /** Props handed to a `renderDetail` override */
 export interface GanttDetailRenderProps {
   task: TaskTransformed;

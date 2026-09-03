@@ -68,8 +68,9 @@ Only the panel's children are the renderer's, so there is no props bag to spread
 - Passing the renderer turns the panel on when `showDetail` is omitted, the way `showTaskList`
   turns the task list on. An explicit `showDetail={false}` still wins.
 - The renderer runs only while a task is open. With nothing open there is no `<aside>` in the DOM at
-  all, so it is never called without a task — `detailTrigger="none"` included.
+  all, so it is never called without a task.
 - The renderer is the only way to put a task's other fields in the panel. The default body shows
-  the name and the dates, and there is no prop that adds a row to it.
+  the name, the dates, the duration, the progress and the predecessors, and there is no prop that
+  adds a row to it or translates its captions.
 
 Every prop named here is indexed in [Props](props).
