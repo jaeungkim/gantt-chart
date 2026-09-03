@@ -6,7 +6,7 @@ import {
   type Task,
   type TaskTransformed,
 } from '@jaeungkim/gantt-chart';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DEMO_ANCHOR, demoHolidays, demoTasks } from '@/components/demo/tasks';
 import {
   CONTROLS,
@@ -20,16 +20,6 @@ import {
 
 const status = (task: Task) =>
   task.progress === 100 ? 'Done' : (task.progress ?? 0) > 0 ? 'In progress' : 'Not started';
-
-// Newest first, capped - a long drag fires a lot of callbacks.
-const LOG_LIMIT = 120;
-
-interface LogEntry {
-  id: number;
-  at: string;
-  event: string;
-  detail: string;
-}
 
 // The console floats over the chart, so it follows the chart's own overlay language rather than
 // the site's card: one step lifted off the chart background (#fafafa -> white, #09090b -> zinc
@@ -96,8 +86,6 @@ export function PlaygroundView() {
   const [tasks, setTasks] = useState<Task[]>(demoTasks);
   const [selected, setSelected] = useState<TaskTransformed | null>(null);
   const [range, setRange] = useState<string>('-');
-  const [log, setLog] = useState<LogEntry[]>([]);
-  const logId = useRef(0);
   useEffect(() => writeSettings(settings), [settings]);
 
   // An overlay pinned over the viewport, not requestFullscreen, so the exit control stays visible.
@@ -120,27 +108,12 @@ export function PlaygroundView() {
     ref.current?.setScale(settings.scale);
   }, [settings.scale]);
 
-  const push = useCallback((event: string, detail: unknown) => {
-    setLog((current) =>
-      [
-        {
-          id: logId.current++,
-          at: new Date().toLocaleTimeString([], { hour12: false }),
-          event,
-          detail: typeof detail === 'string' ? detail : JSON.stringify(detail ?? null),
-        },
-        ...current,
-      ].slice(0, LOG_LIMIT)
-    );
-  }, []);
-
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) =>
     setSettings((current) => ({ ...current, [key]: value }));
 
   const reset = () => {
     setTasks(demoTasks);
     setSelected(null);
-    push('reset', 'demo data restored');
   };
 
   // A fresh array every render would make the chart recompute its non-working days each time.
@@ -174,14 +147,8 @@ export function PlaygroundView() {
         <ReactGanttChart
           ref={ref}
           tasks={tasks}
-          onTasksChange={(updated) => {
-            push('onTasksChange', `${updated.length} tasks`);
-            setTasks(updated);
-          }}
-          onDependencyCreate={(change) => push('onDependencyCreate', change)}
-          onDependencyDelete={(change) => push('onDependencyDelete', change)}
+          onTasksChange={setTasks}
           onTaskCreate={(draft) => {
-            push('onTaskCreate', draft);
             // The chart adds nothing itself - the host appends the row.
             setTasks((current) => [
               ...current,
@@ -195,20 +162,10 @@ export function PlaygroundView() {
               },
             ]);
           }}
-          onTaskMove={(change) => push('onTaskMove', change)}
-          onTaskClick={(task) => push('onTaskClick', task.id)}
-          onTaskDoubleClick={(task) => push('onTaskDoubleClick', task.id)}
-          onTaskSelect={(task) => {
-            push('onTaskSelect', task?.id ?? null);
-            setSelected(task);
-          }}
-          onDetailChange={(task) => push('onDetailChange', task?.id ?? null)}
-          onCollapsedChange={(ids) => push('onCollapsedChange', ids)}
-          onRangeChange={(next) => {
-            const label = `${next.start.format('YYYY-MM-DD')} .. ${next.end.format('YYYY-MM-DD')}`;
-            setRange(label);
-            push('onRangeChange', label);
-          }}
+          onTaskSelect={setSelected}
+          onRangeChange={(next) =>
+            setRange(`${next.start.format('YYYY-MM-DD')} .. ${next.end.format('YYYY-MM-DD')}`)
+          }
           readOnly={settings.readOnly}
           // Each `allow*` beats `readOnly`, so only the off state is passed through.
           allowMove={settings.allowMove ? undefined : false}
@@ -410,41 +367,6 @@ export function PlaygroundView() {
                 </details>
               ))}
             </div>
-
-            {/* Pinned rather than last in the scroll column: the log is what you watch while
-                dragging a bar, so it stays on screen wherever the controls are scrolled to. */}
-            <section
-              className={`shrink-0 bg-black/[0.02] dark:bg-white/[0.02] ${DIVIDER}`}
-            >
-              <h3 className={`${HEADING} flex h-8 items-center justify-between px-3.5`}>
-                Event log
-                <button
-                  type="button"
-                  className="text-[10.5px] normal-case tracking-normal underline underline-offset-2 transition-colors hover:text-fd-foreground"
-                  onClick={() => setLog([])}
-                >
-                  Clear
-                </button>
-              </h3>
-              <ol
-                data-testid="event-log"
-                className="console-scroll h-24 overflow-y-auto overscroll-contain px-3.5 pb-2.5 font-mono text-[11px] leading-5"
-              >
-                {log.length === 0 && (
-                  <li className="font-sans text-[11.5px] leading-4 text-fd-muted-foreground">
-                    Every callback the chart fires shows up here. Drag a bar, draw a link, click a
-                    row.
-                  </li>
-                )}
-                {log.map((entry) => (
-                  <li key={entry.id} className="flex gap-2 motion-safe:animate-console-log-in">
-                    <span className="shrink-0 text-fd-muted-foreground/70">{entry.at}</span>
-                    <span className="shrink-0 text-console-accent">{entry.event}</span>
-                    <span className="truncate text-fd-muted-foreground">{entry.detail}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
           </div>
         </details>
 
