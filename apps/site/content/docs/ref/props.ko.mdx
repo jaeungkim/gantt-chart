@@ -34,9 +34,9 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 | 프로퍼티 | 타입 | 기본값 | 설명 |
 |---|---|---|---|
 | `showTaskList` | `boolean` | `false` | 왼쪽 패널을 보여줘요. 작업 이름을 나열해요. [작업 목록과 계층](../task-list) 참고. |
-| `showRowNumbers` | `boolean` | `false` | 각 행의 `sequence`를 이름 앞의 좁은 열에 찍어요. 스윔레인 띠는 비어 있어요. |
+| `showRowNumbers` | `boolean` | `false` | 각 행의 `sequence`를 이름 앞의 좁은 열에 찍어요. [작업 목록과 계층](../task-list) 참고. |
 
-## 계층과 그룹
+## 계층
 
 | 프로퍼티 | 타입 | 기본값 | 설명 |
 |---|---|---|---|
@@ -44,8 +44,6 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 | `collapsedIds` | `string[]` | 없음 — 차트가 자체 목록을 들고 있어요 | 제어 방식의 접힘 집합이에요. [작업 목록과 계층](../task-list) 참고. |
 | `defaultCollapsedIds` | `string[]` | `[]` | 비제어 초기값이고, 마운트할 때 한 번만 읽어요. [작업 목록과 계층](../task-list) 참고. |
 | `onCollapsedChange` | `(collapsedIds: string[]) => void` | 없음 | 제어 여부와 상관없이 접기 토글마다 호출돼요. [작업 목록과 계층](../task-list) 참고. |
-| `groupBy` | `GanttGroupBy` | 없음 | 행을 스윔레인으로 묶어요. [그룹과 스윔레인](../grouping)과 [GanttGroupBy](grouping) 참고. |
-| `ungroupedLabel` | `string` | `"Ungrouped"` | 그룹 값이 없는 작업의 헤더 라벨이에요. [그룹과 스윔레인](../grouping) 참고. |
 
 ## 타임라인과 범위
 

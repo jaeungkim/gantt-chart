@@ -22,14 +22,10 @@ const PRESETS = {
     showTaskList: true,
     workingCalendar: true,
   },
-  grouping: { hierarchy: false, showTaskList: true },
   detail: { showTaskList: true, showDetail: true },
 } as const satisfies Record<string, Partial<GanttProps>>;
 
 type GanttDemoPreset = keyof typeof PRESETS;
-
-const byProgress = (task: Task) =>
-  task.progress === 100 ? 'Done' : (task.progress ?? 0) > 0 ? 'In progress' : 'Not started';
 
 interface GanttDemoProps {
   preset?: GanttDemoPreset;
@@ -48,7 +44,6 @@ export function GanttDemo({ preset = 'basic', height = 380 }: GanttDemoProps) {
         width="100%"
         defaultScale="month"
         initialScrollTo={DEMO_ANCHOR}
-        groupBy={preset === 'grouping' ? byProgress : undefined}
         {...PRESETS[preset]}
       />
     </div>

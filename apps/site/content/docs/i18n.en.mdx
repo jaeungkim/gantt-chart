@@ -231,7 +231,7 @@ The three props reach dates. Everything else in the chart's chrome is a hardcode
 | `"<scale> scale"` | the live-region announcement after a Ctrl/Cmd + arrow rescale — the raw scale key, then the English word |
 | `"<name> cannot be deleted"`, `"<name> deleted"`, `"<name> cannot be changed"`, `"<name> progress cannot be changed"` | the live-region announcements after a keyboard edit |
 
-Only the dates inside those ARIA sentences go through the localized `tooltip` formatter. The one string a host can replace is `ungroupedLabel` ([Grouping and swimlanes](grouping)), which defaults to English.
+Only the dates inside those ARIA sentences go through the localized `tooltip` formatter. Nothing else in that table is replaceable — there is no string prop and no render prop that reaches any of it. `renderDetail` swaps the detail panel's body for markup of your own, so the text you put there is yours to translate, but the panel's own `aria-label` stays English.
 
 The scale picker used to be the loudest entry in that table. The chart drew six buttons labelled with the raw keys — `hour`, `day`, `week` — inside a chart whose every header cell, tick and tooltip already goes through `Intl`. That picker and the toolbar around it are gone, and the gap closed by construction: a picker is now something the host renders, so its option text is yours to translate.
 

@@ -231,7 +231,7 @@ export default function FiscalChart() {
 | `"<scale> scale"` | Ctrl/Cmd + 방향키로 배율을 바꾼 뒤 나오는 라이브 영역 안내 — 배율 키 그대로에 영어 단어가 붙어요 |
 | `"<name> cannot be deleted"`, `"<name> deleted"`, `"<name> cannot be changed"`, `"<name> progress cannot be changed"` | 키보드 편집 뒤에 나오는 라이브 영역 안내 |
 
-이 ARIA 문장에서 현지화된 `tooltip` 포매터를 거치는 건 안에 있는 날짜뿐이에요. 호스트 앱이 바꿀 수 있는 문자열은 `ungroupedLabel`([그룹과 스윔레인](grouping)) 하나고, 기본값은 영어예요.
+이 ARIA 문장에서 현지화된 `tooltip` 포매터를 거치는 건 안에 있는 날짜뿐이에요. 표에 있는 나머지는 바꿀 수 없어요. 여기에 닿는 문자열 프롭도, 렌더 프롭도 없어요. `renderDetail`은 상세 패널 본문을 직접 만든 마크업으로 바꿔 주니 거기 넣는 문구는 직접 번역할 수 있지만, 패널 자신의 `aria-label`은 영어 그대로예요.
 
 예전에는 배율 선택기가 이 표에서 가장 눈에 띄는 항목이었어요. 헤더 셀도, 눈금도, 툴팁도 전부 `Intl`을 거치는 차트 안에서, 배율 선택기만 `hour`, `day`, `week` 같은 키를 그대로 버튼 여섯 개에 찍었거든요. 그 선택기와 이를 감싸던 툴바가 사라지면서 이 구멍은 구조적으로 막혔어요. 이제 선택기는 호스트 앱이 그리는 것이고, 그래서 옵션 텍스트도 호스트 앱이 번역해요.
 

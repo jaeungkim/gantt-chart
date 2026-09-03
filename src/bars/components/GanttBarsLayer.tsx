@@ -5,7 +5,7 @@ import { GanttBarOptions } from "shared/types";
 import type { WorkingCalendar } from "../../core";
 import { GanttInteractionConfig } from "shared/task";
 import { GanttFocus } from "interaction/utils/a11y";
-import { GanttRow } from "rows/utils/grouping";
+import { GanttRow } from "rows/utils/rows";
 
 interface GanttBarsLayerProps {
   rows: GanttRow[];

@@ -8,14 +8,11 @@ import {
   validateMove,
 } from "core/reorder";
 import { useGanttStoreApi } from "shared/context";
-import { GanttGroupBy } from "shared/types";
 import { GanttInteractionConfig, resolveTaskInteraction, Task } from "shared/task";
-import { groupKeyOf } from "rows/utils/grouping";
 
 interface UseGanttTaskMoveParams {
   hierarchy: boolean;
   interaction: GanttInteractionConfig;
-  groupBy?: GanttGroupBy;
   collapsedIds: ReadonlySet<string>;
   onTasksChange?: (tasks: Task[]) => void;
   onTaskMove?: (change: GanttTaskMoveChange) => boolean | void;
@@ -35,7 +32,6 @@ export interface GanttTaskMoveApi {
 export function useGanttTaskMove({
   hierarchy,
   interaction,
-  groupBy,
   collapsedIds,
   onTasksChange,
   onTaskMove,
@@ -43,24 +39,14 @@ export function useGanttTaskMove({
 }: UseGanttTaskMoveParams): GanttTaskMoveApi {
   const storeApi = useGanttStoreApi();
 
-  // `groupBy` reads a transformed task, so the key is looked up by id, not recomputed
-  const options = useMemo<GanttMoveOptions>(() => {
-    const groupOf = groupBy
-      ? (task: Task) => {
-          const transformed = storeApi
-            .getState()
-            .transformedTasks.find((candidate) => candidate.id === task.id);
-          return transformed ? groupKeyOf(transformed, groupBy) : "";
-        }
-      : undefined;
-
-    return {
+  const options = useMemo<GanttMoveOptions>(
+    () => ({
       hierarchy,
       canReorder: (task: Task) =>
         resolveTaskInteraction(task, interaction).canReorder,
-      groupOf,
-    };
-  }, [hierarchy, interaction, groupBy, storeApi]);
+    }),
+    [hierarchy, interaction]
+  );
 
   const validate = useCallback(
     (move: GanttTaskMove) =>

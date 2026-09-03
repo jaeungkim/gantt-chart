@@ -83,8 +83,9 @@ not the scroll position, and not the theme. The scale used to survive a remount 
 scale is now plain state on the chart instance.
 
 **No resource or cost model.** A `Task` has no assignee, no effort, no rate and no cost field —
-see [Task data](task-data). There is no resource pane, no histogram and no levelling. A
-swimlane groups rows by a string you supply; it does not know what a person is.
+see [Task data](task-data). There is no resource pane, no histogram and no levelling. A `lane`
+packs tasks onto a shared row by a string you supply; it does not know what a person is — see
+[Lanes](lanes).
 
 **Almost no validation.** Nothing checks that ids are unique, that `endDate` follows `startDate`,
 or that a date string parses; bad values degrade quietly instead of throwing. An unparseable date
@@ -107,9 +108,8 @@ present.
 **The built-in text is English, and most of it is fixed.** The ARIA labels and the screen-reader
 announcements are hardcoded — `"Gantt chart"`, `"Resize task list"`, `"Delete FS dependency"`, and
 a scale change announces the raw key, as in `"week scale"` — and there is no string bundle and no
-`messages` prop. The one label a prop can replace is `ungroupedLabel`.
-Anything you render around the chart is your own text, so a scale control's option labels translate
-with the rest of your UI. There is also no RTL support: the stylesheet uses physical properties
+`messages` prop. No prop replaces any of them. Anything you render around the chart is your own
+text, so a scale control's option labels translate with the rest of your UI. There is also no RTL support: the stylesheet uses physical properties
 throughout.
 
 ### What the host app does
@@ -136,7 +136,6 @@ After that, go to the page for the thing you are building.
 | an editable plan | [Editing tasks](editing), then [Events](events) |
 | a plan with links and a work week | [Dependencies](dependencies), then [Working calendar](working-calendar) |
 | a WBS-style outline | [Task list and hierarchy](task-list) |
-| a per-team or per-phase board | [Grouping and swimlanes](grouping) |
 | a chart that matches your design system | [Theming](theming), then [Styling](styling) |
 | date math with no chart | [Headless core](headless-core) |
 

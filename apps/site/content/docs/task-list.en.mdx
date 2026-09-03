@@ -51,8 +51,8 @@ export function ProjectChart() {
 Names, in one column, at a starting pane width of 220px.
 
 `showRowNumbers` puts a narrow number column in front of them. It prints `task.sequence`, the
-outline path the chart already orders rows by, so the second child of task 2 reads `2.1`. Swimlane
-bands carry no sequence and stay blank, so their labels still line up with the names below them.
+outline path the chart already orders rows by, so the second child of task 2 reads `2.1`. A row
+holding a whole lane prints its first task's number and nothing for the rest.
 
 | `showRowNumbers` | Number column |
 |---|---|
@@ -92,14 +92,11 @@ second cell, so the row keeps its single grid cell. Up to five things live insid
 - an indent spacer of `depth * 16` pixels;
 - the expander button on an expandable row, or a 20px spacer on every other row;
 - a `+N` badge counting the extra tasks when a row holds more than one, which happens with lanes —
-  see [Grouping and swimlanes](grouping);
+  see [Lanes](lanes);
 - a native `title` tooltip carrying `task.name`, so a name too long for the pane is still readable.
 
 The cell takes the whole pane width, so every pixel the splitter adds goes to the name. A name
 that still does not fit is truncated with an ellipsis.
-
-Group header rows render their own label and count instead of a task name; see
-[Grouping and swimlanes](grouping).
 
 ## Resizing the pane
 
@@ -139,7 +136,7 @@ latest `endDate` among them. The parent's own dates in your data are discarded o
 silently.
 
 Roll-up runs deepest first, so a grandchild's move travels up through the parent to the
-grandparent. It also runs before the timeline fits its range and before grouping, so a child
+grandparent. It also runs before the timeline fits its range, so a child
 reaching past its parent's stated dates still widens the timeline.
 
 The recomputed values are re-serialized as full UTC ISO strings. A parent that came in as
@@ -212,10 +209,9 @@ Toggles come from the expander button in the name cell, or from `ArrowRight` / `
 first cell and `Enter` / `Space` anywhere on the row — see
 [Keyboard and screen readers](accessibility).
 
-The same list also holds group header ids, which are the string `group:` followed by the raw group
-key; [Grouping and swimlanes](grouping) owns that. A row that holds several tasks in one lane
-has the id `a+b`, which matches no task. Whether that row gets an expander is decided by its first
-task alone, so a summary sharing a lane gets a toggle that hides nothing.
+A row that holds several tasks in one lane has the id `a+b`, which matches no task — see
+[Lanes](lanes). Whether that row gets an expander is decided by its first task alone, so a summary
+sharing a lane gets a toggle that hides nothing.
 
 ```tsx title="ProjectChart.tsx"
 import { useState } from 'react';
@@ -273,7 +269,7 @@ of indent.
 
 The pane shows the name and cannot be made to show anything else: there is no column API, no
 sorting and no filtering. The name cell is a read-only node — there is no inline editor and no
-`onCellChange` — and there is no renderer for a grid row or a group header. `renderDetail` is the
+`onCellChange` — and there is no renderer for a grid row. `renderDetail` is the
 chart's only render prop, and it draws the detail panel, not a row. The most a row takes from a
 task is `className`, in [Styling](styling).
 
@@ -290,8 +286,7 @@ no flag on the row.
 Roll-up covers `startDate`, `endDate` and a missing `progress`. It does not roll up `color`,
 `className` or `dependencies`.
 
-`collapsedIds` and `defaultCollapsedIds` do nothing for task ids while `hierarchy` is off. Group
-ids keep working.
+`collapsedIds` and `defaultCollapsedIds` do nothing at all while `hierarchy` is off.
 
 So the host app owns: keeping `sequence` consistent with `parentId`, holding the collapsed list in
 state if it wants controlled collapse, persisting pane width itself, building any control that
@@ -299,4 +294,4 @@ hides the pane, putting per-task detail in the detail panel, and validating pare
 render. `buildTaskTree` is exported for that last one — see
 [Headless core](headless-core).
 
-Next: [Grouping and swimlanes](grouping), which stacks header rows above this tree.
+Next: [Lanes](lanes), which packs tasks sharing a `lane` onto one row of this tree.

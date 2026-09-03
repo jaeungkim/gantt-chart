@@ -272,7 +272,6 @@ to `onTaskMove` — see [Editing tasks](../editing).
 export interface GanttMoveOptions {
   hierarchy: boolean;
   canReorder?: (task: Task) => boolean;
-  groupOf?: (task: Task) => string;
 }
 ```
 
@@ -280,7 +279,6 @@ export interface GanttMoveOptions {
 |---|---|---|
 | `hierarchy` | yes | On, the sibling lists are read from `parentId`, normalized exactly as `buildTaskTree` normalizes it. Off, `sequence` is the only thing carrying depth: the sibling list is read off the path, and any move that would change the parent is refused. |
 | `canReorder` | no | Whether a task may move at all. Left out, every task may. The chart passes `resolveTaskInteraction(task, config).canReorder` — see [GanttInteractionConfig](interaction-config). |
-| `groupOf` | no | A task's swimlane value. Given, a move whose new parent sits in another band is refused: a task's group is read off its root ancestor, and the core cannot rewrite a grouping field it did not compute. |
 
 ## GanttMoveRejection
 
@@ -292,7 +290,6 @@ export type GanttMoveRejection =
   | "unknown-parent"
   | "read-only"
   | "cycle"
-  | "cross-group"
   | "reparent-disabled"
   | "no-op";
 ```
@@ -304,7 +301,6 @@ export type GanttMoveRejection =
 | `'read-only'` | `options.canReorder` returned `false` for the task. |
 | `'reparent-disabled'` | `options.hierarchy` is `false` and the move changes the parent. |
 | `'cycle'` | `move.toParentId` is inside the moved task's own subtree, the task itself included. |
-| `'cross-group'` | `options.groupOf` gives the task's root ancestor and the new parent's root ancestor different values. |
 | `'no-op'` | The task is already that parent's child at that index, so nothing would change. |
 
 ## validateMove

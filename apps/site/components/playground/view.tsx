@@ -18,9 +18,6 @@ import {
   type SelectValue,
 } from '@/components/playground/controls';
 
-const status = (task: Task) =>
-  task.progress === 100 ? 'Done' : (task.progress ?? 0) > 0 ? 'In progress' : 'Not started';
-
 // The console floats over the chart, so it follows the chart's own overlay language rather than
 // the site's card: one step lifted off the chart background (#fafafa -> white, #09090b -> zinc
 // 900), a hairline ring, and a shadow that does the separating. `dark:` here is fumadocs' `.dark`
@@ -189,7 +186,6 @@ export function PlaygroundView() {
           locale={settings.locale}
           firstDayOfWeek={Number(settings.firstDayOfWeek)}
           hierarchy={settings.hierarchy}
-          groupBy={settings.groupBy ? status : undefined}
           showNonWorkingDays={settings.showNonWorkingDays}
           holidays={holidays}
           workingCalendar={settings.workingCalendar}

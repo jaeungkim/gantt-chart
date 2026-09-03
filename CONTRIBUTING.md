@@ -40,7 +40,7 @@ dev).
 Every switch is one row in the `CONTROLS` array in `apps/site/components/playground/controls.ts`,
 rendered by a single loop in `view.tsx` beside it - add a row, not another block of JSX. `group`
 decides which section of the console it lands in. Settings mirror into the query string, so a
-scenario is a shareable link (`/playground?groupBy=1&theme=dark`) that still toggles live once
+scenario is a shareable link (`/playground?hierarchy=1&theme=dark`) that still toggles live once
 loaded.
 
 The action bar at the top of the console is the only place the imperative ref API is reachable
@@ -66,7 +66,7 @@ trees.
 | `src/timeline/` | the time axis: date↔pixel geometry, the tick/header model, viewport and zoom, virtualization, the header, today line and non-working shading. |
 | `src/bars/` | the bars themselves and every bar-level gesture - move, resize, progress, draw-to-create. |
 | `src/dependencies/` | dependency links: validation, arrow geometry, the arrow layer, link dragging. |
-| `src/rows/` | the row model: grouping, lane packing, collapse, the row layer. |
+| `src/rows/` | the row model: lane packing, collapse, the row layer. |
 | `src/task-list/` | the left pane: the grid, its columns and its splitter, plus row reordering. |
 | `src/interaction/` | selection, the keyboard map and the aria labels. |
 | `src/detail/` | the task detail panel. |
@@ -100,7 +100,7 @@ Three rules keep it honest:
   duplicated helper is not.
 
 Imports are bare and resolved by `baseUrl: "src"` in `tsconfig.json`, so a module's specifier reads
-as its address: `bars/hooks/useGanttBarDrag`, `rows/utils/grouping`, `interaction/utils/a11y`.
+as its address: `bars/hooks/useGanttBarDrag`, `rows/utils/rows`, `interaction/utils/a11y`.
 
 Tests sit next to what they test, one suite per module.
 

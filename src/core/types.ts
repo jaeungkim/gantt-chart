@@ -21,7 +21,7 @@ export interface Task {
   color?: string;
   /** Extra class name put on this task's bar and its task-list row */
   className?: string;
-  /** Swimlane this task shares a row with - same lane draws side by side, overlaps stack onto extra rows */
+  /** Lane this task shares a row with - lane-mates draw side by side, overlaps stack onto extra rows */
   lane?: string;
   dependencies?: TaskDependency[];
   /** Blocks every gesture on this task - overrides the chart's `readOnly` prop */
