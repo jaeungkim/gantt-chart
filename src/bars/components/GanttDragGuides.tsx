@@ -1,39 +1,55 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { useGanttStore } from "shared/context";
 import { resolveFormatters } from "shared/utils/i18n";
 
-// The live readout for a move or resize, drawn on the date axis. Mounted inside
-// `.gantt-header-wrapper`, which is sticky and `totalWidth` wide - hence no width prop,
-// no z-index, and `left` already in the same space as a bar's `barLeft`.
+// The live readout for a move or resize. It is the tick row being precise for the length of one
+// gesture: the exact date is typeset at the edge the gesture is moving, in the row's own 11px
+// type. Nothing is drawn around it - the label paints the tick row's own background, so it blanks
+// the numerals it actually covers and no others, and the rest of the ruler keeps counting.
+// A move carries both edges, so it writes both. A resize writes only the edge under the pointer:
+// the other end is not changing, and a second label that never moves is one number to ignore.
+// Mounted inside `.gantt-header-wrapper`, which is sticky and `totalWidth` wide - hence no width
+// prop, no z-index, and `left` already in the same space as a bar's `barLeft`.
 // aria-hidden: the bar's own tooltip stays the live region for a pointer drag.
 export default function GanttDragGuides() {
   const currentTask = useGanttStore((store) => store.currentTask);
   const dragOffsets = useGanttStore((store) => store.dragOffsets);
+  const dragMode = useGanttStore((store) => store.dragMode);
   const selectedScale = useGanttStore((store) => store.selectedScale);
   const localeOptions = useGanttStore((store) => store.localeOptions);
-  const { range } = useMemo(
+  const { edge, range } = useMemo(
     () => resolveFormatters(selectedScale, localeOptions),
     [selectedScale, localeOptions]
   );
 
   const offset = currentTask ? dragOffsets[currentTask.id] : undefined;
-  const label = offset ? range(offset.offsetStartDate, offset.offsetEndDate) : "";
-
-  // The label sits in the band, and lifts into the month row when the band is too narrow to
-  // hold it. Measured rather than guessed at a px breakpoint: the text is locale- and
-  // override-driven, so any fixed threshold would be wrong in some language. The effect only
-  // re-runs when the text itself changes, not on every pointer move.
-  const labelRef = useRef<HTMLSpanElement>(null);
-  const [labelWidth, setLabelWidth] = useState(0);
-  useLayoutEffect(() => {
-    if (labelRef.current) setLabelWidth(labelRef.current.offsetWidth);
-  }, [label]);
-
   if (!currentTask || !offset) return null;
 
   const startX = currentTask.barLeft + offset.offsetX;
   const endX = startX + currentTask.barWidth + offset.offsetWidth;
   const width = Math.max(endX - startX, 2);
+
+  const startLabel = edge(offset.offsetStartDate);
+  const endLabel = edge(offset.offsetEndDate);
+
+  // Ends that read alike are a span the scale cannot tell apart, so one label stands for both -
+  // and `range` is what knows how to merge them, dropping what they share under a locale.
+  const merged =
+    startLabel === endLabel
+      ? range(offset.offsetStartDate, offset.offsetEndDate)
+      : null;
+
+  const sides =
+    merged !== null
+      ? [{ side: "start end", label: merged }]
+      : dragMode === "left"
+        ? [{ side: "start", label: startLabel }]
+        : dragMode === "right"
+          ? [{ side: "end", label: endLabel }]
+          : [
+              { side: "start", label: startLabel },
+              { side: "end", label: endLabel },
+            ];
 
   return (
     <div className="gantt-drag-guides" aria-hidden="true">
@@ -41,12 +57,14 @@ export default function GanttDragGuides() {
         className="gantt-drag-range"
         style={{ left: `${startX}px`, width: `${width}px` }}
       >
-        <span
-          ref={labelRef}
-          className={`gantt-drag-guide-label${labelWidth > width ? " lifted" : ""}`}
-        >
-          {label}
-        </span>
+        {/* Each label gets its own half of the span. The half is what bounds its sticky travel,
+            so two pinned labels can never slide into one another when most of the span is off
+            screen - the far one simply leaves with the edge it reports. */}
+        {sides.map(({ side, label }) => (
+          <span key={side} className={`gantt-drag-side ${side}`}>
+            <span className={`gantt-drag-edge ${side}`}>{label}</span>
+          </span>
+        ))}
       </div>
     </div>
   );

@@ -86,8 +86,8 @@ There is no props bag here, so nothing must be spread.
   during a gesture and `<div class="gantt-bar-tooltip gantt-bar-tooltip-detail" role="tooltip">` on
   hover. A replacement without those roles loses the live announcement.
 - The gesture node is visually hidden by `gantt-sr-only`: the visible readout for a move or a resize
-  is the range band on the date header, so the bar does not print the same dates a second time. It
-  is still mounted and still announced. A `renderTooltip` of your own is not hidden - it is rendered
+  is the date the tick row writes at the moving edge, so the bar does not print the same dates a
+  second time. It is still mounted and still announced. A `renderTooltip` of your own is not hidden - it is rendered
   as given, for `reason: "move"` and `"resize"` too.
 
 ## GanttHeaderCellRenderer

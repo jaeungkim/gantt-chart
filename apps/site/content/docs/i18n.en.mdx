@@ -17,7 +17,9 @@ Every scale prints dates in exactly three places. Each place has its own formatt
 
 The `tooltip` slot is therefore what a screen reader reads out, the live-region announcement a keyboard edit produces included. Those announcements are covered in [Keyboard and screen readers](accessibility).
 
-The header drag readout is the one place that layer prints a span rather than a point. With a `locale` set it merges what the two ends share, so a three-day move reads `Jan 15 – 17`; otherwise it joins two compact built-in labels with an en dash. Your own `tooltip` function formats both ends and is joined the same way. Two ends that format identically print one label, not the same label twice.
+The header drag readout formats one end of the dragged span at a time and writes it on the tick row at that end. A move writes both ends, a resize only the end it is moving. So the slot is called twice per frame with a point, not once with a span.
+
+The exception is a span whose two ends format identically - a task shorter than the scale resolves. That prints one label for both, and with a `locale` set it is `Intl.DateTimeFormat.formatRange` that merges them, dropping what the ends share so a same-day move reads `Jan 7` rather than `Jan 7 – Jan 7`. Without a locale the two labels are joined with an en dash, and your own `tooltip` function is joined the same way.
 
 Each slot is filled from the first of three layers that has something for it:
 
