@@ -3,9 +3,9 @@ import Link from 'next/link';
 import { GanttDemo } from '@/components/demo/gantt-demo';
 
 export const metadata: Metadata = {
-  title: 'An editable Gantt chart for React',
+  title: 'A Gantt chart that behaves like a controlled input',
   description:
-    'A virtualized React Gantt chart with five timeline scales, four dependency types, a working calendar, and keyboard and screen reader support.',
+    'A controlled React Gantt chart. Every drag returns the complete next tasks array. Virtualized rows, five timeline scales, four dependency types, a working calendar, and keyboard and screen reader support.',
 };
 
 // The card order. Each href is also the key its copy is filed under, so a card can never
@@ -38,9 +38,9 @@ interface Copy {
 // The landing page is a translation pair like every docs page: en and ko move together.
 const COPY: Record<'en' | 'ko', Copy> = {
   en: {
-    heroTitle: 'An editable Gantt chart for React',
+    heroTitle: 'A Gantt chart that behaves like a controlled input',
     heroBody:
-      'Virtualized rows, four dependency types and a working calendar. The date core runs without a DOM.',
+      'Drag a bar and the complete next tasks array comes back through onTasksChange. Your app holds that array, and the chart persists nothing.',
     getStarted: 'Get started',
     tryTitle: 'Try it',
     tryBody:
@@ -52,8 +52,8 @@ const COPY: Record<'en' | 'ko', Copy> = {
     props: 'GanttProps',
     features: {
       '/docs/editing': {
-        title: 'Editable by default',
-        body: 'Drag to move, pull an edge to resize, drag the handle to set progress, draw an arrow to link two rows. Every gesture calls onTasksChange with the new array.',
+        title: 'Controlled editing',
+        body: 'Drag to move, pull an edge to resize, drag the handle to set progress, draw an arrow to link two rows. Every gesture calls onTasksChange with the complete next array.',
       },
       '/docs/working-calendar': {
         title: 'Working calendar',
@@ -78,9 +78,9 @@ const COPY: Record<'en' | 'ko', Copy> = {
     },
   },
   ko: {
-    heroTitle: '편집 가능한 React 간트 차트',
+    heroTitle: '제어 컴포넌트처럼 동작하는 React 간트 차트',
     heroBody:
-      '가상화된 행, 네 가지 의존성 타입, 근무일 달력을 제공해요. 날짜 코어는 DOM 없이 동작해요.',
+      '막대를 끌면 다음 tasks 배열 전체가 onTasksChange로 돌아와요. 그 배열은 앱이 들고 있고 차트는 아무것도 저장하지 않아요.',
     getStarted: '시작하기',
     tryTitle: '직접 해보기',
     tryBody:
@@ -92,8 +92,8 @@ const COPY: Record<'en' | 'ko', Copy> = {
     props: 'GanttProps',
     features: {
       '/docs/editing': {
-        title: '설정 없이 편집 가능',
-        body: '막대를 끌어 옮기고 가장자리를 당겨 크기를 조절해요. 핸들을 끌면 진행률이 정해지고 화살표를 그으면 두 행이 연결돼요. 모든 제스처가 바뀐 작업 배열로 onTasksChange를 호출해요.',
+        title: '제어되는 편집',
+        body: '막대를 끌어 옮기고 가장자리를 당겨 크기를 조절해요. 핸들을 끌면 진행률이 정해지고 화살표를 그으면 두 행이 연결돼요. 모든 제스처가 다음 tasks 배열 전체로 onTasksChange를 호출해요.',
       },
       '/docs/working-calendar': {
         title: '근무일 달력',
@@ -131,10 +131,10 @@ export default async function HomePage({
   return (
     <main className="flex flex-1 flex-col">
       <section className="mx-auto w-full max-w-7xl px-4 pt-16 pb-10 text-center">
-        <h1 className="text-balance text-4xl font-bold tracking-tight md:text-5xl">
+        <h1 className="text-balance break-keep text-4xl font-bold tracking-tight md:text-5xl">
           {copy.heroTitle}
         </h1>
-        <p className="mx-auto mt-4 max-w-2xl text-balance text-lg text-fd-muted-foreground">
+        <p className="mx-auto mt-4 max-w-2xl text-balance break-keep text-lg text-fd-muted-foreground">
           {copy.heroBody}
         </p>
 
