@@ -62,10 +62,11 @@ export function TaskDataExample() {
 | `allowProgressChange` | `boolean` | no | none | Allows or blocks the progress handle. |
 | `allowLinkCreate` | `boolean` | no | none | Allows or blocks starting a dependency drag from this task. |
 | `allowLinkDelete` | `boolean` | no | none | Allows or blocks deleting a dependency this task owns. |
+| `allowReorder` | `boolean` | no | none | Allows or blocks dragging this row to a new position or a new parent. |
 | `minDate` | `string` | no | the chart's `minDate` | Earliest date a drag may land on. |
 | `maxDate` | `string` | no | the chart's `maxDate` | Latest date a drag may land on. |
 
-The five `allowX` flags and `readOnly` resolve most-specific-first, `task.allowX` before `task.readOnly` before the chart's config; see [Editing tasks](editing). `minDate` and `maxDate` do not use that chain — the task's value replaces the chart's when present. `color` and `className` and the four CSS variables a colored bar sets are covered in [Styling](styling). `lane` is covered in [Lanes](lanes).
+The six `allowX` flags and `readOnly` resolve most-specific-first, the task's value before the chart's; the full ladder is in [GanttInteractionConfig](ref/interaction-config). `allowReorder` alone defaults to off rather than on; see [Reordering rows](reordering). `minDate` and `maxDate` do not use that chain — the task's value replaces the chart's when present. `color` and `className` and the four CSS variables a colored bar sets are covered in [Styling](styling). `lane` is covered in [Lanes](lanes). The signature and default of every prop named here are in [GanttProps](ref/props).
 
 ### Fields that do nothing on their own
 
@@ -78,8 +79,6 @@ One field is read only under a prop. `lane` needs no prop at all.
 
 ### TaskDependency fields
 
-A dependency lives on the **successor** and names its predecessor.
-
 | Field | Type | Required | Default | Meaning |
 |---|---|---|---|---|
 | `targetId` | `string` | yes | — | The predecessor's `id`. |
@@ -87,7 +86,7 @@ A dependency lives on the **successor** and names its predecessor.
 
 What the four types mean, and how arrows are drawn and deleted, is in [Dependencies](dependencies).
 
-An entry whose `targetId` is not in `tasks` is dropped without a warning. An entry that names its own task is not — there is no self check, so it draws an arrow looping back onto its own row. An unrecognized `type` skips that arrow, and logs a `console.warn` once per distinct value in a development build only. In a production bundle the arrow is missing with no signal at all.
+An entry whose `targetId` is not in `tasks` is dropped without a warning. An entry that names its own task is not — there is no self check, so it draws an arrow looping back onto its own row. An unrecognized `type` skips its arrow; that degradation and the four letters are in [Task and task types](ref/task).
 
 ## Dates and time zones
 
@@ -106,6 +105,8 @@ A UTC ISO string is the shape the chart emits, but it is not a requirement on in
 
 There is no date validation on tasks. An unparseable `startDate` does not hide the row and does not throw. Its bar starts at the left edge of the timeline and spans the whole width.
 
+An `endDate` equal to its `startDate` is legal. The computed bar width is clamped to a minimum of 1px, so a zero-length task draws as a sliver rather than being rejected or hidden.
+
 Every value the chart writes back is serialized with `toISOString()`. A task you passed as `'2025-06-01'` comes back as `'2025-06-01T00:00:00.000Z'` after the first drag. That matters for the diff rule below.
 
 ## sequence and parentId
@@ -120,6 +121,8 @@ A segment that is not a number becomes `0`. `'abc'`, `'1a'` and `''` all sort as
 > A missing `sequence` throws. `sequence.split('.')` runs on `undefined` inside the layout effect that builds the timeline, and the whole chart fails to render. TypeScript marks the field required, so this only bites hand-built JSON and data mapped without types.
 
 With `hierarchy` off, indentation depth is the number of dots in `sequence`, so `'2.1.1'` renders two levels in. With `hierarchy` on, depth comes from the `parentId` chain and `sequence` only orders. Incoherent input renders incoherently: a child whose `sequence` sorts above its parent is drawn above its parent.
+
+One gesture rewrites both fields. A committed row reorder renumbers every `sequence` from the new row order, and with `hierarchy` on it also rewrites the moved task's `parentId`. The result leaves through `onTasksChange` like any other edit; turning the gesture on is covered in [Reordering rows](reordering).
 
 ## progress
 
@@ -219,15 +222,15 @@ Reshape for your API inside the save call, not on the way back into the prop. Wh
 
 The chart reads your array. It does not police it.
 
-- **No validation of any kind.** No required-field check, no date parsing check, no id-uniqueness check, no range check on `progress`, no membership check on `DependencyType`. The only runtime diagnostic in the whole model is one development-only `console.warn` for an unknown dependency type.
+- **No validation of any kind.** No required-field check, no date parsing check, no id-uniqueness check, no range check on `progress`, no membership check on `DependencyType`.
 - **Duplicate ids are never detected.** Every array entry still gets a row, but every lookup keyed by id keeps the last occurrence. Dependencies and roll-up resolve to the wrong task. Deduplicate before you pass the array in.
 - **No normalization on input.** Dates are not re-serialized, `sequence` is not renumbered, and `parentId` is not rewritten. An orphan or a cycle is *treated* as a root when the tree is built, but the field itself is left exactly as you wrote it.
 - **No local time zone mode.** UTC is hardcoded. Convert to and from local wall-clock time in the host app if your users need it.
-- **The chart never adds or removes tasks.** The **Add task** button, `addTask()` and a drawn range each propose a draft through `onTaskCreate`, and the host supplies `id`, `parentId` and `sequence`.
+- **The chart never adds a task itself.** The **Add task** button, `addTask()` and a drawn range each propose a draft through `onTaskCreate`. The draft carries only dates — the host supplies `id`, `name`, `parentId` and `sequence`. Deleting is real, though: `Delete` on a focused row removes the task and its whole subtree, documented in [Keyboard and screen readers](accessibility).
 - **There is no metadata field.** Extra properties survive because the type is structural, but they are untyped and they count toward the `tasks` diff.
-- **`TaskTransformed` is output only.** The chart hands it to your renderers; `tasks` only ever accepts `Task`. Its fields are listed in [Task](ref/task).
+- **`TaskTransformed` is output only.** The chart hands it to your renderers; `tasks` only ever accepts `Task`. Its fields are listed in [Task and task types](ref/task).
 - **Nothing reconciles `sequence` with `parentId`.** A child whose `sequence` sorts above its parent stays drawn above it.
 
-Nothing is written back into the objects you passed. Every change leaves through `onTasksChange` as a new array, and your own copy is untouched until you replace it.
+Nothing is written back into the objects you passed. Every change — a drag, a keyboard nudge, a field edited in the [Detail panel](detail-panel) — leaves through `onTasksChange` as a new array, and your own copy is untouched until you replace it.
 
 Next: [Task list and hierarchy](task-list) — turning `parentId` into summary rows, and the name pane beside them.

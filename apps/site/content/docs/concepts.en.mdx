@@ -26,10 +26,15 @@ and applies whatever the chart hands to `onTasksChange` — see [Events](events)
 | row | One line of the grid. It carries one task, or several that share a lane. |
 | task list | The left pane, the list of task names beside the timeline. See [Task list and hierarchy](task-list). |
 | timeline | The time axis and everything drawn against it. See [The timeline](timeline). |
-| scale | Which unit the timeline is drawn in: `hour`, `day`, `week`, `month`, `quarter` or `year`. See [The timeline](timeline). |
+| scale | Which unit the timeline is drawn in: `day`, `week`, `month`, `quarter` or `year`. See [The timeline](timeline). |
 | tick | One cell of the lower header row. How much time one tick covers depends on the scale. |
+| drag step | How far one snap of a bar drag moves it. The scale decides it too — one hour at `day`, 28 days at `year`. See [Editing tasks](editing). |
+| drag readout | The dates a live drag writes into the tick cells its moving edges land in, over a tinted footprint of the bar. A move writes both ends, a resize only the end it moves. See [Editing tasks](editing). |
 | summary row | A task that has children under `parentId`, with `hierarchy` on. Its dates come from the children. See [Task list and hierarchy](task-list). |
+| roll-up | The dates and progress a summary row takes from its children. See [Task list and hierarchy](task-list). |
 | lane | The `lane` field, which puts several tasks side by side on one row. See [Lanes](lanes). |
+| detail panel | The docked pane beside the chart that shows one task. See [Detail panel](detail-panel). |
+| treegrid | The `role="treegrid"` element holding the task list and the timeline as one grid, with one tab stop inside it. See [Keyboard and screen readers](accessibility). |
 
 Every word above names something in this snippet:
 
@@ -99,7 +104,10 @@ packed onto one row. [Lanes](lanes) owns that packing.
 
 **Task.** The unit you pass in. Six fields are required — `id`, `name`, `startDate`, `endDate`,
 `parentId`, `sequence` — and the rest are optional. The field table lives in
-[Task data](task-data), the type in [`Task`](ref/task).
+[Task data](task-data), the type in [Task and task types](ref/task).
+
+**Draft.** The new task the chart proposes to `onTaskCreate`. It carries two dates and nothing else;
+your app produces the `id`, `parentId` and `sequence`. See [Creating tasks](task-creation).
 
 **Dependency.** A link between two tasks, in one of four types: `FS`, `SS`, `FF`, `SF`. The first
 letter is the predecessor's end, the second is the successor's end. See
@@ -117,10 +125,15 @@ const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
 
 ## The working calendar
 
-The rule that decides where a drop may land. With `workingCalendar` off, a bar stays wherever the
-pointer let go. With it on, a drop that lands on a weekend or a `holidays` date moves forward onto
-the next working day. Bars still span the weekend on screen, and the drag step is still counted in
-calendar days. [Working calendar](working-calendar) says exactly what it does and does not change.
+**A working day** is a weekday `workingWeekdays` lists — Monday to Friday unless you say otherwise —
+that no `holidays` entry covers. **A holiday** is one of those entries: a `YYYY-MM-DD` string, or an
+object that also carries a label and a colour.
+
+**The working calendar** is the rule that reads both. With `workingCalendar` off, a bar stays wherever
+the pointer let go. With it on, a drop that lands on a non-working day moves forward onto the next
+working day. Bars still span those days on screen, and the drag step is still counted in calendar
+days. [Working calendar](working-calendar) says exactly what it does and does not change; the shading
+and the holiday names are [The timeline](timeline).
 
 ## Sequence orders, parentId nests
 
@@ -150,7 +163,7 @@ drawn on the chart, on one it edits, and on every task it hands in.
 
 One gesture is the exception. `allowReorder` lets a row be dragged to a new slot or a new parent,
 and that renumbers `sequence` on every task whose tree path changed — because `sequence` is a path,
-and a path cannot be split. It is off unless you turn it on. See [Reordering rows](editing#reordering-rows).
+and a path cannot be split. It is off unless you turn it on. See [Reordering rows](reordering).
 
 ## A row is not a task
 
@@ -163,7 +176,7 @@ and a path cannot be split. It is off unless you turn it on. See [Reordering row
 
 So "the third row" and "the third task" are different statements as soon as `lane` is in play. Code
 reading `row.tasks[0]` is reading the first task on that row, not the row itself. The row model, its
-ids and its ARIA numbering are owned by [Lanes](lanes) and [`GanttRow`](ref/rows).
+ids and its ARIA numbering are owned by [Lanes](lanes) and [GanttRow](ref/rows).
 
 ## Which words need a prop turned on
 
@@ -173,7 +186,11 @@ Half of the vocabulary above describes nothing until you switch something on.
 |---|---|---|
 | summary row, roll-up, subtree drag, collapsing a task row | `hierarchy` | `false` |
 | lane row | a `lane` value on two or more tasks | no prop |
-| a drop moving off a weekend or a holiday | `workingCalendar` | `false` |
+| task list | `showTaskList` | `false` |
+| detail panel | `showDetail`, or `renderDetail` alone | off |
+| a drop moving off a non-working day | `workingCalendar` | `false` |
+
+The signature and default of every prop named here are in [GanttProps](ref/props).
 
 ## Limits
 
@@ -188,7 +205,7 @@ with the host app.
 - **The chart owns no data.** It renders the `tasks` prop and hands every edit to `onTasksChange`.
   Persistence, optimistic updates and server round-trips are the host app's, and drawing a new task
   only proposes a draft — the host produces the `id`, `parentId` and `sequence`. See
-  [Editing tasks](editing).
+  [Creating tasks](task-creation).
 - **There is no resource, cost or effort model.** A task has no assignee, owner or budget field.
   You can hang your own properties on a task object, but they are untyped and they count toward the
   `tasks` diff — [Task data](task-data) explains that diff.

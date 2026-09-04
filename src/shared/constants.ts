@@ -65,6 +65,11 @@ export const RANGE_FORMATS: Record<GanttScaleKey, string> = {
 // in px per calendar day (288-72-18-4-1). Zooming out coarsens `unitPerTick` so a header cell
 // stays ~60-130px rather than shrinking.
 // `dragStepUnit` must divide a tick evenly, or createBottomRowCells truncates the cell width.
+// A holiday's name is written over its band, so a band too narrow to hold a word writes nothing
+// and leaves the tint to mark the day. One day is 72px at the week scale and 18px at the month
+// scale, so this is also what decides that names appear on one and not the other.
+export const MIN_HOLIDAY_LABEL_PX = 44;
+
 export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
   day: {
     // Quarter-day cells - the only scale that draws a task shorter than a day at its true length

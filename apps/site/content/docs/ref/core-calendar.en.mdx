@@ -1,6 +1,6 @@
 ---
-title: "Working calendar"
-description: "`createWorkingCalendar`, `CALENDAR_DAYS`, `WorkingCalendar`"
+title: "Working calendar helpers"
+description: "The exported calendar API: `createWorkingCalendar`, `CALENDAR_DAYS`, `WorkingCalendar`"
 ---
 
 A `WorkingCalendar` is the day unit date arithmetic counts in. `CALENDAR_DAYS` — the default —
@@ -24,12 +24,7 @@ itself, in UTC mode.
 ## `createWorkingCalendar`
 
 ```ts title="src/core/calendar.ts"
-/**
- * A calendar that skips weekends and holidays.
- *
- * Takes the same configuration the chart already uses to shade non-working days
- * (`holidays` / `isNonWorkingDay`), so what is shaded and what is skipped cannot drift.
- */
+/** A calendar that skips weekends and holidays. */
 export function createWorkingCalendar(
   options: WorkingCalendarOptions = {}
 ): WorkingCalendar
@@ -38,6 +33,10 @@ export function createWorkingCalendar(
 | Parameter | Type | Required | Meaning |
 |---|---|---|---|
 | `options` | `WorkingCalendarOptions` | no | Defaults to `{}`, which is a Monday–Friday week with no holidays |
+
+This is the same non-working-day definition the chart shades with, one level flatter: the chart's
+`holidays` prop also accepts objects and date ranges, and it expands them to the plain
+`YYYY-MM-DD` strings this function takes.
 
 The returned calendar always has `skipsNonWorkingDays: true`, including for a configuration that
 happens to leave every day working.
@@ -50,8 +49,6 @@ export interface WorkingCalendarOptions {
   workingWeekdays?: number[];
   /** Non-working dates as UTC `YYYY-MM-DD` strings */
   holidays?: string[];
-  /** Replaces the weekday + holiday check entirely */
-  isNonWorkingDay?: (date: Dayjs) => boolean;
 }
 ```
 
@@ -59,10 +56,6 @@ export interface WorkingCalendarOptions {
 |---|---|---|---|
 | `workingWeekdays` | `number[]` | `[1, 2, 3, 4, 5]` (Mon–Fri) | UTC day numbers, `0` = Sunday. A day not in the array is non-working |
 | `holidays` | `string[]` | `[]` | UTC `YYYY-MM-DD` strings, matched by exact string equality against `date.format('YYYY-MM-DD')` |
-| `isNonWorkingDay` | `(date: Dayjs) => boolean` | `undefined` | One predicate for the whole check. `true` means the day is non-working |
-
-`isNonWorkingDay` wins outright. When it is set, `workingWeekdays` and `holidays` are never read —
-a calendar built with all three uses only the predicate.
 
 ## `CALENDAR_DAYS`
 
@@ -77,16 +70,9 @@ Use it when your own code takes a calendar argument and the caller wants plain c
 ## `WorkingCalendar`
 
 ```ts title="src/core/calendar.ts"
-/**
- * The calendar every piece of date arithmetic in the core routes through.
- *
- * There is exactly one notion of "a day" in the engine: whatever this object says.
- * The default calendar counts every day, so the plain calendar-date behaviour is not a
- * separate code path - it is the same code with a calendar that never skips anything.
- * Turning the working-day calendar on swaps the object; nothing else changes.
- */
+/** The calendar every piece of date arithmetic in the core routes through. */
 export interface WorkingCalendar {
-  /** False for the default calendar (every day counts) - lets callers take the cheap path */
+  /** False for the default calendar (every day counts) */
   readonly skipsNonWorkingDays: boolean;
   isWorkingDay(date: Dayjs): boolean;
   /** Moves `days` days forward (or backward), skipping non-working days */
@@ -102,12 +88,16 @@ export interface WorkingCalendar {
 }
 ```
 
+There is exactly one notion of "a day" in the engine: whatever this object says. Turning the
+working-day calendar on swaps the object, and nothing else changes. `skipsNonWorkingDays` is there
+so a caller can take the cheap path instead of asking the calendar day by day.
+
 ### Members
 
 | Member | Signature | `CALENDAR_DAYS` | Working calendar |
 |---|---|---|---|
 | `skipsNonWorkingDays` | `readonly boolean` | `false` | `true` |
-| `isWorkingDay` | `(date: Dayjs) => boolean` | Always `true` | `true` when the day passes the weekday and holiday check, or the `isNonWorkingDay` predicate returns `false` |
+| `isWorkingDay` | `(date: Dayjs) => boolean` | Always `true` | `true` when the day passes the weekday and holiday check |
 | `addDays` | `(date: Dayjs, days: number) => Dayjs` | `date.add(days, 'day')` | Steps one calendar day at a time and counts down only on working days. The time of day is kept |
 | `daysBetween` | `(from: Dayjs, to: Dayjs) => number` | `to.startOf('day').diff(from.startOf('day'), 'day')` | Walks day by day and counts only the working days it lands on. The starting day is never counted |
 | `daysUntil` | `(from: Dayjs, target: Dayjs) => number` | Smallest `d` with `addDays(from, d) >= target` | Same, in working days |
@@ -164,8 +154,8 @@ calendar.isWorkingDay(dayjs.utc('2025-06-09')); // false
 calendar.skipsNonWorkingDays; // true
 ```
 
-Nothing in the package takes a calendar argument. The chart builds its own from `workingCalendar`
-and the `holidays` / `isNonWorkingDay` props, so a calendar you construct is for your own date
+Nothing in the package takes a calendar argument. The chart builds its own from `workingCalendar`,
+`workingWeekdays` and `holidays`, so a calendar you construct is for your own date
 math — see [Working calendar](../working-calendar).
 
 ## Constraints
@@ -181,8 +171,8 @@ does.
 
 A calendar where nothing is a working day does not fail and does not hang. `addDays` gets a budget
 of 367 steps per requested day and falls back to plain calendar days when it runs out, and
-`snapForward` returns its input unchanged after 366 attempts. A predicate that marks every day
-non-working produces wrong numbers, not an error.
+`snapForward` returns its input unchanged after 366 attempts. An empty `workingWeekdays` produces
+wrong numbers, not an error.
 
 `daysBetween` walks one day at a time only up to 18,263 days (about 50 years). Past that it returns
 the plain calendar-day difference, so the unit changes silently on a working calendar for spans
@@ -209,6 +199,5 @@ A calendar changes dates, not geometry. Bar geometry, timeline ticks and non-wor
 take no calendar argument, so a bar still spans every weekend and holiday it covers. Shading is
 the separate `showNonWorkingDays` prop, described in [The timeline](../timeline).
 
-The chart reads a calendar in one place, the bar drag: when `skipsNonWorkingDays` is `true`, the
-dropped edge is `snapForward`-ed and the rest of the bar follows by the same number of days. That
-is the whole of it — see [Working calendar](../working-calendar).
+The chart reads a calendar in one place, the bar drag, where `snapForward` moves the dragged edge
+off a non-working day — see [Working calendar](../working-calendar).

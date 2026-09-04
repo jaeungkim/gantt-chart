@@ -15,13 +15,7 @@ import type { GanttInteractionConfig } from '@jaeungkim/gantt-chart';
 ## GanttInteractionConfig
 
 ```ts title="src/shared/task.ts"
-/**
- * Chart-wide interaction settings
- *
- * Every field is optional, and a task's own field of the same name wins over it.
- * With nothing set, every gesture is allowed and there are no drag bounds - except
- * creating new tasks, which needs an `onTaskCreate` callback to go anywhere.
- */
+/** Chart-wide interaction settings - every gesture is allowed by default (task creation also needs `onTaskCreate`), and a task's own field of the same name wins. */
 export interface GanttInteractionConfig {
   readOnly?: boolean;
   allowMove?: boolean;
@@ -30,7 +24,7 @@ export interface GanttInteractionConfig {
   allowLinkCreate?: boolean;
   allowLinkDelete?: boolean;
   allowTaskCreate?: boolean;
-  /** Turns row reordering on - opt-in, so nothing moves until this (or a task's own flag) is true */
+  /** Turns row reordering on - opt-in (default false). */
   allowReorder?: boolean;
   minDate?: string;
   maxDate?: string;
@@ -39,16 +33,16 @@ export interface GanttInteractionConfig {
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `readOnly` | `boolean` | `undefined` | Blocks every gesture on every task. Any capability flag set at either level beats it. |
+| `readOnly` | `boolean` | `undefined` | Blocks every gesture on every task, and leaves the detail panel's built-in fields as plain text. Any capability flag set at either level beats it — except the panel's **Name**, which reads only the `readOnly` rungs and so stays plain text whatever the capability flags say. |
 | `allowMove` | `boolean` | `undefined` | Dragging a bar along the timeline. |
-| `allowResize` | `boolean` | `undefined` | Dragging either edge of a bar. |
-| `allowProgressChange` | `boolean` | `undefined` | Dragging the progress handle. |
+| `allowResize` | `boolean` | `undefined` | Dragging either edge of a bar. It also decides whether the detail panel's **Start** and **End** are editable date inputs. |
+| `allowProgressChange` | `boolean` | `undefined` | Dragging the progress handle. It also decides whether the detail panel's **Progress** is an editable number input. |
 | `allowLinkCreate` | `boolean` | `undefined` | Starting a dependency drag from a bar's handle. |
 | `allowLinkDelete` | `boolean` | `undefined` | Selecting and deleting a dependency arrow. |
 | `allowTaskCreate` | `boolean` | `undefined` | Proposing a new task — the **Add task** button, `addTask()` and the drawn range. Chart-wide only. |
 | `allowReorder` | `boolean` | `undefined` | Dragging a task-list row to a new position or a new parent, and the keyboard bindings that do the same. |
-| `minDate` | `string` | `undefined` | Earliest date any bar may be dragged to, as a UTC ISO string. |
-| `maxDate` | `string` | `undefined` | Latest date any bar may be dragged to, as a UTC ISO string. |
+| `minDate` | `string` | `undefined` | Earliest date any bar may be dragged to, as a UTC ISO string. A date typed into the detail panel is clamped to it too. |
+| `maxDate` | `string` | `undefined` | Latest date any bar may be dragged to, as a UTC ISO string. A date typed into the detail panel is clamped to it too. |
 
 Every field unset means every gesture is allowed and there are no drag bounds, with two exceptions.
 `allowTaskCreate` also needs an `onTaskCreate` callback — see [Task creation](#task-creation) below.
@@ -57,7 +51,7 @@ Every field unset means every gesture is allowed and there are no drag bounds, w
 
 The ten props of the same names on `GanttProps` feed this object; see
 [GanttProps](props). The per-task fields that override it are on
-[Task](task).
+[Task and task types](task).
 
 ## Capability resolution
 
@@ -66,25 +60,9 @@ Each of the six per-task capabilities is resolved by an internal function,
 documented here because it decides what the chart does, not because it is callable.
 
 ```ts title="src/shared/task.ts"
-/**
- * Resolves what one task allows, most specific setting first:
- *
- * `task.allowX` > `task.readOnly` > `config.allowX` > `config.readOnly` > allowed
- *
- * A capability flag always beats a blanket `readOnly` at the same level, so
- * `readOnly` on the chart plus `allowProgressChange: true` on one task means
- * "frozen except that one progress bar".
- *
- * One structural rule is not a flag and cannot be flagged back on, because the
- * gesture has nowhere to write to: summary rows are never resizable and have no
- * draggable progress (both are rolled up from their children, so an edit would
- * snap back). Moving a summary is fine - it carries its whole subtree.
- *
- * Reordering is the one gesture that is off by default: it bottoms out at `false`
- * rather than at `!config.readOnly`, so a chart that says nothing about it stays
- * exactly as it was. The rest of the ladder is unchanged - a task's own
- * `allowReorder` still beats its `readOnly`, which still beats the chart's flag.
- */
+// Precedence: `task.allowX` > `task.readOnly` > `config.allowX` > `config.readOnly` > allowed.
+// Summary rows are never resizable and have no draggable progress - both roll up from children.
+// Reordering is the exception: its floor is `false`, so only an explicit flag turns it on.
 export function resolveTaskInteraction(
   task: Pick<
     Task,
@@ -110,9 +88,6 @@ export function resolveTaskInteraction(
     return !config.readOnly;
   };
 
-  // Reordering does not ride the ladder above, because its floor is `false` rather
-  // than `!config.readOnly`: only an explicit flag turns it on. A task's own flag still
-  // wins, and a task frozen by `readOnly` cannot be dragged by the chart-wide flag.
   const canReorder =
     task.allowReorder ??
     (task.readOnly === true ? false : (config.allowReorder ?? false));
@@ -159,6 +134,37 @@ The order, most specific first:
 | — | — | — | `true` | blocked | 4 |
 | — | — | — | `false` | allowed | 4 |
 | — | — | — | — | allowed | 4 |
+
+The ladder in one snippet — the chart is frozen, and one task's own flag re-opens one gesture:
+
+```tsx title="Frozen chart, one live progress handle"
+<ReactGanttChart
+  readOnly
+  tasks={[
+    {
+      id: 'design',
+      name: 'Design',
+      startDate: '2026-03-02',
+      endDate: '2026-03-06',
+      parentId: null,
+      sequence: '1',
+    },
+    {
+      id: 'build',
+      name: 'Build',
+      startDate: '2026-03-09',
+      endDate: '2026-03-20',
+      parentId: null,
+      sequence: '2',
+      progress: 40,
+      allowProgressChange: true,
+    },
+  ]}
+/>
+```
+
+`allowProgressChange` on the second task decides at rung 1, so its progress handle still drags.
+Every other gesture on both tasks falls to rung 4, where `readOnly` blocks it.
 
 ### The six capabilities
 
@@ -234,10 +240,7 @@ Task creation is chart-wide only, so it has its own two-rung resolver — also i
 not exported:
 
 ```ts title="src/shared/task.ts"
-/**
- * Whether the chart may propose new tasks at all
- * Chart-wide only - no entry point starts on a task, so there is no per-task rung
- */
+// Chart-wide only - no entry point starts on a task, so there is no per-task rung
 export function canCreateTasks(
   config: GanttInteractionConfig = NO_INTERACTION_CONFIG
 ): boolean {
@@ -262,7 +265,7 @@ const canCreateTask = onTaskCreate !== undefined && canCreateTasks(interaction);
 
 That one value gates all three entry points: the **Add task** strip is not rendered without it,
 `addTask()` returns early, and the drawing gesture is off. So without `onTaskCreate` there is no way
-to create a task, whatever the flags say. See [Editing tasks](../editing).
+to create a task, whatever the flags say. See [Creating tasks](../task-creation).
 
 ## Constraints
 
@@ -272,6 +275,11 @@ One rule is `&&`-ed in front of the resolver's output, so no flag at any level r
 `canChangeProgress` are both `false` when `isSummary` is `true`, including when the task sets
 `allowResize: true` and `allowProgressChange: true`. `canMove` is unaffected — moving a summary
 is allowed and carries its whole subtree.
+
+Both values are derived: `rollUpTasks` recomputes a summary's start and end from its children on
+every render, and rolls their progress up too unless the summary carries an explicit one — so an
+edit here would either be discarded on the next render or freeze a derived value, which is why no
+flag re-enables it.
 
 `isSummary` is set only when the `hierarchy` prop is on, so the rule does not apply to a flat chart.
 `readOnly` still freezes a summary row entirely.
@@ -285,4 +293,5 @@ Not exported, and named on this page only to describe the chart's behaviour:
 Do not import them.
 
 The gestures these flags govern are described in [Editing tasks](../editing) and
-[Dependencies](../dependencies).
+[Dependencies](../dependencies). The panel fields they gate are in
+[Detail panel](../detail-panel).

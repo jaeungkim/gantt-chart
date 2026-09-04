@@ -41,6 +41,8 @@ Maintainer runbook. Publishing is triggered by creating a GitHub Release in the 
 
 ## Cutting a release (example: 0.4.0)
 
+The `/release` Claude Code command (a maintainer-side file in `~/.claude/commands/`) runs this section end to end, deriving the bump from the merged PR titles or taking one as an argument. The steps below are what it does, and the fallback when doing it by hand.
+
 1. Version bump PR:
 
    ```bash

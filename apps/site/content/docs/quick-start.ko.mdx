@@ -88,7 +88,8 @@ export function ProjectChart() {
 ```
 
 `height`의 기본값은 `600`, `width`의 기본값은 `"100%"`예요. 둘 다 픽셀 숫자나 임의의 CSS 길이
-문자열을 받아요. 퍼센트 높이는 부모 요소가 자기 높이를 가질 때만 해석돼요.
+문자열을 받아요. 퍼센트 높이는 부모 요소가 자기 높이를 가질 때만 해석돼요. 여기 나온 prop의
+시그니처와 기본값은 [GanttProps](ref/props)에 있어요.
 
 이 차트는 다른 prop 없이도 이미 편집할 수 있어요. 막대를 옆으로 끌면 작업이 이동하고, 양쪽 끝을
 잡으면 크기가 바뀌어요. `design`과 `build`는 숫자 `progress`를 들고 있어서 진행률 핸들이 보여요.
@@ -98,14 +99,13 @@ Backspace로 지워요.
 
 못 하는 게 하나 있어요. 포인터로 배율을 바꾸는 일이에요. 차트는 타임라인만 그리고 그 주위에는
 아무것도 두지 않아요. 툴바도, 배율 선택기도, 어떤 버튼도 없어요. `defaultScale`이 배율의 씨앗
-값을 한 번 심고 기본값은 `"month"`예요. 그 뒤로는 Ctrl/Cmd + ArrowUp이 한 단계 더 촘촘하게,
-Ctrl/Cmd + ArrowDown이 한 단계 더 성기게 옮겨요. `hour`, `day`, `week`, `month`, `quarter`,
-`year` 사다리의 양 끝에서 멈춰요. 사용자가 누를 수 있는 컨트롤은 직접 그려야 해요. 아래 「배율
-컨트롤 추가하기」 절이 쓸 만한 모양이에요.
+값을 한 번 심고 기본값은 `"month"`예요. 그 뒤로는 차트에 포커스가 있을 때 Ctrl/Cmd + ArrowUp이
+한 단계 더 촘촘하게, Ctrl/Cmd + ArrowDown이 한 단계 더 성기게 옮겨요. 사용자가 누를 수 있는
+컨트롤은 직접 그려야 하고, 그 `<select>` 레시피는 [명령형 API](imperative-api)에 있어요.
 
 이 중 무엇도 새로고침을 넘기지 못해요. 차트는 편집 내용을 자체 스토어에 담고, 그 스토어는
-인스턴스마다 만들어져 컴포넌트가 사는 동안만 유지돼요. 배율도 마찬가지예요. 그 인스턴스의 React
-상태일 뿐 아무 데도 기록되지 않아요. 그래서 다시 마운트하면 `defaultScale`에서 다시 시작해요.
+인스턴스마다 만들어져 컴포넌트가 사는 동안만 유지돼요. 배율도 저장되지 않아요. 그게 무엇을
+뜻하는지는 [타임라인](timeline)이 설명해요.
 
 ## 편집 내용 유지하기
 
@@ -161,10 +161,10 @@ export function ProjectChart() {
       />
 ```
 
-패널은 행마다 작업 이름을 하나씩 나열해요. 나열하는 건 그게 전부예요. 날짜는 이미 막대가 담고 있고,
-작업에 관한 나머지는 [상세 패널](detail-panel)의 몫이에요. 두 패널 사이의 분할선은
-[작업 목록과 계층](task-list)에서 다뤄요. 접기 버튼은 없어요. 접기가 하던 일은
-`showTaskList={false}`가 그대로 해요.
+패널은 행마다 작업 이름을 하나씩 나열해요. 날짜는 이미 막대가 담고 있고, 작업에 관한 나머지는
+[상세 패널](detail-panel)의 몫이에요. `showRowNumbers`는 열 하나를 더해요. 각 행의 `sequence`를
+이름 앞에 찍어요. 두 패널 사이의 분할선은 [작업 목록과 계층](task-list)에서 다뤄요. 접기 버튼은 없어요.
+`showTaskList={false}`가 패널을 숨겨요.
 
 ## 트리로 만들기
 
@@ -210,87 +210,24 @@ export function ProjectChart() {
 계산되고, 막대를 끌면 하위 트리 전체가 움직여요. 롤업과 접기 상태는
 [작업 목록과 계층](task-list)이 설명해요.
 
-## 배율 컨트롤 추가하기
-
-배율 다섯 개는 키보드로 닿을 수 있고, 그 밖에는 ref를 통해서만 닿아요. 누를 수 있는 무언가를
-그리는 일은 호스트의 몫이고, 네이티브 `<select>`가 이 저장소의 두 앱이 모두 쓰는 모양이에요.
-
-```diff title="src/ProjectChart.tsx"
-- import { useState } from 'react';
-+ import { useRef, useState } from 'react';
-  import {
-    ReactGanttChart,
-+   type GanttHandle,
-+   type GanttScaleKey,
-    type Task,
-  } from '@jaeungkim/gantt-chart';
-```
-
-```diff title="src/ProjectChart.tsx"
-    const [tasks, setTasks] = useState<Task[]>(initialTasks);
-+   const chart = useRef<GanttHandle>(null);
-+   const [scale, setScale] = useState<GanttScaleKey>('month');
-```
-
-```diff title="src/ProjectChart.tsx"
-    return (
--     <ReactGanttChart
--       tasks={tasks}
--       onTasksChange={handleTasksChange}
--       height={420}
--       showTaskList
--       hierarchy
--     />
-+     <>
-+       <select
-+         value={scale}
-+         onChange={(e) => chart.current?.setScale(e.target.value as GanttScaleKey)}
-+       >
-+         {['day', 'week', 'month', 'quarter', 'year'].map((s) => (
-+           <option key={s} value={s}>{s}</option>
-+         ))}
-+       </select>
-+       <ReactGanttChart
-+         ref={chart}
-+         tasks={tasks}
-+         onTasksChange={handleTasksChange}
-+         height={420}
-+         showTaskList
-+         hierarchy
-+         defaultScale="month"
-+         onScaleChange={setScale}
-+       />
-+     </>
-    );
-```
-
-`setScale`은 타임라인 한가운데 있던 날짜를 그대로 한가운데에 붙들어 둬요. 그래서 배율만 갈아
-끼울 때처럼 화면이 튀지 않아요. 알 수 없는 키는 무시해요. `onScaleChange`는 확정된 변경마다 한
-번씩 실행돼요. `<select>`에서 왔든, 키보드 단축키에서 왔든, `zoomToFit()`이나 `zoomOnWheel`이
-켜진 상태의 Ctrl/Cmd + 휠에서 왔든요. 덕분에 컨트롤이 배율을 움직이는 유일한 주체라고 넘겨짚는
-대신 차트를 따라가요. 마운트 시점에는 실행되지 않아요.
-
-이 모양에는 덤이 둘 있어요. 옵션 문구를 앱이 직접 쓰니 나머지 UI와 함께 번역돼요. 사라진 선택기는
-영어 배율 키 여섯 개를 그대로 찍었는데, 정작 그 차트의 헤더 셀과 툴팁은 전부 `Intl`을 거쳐요.
-그리고 `<select>`는 키보드와 스크린 리더, 터치 동작을 플랫폼에서 그대로 가져와요.
-
 ## 한계
 
 - 차트는 아무것도 저장하지 않아요. `onTasksChange`가 없으면 편집은 컴포넌트 자체 스토어에만
   있고, 새로고침하면 사라져요. 불러오기, 저장, 충돌 해결은 호스트 앱의 몫이에요.
 - 차트가 스스로 작업을 추가하는 일은 없어요. 작업 목록 아래 **Add task** 버튼도, ref의
   `addTask()`도, 마지막 행 아래에 범위를 그리는 동작도 `onTaskCreate`를 넘길 때만 생기고, 그마저도
-  커밋이 아니라 초안을 알려줘요. [작업 편집](editing)을 보세요.
+  커밋이 아니라 초안을 알려줘요. [작업 생성](task-creation)을 보세요.
 - 삭제는 해요. 포커스된 행에서 Delete나 Backspace를 누르면 그 작업과 하위 트리 전체가 지워지고
   `onTasksChange`가 실행돼요. 같은 키 입력이 선택된 의존성 화살표도 지우기 때문에 둘이 동시에
   일어날 수 있어요.
 - 작업 데이터 검증은 없어요. `sequence`가 `undefined`면 렌더 도중 예외가 나고, 파싱할 수 없는
   날짜는 경고 없이 타임라인 전체를 덮는 막대를 만들어요. 배열을 넘기기 전에 검증하세요.
-- 폰트는 번들되지도, 내려받지도 않아요. `--gantt-font-sans`는 시스템 스택이고, 호스트는 다른
-  토큰과 똑같이 이걸 덮어써요. [테마](theming)를 보세요. 유일한 reset은
+- 폰트는 번들되지도, 내려받지도 않아요. `--gantt-font-sans`는 호스트 페이지가 Pretendard를
+  불러왔으면 그걸 쓰고, 아니면 시스템 폰트로 내려가요. 호스트는 다른 토큰과 똑같이 이걸 덮어써요.
+  [테마](theming)를 보세요. 유일한 reset은
   `box-sizing: border-box`인데, 전역으로 내보내지 않고 `.gantt-container`에만 적용해요.
 - React 컴포넌트는 타임라인을 그리고, 요청했을 때 작업 목록 패널을 그려요. 그 밖의 크롬은
-  전혀 그리지 않고, 스타일 없는 모드도 없어요. 트리와 캘린더 함수는 React 없이 따로 import 할 수
+  전혀 그리지 않고, 스타일 없는 모드도 없어요. 트리와 달력 함수는 React 없이 따로 import 할 수
   있어요. [헤드리스 코어](headless-core)가 그걸 위한 페이지예요.
 
 ## 다음에 볼 곳
@@ -299,6 +236,7 @@ export function ProjectChart() {
 - 이름 패널, 들여쓰기, 접기가 필요할 때: [작업 목록과 계층](task-list).
 - 무엇을 끌 수 있는지 잠그고 싶을 때: [작업 편집](editing).
 - 드롭이 주말이나 휴일에 앉지 않게 하고 싶을 때: [근무일 달력](working-calendar).
-- 모든 prop을 한 표에서 보고 싶을 때: [Props](ref/props).
+- 비근무일에 음영을 넣거나, 근무 요일을 바꾸거나, 휴일에 이름을 붙이고 싶을 때: [타임라인](timeline).
+- 모든 prop을 한 표에서 보고 싶을 때: [GanttProps](ref/props).
 
 다음: [작업 데이터](task-data). 이 페이지가 여기서 스케치만 한 필드별 계약을 담당해요.

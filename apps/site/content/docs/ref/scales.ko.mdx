@@ -1,11 +1,12 @@
 ---
 title: "배율과 테마 타입"
-description: "`GanttScaleKey`, `GanttScaleFormat`, `GanttFormatOverrides`, `GanttTheme`"
+description: "`GanttScaleKey`, `GanttScaleFormat`, `GanttFormatOverrides`, `GanttTheme`, `Holiday`"
 ---
 
-타임라인을 어떻게 재고 차트를 어떻게 칠할지는 네 가지 타입이 정해요. `GanttScaleKey`는 다섯 가지
+타임라인을 어떻게 재고 차트를 어떻게 칠할지는 다섯 가지 타입이 정해요. `GanttScaleKey`는 다섯 가지
 배율 중 하나를 가리키고, `GanttScaleFormat`과 `GanttFormatOverrides`는 한 배율의 라벨을 바꿔요.
-`GanttTheme`은 팔레트를 골라요. 네 타입 모두 패키지 루트에서 내보내요.
+`GanttTheme`은 팔레트를 고르고, `Holiday`는 쉬는 날을 표시해요. 다섯 타입 모두 패키지 루트에서
+내보내요.
 
 ```tsx
 import type {
@@ -13,6 +14,7 @@ import type {
   GanttScaleFormat,
   GanttFormatOverrides,
   GanttTheme,
+  Holiday,
 } from '@jaeungkim/gantt-chart';
 ```
 
@@ -31,22 +33,13 @@ Ctrl/Cmd + ArrowDown은 한 칸 성기게 옮기고, 양쪽 끝에서 멈춰요.
 따라가요. [GanttHandle](handle)을 참고해 주세요.
 
 이 키는 다른 여러 곳에도 나와요. `formats`가 이 키로 묶이고,
-`GanttDetailRenderProps.scale`이 이 값을 담아요. [렌더러](renderers)를 참고해 주세요.
+`GanttDetailRenderProps.scale`이 이 값을 담아요. [상세 렌더러](renderers)를 참고해 주세요.
 
 ### 배율별 설정
 
 키 하나는 고정된 표의 한 행에 대응해요. 그 행이 헤더 셀에 무엇을 쓸지, 눈금 하나가 얼마만큼의 시간을
-덮을지, 드래그 한 단계가 몇 픽셀인지를 정해요.
-
-| 배율 | `labelUnit` | `tickUnit` | `unitPerTick` | `tickAlign` | `dragStepUnit` | `dragStepAmount` | `basePxPerDragStep` |
-|---|---|---|---:|---|---|---:|---:|
-| `day` | `day` | `hour` | 6 | `day` | `hour` | 1 | 12 |
-| `week` | `month` | `day` | 1 | — | `hour` | 6 | 18 |
-| `month` | `month` | `day` | 7 | `week` | `day` | 1 | 18 |
-| `quarter` | `quarter` | `month` | 1 | — | `day` | 7 | 28 |
-| `year` | `year` | `month` | 3 | `quarter` | `day` | 28 | 28 |
-
-한 행의 생김새는 이래요.
+덮을지, 드래그 한 단계가 몇 픽셀인지를 정해요. 다섯 행의 값은 [타임라인](../timeline)에 정리돼
+있고, 이 페이지는 한 행의 생김새만 다뤄요.
 
 ```ts
 export interface GanttScaleConfig {
@@ -78,7 +71,7 @@ export type GanttLabelUnit =
 ```
 
 `GanttScaleConfig`와 `GanttLabelUnit`, 그리고 `GANTT_SCALE_CONFIG` 객체 자체는 **패키지에서
-내보내지 않아요**. 모듈 내부에만 있어요. 위 표는 가져오거나 확장하거나 교체할 수 없고, 여섯 번째 배율을
+내보내지 않아요**. 모듈 내부에만 있어요. 이 표는 가져오거나 확장하거나 교체할 수 없고, 여섯 번째 배율을
 추가하는 prop도 없어요. 눈금 너비는 `basePxPerDragStep / dragStepAmount`에서 나와요. 그 계산은
 [타임라인](../timeline)에서, 같은 두 필드가 정하는 드래그 격자는 [작업 편집](../editing)에서
 다뤄요.
@@ -88,7 +81,7 @@ export type GanttLabelUnit =
 `formatTickLabel`과 `formatHeaderLabel`은 라벨 체인의 마지막 층이에요. `formats` 재정의도 없고
 `locale`도 적용되지 않을 때 그려지는 값이에요.
 
-| 배율 | `formatTickLabel` | `formatHeaderLabel` | 툴팁 포맷 문자열 | readout 포맷 문자열 |
+| 배율 | `formatTickLabel` | `formatHeaderLabel` | 툴팁 포맷 문자열 | 판독값 포맷 문자열 |
 |---|---|---|---|---|
 | `day` | `d.format('HH')` | `d.format('MMM D, YYYY')` | `'MMM D, YYYY HH:mm [UTC]'` | `'HH:mm [UTC]'` |
 | `week` | `d.format('D')` | `d.format('MMM YYYY')` | `'MMM D, YYYY'` | `'MMM D'` |
@@ -96,14 +89,17 @@ export type GanttLabelUnit =
 | `quarter` | `d.format('MMM')` | `` `Q${quarterOfYear(d)} ${d.format('YYYY')}` `` | `'MMM YYYY'` | `'MMM YYYY'` |
 | `year` | `d.format('MMM')` | `d.format('YYYY')` | `'MMM YYYY'` | `'MMM YYYY'` |
 
-툴팁과 readout 문자열은 각각 `DATE_FORMATS`와 `RANGE_FORMATS` 상수에 있고, 둘 다 내보내지 않아요.
+툴팁과 판독값 문자열은 각각 `DATE_FORMATS`와 `RANGE_FORMATS` 상수에 있고, 둘 다 내보내지 않아요.
 hour와 day 문자열에 들어간 `[UTC]`는 dayjs가 이스케이프한 리터럴이에요. 해석된 시간대 이름이
-아니에요. readout은 드래그 중인 구간의 한쪽 끝씩 그려서, 그 끝이 떨어진 눈금 셀에 적어요. 이동이면
-양 끝을 다 적고, 크기 조절이면 움직이는 끝만 적어요. 양 끝이 같은 셀에 떨어지면 라벨 하나를 나눠
-쓰고, 다르게 그려지면 en dash로 이어요. 더 짧은 문자열이 연도를 빼는 건 readout 바로 위의 헤더 행이
-이미 연도를 보여 주기 때문이에요. `quarter`와 `year`는 연도를 남겨요. 그 배율에서는 구간이 해를 넘길
-수 있거든요. `day`는 날짜도 빼요. 그 배율에서는 헤더 행이 날짜이고 눈금이 시간이라, readout은 시각만
-적어요.
+아니에요.
+
+툴팁 문자열은 차트의 범용 날짜 라벨이에요. 호버 툴팁과 막대의 ARIA 라벨, 드래그와 키보드 안내,
+기본 상세 패널의 Start와 End 필드가 모두 이 문자열을 찍어요. 상세 패널은 그 두 필드를 편집할 수 없을
+때만 그래요. 편집할 수 있으면 `YYYY-MM-DD`를 보여 주는 네이티브 `<input type="date">`가 대신
+자리해요. [상세 패널](../detail-panel)을 참고해 주세요.
+
+판독값 문자열은 헤더 드래그 판독값이 쓰는 배율별 축약형이에요. 판독값이 무엇을 어디에 적는지,
+짧은 문자열이 왜 연도를 빼는지는 [로케일과 날짜 형식](../i18n)에 있어요.
 
 ## GanttScaleFormat
 
@@ -117,7 +113,12 @@ export interface GanttScaleFormat {
   tick?: (date: Dayjs) => string;
   /** 상단 헤더 행 - 그룹마다 라벨 하나 */
   header?: (date: Dayjs) => string;
-  /** 헤더 드래그 readout과 막대의 스크린 리더 드래그 안내 */
+  /**
+   * 차트가 날짜 하나로 적는 모든 자리: 막대의 호버 툴팁, 드래그 중 읽히는 값과 aria-label,
+   * 헤더의 드래그 가이드 라벨(이 슬롯을 따라가는 `edge`와 `range`를 거쳐서), 그리고 상세
+   * 패널의 Start와 End 중 편집할 수 없는 것. 편집할 수 있는 날짜는 네이티브
+   * `<input type="date">`라서 포매터를 거치지 않아요.
+   */
   tooltip?: (date: Dayjs) => string;
 }
 ```
@@ -126,10 +127,13 @@ export interface GanttScaleFormat {
 |---|---|---|---|
 | `tick` | `(date: Dayjs) => string` | 아니요 | 눈금마다 라벨 하나, 하단 헤더 행 |
 | `header` | `(date: Dayjs) => string` | 아니요 | 그룹마다 라벨 하나, 상단 헤더 행 |
-| `tooltip` | `(date: Dayjs) => string` | 아니요 | 헤더 드래그 readout과 막대의 스크린 리더 드래그 안내 |
+| `tooltip` | `(date: Dayjs) => string` | 아니요 | 헤더 행 밖의 모든 날짜: 호버 툴팁, 막대의 ARIA 라벨, 드래그와 키보드 안내, 그리고 편집할 수 없을 때의 기본 상세 패널 날짜 |
 
 셋은 서로 따로 결정돼요. 그래서 `header`만 넘기면 `tick`과 `tooltip`은 `locale`이나 기본 라벨이 만든
 값 그대로 남아요.
+
+`tooltip` 재정의는 헤더 드래그 판독값의 양 끝도 포맷해요. 재정의가 없으면 판독값은 기본 라벨
+표의 판독값 열에 있는 배율별 축약 문자열을 그대로 써요.
 
 ## GanttFormatOverrides
 
@@ -171,15 +175,13 @@ export default function QuarterHeader() {
 }
 ```
 
-여기서 `formats`를 모듈 스코프에 선언한 건 의도한 거예요. 아래 객체 식별자 항목을 참고해 주세요.
-
-세 라벨 각각에서 어느 층이 이기는지는 [로케일과 날짜 형식](../i18n)에 정리돼 있어요.
+여기서 `formats`를 모듈 스코프에 선언한 건 의도한 거예요. 세 라벨 각각에서 어느 층이 이기는지,
+객체 식별자가 왜 중요한지는 [로케일과 날짜 형식](../i18n)에 정리돼 있어요.
 
 ## GanttTheme
 
 ```ts
-/** 차트 테마 - 'light'와 'dark'는 명시적이고 'system'은 OS 설정을 따라요.
- *  생략하면 호스트 페이지의 `color-scheme`을 따라가요. */
+/** 차트 테마 - 'system'은 OS 설정을 따라요. prop을 생략하면 호스트 페이지의 `color-scheme`을 따라가요. */
 export type GanttTheme = 'light' | 'dark' | 'system';
 ```
 
@@ -190,24 +192,39 @@ export type GanttTheme = 'light' | 'dark' | 'system';
 테마 객체도 없고 토큰 prop도 없어요. `GanttTheme`은 값이 셋인 유니온이고, 모든 색은 CSS 커스텀
 속성이에요.
 
+## Holiday
+
+```ts
+/** 주말 말고도 쉬는 날. 그냥 `YYYY-MM-DD` 문자열이면 라벨 없는 같은 것이에요. */
+export interface Holiday {
+  /** UTC `YYYY-MM-DD` */
+  date: string;
+  /** 마지막 날 포함 - 하루짜리면 생략해요 */
+  endDate?: string;
+  /** 띠가 담을 만큼 넓을 때, 그 위 눈금 행에 적히는 글자 */
+  label?: string;
+  /** 아무 CSS 색이나 - 주말 음영과 같은 세기로 격자에 덧입혀요. 덮어 칠하지는 않아요. */
+  color?: string;
+}
+```
+
+| 필드 | 타입 | 필수 | 뜻 |
+|---|---|---|---|
+| `date` | `string` | 예 | 쉬는 첫날, UTC `YYYY-MM-DD` 문자열 |
+| `endDate` | `string` | 아니요 | 구간의 마지막 날(포함). 하루짜리면 생략해요 |
+| `label` | `string` | 아니요 | 그 띠 위 눈금 행에 적히는 글자 |
+| `color` | `string` | 아니요 | 아무 CSS 색이나. 주말 음영과 같은 세기로 격자에 덧입혀요 |
+
+휴일이 무엇을 그리는지, 라벨이 언제 보이는지, 항목을 어떻게 넘기는지는
+[타임라인](../timeline)에 있어요.
+
 ## 참고
 
-- **`tick`과 `header`, `tooltip` 함수에 넘어오는 `Dayjs`는 모두 `dayjs.utc()` 인스턴스예요.**
-  차트는 모든 날짜를 UTC로 파싱하고 배치하고 라벨링해요. 그래서 재정의 안에서 `d.format('HH:mm')`과
-  `d.year()`, `d.month()`, `d.day()`는 보는 사람의 로컬 시각이 아니라 UTC 벽시계 값을 읽어요. 로컬
-  시간으로 바꾸는 포매터는 자기가 놓인 셀과 어긋나는 라벨을 찍어요.
-- `header`는 처음 보이는 셀의 날짜가 아니라 **그룹의 시작 날짜**를 받아요. 월요일부터 묶는 week 배율에서
-  처음 그려지는 셀이 `2025-08-31`인 그룹은 `2025-08-25T00:00:00Z`로 라벨이 붙어요.
-- `formats`는 파생 단위가 아니라 지금 그려지는 배율로 묶여요. `firstDayOfWeek`를 지정한 `week` 배율에서는
-  헤더를 day 배율 옵션으로 만들지만, 재정의는 여전히 `formats.week.header`에서 읽어요. 거기서
-  `formats.day.header`는 아무 일도 하지 않아요.
-- `formats` 객체는 메모이즈하거나 모듈 스코프에 둬야 해요. 렌더마다 객체 식별자가 새로 생기면 라벨 메모가
-  무효화돼요. `locale`까지 함께 지정했다면 `Intl.DateTimeFormat` 인스턴스도 전부 다시 만들어요. 경고는
-  뜨지 않아요.
+세 슬롯이 어떻게 결정되는지, 각 포매터가 무엇을 받는지, 객체 식별자 규칙은
+[로케일과 날짜 형식](../i18n)에 있어요.
+
 - `GanttScaleFormat` 함수는 `string`을 반환해야 해요. `ReactNode` 탈출구도 없고, 헤더 셀을 대체하는
   prop도 없어요. 헤더 셀은 텍스트고, 생김새를 바꾸려면 `.gantt-top-group`과 `.gantt-bottom-cell`에
   CSS를 주는 방법뿐이에요.
-- 상단 행에서 서로 이웃한 그룹이 **같은 문자열**로 포맷되면 한 셀로 합쳐져요. 상수를 반환하는 `header`
-  재정의는 상단 행 전체를 하나로 접어 버려요.
 - 차트가 쓰는 UTC `dayjs` 인스턴스는 패키지에서 내보내지 않아요. 재정의에서 같은 인스턴스가 필요하면
   `dayjs`와 `utc` 플러그인을 직접 불러와요.

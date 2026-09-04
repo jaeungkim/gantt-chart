@@ -1,14 +1,14 @@
 ---
 title: "트리 헬퍼"
-description: "`buildTaskTree`, `collectSubtreeIds`, `rollUpTasks`, 그리고 행을 옮기는 순수 함수들"
+description: "`buildTaskTree`, `collectSubtreeIds`, `rollUpTasks`, `moveTask`, `validateMove`, `sortTasksBySequence`"
 ---
 
-`buildTaskTree`, `collectSubtreeIds`, `rollUpTasks`는 `parentId` 계층 뒤에서 도는 헤드리스 헬퍼예요.
-부모 링크를 정규화하고, 서브트리를 훑고, 모든 부모를 요약 행(summary row)으로 다시 계산해요.
+`buildTaskTree`, `collectSubtreeIds`, `rollUpTasks`는 `parentId` 계층 뒤에서 도는 헤드리스
+헬퍼예요. 부모 링크를 정규화하고, 서브트리를 훑고, 모든 부모를 요약 행으로 다시 계산해요.
 `TaskTree`는 이 함수들이 서로 주고받는 정규화된 형태예요.
 
-`sortTasksBySequence`, `validateMove`, `moveTask`는 그 위에서 도는 이동 엔진이에요. 행 순서를 정하고,
-어떤 이동이 가능한지 판단하고, 이동을 적용한 새 배열을 만들어요. 전부 패키지 루트에서 나오고, React도
+`sortTasksBySequence`, `validateMove`, `moveTask`는 행 순서를 맡는 나머지 절반이에요. 작업을 렌더
+순서로 세우고, 이동이 가능한지 판단하고, 이동을 적용해요. 전부 패키지 루트에서 나오고, React도
 DOM도 건드리지 않아요.
 
 ```ts
@@ -27,8 +27,8 @@ import {
 } from '@jaeungkim/gantt-chart';
 ```
 
-차트가 화면에서 계층을 어떻게 다루는지는 [작업 목록과 계층](../task-list)에 있어요. 행을 끌어 옮기는
-제스처 자체는 [작업 편집](../editing)에서 다뤄요. React 밖에서 이 함수들을 돌리는 방법은
+차트가 화면에서 계층을 어떻게 다루는지는 [작업 목록과 계층](../task-list)에 있어요. 행을 끌어
+옮기는 제스처 자체는 [행 순서 바꾸기](../reordering)에서 다뤄요. React 밖에서 이 함수들을 돌리는 방법은
 [헤드리스 코어](../headless-core)를 보세요.
 
 ## TaskTree
@@ -70,11 +70,11 @@ export function buildTaskTree(tasks: TaskNode[]): TaskTree
 
 `TaskNode`는 `Pick<Task, "id" | "parentId">`예요. 구조적 타입이라
 `{ id: string; parentId: string | null }`인 객체라면 무엇이든 만족해요. `Task`도 `TaskTransformed`도
-그대로 들어맞아요. [Task](task)를 보세요.
+그대로 들어맞아요. [Task와 작업 타입](task)을 보세요.
 
 ### 부모 해석
 
-각 작업의 `parentId`가 부모 id와 `null` 중 무엇으로 해석되는지 정리할게요.
+각 작업의 `parentId`는 부모 id와 `null` 중 하나로 해석돼요.
 
 | 입력 조건 | 해석된 부모 |
 |---|---|
@@ -142,7 +142,7 @@ collectSubtreeIds(tasks, 'a1');   // ['a1']
  * 시작과 끝은 데이터에 적힌 값이 아니라 언제나 자식에서 나와요
  * (min(자식 start)..max(자식 end)).
  * 깊은 쪽부터 처리해서, 손자의 이동이 부모를 거쳐 조부모까지 올라가요.
- * 명시된 progress는 그대로 두고, 빠진 것만 자식에서 굴려 올려요.
+ * 명시된 progress는 그대로 두고, 빠진 것만 자식에서 롤업해요.
  */
 export function rollUpTasks(
   tasks: Task[],
@@ -169,7 +169,7 @@ export function rollUpTasks(
 
 자식의 날짜가 전부 파싱되지 않는 부모는 원래 모습 그대로 남아요.
 
-### 굴려 올린 progress
+### 롤업된 progress
 
 부모에 `progress`가 없을 때만 써요. 자식은 밀리초 단위 기간 `max(0, endDate - startDate)`로 가중치를
 받아요.
@@ -195,32 +195,22 @@ export function rollUpTasks(
 ## sortTasksBySequence
 
 ```ts
-/**
- * 작업을 sequence 계층 순으로 정렬해요
- *
- * 행 순서는 오직 여기서 나와요 - '1.10'이 '1.2' 뒤에 오는 건 구간을 글자가 아니라
- * 숫자로 비교하기 때문이에요.
- */
+/** 작업을 sequence 계층 순으로 정렬해요 - 행 순서는 오직 여기서 나와요 */
 export function sortTasksBySequence<T extends Pick<Task, "sequence">>(
   tasks: T[]
 ): T[]
 ```
 
-`Pick<Task, "sequence">`면 되니까 `Task`도 `TaskTransformed`도, `sequence`만 든 객체도 들어가요.
-
-| 규칙 | 결과 |
-|---|---|
-| 구간 비교 | `'.'`로 잘라 숫자로 바꿔 앞에서부터 비교해요. `'1.10'`은 `'1.2'` 뒤예요. |
-| 빠진 구간 | `0`으로 봐요. 그래서 `'1'`이 `'1.1'`보다 앞이에요. |
-| 숫자가 아닌 구간 | `0`으로 봐요. 던지지 않고, 알리지도 않아요. |
-| 완전히 같은 `sequence` | 원래 배열 순서를 유지해요. |
-
-받은 배열은 건드리지 않고 새 배열을 돌려줘요. 요소 자체는 동일성을 유지해요.
+인자는 구조적 타입이에요. `sequence` 문자열만 있으면 무엇이든 정렬되고, 요소 타입은 그대로
+돌아와요. 새 배열을 돌려주고, 입력은 바꾸지 않으며 요소는 동일성을 유지해요. 정렬은 안정적이라
+`sequence`가 같은 두 작업은 입력 순서를 지켜요. 문자열끼리 어떻게 비교되는지는
+[작업 데이터](../task-data)에 설명돼 있어요.
 
 ## GanttTaskMove
 
+작업이 갈 곳이에요. 아래 두 함수가 받는 입력이에요.
+
 ```ts
-/** 작업이 갈 곳: 부모 하나와 그 부모의 자식들 사이의 자리 하나 */
 export interface GanttTaskMove {
   taskId: string;
   /** 새 부모, 최상위면 null */
@@ -232,19 +222,16 @@ export interface GanttTaskMove {
 
 | 필드 | 타입 | 의미 |
 |---|---|---|
-| `taskId` | `string` | 옮길 작업의 id예요. `tasks`에 없으면 `unknown-task`예요. |
-| `toParentId` | `string \| null` | 새 부모예요. `null`은 최상위고요. `tasks`에 없는 id는 `unknown-parent`예요. |
-| `toIndex` | `number` | 새 부모의 자식들 사이에서 몇 번째 자리인지예요. **옮길 하위 트리를 들어낸 뒤의** 목록에서 세요. 같은 부모 안에서 아래로 옮길 때 흔히 틀리는 지점이에요. `moveTask`가 `0`과 형제 수 사이로 잘라내요. |
+| `taskId` | `string` | 옮길 작업이에요. 하위 트리 전체가 함께 이동해요. |
+| `toParentId` | `string \| null` | 새 부모예요. 최상위는 `null`이에요. 지금 부모를 넘기면 형제 사이에서 순서만 바꿔요. |
+| `toIndex` | `number` | 새 부모의 자식들 사이의 자리예요. 옮길 하위 트리를 **들어낸 뒤의** 목록에서 세요. 범위를 벗어난 값은 거절하는 대신 목록 안으로 잘라내요. |
 
 ## GanttTaskMoveChange
 
+`moveTask`가 되돌려주는 값이자 차트가 `onTaskMove`에 넘기는 값이에요. 실제로 적용된 이동을,
+백엔드가 원하는 모양으로 담아요.
+
 ```ts
-/**
- * 실제로 적용된 이동을, 백엔드가 원하는 모양으로
- *
- * `toIndex`는 인덱스 기반 API에, `afterId`/`beforeId`는 위치 기반 API에
- * (`PATCH /tasks/:id { after }`) 맞아요. 둘 다 같은 결과에서 읽으니 서로 어긋날 수 없어요.
- */
 export interface GanttTaskMoveChange extends GanttTaskMove {
   fromParentId: string | null;
   fromIndex: number;
@@ -255,15 +242,17 @@ export interface GanttTaskMoveChange extends GanttTaskMove {
 }
 ```
 
-| 필드 | 타입 | 의미 |
-|---|---|---|
-| `GanttTaskMove`의 모든 필드 | — | `toIndex`는 잘라낸 뒤의 값이라 요청한 값과 다를 수 있어요. |
-| `fromParentId` | `string \| null` | 이동 전의 부모예요. 최상위였으면 `null`이에요. |
-| `fromIndex` | `number` | 이동 전, 그 부모의 자식들 사이에서의 자리예요. |
-| `afterId` | `string \| null` | 새 자리에서 바로 앞에 있는 형제예요. 첫 자식이면 `null`이에요. |
-| `beforeId` | `string \| null` | 새 자리에서 바로 뒤에 있는 형제예요. 마지막 자식이면 `null`이에요. |
+| 필드 | 의미 |
+|---|---|
+| `fromParentId` | 떠나온 부모예요. 최상위였으면 `null`이에요. |
+| `fromIndex` | 이동 전, 그 부모의 자식들 사이에서의 인덱스예요. |
+| `afterId` | 이제 바로 뒤따르는 형제예요. 첫 자식으로 들어갔으면 `null`이에요. |
+| `beforeId` | 이제 바로 앞서는 형제예요. 마지막 자식으로 들어갔으면 `null`이에요. |
 
-차트는 이 값을 `onTaskMove`에 그대로 넘겨요. [작업 편집](../editing)을 보세요.
+`change`의 `toIndex`는 요청한 값이 아니라 실제로 쓰인, 잘라낸 뒤의 인덱스예요. `toParentId`와
+`toIndex`는 인덱스 기반 API에, `afterId`/`beforeId`는 위치 기반 API에 맞아요. 둘 다 같은 결과에서
+읽으니 서로 어긋날 수 없어요. 차트가 `onTaskMove`에 넘기는 객체도 바로 이거예요 —
+[행 순서 바꾸기](../reordering)를 보세요.
 
 ## GanttMoveOptions
 
@@ -274,18 +263,16 @@ export interface GanttMoveOptions {
 }
 ```
 
-| 필드 | 타입 | 기본값 | 의미 |
-|---|---|---|---|
-| `hierarchy` | `boolean` | — | 필수예요. `false`면 깊이를 `sequence`만 들고 있어서 부모를 바꿀 수 없고, 형제 목록도 `parentId`가 아니라 sequence 경로에서 읽어요. |
-| `canReorder` | `(task: Task) => boolean` | 없음 — 모든 작업을 옮길 수 있어요 | 그 작업을 옮겨도 되는지예요. `false`를 돌려주면 `read-only`예요. 차트는 여기에 `resolveTaskInteraction(task, interaction).canReorder`를 넘겨요. |
-
-`hierarchy`가 `true`일 때 부모 링크는 `buildTaskTree`와 똑같이 정규화돼요. 고아, 자기 참조, 순환은
-모두 루트가 돼요. 위 [부모 해석](#부모-해석)을 보세요.
+| 필드 | 필수 | 효과 |
+|---|---|---|
+| `hierarchy` | 예 | 켜면 형제 목록을 `parentId`에서 읽고, `buildTaskTree`와 똑같이 정규화해요. 끄면 깊이를 드는 건 `sequence`뿐이라, 형제 목록은 경로에서 읽고 부모를 바꾸는 이동은 전부 거절돼요. |
+| `canReorder` | 아니요 | 그 작업을 옮겨도 되는지예요. 생략하면 모든 작업을 옮길 수 있어요. 차트는 `resolveTaskInteraction(task, config).canReorder`를 넘겨요 — [GanttInteractionConfig](interaction-config)를 보세요. |
 
 ## GanttMoveRejection
 
+이동이 거절된 이유예요. `validateMove`가 이 중 하나를 돌려주고, 허용이면 `null`을 돌려줘요.
+
 ```ts
-/** 이동이 거절된 이유 - `validateMove`가 null을 돌려주면 허용이라는 뜻이에요 */
 export type GanttMoveRejection =
   | "unknown-task"
   | "unknown-parent"
@@ -297,24 +284,18 @@ export type GanttMoveRejection =
 
 | 값 | 무엇이 이것을 일으키나요 |
 |---|---|
-| `"unknown-task"` | `move.taskId`가 `tasks`에 없어요. |
-| `"unknown-parent"` | `move.toParentId`를 줬는데 그 id가 `tasks`에 없어요. `null`은 최상위라 여기 걸리지 않아요. |
-| `"read-only"` | `canReorder(task)`가 `false`를 돌려줬어요. |
-| `"reparent-disabled"` | `hierarchy`가 `false`인데 `toParentId`가 지금 부모와 달라요. |
-| `"cycle"` | `toParentId`가 옮길 작업 자신의 서브트리 안에 있어요. 자기 자신을 부모로 삼는 것도 여기예요. |
-| `"no-op"` | 부모도 자리도 그대로예요. 아무것도 바뀌지 않는 이동은 거절해요. |
-
-검사 순서는 이 표 순서 그대로예요. 그래서 없는 작업을 없는 부모 밑으로 옮기면 `unknown-task`가
-나와요.
+| `'unknown-task'` | `move.taskId`가 `tasks`에 없어요. |
+| `'unknown-parent'` | `move.toParentId`가 있는데 `tasks`에 없는 id를 가리켜요. `null` 부모는 언제나 허용돼요. |
+| `'read-only'` | `options.canReorder`가 그 작업에 `false`를 돌려줬어요. |
+| `'reparent-disabled'` | `options.hierarchy`가 `false`인데 이동이 부모를 바꿔요. |
+| `'cycle'` | `move.toParentId`가 옮길 작업 자신의 하위 트리 안에 있어요. 작업 자신도 포함돼요. |
+| `'no-op'` | 그 작업이 이미 그 부모의 그 자리에 있어서 아무것도 바뀌지 않아요. |
 
 ## validateMove
 
 ```ts
 /**
  * 이동을 적용할 수 있는지, 없다면 왜 없는지
- *
- * 행 드래그의 매 프레임마다 돌아요. 그래서 제스처가 끝난 다음에 삼키는 대신,
- * 놓을 수 없는 자리를 끄는 도중에 표시할 수 있어요.
  */
 export function validateMove(
   tasks: Task[],
@@ -323,18 +304,16 @@ export function validateMove(
 ): GanttMoveRejection | null
 ```
 
-`null`이면 허용이에요. 그 밖에는 위 표의 값 하나가 나와요. 아무것도 바꾸지 않고, 배열을 다시
-정렬해서 검사한 다음 버려요.
+`null`이면 허용이에요. 그 밖에는 이유를 이름으로 담은 `GanttMoveRejection`이에요.
+
+검사는 위 `GanttMoveRejection` 표 순서대로 돌고, 처음 걸린 것이 돌아와요. 드래그의 매 프레임마다
+불러도 될 만큼 싸요. 차트가 포인터를 누른 채로 막힌 드롭을 표시하는 방법이 바로 이거예요.
 
 ## moveTask
 
 ```ts
 /**
  * 이동을 적용하고, 그 결과로 나온 행 순서에서 모든 sequence를 다시 매겨요
- *
- * `parentId`는 옮긴 작업에만 다시 써요. 거절된 이동은 null을 돌려주고,
- * 이유는 `validateMove`가 말해 줘요. sequence가 바뀌지 않은 작업은 identity를
- * 유지해서, 배열을 비교하는 호스트에는 실제로 움직인 것만 보여요.
  */
 export function moveTask(
   tasks: Task[],
@@ -343,25 +322,32 @@ export function moveTask(
 ): { tasks: Task[]; change: GanttTaskMoveChange } | null
 ```
 
-| 무엇 | 어떻게 |
+`validateMove`가 거절하는 이동에는 `null`을 돌려줘요. 이유를 알려면 그쪽을 먼저 부르세요.
+
+`sequence`는 경로예요. 길이가 깊이고 마지막 구간이 형제 사이의 자리라, `"1.1"`과 `"1.2"` 사이에
+끼울 키가 없어요. 대신 번호를 다시 매겨요. 숲을 재배치하고, 행 순서대로 깊이 우선으로 걸으면서,
+모든 작업에 렌더될 자리의 경로를 줘요. `parentId`는 옮긴 작업 하나에만 다시 써요 — 자식들은 여전히
+그 작업을 가리키니, 하위 트리는 건드리지 않아도 함께 이동해요.
+
+| 무엇이 바뀌나 | 어느 작업에서 |
 |---|---|
-| 거절된 이동 | `null`이에요. 이유를 알려면 `validateMove`를 따로 부르세요. |
-| `sequence` | 트리 경로가 바뀐 **모든** 작업에 다시 써요. 이동한 순서대로 깊이 우선으로 걸으면서 `1`부터 번호를 매겨요. |
-| `parentId` | 옮긴 작업 하나에만, 그것도 `hierarchy`가 `true`일 때만 다시 써요. |
-| 그 밖의 필드 | 손대지 않아요. 날짜도 진행률도 의존성도 그대로예요. |
-| 반환 배열의 순서 | 넘겨받은 배열의 순서를 그대로 유지해요. 정렬은 하지 않으니, 행 순서가 필요하면 `sortTasksBySequence`를 거치세요. |
-| identity | `sequence`와 `parentId`가 둘 다 그대로인 작업은 같은 객체 그대로 나와요. |
+| `sequence` | 트리 경로가 바뀐 모든 작업이에요. |
+| `parentId` | 옮긴 작업 하나뿐이고, 그것도 `options.hierarchy`가 켜져 있을 때만이에요. |
+| 그 밖의 모든 것 | 아무것도요. 날짜, 진행률, 의존성은 그대로 복사돼요. |
 
-경로는 쪼갤 수 없어요. `'1.1'`과 `'1.2'` 사이로 정렬되는 문자열이 없으니, 분수 키를 끼우는 대신 번호를
-다시 매겨요. 새 번호는 이동이 만들어 낸 행 순서에서 읽는데, 그게 바로 사용자가 보는 순서예요.
-
-`change.toIndex`는 잘라낸 뒤의 값이에요. 형제 수보다 큰 `toIndex`를 넘기면 마지막 자리로 들어가고,
-`change`에는 그 실제 자리가 담겨요.
+`sequence`와 `parentId`가 둘 다 그대로 나온 작업은 **같은 객체**로 돌아와요. 배열을 동일성으로
+비교하는 호스트에는 실제로 움직인 것만 보여요. 배열 자체는 언제나 새것이고, 요소 순서는 새 행
+순서가 아니라 입력 순서예요 — 렌더하려면 `sortTasksBySequence`로 정렬하세요.
 
 ## 예제
 
 ```ts
-import { buildTaskTree, collectSubtreeIds, rollUpTasks } from '@jaeungkim/gantt-chart';
+import {
+  buildTaskTree,
+  collectSubtreeIds,
+  moveTask,
+  rollUpTasks,
+} from '@jaeungkim/gantt-chart';
 import type { Task } from '@jaeungkim/gantt-chart';
 
 const tasks: Task[] = [
@@ -389,6 +375,12 @@ const rolled = rollUpTasks(tasks, tree);
 rolled[0].startDate;                 // '2025-01-01T00:00:00.000Z'
 rolled[0].endDate;                   // '2025-02-10T00:00:00.000Z'
 rolled[0].progress;                  // 25
+
+const moved = moveTask(tasks, { taskId: 'c2', toParentId: null, toIndex: 0 }, {
+  hierarchy: true,
+});
+moved!.tasks.map((t) => `${t.id} ${t.sequence}`); // ['p 2', 'c1 2.1', 'c2 1']
+moved!.change.beforeId;                           // 'p' - c2가 그 위로 들어갔어요
 ```
 
 ## 참고
@@ -398,11 +390,13 @@ rolled[0].progress;                  // 25
   `@jaeungkim/gantt-chart`에서 import할 수 없어요. 차트가 내부에서 호출하고, 호스트 앱은
   `collapsedIds`와 `defaultCollapsedIds` prop으로 같은 동작을 제어해요. 두 prop은
   [작업 목록과 계층](../task-list)에 설명돼 있어요.
-- `TaskNode`와 `rollUpProgress`는 내부용이에요. 둘 다 패키지 루트에서 내보내지 않아요. 이 페이지는 위
-  시그니처를 설명하려고 이름만 쓴 거예요.
-- 이 페이지의 함수는 전부 순수 함수라 입력을 바꾸지 않아요. `buildTaskTree`는 호출할 때마다 새
-  `TaskTree`를, `collectSubtreeIds`와 `sortTasksBySequence`는 새 배열을 돌려줘요. 받은 배열
+- `TaskNode`와 `rollUpProgress`는 내부용이에요. 둘 다 패키지 루트에서 내보내지 않아요. 이 페이지는
+  위 시그니처를 설명하려고 이름만 쓴 거예요.
+- 여섯 함수 모두 순수 함수라 입력을 절대 바꾸지 않아요. `buildTaskTree`는 호출마다 새 `TaskTree`를,
+  `collectSubtreeIds`, `sortTasksBySequence`, `moveTask`는 호출마다 새 배열을 돌려줘요. 받은 배열
   인스턴스를 그대로 돌려줄 수 있는 건 `rollUpTasks`뿐이에요.
-- 행 순서는 `sequence`에서만 나오고, `parentId`는 깊이만 정해요. 둘이 맞는지 검사하는 곳은 없어요 —
-  [작업 데이터](../task-data)를 보세요. 행 순서를 읽는 건 `sortTasksBySequence`, 다시 쓰는 건
-  `moveTask` 하나뿐이에요.
+- 세 트리 헬퍼는 아무것도 정렬하지 않아요. 행 순서는 `sequence`에서 나오고 `parentId`는 깊이만
+  정해요. 그 순서를 적용하는 게 `sortTasksBySequence`고, 다시 쓰는 유일한 함수가 `moveTask`예요.
+  두 필드가 맞는지 검사하는 곳은 없어요 — [작업 데이터](../task-data)를 보세요.
+- `validateMove`와 `moveTask`는 구조만 검사해요. 애초에 그 작업을 옮겨도 되는지는 호스트의 답이고,
+  `options.canReorder`로 건네받아요.

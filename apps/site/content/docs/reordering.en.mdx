@@ -1,0 +1,142 @@
+---
+title: "Reordering rows"
+description: "Dragging a task-list row to a new position or a new parent, what the move rewrites, and how to reject one"
+---
+
+The dates are right and the order is wrong. Two rows belong the other way round, and one of them
+belongs under a different parent. Every gesture in [Editing tasks](editing) is on until you turn it
+off. This one is off until you turn it on.
+
+`allowReorder` on the chart turns it on for every row.
+
+```tsx
+<ReactGanttChart tasks={tasks} onTasksChange={setTasks} allowReorder hierarchy />
+```
+
+A task's own `allowReorder` still wins over the chart's, and `readOnly: true` on a task blocks it.
+The chart's `readOnly` is not consulted at all, because reordering has no permissive default to
+fall back through. [GanttInteractionConfig](ref/interaction-config) has the resolution in full.
+
+What appears is a grip on the left edge of each draggable row, on hover and on keyboard focus. A
+row that may not move holds a blank spacer in its place, so its text does not jog sideways. The
+grip is the only place a row drag starts: a press anywhere else in the row still clicks and selects
+as before. A finger rests on the grip for the same 400 ms as on a bar — see
+[Editing tasks](editing) — and `Escape` drops the row back where it was.
+
+## Where the row lands
+
+A drop reads how far down the row under the pointer it is.
+
+| Band | Where the dragged row lands |
+|---|---|
+| top quarter | before that row, as its sibling |
+| middle half | inside that row, as its last child |
+| bottom quarter | after that row, as its sibling |
+
+The middle band is half the row, so re-parenting is the wide target and the two sibling bands are
+the precise ones. A sibling band on a root-level row is also how a nested row gets back to the root
+level.
+
+A drop the chart refuses is refused while the pointer is still down, not swallowed on release. Three
+drops are refused this way and never reach your app: a row dropped inside its own subtree, a
+re-parent while `hierarchy` is off, and a drop that would change nothing.
+
+A drop into a collapsed row expands it, so the row that just landed there does not vanish.
+
+## What a move rewrites
+
+Row order comes from `sequence` alone, and `sequence` is a path — `"2.1"` is the first child of
+`"2"`. No string sorts between `"1.1"` and `"1.2"`, so a move cannot slip a fractional key between
+two rows. It renumbers instead, and the numbering it writes is read off the row order the move
+produces, which is the order on screen.
+
+One move therefore rewrites `sequence` on every task whose path changed, and `parentId` on the
+moved task only. The moved row's children still point at it and travel with it. Tasks whose path
+did not change keep their object identity, so a host diffing the array sees only what really
+moved. All of it reaches your app in a single `onTasksChange` carrying the whole array, like any
+other committed gesture.
+
+## What a move does not change
+
+- **A task's dates.** `startDate` and `endDate` survive a new parent untouched. Nothing is
+  stretched or clipped to fit the parent's span.
+- **Where the bars sit** — summary rows aside. A summary's start and end are recomputed from its
+  children, so moving one child out redraws both the old parent's bar and the new one's. See
+  [Task list and hierarchy](task-list).
+- **Dependencies.** Links are stored by id. Wherever a row lands, its arrows still join the same
+  two tasks, with the same type and direction.
+
+## Rejecting a move
+
+`onTaskMove` runs before anything is applied. Return `false` and the move is dropped: no `sequence`
+is rewritten, no `onTasksChange` fires, and the row stays where it was.
+
+The `GanttTaskMoveChange` it receives names the task and both ends of the trip: `fromParentId` and
+`fromIndex` for where it was, `toParentId` with `toIndex` for where it landed, and `afterId` /
+`beforeId` for the siblings it now sits between. The index pair suits an index-based API, the
+sibling pair a position-based one. Both describe the same landing spot, read off the same result,
+so they cannot disagree. The full shape is in [Tree helpers](ref/core-tree).
+
+```tsx title="src/PlanBoard.tsx"
+import { useState } from 'react';
+import {
+  ReactGanttChart,
+  type GanttTaskMoveChange,
+  type Task,
+} from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
+
+export function PlanBoard({ initial }: { initial: Task[] }) {
+  const [tasks, setTasks] = useState<Task[]>(initial);
+
+  const handleTaskMove = ({ taskId, toParentId, toIndex }: GanttTaskMoveChange) => {
+    const previous = tasks;
+
+    // A position-based API takes { parentId: toParentId, after: afterId } instead
+    fetch(`/api/tasks/${taskId}/move`, {
+      method: 'PATCH',
+      body: JSON.stringify({ parentId: toParentId, index: toIndex }),
+    }).catch(() => setTasks(previous)); // the server said no - put the rows back
+  };
+
+  return (
+    <ReactGanttChart
+      tasks={tasks}
+      onTasksChange={setTasks}
+      onTaskMove={handleTaskMove}
+      allowReorder
+      hierarchy
+    />
+  );
+}
+```
+
+`onTaskMove` is never awaited. Only a literal `false` rejects a move, so a handler that returns a
+promise has already let it through — which is the shape above: apply it, send it, and put the
+previous array back if the server refuses.
+
+## Reverting a move the server refused
+
+Undoing a move needs no API of its own. The chart reads the host's `tasks` prop as the truth, so
+passing the previous array back in reverts it. That only works while the host keeps the array in
+state: a chart handed a literal array, left to track its own copy, has nothing to revert to. A chart
+wired to a server should be controlled. See [Task data](task-data).
+
+The same moves are on the keyboard: `Alt` + the vertical arrows moves a row among its siblings,
+`Ctrl`/`Cmd` + the horizontal arrows indents and outdents it. See
+[Keyboard and screen readers](accessibility).
+
+## Limits
+
+- **A row carrying more than one task cannot be dragged.** A shared `lane` puts several tasks on
+  one row, and the grip then names no single one to move — nor can such a row be a drop target;
+  see [Lanes](lanes).
+- **A drop into a row always lands last among its children.** The middle band appends; no band
+  names a slot between two children. Drop it as a sibling of the child it belongs next to, or
+  finish the placement with `Alt` + the arrows.
+- **A row drag does not auto-scroll.** `autoScrollOnDrag` covers bar moves and resizes only, so a
+  drop target off the top or bottom of the viewport has to be scrolled into view first; see
+  [Editing tasks](editing).
+
+Next: [Dependencies](dependencies), which covers linking two bars and what the chart rejects
+before your handler ever sees it.

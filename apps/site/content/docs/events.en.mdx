@@ -6,14 +6,14 @@ description: "Every callback a click, a drag and a keyboard edit fire"
 A user drags a bar three days later and lets go. The chart writes the new dates into its own copy of
 the tasks and calls `onTasksChange` with the whole array. Nothing was asked first and nothing was
 stored anywhere. This page names every callback the chart fires, what each one is handed, and the
-two that can still refuse a change.
+three that can still refuse a change.
 
 ## Clicks and selection
 
 Four callbacks and one flag cover pointer attention. The first three are wired to the bar and to that
 task's row in the task list, so a click in either pane is the same event with the same argument.
-`onDetailChange` follows them, because under the default trigger that same click opens the detail
-panel.
+`onDetailChange` follows them, because the click that selects a row is also the click that opens the
+detail panel when it is on.
 
 | Prop | Signature |
 |---|---|
@@ -24,7 +24,8 @@ panel.
 | `selectable` | `boolean` |
 
 `TaskTransformed` is the task plus the layout fields the chart computed for it; its shape is in
-[Task](ref/task).
+[Task and task types](ref/task). The signature and default of every prop named here are in
+[GanttProps](ref/props).
 
 ```tsx title="src/ProjectGantt.tsx"
 import { useState } from 'react';
@@ -78,7 +79,7 @@ highlighted. What turns the panel on is in [Detail panel](detail-panel).
 
 Inside one click the order is fixed: `onTaskClick` fires first, then the selection changes. And
 `onTaskSelect` fires only when the selected id actually changes. Clicking a row that is already
-selected fires `onTaskClick` and nothing else.
+selected fires `onTaskClick` and no `onTaskSelect`.
 
 The highlight is a class, not a callback. The selected row gets `.gantt-grid-row.selected` and the
 selected bar gets `.gantt-task-bar.selected`.
@@ -91,8 +92,8 @@ id has to change. The row backgrounds and the non-working-day shading do not blo
 the click, because neither of them takes pointer events.
 
 Two places do not clear it. A click on the empty area of the task list pane does nothing, and
-neither does a click on a group label drawn in the timeline - it is the one element in that layer
-that takes pointer events back, and it is only rendered while the task list pane is hidden.
+neither does a click on the date-axis header - the clearing handler listens on the timeline body
+alone.
 
 ### A drag's trailing click is swallowed
 
@@ -102,8 +103,9 @@ checks is set only when the snapped drag step count actually changed, so a press
 never crossed one step is still a click. Drag steps are per scale and are covered in
 [Editing tasks](editing).
 
-Task list rows do not drag at all, so no trailing click ever arrives there. The collapse toggle
-stops the event before it can become a selection, so expanding a row never selects it.
+Task list rows have no such flag. The collapse toggle stops its own click, so expanding a row never
+selects it, but the reorder grip stops only its `pointerdown` - the click that follows still reaches
+the row. Pressing the grip fires `onTaskClick` and selects the row, whether or not the row moved.
 
 ### A double click fires both of its clicks
 
@@ -115,14 +117,15 @@ editor, the real work runs twice before the editor opens.
 
 `onDetailChange` fires on every open and every close, in controlled and uncontrolled mode alike, and
 it is handed the task or `null`. The panel opens on the click that already selects the row, so
-`onTaskClick` still fires for that click - first, as always - and the panel opens after it. A double
-click is no different: two `onTaskClick` calls and one `onTaskDoubleClick` fire, and the panel opened
-on the first of them.
+`onTaskClick` still fires for that click - first, as always - and the panel opens after it. `Enter`
+or `Space` on a focused row opens it the same way. A double click is no different: two `onTaskClick` calls and
+one `onTaskDoubleClick` fire, and the panel opened on the first of them.
 
 `Escape`, the panel's close button and a click on empty timeline space all fire
-`onDetailChange(null)`. A task that leaves `tasks` takes its panel with it, and that one fires
-nothing: your own change to the data caused it. What opens the panel, `renderDetail` and the
-controlled `detailTaskId` are in [Detail panel](detail-panel).
+`onDetailChange(null)`. Writing the `detailTaskId` prop yourself fires nothing - the callback
+reports gestures and ref calls, not prop echoes. A task that leaves `tasks` takes its panel with it,
+and that fires nothing either: your own change to the data caused it. What opens the panel,
+`renderDetail` and the controlled `detailTaskId` are in [Detail panel](detail-panel).
 
 ## A gesture writes straight through
 
@@ -199,20 +202,32 @@ screen.
 |---|---|---|
 | Move, resize or progress drag | `onTasksChange` | no |
 | Keyboard nudge, keyboard progress step, keyboard delete | `onTasksChange` | no |
+| A field edited in the detail panel, or `update()` from `renderDetail` | `onTasksChange` | no |
+| Dragging a row to a new slot or parent, or its keyboard equivalent | `onTaskMove`, then `onTasksChange` | yes, sync |
 | The **Add task** button, `addTask()` on the ref, or a range drawn below the last row | `onTaskCreate` | n/a, the chart adds nothing itself |
 | Drawing a dependency arrow | `onDependencyCreate`, return `false` to cancel | yes, sync |
 | Deleting a dependency arrow | `onDependencyDelete`, return `false` to cancel | yes, sync |
 
-The keyboard row edits without a pointer. `Alt` with an arrow key moves a bar, `Shift` resizes it,
-`+` and `-` step its progress, and `Delete` removes it. Every one of those commits straight to the
-tasks and fires `onTasksChange`, exactly like the gesture it replaces. To stop an edit before it
+The keyboard row edits without a pointer. `Alt` with a horizontal arrow moves a bar, `Shift` resizes
+it, `+` and `-` step its progress, and `Delete` removes it. Every one of those commits straight to
+the tasks and fires `onTasksChange`, exactly like the gesture it replaces. To stop an edit before it
 happens, turn that gesture off through the permission chain in [Editing tasks](editing). The full
 key map is in [Keyboard and screen readers](accessibility).
 
-The two dependency callbacks do cancel, but synchronously: the chart reads the return value
-immediately, so a promise is truthy and the change commits. Returning a promise from
-`onDependencyCreate` in the hope of asking a server first does not work. Their payloads are covered
-in [Dependencies](dependencies).
+The detail panel edits the same way. Its built-in fields commit on blur or `Enter`, and a custom
+body commits through `update(patch)` - both write straight to the tasks and fire `onTasksChange`
+with the whole array. Which fields take input, and what a refused value does, is in
+[Detail panel](detail-panel).
+
+A row move is the exception to write-first: `onTaskMove` runs before anything is applied, and
+returning `false` drops the move with nothing written. The grip drag and its keyboard equivalent
+both route through it. Its payload and the rules a move must pass are in
+[Reordering rows](reordering).
+
+The three cancelling callbacks cancel synchronously: the chart reads the return value immediately,
+so a promise is truthy and the change commits. Returning a promise from `onDependencyCreate` in the
+hope of asking a server first does not work. The dependency payloads are covered in
+[Dependencies](dependencies).
 
 ## Limits
 
@@ -222,8 +237,10 @@ in [Dependencies](dependencies).
 - **There is no context-menu, hover or focus callback.** Right click is not reported. A context
   menu means putting your own listener on the chart container and reading `data-task-id` off the
   event target.
-- **There is no before-change gate.** A gesture is written before your code hears about it, so a
-  rule that must hold for every edit is enforced after the fact, in `onTasksChange`.
+- **There is no before-change gate for dates and progress.** A drag, a keyboard edit or a
+  detail-panel edit is written before your code hears about it, so a rule that must hold for every
+  edit is enforced after the fact, in `onTasksChange`. Only dependency changes and row moves ask
+  first.
 - **Undoing a change is your state, not the chart's.** Passing the old `tasks` array back is the
   whole mechanism, and nothing animates it - the bar is redrawn at the old dates on the next render.
 - **There are no drag lifecycle callbacks.** No `onDragStart`, `onDragMove` or `onDragEnd`.
@@ -244,11 +261,17 @@ in [Dependencies](dependencies).
 | Moves or resizes a bar | `onTasksChange` | no |
 | Drags the progress handle | `onTasksChange` | no |
 | Edits with the keyboard | `onTasksChange` | no |
+| Edits a field in the detail panel | `onTasksChange` | no |
+| Drags a row to a new slot or parent | `onTaskMove`, then `onTasksChange` | yes, sync |
+| Expands or collapses a parent row | `onCollapsedChange` - see [Task list and hierarchy](task-list) | no |
 | Clicks **Add task**, calls `addTask()`, or draws a range below the last row | `onTaskCreate` | n/a, the chart writes nothing |
 | Draws a dependency arrow | `onDependencyCreate`, then `onTasksChange` | yes, sync |
 | Deletes a dependency arrow | `onDependencyDelete`, then `onTasksChange` | yes, sync |
-| Opens or closes the detail panel from a key, the close button, `detailTaskId` or the ref | `onDetailChange` | no |
+| Opens or closes the detail panel from `Enter`/`Space`, `Escape`, the close button or the ref | `onDetailChange` | no |
+| Changes the scale, from the ref, `Ctrl`/`Cmd` + wheel or the keyboard | `onScaleChange` - see [The timeline](timeline) | no |
 | Changes the rendered timeline range | `onRangeChange` - see [The timeline](timeline) | no |
+
+Every stats row in the [playground](/playground) console is one of these callbacks firing live.
 
 Next: [Styling](styling), where a colour and a class name on the task itself change how a bar looks
 without giving up any of the behaviour on this page.

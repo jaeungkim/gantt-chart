@@ -3,9 +3,10 @@ title: "Task와 작업 타입"
 description: "`Task`, `TaskDependency`, `DependencyType`, `TaskTransformed`"
 ---
 
-`Task`는 `tasks` prop에 넣는 한 행의 형태예요. `TaskTransformed`는 차트가 그 행을 계산한 뒤
-렌더러에 돌려주는 값이고요. 이 둘과 `TaskDependency`, `DependencyType`은 모두
-패키지 루트의 타입 전용 export예요.
+`Task`는 `tasks` prop에 넣는 항목 하나의 형태예요. `TaskTransformed`는 차트가 측정을 마친 뒤
+돌려주는 사본이고요. 클릭·선택 콜백, `onDetailChange`, `renderDetail`, `GanttRow.tasks`가 모두
+이 값을 들고 다녀요. 이 둘과 `TaskDependency`, `DependencyType`은 모두 패키지 루트의
+타입 전용 export예요.
 
 ```ts
 import type {
@@ -25,16 +26,17 @@ import type {
 export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 ```
 
-| 값 | 첫 글자 | 둘째 글자 |
+`F`는 종료, `S`는 시작이에요. 첫 글자는 링크가 떠나는 선행 작업(predecessor)의 끝이고, 둘째
+글자는 링크가 닿는 후행 작업(successor)의 끝이에요. 각 끝은 그 작업 막대의 한쪽 모서리예요.
+
+| 값 | 떠나는 선행 작업의 끝 | 닿는 후행 작업의 끝 |
 |---|---|---|
-| `'FS'` | 선행 작업(predecessor)의 종료 | 후행 작업(successor)의 시작 |
-| `'SS'` | 선행 작업의 시작 | 후행 작업의 시작 |
-| `'FF'` | 선행 작업의 종료 | 후행 작업의 종료 |
-| `'SF'` | 선행 작업의 시작 | 후행 작업의 종료 |
+| `'FS'` | 종료 — 오른쪽 모서리 | 시작 — 왼쪽 모서리 |
+| `'SS'` | 시작 — 왼쪽 모서리 | 시작 — 왼쪽 모서리 |
+| `'FF'` | 종료 — 오른쪽 모서리 | 종료 — 오른쪽 모서리 |
+| `'SF'` | 시작 — 왼쪽 모서리 | 종료 — 오른쪽 모서리 |
 
 ## `TaskDependency`
-
-의존성은 **후행 작업** 쪽에 저장하고, `targetId`가 선행 작업을 가리켜요.
 
 ```ts
 export interface TaskDependency {
@@ -47,9 +49,9 @@ export interface TaskDependency {
 | 필드 | 타입 | 필수 | 의미 | 읽는 시점 |
 |---|---|---|---|---|
 | `targetId` | `string` | 예 | 선행 작업의 id예요. `tasks`에 없는 id는 조용히 버려요. 화살표도 그리지 않아요. 자기 자신과 같은 id는 버리지 않아요. 자기 참조 검사가 없어서, 자기 링크는 같은 행으로 되돌아오는 화살표를 그려요. | 항상 |
-| `type` | `DependencyType` | 예 | 링크가 두 작업의 어느 끝에 붙는지 정해요. 네 값 밖의 값은 건너뛰어요. `console.warn`은 값마다 한 번씩, DEV 빌드에서만 찍혀요. | 항상 |
+| `type` | `DependencyType` | 예 | 링크가 두 작업의 어느 막대 모서리에 붙는지 정해요. 네 값 밖의 값은 건너뛰어서 화살표를 그리지 않고, `console.warn`을 남겨요. 값마다 한 번씩, DEV 빌드에서만 찍혀요. | 항상 |
 
-네 가지 링크 타입과 화살표를 그리고 지우는 방식은 [의존성](../dependencies)에서 다뤄요.
+화살표를 그리고, 고르고, 지우는 방식은 [의존성](../dependencies)에서 다뤄요.
 
 ## `Task`
 
@@ -91,34 +93,13 @@ export interface Task {
 }
 ```
 
-필수 필드는 여섯 개예요. `id`, `name`, `startDate`, `endDate`, `parentId`, `sequence`.
+필수 필드는 여섯 개예요. `id`, `name`, `startDate`, `endDate`, `parentId`, `sequence`. 필드별
+규칙 — 날짜 파싱, `sequence` 정렬, `progress` 잘라내기, 레인 패킹, `minDate`/`maxDate` 폴백 —
+은 [작업 데이터](../task-data)가 가지고 있어요. 여기서 다시 적지 않아요.
 
-| 필드 | 타입 | 필수 | 의미 | 읽는 시점 |
-|---|---|---|---|---|
-| `id` | `string` | 예 | 링크와 롤업이 쓰는 고유 키예요. 고유한지는 검사하지 않아요. id로 만든 맵은 마지막 항목만 남겨요. | 항상 |
-| `name` | `string` | 예 | 막대 레이블, 작업 목록 셀, ARIA 레이블에 쓰여요. | 항상 |
-| `startDate` | `string` | 예 | `dayjs.utc()`가 파싱하는 문자열이면 다 돼요. `'2025-06-01'`은 UTC 자정이고, 시간대 없는 `'2025-06-01T09:00'`은 UTC 벽시계 시각이에요. | 항상 |
-| `endDate` | `string` | 예 | 파싱 방식은 같아요. `endDate`가 `startDate`와 같아도 괜찮아요. 아주 얇은 막대로 그려요. | 항상 |
-| `parentId` | `string \| null` | 예 | 부모의 id예요. 루트면 `null`이고요. 부모가 없거나, 자기 자신을 가리키거나, 순환이면 그 연결을 끊고 작업을 루트로 만들어요. | `hierarchy`가 켜졌을 때 |
-| `sequence` | `string` | 예 | 점으로 구분한 숫자예요. 예를 들면 `'2.10'`. 행 순서를 정해요. 구간은 숫자로 비교하고, 빠진 구간도 숫자가 아닌 구간도 `0`으로 봐요. `hierarchy`가 꺼져 있으면 `depth`도 여기서 나와요. | 항상 |
-| `progress` | `number` | 아니요 | 0–100 (%)예요. 거부하지 않고 잘라내요. `-10` → `0`, `150` → `100`, `Infinity` → `100`. 숫자가 아니거나 `NaN`이면 진행률을 표시하지 않아요. 반올림은 없어요. | 항상 |
-| `color` | `string` | 아니요 | CSS 색상이면 무엇이든 돼요. `--gantt-bar-color`를 설정하고, `#000`을 섞어 86%짜리 hover 음영과 62%짜리 진행률 채움을 함께 만들어요. 색의 밝기에 따라 막대 레이블을 검정과 흰색 사이에서 뒤집는 `--gantt-bar-text-color`도 함께 설정해요 ([스타일링](../styling)). 빈 문자열이나 공백뿐인 문자열은 무시해요. | 항상 |
-| `className` | `string` | 아니요 | 막대와 작업 목록 행 양쪽에 붙어요. | 항상 |
-| `lane` | `string` | 아니요 | 레인을 공유하는 작업들은 한 행에 모여요. 겹치는 작업은 추가 행에 쌓이고요. 없거나 비어 있으면 자기 행을 하나 가져요. [레인](../lanes) 참고. | 항상 |
-| `dependencies` | `TaskDependency[]` | 아니요 | 이 작업의 선행 작업들이에요. 기본값은 `[]`. | 항상 |
-| `readOnly` | `boolean` | 아니요 | 이 작업의 모든 제스처를 막아요. | 항상 |
-| `allowMove` | `boolean` | 아니요 | 이동 제스처에서 두 단계의 `readOnly`를 모두 덮어써요. | 항상 |
-| `allowResize` | `boolean` | 아니요 | 크기 조절도 같아요. 요약 행에서는 `false`로 고정돼요. | 항상 |
-| `allowProgressChange` | `boolean` | 아니요 | 진행률 핸들도 같아요. 요약 행에서는 `false`로 고정돼요. | 항상 |
-| `allowLinkCreate` | `boolean` | 아니요 | 의존성 드래그를 시작할 때도 같아요. | 항상 |
-| `allowLinkDelete` | `boolean` | 아니요 | 이 작업이 가진 의존성을 지울 때도 같아요. | 항상 |
-| `allowReorder` | `boolean` | 아니요 | 이 행을 끌어 옮기는 것만 다른 사슬을 타요. 바닥이 `!readOnly`가 아니라 `false`인 유일한 플래그예요. 여기 `true`를 두면 차트가 아무 말도 하지 않아도 이 행 하나만 옮길 수 있어요. | 항상 |
-| `minDate` | `string` | 아니요 | 드래그할 수 있는 가장 이른 지점이에요. UTC ISO고요. 없으면 차트의 `minDate`로 돌아가요. 권한 체인은 적용되지 않아요. | 항상 |
-| `maxDate` | `string` | 아니요 | 드래그할 수 있는 가장 늦은 지점이에요. UTC ISO고요. 폴백도 같아요. | 항상 |
-
-작업 단위 플래그가 `readOnly`를 이기고, `readOnly`가 차트 단위의 같은 설정을 이겨요. `allowReorder`만
-그 사슬의 바닥이 달라요. 다른 플래그는 아무도 말이 없으면 허용으로 끝나지만, 이것은 차단으로 끝나요.
-전체 해석 순서는 [`GanttInteractionConfig`](interaction-config)를 보세요.
+작업 단위 플래그가 `readOnly`를 이기고, `readOnly`가 차트 단위의 같은 설정을 이겨요. 전체 해석
+순서와 `allowReorder`가 대신 타는 더 짧은 사슬은
+[GanttInteractionConfig](interaction-config)를 보세요.
 
 ## `TaskTransformed`
 
@@ -132,12 +113,7 @@ export interface TaskTransformed extends Task {
   depth: number;
   order: number;
   originalOrder: number;
-  /**
-   * 자식이 있는 요약 행 (hierarchy가 켜졌을 때만 true)
-   *
-   * 시작/종료를 자식에서 다시 계산해요. 그래서 크기 조절과 진행률 편집이 막히고,
-   * 막대를 드래그하면 하위 트리 전체가 움직여요.
-   */
+  /** 자식이 있는 행 - 날짜를 자식에서 롤업해서, 크기 조절과 진행률 편집이 꺼지고 드래그하면 하위 트리가 움직여요. */
   isSummary?: boolean;
   dependencies?: TaskDependency[];
 }
@@ -153,7 +129,7 @@ export interface TaskTransformed extends Task {
 | `originalOrder` | `number` | `order`를 다시 쓰기 전, sequence로 정렬한 배열에서의 1부터 시작하는 인덱스 | 항상 |
 | `isSummary` | `boolean` | 작업에 자식이 있으면 `true`. `hierarchy`가 꺼지면 항상 `false`. 타입은 선택이지만 모든 작업에 써 넣어요. | 항상 |
 
-## 참고 사항
+## 참고
 
 `normalizeProgress`는 **패키지 루트에서 내보내지 않아요**. 소스에 있고
 `src/shared/task.ts`가 다시 내보내지만, `src/index.ts`가 나열하지 않아요. 그래서
@@ -165,10 +141,10 @@ export interface TaskTransformed extends Task {
 만났을 때 뜨는 DEV 전용 경고 하나뿐이에요.
 
 없을 때 예외를 던지는 필드는 `sequence` 하나뿐이에요. 레이아웃 도중 `sequence.split('.')`가
-실행돼요. 그래서 이 값 없이 손으로 만든 작업은 차트를 조금씩 망가뜨리는 대신 통째로 터뜨려요.
+실행돼요. 그래서 이 값 없이 손으로 만든 작업은 슬그머니 어긋나는 대신 차트를 통째로 터뜨려요.
 
 날짜는 `dayjs.utc()`가 파싱하는 값이면 무엇이든 들어가고, `Dayjs.toISOString()` 형태로 나와요.
 `YYYY-MM-DDTHH:mm:ss.sssZ` 형식이에요. 로컬 시간대 모드는 없어요.
 
-관련 문서: [`GanttProps`](props), [`GanttInteractionConfig`](interaction-config),
+관련 문서: [GanttProps](props), [GanttInteractionConfig](interaction-config),
 [작업 데이터](../task-data).

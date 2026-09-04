@@ -18,7 +18,7 @@ Every prop is optional. The Default column carries the value the component actua
 
 | Prop | Type | Default | Description |
 |---|---|---|---|
-| `tasks` | `Task[]` | `[]` | The task array. See [Task data](../task-data). |
+| `tasks` | `Task[]` | `[]` | The task array, applied by contents — a new array with equal contents is ignored. See [Task data](../task-data). |
 | `onTasksChange` | `(updatedTasks: Task[]) => void` | none | Fires with the whole array after any committed edit. See [Editing tasks](../editing). |
 
 ## Layout and size
@@ -53,9 +53,9 @@ Every prop is optional. The Default column carries the value the component actua
 | `onScaleChange` | `(scale: GanttScaleKey) => void` | none | Fires after every committed scale change, whatever caused it. See [The timeline](../timeline). |
 | `visibleStart` | `string` | none — the range fits the tasks | Pins the timeline's start to this ISO date. See [The timeline](../timeline). |
 | `visibleEnd` | `string` | none — the range fits the tasks | Pins the timeline's end to this ISO date. See [The timeline](../timeline). |
-| `showNonWorkingDays` | `boolean` | `true` | Shades weekends and holidays. See [The timeline](../timeline). |
-| `holidays` | `string[]` | none — no dates are treated as holidays | ISO date strings shaded as non-working. See [The timeline](../timeline). |
-| `isNonWorkingDay` | `(date: Dayjs) => boolean` | none — the weekend plus `holidays` check is used | Replaces the built-in non-working-day test. See [The timeline](../timeline). |
+| `showNonWorkingDays` | `boolean` | `true` | Shades non-working days and writes holiday names. See [The timeline](../timeline). |
+| `workingWeekdays` | `number[]` | `[1, 2, 3, 4, 5]` — Monday to Friday | UTC day numbers that are worked, `0` is Sunday. Read by identity. See [The timeline](../timeline). |
+| `holidays` | `(string \| Holiday)[]` | none — no days off beyond the weekly rule | Days off on top of `workingWeekdays`. A string is a bare `YYYY-MM-DD`; the object form is [Holiday](scales). Read by identity. See [The timeline](../timeline). |
 | `onRangeChange` | `(range: GanttDateRange) => void` | none | Fires whenever the rendered range changes. See [The timeline](../timeline). |
 
 ## Zoom and scrolling
@@ -75,8 +75,8 @@ Every prop is optional. The Default column carries the value the component actua
 | `allowMove` | `boolean` | `!readOnly` | Allows moving bars, overriding `readOnly`. See [Editing tasks](../editing). |
 | `allowResize` | `boolean` | `!readOnly` | Allows resizing bars, overriding `readOnly`. See [Editing tasks](../editing). |
 | `allowProgressChange` | `boolean` | `!readOnly` | Allows dragging the progress handle, overriding `readOnly`. See [Editing tasks](../editing). |
-| `allowTaskCreate` | `boolean` | `!readOnly` | Allows proposing a new task — the **Add task** button, `addTask()` and the drawn range alike. See [Editing tasks](../editing). |
-| `allowReorder` | `boolean` | `false` | Allows dragging a task-list row to a new position or a new parent. See [Editing tasks](../editing). |
+| `allowTaskCreate` | `boolean` | `!readOnly` | Allows proposing a new task — the **Add task** button, `addTask()` and the drawn range alike. See [Creating tasks](../task-creation). |
+| `allowReorder` | `boolean` | `false` | Allows dragging a task-list row to a new position or a new parent. See [Reordering rows](../reordering). |
 | `minDate` | `string` | none | Earliest ISO date any bar may be dragged to. See [Editing tasks](../editing). |
 | `maxDate` | `string` | none | Latest ISO date any bar may be dragged to. See [Editing tasks](../editing). |
 
@@ -99,7 +99,7 @@ Every prop is optional. The Default column carries the value the component actua
 
 | Prop | Type | Default | Description |
 |---|---|---|---|
-| `showTooltip` | `boolean` | `true` | Shows the hover and drag tooltips. See [Styling](../styling). |
+| `showTooltip` | `boolean` | `true` | Shows the hover card and the progress-drag `%` readout; the dates the tick row writes during a drag are unaffected. See [Styling](../styling). |
 
 ## Events
 
@@ -108,15 +108,15 @@ Every prop is optional. The Default column carries the value the component actua
 | `onTaskClick` | `(task: TaskTransformed, event: React.MouseEvent) => void` | none | Fires on a bar or row click, not after a drag. See [Events](../events). |
 | `onTaskDoubleClick` | `(task: TaskTransformed, event: React.MouseEvent) => void` | none | Fires on a double click. See [Events](../events). |
 | `onTaskSelect` | `(task: TaskTransformed \| null) => void` | none | Fires when the selection changes, `null` on an empty-timeline click. See [Events](../events). |
-| `selectable` | `boolean` | `onTaskSelect !== undefined` | Turns click-to-select and its highlight on. See [Events](../events). |
-| `onTaskCreate` | `(draft: GanttTaskDraft) => void` | none | Fires with a proposed range, from the **Add task** button, `addTask()` or a drawn range. See [Editing tasks](../editing). |
-| `onTaskMove` | `(change: GanttTaskMoveChange) => boolean \| void` | none | Runs before a row move is applied; `false` rejects it. See [Editing tasks](../editing). |
+| `selectable` | `boolean` | none — on with `onTaskSelect` or the detail panel | Turns click-to-select and its highlight on. See [Events](../events). |
+| `onTaskCreate` | `(draft: GanttTaskDraft) => void` | none | Fires with a proposed range, from the **Add task** button, `addTask()` or a drawn range. See [Creating tasks](../task-creation). |
+| `onTaskMove` | `(change: GanttTaskMoveChange) => boolean \| void` | none | Runs before a row move is applied; `false` rejects it. See [Reordering rows](../reordering). |
 
 ## Detail panel
 
 | Prop | Type | Default | Description |
 |---|---|---|---|
-| `renderDetail` | `GanttDetailRenderer` | none — the built-in panel body is used | Replaces the docked panel's body and turns the panel on. See [Detail panel](../detail-panel) and [GanttDetailRenderer](renderers). |
+| `renderDetail` | `GanttDetailRenderer` | none — the built-in panel body is used | Replaces the docked panel's body and turns the panel on. See [Detail panel](../detail-panel) and [Detail renderer](renderers). |
 | `showDetail` | `boolean` | `renderDetail !== undefined` | Shows the panel docked to the right of the timeline. See [Detail panel](../detail-panel). |
 | `detailTaskId` | `string \| null` | none — the chart keeps its own open task | Controlled open task, `null` for closed. See [Detail panel](../detail-panel). |
 | `onDetailChange` | `(task: TaskTransformed \| null) => void` | none | Fires on every open and close, controlled or not. See [Detail panel](../detail-panel). |
@@ -132,9 +132,9 @@ Every prop is optional. The Default column carries the value the component actua
 
 ## Defaults that are not what they look like
 
-- **`selectable`** has no fixed default either. Left out, selection is on exactly when
-  `onTaskSelect` is given. Pass `true` for the highlight without a callback, `false` to turn it
-  off entirely.
+- **`selectable`** has no fixed default. Left out, selection is on when `onTaskSelect` is
+  given — and whenever the detail panel is on. Pass `true` for the highlight without a callback,
+  `false` to turn it off entirely.
 - **`showDetail`** works the same way. Left out, the detail panel exists exactly when
   `renderDetail` is given — the renderer is the switch. Turning the panel on
   also turns row selection on, unless `selectable` says otherwise. See
@@ -158,12 +158,15 @@ Every prop is optional. The Default column carries the value the component actua
   `onCollapsedChange` still fires in both modes.
 - **`theme`** left out follows the host page's `color-scheme`, read off `<html>` and watched for
   changes, so the chart moves with an app's own light/dark toggle. `'system'` ignores the host and
-  asks the OS instead. Every value resolves to `'light'` during server rendering and the first
-  hydration render, then to the real setting.
+  asks the OS instead. An explicit `'light'` or `'dark'` holds everywhere, server rendering
+  included; the other two resolve to `'light'` on the server and the first hydration render, then
+  to the real setting.
 - **`visibleStart`** and **`visibleEnd`** are independent. Pinning one end also stops
   `infiniteScroll` from extending the range on that side; the other side still extends.
-- **`workingCalendar`** builds its calendar from `holidays` and `isNonWorkingDay`, the same
-  configuration that drives `showNonWorkingDays` shading.
+- **`workingCalendar`** builds its calendar from `workingWeekdays` and `holidays`, the same two
+  props that drive `showNonWorkingDays` shading.
+- **`workingWeekdays`** and **`holidays`** are compared by identity, not by contents. A fresh
+  array on every render rebuilds the calendar on every render.
 
 ## Notes
 
@@ -175,7 +178,7 @@ Every prop is optional. The Default column carries the value the component actua
   builds it.
 - `Dayjs` comes from the `dayjs` package, and `ReactNode` / `React.MouseEvent` from `react`.
   None of the three is re-exported from this package.
-- The chart renders no controls of its own — no toolbar and no scale picker. A host that wants one
+- The chart renders no toolbar and no scale picker. A host that wants one
   renders it, drives it with `setScale` on the ref and keeps it honest with `onScaleChange`. See
   [The timeline](../timeline).
 - `ReactGanttChart` also takes a `ref` of type `GanttHandle` for scrolling, zooming, switching

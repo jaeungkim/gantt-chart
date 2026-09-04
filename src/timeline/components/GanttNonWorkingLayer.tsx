@@ -4,7 +4,9 @@ interface GanttNonWorkingLayerProps {
   ranges: NonWorkingRange[];
 }
 
-// Weekend/holiday shading; decorative, so aria-hidden
+// Weekend/holiday shading; decorative, so aria-hidden. A holiday's colour is tinted to the same
+// weight as the weekend shade rather than painted, so it reads as the same kind of mark - an
+// opaque one would sit on top of the grid instead of under it.
 export default function GanttNonWorkingLayer({
   ranges,
 }: GanttNonWorkingLayerProps) {
@@ -16,7 +18,13 @@ export default function GanttNonWorkingLayer({
         <div
           key={range.left}
           className="gantt-non-working-range"
-          style={{ left: `${range.left}px`, width: `${range.width}px` }}
+          style={{
+            left: `${range.left}px`,
+            width: `${range.width}px`,
+            ...(range.color && {
+              background: `color-mix(in srgb, ${range.color} 14%, transparent)`,
+            }),
+          }}
         />
       ))}
     </div>

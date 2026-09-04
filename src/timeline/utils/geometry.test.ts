@@ -9,6 +9,7 @@ import {
   computeNonWorkingRanges,
   computeTimelineData,
   createTopHeaderGroups,
+  OFF_DAY_KEY,
   originShiftPx,
   snapDrawnRange,
 } from './geometry';
@@ -100,7 +101,8 @@ describe('computeNonWorkingRanges', () => {
     '2025-01-06',
     '2025-01-07',
   );
-  const isWeekend = (d: ReturnType<typeof dayjs>) => d.day() === 0 || d.day() === 6;
+  const isWeekend = (d: ReturnType<typeof dayjs>) =>
+    d.day() === 0 || d.day() === 6 ? { key: OFF_DAY_KEY } : null;
 
   it('merges adjacent weekend ticks into one range', () => {
     expect(computeNonWorkingRanges(week, 'week', isWeekend)).toEqual([
@@ -110,10 +112,33 @@ describe('computeNonWorkingRanges', () => {
 
   it('keeps non-adjacent ranges separate', () => {
     const withHoliday = (d: ReturnType<typeof dayjs>) =>
-      isWeekend(d) || d.format('YYYY-MM-DD') === '2025-01-07';
+      d.format('YYYY-MM-DD') === '2025-01-07' ? { key: OFF_DAY_KEY } : isWeekend(d);
     expect(computeNonWorkingRanges(week, 'week', withHoliday)).toEqual([
       { left: TICK * 3, width: TICK * 2 },
       { left: TICK * 6, width: TICK },
+    ]);
+  });
+
+  // Jan 3 is the Friday before the weekend: one band would swallow the holiday's tint and name.
+  it('splits a named holiday off the weekend it touches', () => {
+    const withHoliday = (d: ReturnType<typeof dayjs>) =>
+      d.format('YYYY-MM-DD') === '2025-01-03'
+        ? { key: '2025-01-03', label: 'Founders Day', color: 'red' }
+        : isWeekend(d);
+    expect(computeNonWorkingRanges(week, 'week', withHoliday)).toEqual([
+      { left: TICK * 2, width: TICK, label: 'Founders Day', color: 'red' },
+      { left: TICK * 3, width: TICK * 2 },
+    ]);
+  });
+
+  it('merges a multi-day holiday into one band, carrying its label once', () => {
+    const shutdown = (d: ReturnType<typeof dayjs>) =>
+      d.format('YYYY-MM-DD') <= '2025-01-02'
+        ? { key: '2025-01-01', label: 'Shutdown' }
+        : isWeekend(d);
+    expect(computeNonWorkingRanges(week, 'week', shutdown)).toEqual([
+      { left: 0, width: TICK * 2, label: 'Shutdown' },
+      { left: TICK * 3, width: TICK * 2 },
     ]);
   });
 

@@ -54,7 +54,12 @@ export interface GanttScaleFormat {
   tick?: (date: Dayjs) => string;
   /** Top header row - one label per group */
   header?: (date: Dayjs) => string;
-  /** Drag tooltip and drag guide label */
+  /**
+   * Every date the chart writes as a single date: the bar's hover tooltip, its live drag readout
+   * and aria-label, the header's drag guide labels (through `edge` and `range`, which follow this
+   * slot), and the detail panel's Start and End where they are not editable - an editable date is
+   * a native `<input type="date">` and never reaches a formatter.
+   */
   tooltip?: (date: Dayjs) => string;
 }
 
@@ -83,6 +88,18 @@ export interface GanttFormatters {
   range: (start: Dayjs, end: Dayjs) => string;
   /** One end of a dragged range, at the readout's precision - `range` merged both ends */
   edge: (date: Dayjs) => string;
+}
+
+/** A day off beyond the weekend. A bare `YYYY-MM-DD` string is the same thing with no label. */
+export interface Holiday {
+  /** UTC `YYYY-MM-DD` */
+  date: string;
+  /** Inclusive last day - omit for a single day */
+  endDate?: string;
+  /** Written in the tick row over the holiday's band, when the band is wide enough to hold it */
+  label?: string;
+  /** Any CSS colour. Tinted onto the grid at the weekend shade's weight, never painted over it. */
+  color?: string;
 }
 
 export interface GanttBottomRowCell {
@@ -131,6 +148,12 @@ export interface GanttDetailRenderProps {
   /** Closes the panel - wire it to your own close control */
   close: () => void;
   scale: GanttScaleKey;
+  /**
+   * Patches the open task through the chart's normal commit path (the store, then
+   * `onTasksChange`), so a custom body can commit edits in uncontrolled mode. Applies NO
+   * permission checks - a custom body enforces its own rules.
+   */
+  update: (patch: Partial<Omit<Task, 'id'>>) => void;
 }
 
 export type GanttDetailRenderer = (props: GanttDetailRenderProps) => ReactNode;

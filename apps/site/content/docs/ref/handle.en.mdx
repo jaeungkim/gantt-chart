@@ -5,8 +5,8 @@ description: "`GanttHandle`, `GanttScrollApi`, `GanttDetailApi`, `GanttTaskCreat
 
 `GanttHandle` is the object a `ref` on the chart receives. It carries the scroll and zoom methods,
 the two detail-panel methods and `addTask`, and nothing else — it is `GanttScrollApi`,
-`GanttDetailApi` and `GanttTaskCreateApi` together. All six types on this page are type-only
-exports of the package.
+`GanttDetailApi` and `GanttTaskCreateApi` together. All six types on this page are
+type-only exports of the package.
 
 ```ts
 import type {
@@ -39,8 +39,8 @@ and `addTask`.
 |---|---|---|
 | `scrollToDate` | `(date: string \| Date \| Dayjs, options?: GanttScrollOptions) => void` | Scrolls horizontally so that date sits at the requested position; does nothing when the date is outside the rendered timeline. |
 | `scrollToToday` | `(options?: GanttScrollOptions) => void` | `scrollToDate` with the current instant. |
-| `scrollToTask` | `(taskId: string, options?: GanttScrollOptions) => void` | Scrolls horizontally to the task's bar, and vertically only when its row is off screen; does nothing for an id that is not on a rendered row. |
-| `setScale` | `(scale: GanttScaleKey) => void` | Switches the timeline scale, keeping the date at the centre of the timeline area at the centre; does nothing for a key that is not one of the five scales. |
+| `scrollToTask` | `(taskId: string, options?: GanttScrollOptions) => void` | Scrolls horizontally to the task's bar, and vertically only when its row is off screen; does nothing for an id that no row shows. |
+| `setScale` | `(scale: GanttScaleKey) => void` | Switches the scale; the centre date stays put. |
 | `zoomToFit` | `() => void` | Switches to the finest scale at which the whole project fits the timeline width and pins the earliest task date to the left edge. |
 | `getScrollElement` | `() => HTMLDivElement \| null` | Returns the chart's scroll container element, or `null` when the chart is not mounted. |
 | `openDetail` | `(taskId: string) => void` | Opens the detail panel on that task; does nothing for an id that names no task, or while the panel is off. |
@@ -83,7 +83,8 @@ export interface GanttScrollApi {
 `dayjs` itself. A plain string or `Date` is accepted and parsed as UTC — see
 [Task data](../task-data).
 
-`GanttScaleKey` is the union of the six scale keys, listed in [Scales](scales). It is the only
+`GanttScaleKey` is the union of the five scale keys, listed in
+[Scale and theme types](scales). It is the only
 scale symbol the package exports; the scale table `setScale` checks its argument against stays
 internal.
 
@@ -96,7 +97,7 @@ export interface GanttDetailApi {
    * Opens the detail panel on a task
    *
    * An unknown id is ignored, the way `scrollToTask` ignores one. Does nothing while
-   * the panel is off - that is, while neither `renderDetail` nor `showDetail` is given.
+   * the panel is off - that is, while `showDetail` is false, or omitted with no `renderDetail`.
    */
   openDetail: (taskId: string) => void;
   /** Closes the detail panel */
@@ -104,9 +105,9 @@ export interface GanttDetailApi {
 }
 ```
 
-The panel is on when `renderDetail` or `showDetail` turns it on; both props, and the rest of the
-detail surface, live in [GanttProps](props). While it is off both methods are inert, so a toolbar
-button wired to `openDetail` needs no guard of its own.
+The panel is on when `showDetail` says so — or, with `showDetail` omitted, when `renderDetail` is
+given. Both props, and the rest of the detail surface, live in [GanttProps](props). While it is off
+both methods are inert, so a toolbar button wired to `openDetail` needs no guard of its own.
 
 ## `GanttTaskCreateApi`
 
@@ -118,16 +119,17 @@ export interface GanttTaskCreateApi {
    *
    * The draft is one tick at today, snapped to the current scale, and it goes to
    * `onTaskCreate` - the chart still adds nothing itself. Does nothing while task
-   * creation is off, that is without `onTaskCreate` or with `allowTaskCreate` false.
+   * creation is off - without `onTaskCreate`, or with the interaction props disallowing it.
    */
   addTask: () => void;
 }
 ```
 
 `addTask()` is the ref side of the **Add task** strip under the task list: the same draft, the same
-callback, the same silence while creation is off. It returns nothing and reports nothing — the row
+callback, the same silence while creation is off. Today outside the rendered timeline moves the
+draft to the first tick rather than dropping it. It returns nothing and reports nothing — the row
 appears when the `tasks` array your `onTaskCreate` builds carries it. What the draft holds and what
-turns creation off are in [Editing tasks](../editing).
+turns creation off are in [Creating tasks](../task-creation).
 
 ## `GanttScrollOptions`
 
@@ -215,7 +217,7 @@ one below returns without throwing and without a console warning:
 |---|---|---|
 | `scrollToDate` | the timeline has no ticks, or the date falls before the first tick or past the end of the last | no scroll |
 | `scrollToToday` | today is outside the rendered range | no scroll |
-| `scrollToTask` | the id is not on a currently rendered row — unknown, or hidden under a collapsed parent or collapsed group | no scroll |
+| `scrollToTask` | the id is on no row — unknown, or hidden under a collapsed parent | no scroll |
 | `setScale` | the key is not one of the five scales | no scale change |
 | `setScale` | the scroll container is not mounted, or the centre of the timeline area is not over a tick | the scale changes, with no anchor |
 | `zoomToFit` | `tasks` is empty, or the scroll container is not mounted | no scale change, no scroll |
@@ -223,7 +225,7 @@ one below returns without throwing and without a console warning:
 | `openDetail` | the id names no task in `tasks` | no open |
 | `openDetail` | the panel is off — neither `renderDetail` nor `showDetail` turns it on | no open |
 | `closeDetail` | the panel is off, or already closed | nothing, and no `onDetailChange` |
-| `addTask` | `onTaskCreate` is not given, or `allowTaskCreate` is false | no draft, and no callback |
+| `addTask` | `onTaskCreate` is not given, or creation is off — `allowTaskCreate` false, or `readOnly` without an overriding `allowTaskCreate` | no draft, and no callback |
 | `addTask` | the timeline has no ticks — no tasks, and no window pinned with `visibleStart`/`visibleEnd` | no draft, and no callback |
 
 ## Notes
