@@ -10,6 +10,8 @@
     "lanes",
     "timeline",
     "editing",
+    "task-creation",
+    "reordering",
     "dependencies",
     "working-calendar",
     "detail-panel",

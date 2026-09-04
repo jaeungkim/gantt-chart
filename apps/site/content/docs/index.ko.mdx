@@ -14,15 +14,17 @@ description: "@jaeungkim/gantt-chart의 모든 가이드와 레퍼런스 문서�
 | [빠른 시작](quick-start) | 설치부터 편집 가능한 차트까지 |
 | [작업 데이터](task-data) | `Task` 형태, 날짜 처리, `tasks` prop 비교 방식 |
 | [작업 목록과 계층](task-list) | 왼쪽 패널과 `parentId` 트리 |
-| [레인](lanes) | `lane`, 그리고 레인 메이트를 나란히 담는 행 |
+| [레인](lanes) | 서로 겹치지 않는 작업을 한 행에 모으는 `lane` 작업 필드 |
 | [타임라인](timeline) | 배율, 범위, 줌, 오늘 선, 비근무일 |
-| [작업 편집](editing) | 이동, 크기 조절, 진행률, 권한, 터치, 작업 그리기 |
-| [의존성](dependencies) | 네 가지 링크 타입, 링크 그리기와 삭제 |
+| [작업 편집](editing) | 이동, 크기 조절, 진행률, 권한, 드래그 경계, 터치, 자동 스크롤 |
+| [작업 생성](task-creation) | 새 작업을 제안하는 세 가지 길, 셋 다 `onTaskCreate`로 넘기는 초안, 그리고 차트가 행을 직접 만들지 않는 이유 |
+| [행 순서 바꾸기](reordering) | 작업 목록의 행을 새 자리나 새 부모로 끄는 방법, 그 이동이 다시 쓰는 것, 그리고 이동을 거부하는 법 |
+| [의존성](dependencies) | 네 가지 링크 타입, 화살표 그리기 |
 | [근무일 달력](working-calendar) | 드롭이 주말과 휴일에 앉지 않게 하기 |
-| [상세 패널](detail-panel) | 도킹된 사이드 패널: 무엇이 패널을 여는지, `renderDetail`, 제어 방식 |
+| [상세 패널](detail-panel) | 도킹된 사이드 패널: 무엇이 패널을 여는지, 그 자리에서 편집하기, `renderDetail`, 제어 방식 |
 | [이벤트](events) | 클릭과 드래그, 키보드 편집이 실행하는 모든 콜백 |
 | [스타일링](styling) | 작업별 색상과 클래스 이름 |
-| [명령형 API](imperative-api) | `ref` 핸들: 스크롤과 줌 |
+| [명령형 API](imperative-api) | `ref` 핸들: 스크롤과 줌, 상세 패널, 그리고 작업 생성 |
 | [키보드와 스크린 리더](accessibility) | 키 맵, ARIA 트리, 그리고 빈틈 |
 | [로케일과 날짜 형식](i18n) | `locale`, 배율별 재정의, 주 시작 요일 |
 | [테마](theming) | theme prop과 CSS 커스텀 속성 |
@@ -30,14 +32,14 @@ description: "@jaeungkim/gantt-chart의 모든 가이드와 레퍼런스 문서�
 
 ## 레퍼런스
 
-| 문서 | 심볼 |
+| 문서 | 다루는 내용 |
 |---|---|
 | [GanttProps](ref/props) | 컴포넌트가 받는 모든 prop |
 | [Task와 작업 타입](ref/task) | `Task`, `TaskDependency`, `DependencyType`, `TaskTransformed` |
 | [GanttInteractionConfig](ref/interaction-config) | `GanttInteractionConfig`와 권한 결정 순서 |
-| [행 타입](ref/rows) | `GanttRow` |
-| [상세 렌더러 타입](ref/renderers) | `GanttDetailRenderer`, `GanttDetailRenderProps` |
-| [GanttHandle](ref/handle) | `GanttHandle`, `GanttScrollApi`, `GanttDetailApi`, `GanttScrollOptions`, `GanttZoomAnchor` |
-| [배율과 테마 타입](ref/scales) | `GanttScaleKey`, `GanttScaleFormat`, `GanttFormatOverrides`, `GanttTheme` |
-| [트리 헬퍼](ref/core-tree) | `buildTaskTree`, `collectSubtreeIds`, `rollUpTasks`, `TaskTree` |
-| [근무일 달력](ref/core-calendar) | `createWorkingCalendar`, `CALENDAR_DAYS`, `WorkingCalendar` |
+| [GanttRow](ref/rows) | 차트가 작업에서 만들어 내는 행 모델 |
+| [상세 렌더러](ref/renderers) | `renderDetail`의 타입인 `GanttDetailRenderer`와 `GanttDetailRenderProps`예요 |
+| [GanttHandle](ref/handle) | `GanttHandle`, `GanttScrollApi`, `GanttDetailApi`, `GanttTaskCreateApi`, `GanttScrollOptions`, `GanttZoomAnchor` |
+| [배율과 테마 타입](ref/scales) | `GanttScaleKey`, `GanttScaleFormat`, `GanttFormatOverrides`, `GanttTheme`, `Holiday` |
+| [트리 헬퍼](ref/core-tree) | `buildTaskTree`, `collectSubtreeIds`, `rollUpTasks`, `moveTask`, `validateMove`, `sortTasksBySequence` |
+| [근무일 달력 헬퍼](ref/core-calendar) | 달력 API로 내보내는 것들이에요: `createWorkingCalendar`, `CALENDAR_DAYS`, `WorkingCalendar` |

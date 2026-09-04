@@ -24,9 +24,22 @@ interface TimelineData {
   transformedTasks: TaskTransformed[];
 }
 
+/** The identity of a day that is off with nothing else said about it - no name, no colour. */
+export const OFF_DAY_KEY = "off";
+
+/** What one non-working day is, as far as the shading is concerned. */
+export interface NonWorkingDay {
+  /** Adjacent days merge only when this matches - a named holiday must not fuse with a Saturday */
+  key: string;
+  label?: string;
+  color?: string;
+}
+
 export interface NonWorkingRange {
   left: number;
   width: number;
+  label?: string;
+  color?: string;
 }
 
 // How far the timeline origin moved, in px - add to scrollLeft to keep the viewed date in place.
@@ -50,10 +63,12 @@ export function originShiftPx(
 }
 
 // Merges non-working cells into px ranges. Day and hour tick units only.
+// Adjacent days merge only while `nonWorkingDayAt` hands back the same key, so a holiday keeps
+// its own band - and its own tint and name - against the weekend it sits beside.
 export function computeNonWorkingRanges(
   timelineTicks: GanttBottomRowCell[],
   scaleKey: GanttScaleKey,
-  isNonWorkingDay: (date: Dayjs) => boolean
+  nonWorkingDayAt: (date: Dayjs) => NonWorkingDay | null
 ): NonWorkingRange[] {
   const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];
   if (tickUnit !== "day" && tickUnit !== "hour") return [];
@@ -63,21 +78,26 @@ export function computeNonWorkingRanges(
 
   const ranges: NonWorkingRange[] = [];
   let offset = 0;
-  let prevNonWorking = false;
+  let prevKey: string | null = null;
 
   for (const tick of timelineTicks) {
     const dayWidth = tick.widthPx / daysPerTick;
 
     for (let day = 0; day < daysPerTick; day++) {
-      const nonWorking = isNonWorkingDay(tick.startDate.add(day, "day"));
+      const nonWorking = nonWorkingDayAt(tick.startDate.add(day, "day"));
       if (nonWorking) {
-        if (prevNonWorking) {
+        if (nonWorking.key === prevKey) {
           ranges[ranges.length - 1].width += dayWidth;
         } else {
-          ranges.push({ left: offset + day * dayWidth, width: dayWidth });
+          ranges.push({
+            left: offset + day * dayWidth,
+            width: dayWidth,
+            ...(nonWorking.label !== undefined && { label: nonWorking.label }),
+            ...(nonWorking.color !== undefined && { color: nonWorking.color }),
+          });
         }
       }
-      prevNonWorking = nonWorking;
+      prevKey = nonWorking?.key ?? null;
     }
 
     offset += tick.widthPx;

@@ -495,6 +495,73 @@
   background: color-mix(in srgb, var(--gantt-foreground) 6%, transparent);
 }
 
+/* A named holiday, written in the tick row over its own band. Same container, same geometry and
+   same type as the drag readout above - it is the tick row being specific, not a second surface.
+   It sits before .gantt-drag-guides in the DOM, so a live drag paints over it: the gesture wins. */
+.gantt-holiday-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* The holiday's own footprint in the header, and the only thing here that takes a pointer. It is
+   the full header height rather than the tick row's 28px, because at the month scale the footprint
+   of one day off is 18px wide and needs the height to stay catchable. It paints nothing: the tint
+   in the body is already marking these days. */
+.gantt-holiday-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: auto;
+}
+
+/* Covers whole tick cells in the tick row's own colour, so their numerals step aside and the name
+   stands where they were - never a numeral sliced in half, the same rule the drag readout keeps.
+   Wider than its band whenever the band is a part of a cell, so it is not clipped to it.
+   44px is .gantt-top-header's height, 28px .gantt-bottom-row's. */
+.gantt-holiday-cell {
+  position: absolute;
+  top: 44px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--gantt-muted);
+  /* Up for a band with the room for it, and for any band under the pointer. Opacity, not display,
+     so a name a narrow band never stands up is still read out. */
+  opacity: 0;
+  transition: opacity 90ms ease-out;
+}
+
+.gantt-holiday-cell.shown,
+.gantt-holiday-band:hover .gantt-holiday-cell {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gantt-holiday-cell {
+    transition: none;
+  }
+}
+
+/* Typed like the tick beside it. A name wider than the cells it stands in is ellipsised, never
+   spilled - the clipping box is .gantt-holiday-cell, which is overflow: hidden and sized to the
+   whole tick cells the band falls in. The band sets no overflow, so what caps the name is the
+   covered cells, which at the month scale are wider than the holiday's own footprint. */
+.gantt-holiday-cell > span {
+  padding: 0 6px;
+  color: var(--gantt-foreground);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 28px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Standard properties first (Chrome 121+, Firefox); browsers without them use the webkit rules */
 .gantt-scroll-container {
   scrollbar-width: thin;
@@ -663,6 +730,20 @@
   opacity: 0.6;
   pointer-events: none;
   /* No z-index on purpose: DOM order leaves the line behind the bars, arrows and hover cards */
+}
+
+/* The line's head, straddling the header's bottom border so the marker reads as one pin. Sits in
+   .gantt-header-wrapper, so `left` is the same barLeft space the line uses and it rides the
+   wrapper's sticky z-index 30 - it stays put while the rows scroll under it. */
+.gantt-today-dot {
+  position: absolute;
+  bottom: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gantt-today-marker);
+  transform: translate(-50%, 50%);
+  pointer-events: none;
 }
 
 .gantt-dependency-arrows {
@@ -1204,15 +1285,32 @@
   /* No rung: a flex sibling of .gantt-main, which is overflow: hidden, so the pane and its
      splitter cannot reach it. position is the containing block a renderDetail body may want. */
   position: relative;
-  flex: 0 0 var(--gantt-detail-width);
+  /* Base is the closed state; .gantt-detail-open slides basis, padding and border up together.
+     overflow-x hidden so the sliding edge clips the content instead of squashing it. */
+  flex: 0 0 0px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px;
-  overflow-y: auto;
-  border-left: 1px solid var(--gantt-border);
+  padding: 16px 0;
+  overflow: hidden auto;
+  border-left: 0 solid var(--gantt-border);
   background: var(--gantt-background);
   color: var(--gantt-foreground);
+  transition:
+    flex-basis 200ms ease,
+    padding 200ms ease,
+    border-left-width 200ms ease;
+}
+
+.gantt-detail-open {
+  flex-basis: var(--gantt-detail-width);
+  padding: 16px;
+  border-left-width: 1px;
+}
+
+/* Pinned to the open inner width, so the content keeps its layout while the panel slides */
+.gantt-detail > * {
+  min-width: calc(var(--gantt-detail-width) - 32px);
 }
 
 .gantt-detail-header {
@@ -1266,5 +1364,32 @@
 .gantt-detail-fields dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.gantt-detail-input {
+  padding: 2px 6px;
+  border: 1px solid var(--gantt-border);
+  border-radius: 4px;
+  background: var(--gantt-background);
+  color: var(--gantt-foreground);
+  font: inherit;
+  font-size: 12px;
+}
+
+.gantt-detail-input:focus-visible {
+  outline: 2px solid var(--gantt-accent);
+  outline-offset: 1px;
+}
+
+/* The name input stands where the title stood, and reads like it */
+.gantt-detail-header .gantt-detail-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.gantt-detail-fields .gantt-detail-input {
+  width: 100%;
 }
 

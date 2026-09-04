@@ -3,9 +3,13 @@ import GanttDependencyArrows from "dependencies/components/GanttDependencyArrows
 import GanttDragGuides from "bars/components/GanttDragGuides";
 import GanttGridSplitter from "task-list/components/GanttGridSplitter";
 import GanttTaskAddRow from "task-list/components/GanttTaskAddRow";
-import { GanttTodayLine } from "timeline/components/GanttTodayLine";
+import {
+  GanttTodayDot,
+  GanttTodayLine,
+} from "timeline/components/GanttTodayLine";
 import GanttTaskGrid from "task-list/components/GanttTaskGrid";
 import GanttBarsLayer from "bars/components/GanttBarsLayer";
+import GanttHolidayLabels from "timeline/components/GanttHolidayLabels";
 import GanttNonWorkingLayer from "timeline/components/GanttNonWorkingLayer";
 import GanttRowsLayer from "rows/components/GanttRowsLayer";
 import {
@@ -29,7 +33,10 @@ import { useGanttRowModel } from "rows/hooks/useGanttRowModel";
 import { useGanttSelectors } from "./useGanttSelectors";
 import { useGanttSelection } from "interaction/hooks/useGanttSelection";
 import GanttDetailPanel from "detail/components/GanttDetailPanel";
-import { useGanttDetail } from "detail/hooks/useGanttDetail";
+import {
+  useGanttDetail,
+  useGanttDetailSlide,
+} from "detail/hooks/useGanttDetail";
 import { GanttHandle, useGanttScrollApi } from "timeline/hooks/useGanttScrollApi";
 import { useGanttTaskListPane } from "task-list/hooks/useGanttTaskListPane";
 import { useGanttTaskMove } from "task-list/hooks/useGanttTaskMove";
@@ -53,7 +60,10 @@ import type { Dayjs } from "dayjs";
 import {
   calculateDateOffsetPx,
   computeNonWorkingRanges,
+  OFF_DAY_KEY,
+  type NonWorkingDay,
 } from "timeline/utils/geometry";
+import { indexHolidays } from "shared/utils/holidays";
 import { GanttProps } from './props';
 
 const DEFAULT_HEIGHT = 600;
@@ -80,8 +90,8 @@ function GanttChart({
   theme,
   className,
   showNonWorkingDays = true,
+  workingWeekdays,
   holidays,
-  isNonWorkingDay,
   initialScrollTo,
   readOnly,
   allowMove,
@@ -210,26 +220,29 @@ function GanttChart({
   );
 
   // One "non-working" definition chart-wide, so shaded days and drag-skipped days cannot drift
-  const isOffDay = useMemo(() => {
-    if (isNonWorkingDay) return isNonWorkingDay;
-
-    const holidaySet = new Set(holidays);
-    return (date: Dayjs) => {
-      const day = date.day();
-      return (
-        day === 0 || day === 6 || holidaySet.has(date.format("YYYY-MM-DD"))
-      );
-    };
-  }, [holidays, isNonWorkingDay]);
+  const holidayIndex = useMemo(() => indexHolidays(holidays), [holidays]);
+  const workweek = useMemo(
+    () =>
+      createWorkingCalendar({
+        workingWeekdays,
+        holidays: holidayIndex.dates,
+      }),
+    [workingWeekdays, holidayIndex]
+  );
+  // A holiday landing on a weekend still answers as itself - it is the one with a name to write
+  const nonWorkingDayAt = useCallback(
+    (date: Dayjs): NonWorkingDay | null => {
+      if (workweek.isWorkingDay(date)) return null;
+      const holiday = holidayIndex.byDate.get(date.format("YYYY-MM-DD"));
+      return holiday
+        ? { key: holiday.date, label: holiday.label, color: holiday.color }
+        : { key: OFF_DAY_KEY };
+    },
+    [workweek, holidayIndex]
+  );
 
   // Off, it counts every day, which is plain calendar arithmetic
-  const calendar = useMemo(
-    () =>
-      workingCalendar
-        ? createWorkingCalendar({ isNonWorkingDay: isOffDay })
-        : CALENDAR_DAYS,
-    [workingCalendar, isOffDay]
-  );
+  const calendar = workingCalendar ? workweek : CALENDAR_DAYS;
 
   // A renderer turns the panel on; `showDetail` is the explicit override
   const detailEnabled = showDetail ?? renderDetail !== undefined;
@@ -249,6 +262,9 @@ function GanttChart({
     onDetailChange,
     onTaskClick: selection.onTaskClick,
   });
+
+  // Retains the last task so the body stays rendered while the panel slides shut
+  const slide = useGanttDetailSlide(detail.task);
 
   const barOptions = useMemo(
     () => ({
@@ -349,8 +365,12 @@ function GanttChart({
 
   const nonWorkingRanges = useMemo(() => {
     if (!showNonWorkingDays) return [];
-    return computeNonWorkingRanges(bottomRowCells, selectedScale, isOffDay);
-  }, [showNonWorkingDays, isOffDay, bottomRowCells, selectedScale]);
+    return computeNonWorkingRanges(
+      bottomRowCells,
+      selectedScale,
+      nonWorkingDayAt
+    );
+  }, [showNonWorkingDays, nonWorkingDayAt, bottomRowCells, selectedScale]);
 
   const scrollApi = useGanttScrollApi({
     scrollRef,
@@ -476,7 +496,10 @@ function GanttChart({
                   />
 
                   {/* Belongs to the date axis: inherits the wrapper's sticky and width, not part of the header cells */}
+                  {/* Before the guides, so a live drag readout paints over a holiday's name */}
+                  <GanttHolidayLabels ranges={nonWorkingRanges} />
                   <GanttDragGuides />
+                  <GanttTodayDot leftPx={todayPx} />
                 </div>
 
                 <div
@@ -556,14 +579,18 @@ function GanttChart({
           )}
         </div>
 
-        {detail.task && (
+        {slide.task && (
           <GanttDetailPanel
-            task={detail.task}
+            task={slide.task}
             tasks={transformedTasks}
             scale={selectedScale}
             localeOptions={localeOptions}
+            interaction={interaction}
             onClose={detail.close}
+            onTasksChange={onTasksChange}
             render={renderDetail}
+            open={slide.open}
+            onTransitionEnd={slide.onTransitionEnd}
           />
         )}
       </div>

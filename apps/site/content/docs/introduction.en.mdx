@@ -31,17 +31,19 @@ and takes `react` and `react-dom` as peer dependencies, `^18` or `^19`. Every pr
 
 ### Rendering
 
-- Rows and time cells are virtualized together, from one window with five items of overscan; bars outside that window are culled too.
-- A task list pane on the left, listing task names behind a draggable splitter — see [Task list and hierarchy](task-list).
-- Six timeline scales, hour through year, each with its own tick unit, drag step and label formats — see [The timeline](timeline).
+- Rows and time columns are virtualized against the same scroll container: only the window on screen renders, plus five items of overscan, doubled toward the edge you are scrolling toward. An axis of 24 items or fewer, or one that already fits the viewport, renders whole. Bars and dependency arrows cull against that same window, so a 4,000-row plan mounts what fits on screen and nothing else.
+- A task list pane on the left, listing task names, optionally numbered, behind a draggable splitter — see [Task list and hierarchy](task-list).
+- Five timeline scales, day through year, each with its own tick unit, drag step and label formats — see [The timeline](timeline).
 - Dependency arrows routed as elbows, for all four link types — see [Dependencies](dependencies).
-- A today line and non-working-day shading — see [The timeline](timeline).
+- A today line and non-working-day shading; a holiday can carry its own colour and a name written in the tick row — see [The timeline](timeline).
 
 ### Editing
 
 - Drag a bar to move it, drag either edge to resize it, drag the handle to set progress — see [Editing tasks](editing).
-- Drag below the last row to draw a new task; the chart proposes a draft and never adds the row itself.
+- While a drag is live, the dragged dates print in the date-axis cells they land in; nothing floats over the chart.
+- Drag below the last row to draw a new task; the chart proposes a draft and never adds the row itself — see [Creating tasks](task-creation).
 - Drag from a bar's link handle to another bar to create a dependency; click an arrow to select it, then press Delete — see [Dependencies](dependencies).
+- One click opens the detail panel when it is on, and the built-in panel body edits the name, dates and progress in place — see [Detail panel](detail-panel).
 
 ### Dates
 
@@ -63,7 +65,7 @@ and takes `react` and `react-dom` as peer dependencies, `^18` or `^19`. Every pr
 - Theme tokens are `--gantt-*` custom properties scoped to `.gantt-container`, not `:root`, so they cannot collide with your app's variables. One `#fff` stays literal.
 - A per-task `color` derives the bar, its progress fill, its hover shade and a readable label color from one value — see [Styling](styling).
 - `renderDetail` replaces the detail panel body, the one node the chart lets you swap — see [Detail panel](detail-panel).
-- `locale` renders the header, tooltip and drag-readout dates through `Intl.DateTimeFormat`, and `formats` overrides those three per scale — see [Locale and date formats](i18n).
+- `locale` renders every date label through `Intl.DateTimeFormat`, and `formats` overrides the tick, header and tooltip labels per scale — see [Locale and date formats](i18n).
 
 ## What it does not do
 
@@ -72,15 +74,15 @@ anywhere in the source. Tasks arrive as a prop. `onRangeChange` fires when the r
 range changes, which is the hook for loading more.
 
 **No chrome.** The chart renders the timeline, and the task list pane when you ask for one. It
-renders no controls of its own: no toolbar, no scale picker, no zoom buttons, no collapse button.
-Scale changes through `setScale` on the ref or Ctrl/Cmd + ArrowUp / ArrowDown, and `onScaleChange`
-reports every change so a control of your own can follow the chart. The `<select>` to pair with
-them is in [Quick start](quick-start).
+renders no controls of its own — no toolbar, no scale picker, no zoom buttons — so a scale control
+is a control you build. The scale changes through `setScale` on the ref, Ctrl/Cmd + ArrowUp /
+ArrowDown, or Ctrl/Cmd + wheel once `zoomOnWheel` is on, and `onScaleChange` reports every change
+so your control can follow the chart. The `<select>` to pair with them is in
+[Imperative API](imperative-api).
 
 **No persistence.** Not the task data, not the scale, not the pane width, not the collapsed rows,
-not the scroll position, and not the theme. The scale used to survive a remount through
-`sessionStorage`; that path and the `storageKey` prop that named its key are both gone, and the
-scale is now plain state on the chart instance.
+not the scroll position, and not the theme. The scale is plain state on the chart instance, so a
+remount starts again from `defaultScale`.
 
 **No resource or cost model.** A `Task` has no assignee, no effort, no rate and no cost field —
 see [Task data](task-data). There is no resource pane, no histogram and no levelling. A `lane`
@@ -139,6 +141,6 @@ After that, go to the page for the thing you are building.
 | a chart that matches your design system | [Theming](theming), then [Styling](styling) |
 | date math with no chart | [Headless core](headless-core) |
 
-Every prop is listed in one place, in [Props](ref/props).
+The signature and default of every prop named here are in [GanttProps](ref/props).
 
 Next: [Concepts and vocabulary](concepts).

@@ -33,6 +33,7 @@ export type {
   GanttScaleFormat,
   GanttScaleKey,
   GanttTheme,
+  Holiday,
 } from './shared/types';
 export type { GanttRow } from './rows/utils/rows';
 

@@ -22,11 +22,11 @@ export interface Settings {
   infiniteScroll: boolean;
   showNonWorkingDays: boolean;
   holidays: boolean;
+  sixDayWeek: boolean;
   workingCalendar: boolean;
   autoScrollOnDrag: boolean;
   dateBounds: boolean;
   visibleRange: boolean;
-  customNonWorking: boolean;
   initialScrollTo: string;
   showDetail: boolean;
   customDetail: boolean;
@@ -47,6 +47,10 @@ type SelectKey = Exclude<keyof Settings, BooleanKey>;
 
 // Anything a select can hold; narrowed by the row's own `options` list before it is stored.
 export type SelectValue = GanttScaleKey & GanttTheme & string;
+
+// The scale ladder, finest first. The package exports no constant for it, and two controls read
+// it now: the console's own row and the toolbar select above the chart.
+export const SCALES: readonly GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
 
 type ControlGroup = 'Data' | 'Editing' | 'Timeline' | 'Presentation';
 
@@ -151,7 +155,7 @@ export const CONTROLS: readonly Control[] = [
   {
     key: 'allowTaskCreate',
     label: 'Create tasks',
-    hint: 'Add task strip, addTask(), drag below the last row',
+    hint: 'The task list’s Add task row, addTask(), drag below the last row',
     group: 'Editing',
     type: 'boolean',
   },
@@ -198,7 +202,7 @@ export const CONTROLS: readonly Control[] = [
     hint: 'The chart ships no picker - this select is the host’s',
     group: 'Timeline',
     type: 'select',
-    options: ['day', 'week', 'month', 'quarter', 'year'],
+    options: SCALES,
   },
   {
     key: 'zoomOnWheel',
@@ -224,7 +228,14 @@ export const CONTROLS: readonly Control[] = [
   {
     key: 'holidays',
     label: 'Holidays',
-    hint: 'Two fixed days inside the demo range',
+    hint: 'Tinted days off in the demo range - two named, one bare date',
+    group: 'Timeline',
+    type: 'boolean',
+  },
+  {
+    key: 'sixDayWeek',
+    label: 'Six-day week',
+    hint: 'Work Saturdays - only Sunday is off',
     group: 'Timeline',
     type: 'boolean',
   },
@@ -254,13 +265,6 @@ export const CONTROLS: readonly Control[] = [
     key: 'visibleRange',
     label: 'Pinned range',
     hint: '`visibleStart`/`visibleEnd`, two weeks past the tasks either side',
-    group: 'Timeline',
-    type: 'boolean',
-  },
-  {
-    key: 'customNonWorking',
-    label: 'Custom non-working day',
-    hint: '`isNonWorkingDay` replaces the weekend/holiday check with Fridays',
     group: 'Timeline',
     type: 'boolean',
   },
@@ -328,8 +332,10 @@ export const GROUPS: readonly ControlGroup[] = [
   'Presentation',
 ];
 
-// Every feature on, so the page shows the whole chart before a single switch is touched;
-// `readOnly` is the one exception, being a restriction rather than a feature.
+// Every feature on, so the page shows the whole chart before a single switch is touched. Two
+// classes stay off: restrictions (`readOnly`, `dateBounds`, `visibleRange`, every `veto*`) and
+// overrides (`customDetail`, `controlledDetail`, `customFormats`), each of
+// which replaces a built-in behaviour rather than adding one - turning them on hides a feature.
 export const DEFAULTS: Settings = {
   hierarchy: true,
   showTaskList: true,
@@ -346,17 +352,21 @@ export const DEFAULTS: Settings = {
   vetoLinkCreate: false,
   vetoLinkDelete: false,
   vetoMove: false,
-  scale: 'week',
+  // The fixture runs seven weeks; only the month scale fits all of it on screen at once, which
+  // is also what every <GanttDemo> on the site opens on.
+  scale: 'month',
   zoomOnWheel: true,
   infiniteScroll: true,
   showNonWorkingDays: true,
   holidays: true,
+  sixDayWeek: false,
   workingCalendar: true,
   autoScrollOnDrag: true,
   dateBounds: false,
   visibleRange: false,
-  customNonWorking: false,
-  initialScrollTo: 'anchor',
+  // Centred, and the fixture is built so today sits mid-project - the whole span lands on
+  // screen at the month scale, which anchoring to the fixture's first day does not.
+  initialScrollTo: 'today',
   showDetail: true,
   customDetail: false,
   controlledDetail: false,

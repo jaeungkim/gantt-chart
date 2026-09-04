@@ -13,6 +13,7 @@ import {
   CONTROLS,
   GROUPS,
   readSettings,
+  SCALES,
   writeSettings,
   type Settings,
   type SelectValue,
@@ -53,8 +54,6 @@ const HAIRLINE = 'border-black/[0.07] dark:border-white/[0.08]';
 
 const SURFACE = `border bg-white dark:bg-[#18181b] ${HAIRLINE}`;
 
-const DOCK = `${SURFACE} rounded-full shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_20px_-6px_rgba(0,0,0,0.22)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.5),0_10px_28px_-8px_rgba(0,0,0,0.75)]`;
-
 const PANEL = `${SURFACE} rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05),0_18px_44px_-14px_rgba(0,0,0,0.3)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.55),0_22px_52px_-16px_rgba(0,0,0,0.85)]`;
 
 // Every interactive surface is the same tinted fill over the panel, so nothing needs its own
@@ -64,9 +63,10 @@ const FILL =
 
 const FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-console-accent/45';
 
-// Round, filled on hover, dented on press - the shape agentation's toolbar uses.
-const ICON_BUTTON =
-  `grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-fd-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-black/[0.06] hover:text-fd-foreground active:scale-[0.92] dark:hover:bg-white/[0.08] ${FOCUS}`;
+// The two icon controls at the strip's right end. Same 28px box and 8px radius as the buttons
+// and the select beside them, so the row has one rhythm rather than a round object bolted on.
+const ICON_ACTION =
+  `grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg text-fd-muted-foreground transition-[background-color,color] duration-150 hover:bg-black/[0.06] hover:text-fd-foreground dark:hover:bg-white/[0.08] ${FOCUS}`;
 
 const ACTION =
   `h-7 rounded-lg border px-2.5 text-[12px] font-medium text-fd-muted-foreground transition-[background-color,color,transform] duration-150 hover:text-fd-foreground active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-black/[0.02] disabled:hover:text-fd-muted-foreground disabled:active:scale-100 dark:disabled:hover:bg-white/[0.03] ${HAIRLINE} ${FILL} ${FOCUS}`;
@@ -83,8 +83,12 @@ const DIVIDER = `border-t ${HAIRLINE}`;
 const SWITCH =
   'relative h-4 w-7 shrink-0 rounded-full bg-black/[0.18] transition-colors duration-200 after:absolute after:left-[2px] after:top-[2px] after:size-3 after:rounded-full after:bg-white after:shadow-[0_1px_2px_rgba(0,0,0,0.3)] after:transition-transform after:duration-200 peer-checked:bg-console-accent peer-checked:after:translate-x-3 peer-focus-visible:ring-2 peer-focus-visible:ring-console-accent/45 dark:bg-white/20';
 
-const SELECT =
-  `h-7 w-[7.5rem] cursor-pointer rounded-lg border px-2 text-[12px] text-fd-foreground transition-colors duration-150 ${HAIRLINE} ${FILL} ${FOCUS}`;
+// Split from its width so the strip can carry a narrower one: seven controls plus a 120px select
+// wrap onto a third row at phone widths, and a scale key is a short word.
+const SELECT_BASE =
+  `h-7 cursor-pointer rounded-lg border px-2 text-[12px] text-fd-foreground transition-colors duration-150 ${HAIRLINE} ${FILL} ${FOCUS}`;
+
+const SELECT = `${SELECT_BASE} w-[7.5rem]`;
 
 const Icon = ({ children, className = 'size-4' }: { children: ReactNode; className?: string }) => (
   <svg
@@ -115,8 +119,9 @@ export function PlaygroundView() {
   const [collapsed, setCollapsed] = useState<string[]>([]);
   // Tracked whether or not `controlledDetail` is on - off, it only feeds the stat row.
   const [detailId, setDetailId] = useState<string | null>(null);
+  // Both click callbacks land here: a double click reports last, over the two clicks under it.
+  const [click, setClick] = useState('-');
   useEffect(() => writeSettings(settings), [settings]);
-
   // An overlay pinned over the viewport, not requestFullscreen, so the exit control stays visible.
   useEffect(() => {
     if (!fullscreen) return;
@@ -145,6 +150,7 @@ export function PlaygroundView() {
     setSelected(null);
     setCollapsed([]);
     setDetailId(null);
+    setClick('-');
   };
 
   // Only rows that actually have children collapse.
@@ -158,140 +164,89 @@ export function PlaygroundView() {
     [settings.holidays]
   );
 
+  // Same reason as the holidays memo: a fresh array each render recomputes the non-working days.
+  const workingWeekdays = useMemo(
+    () => (settings.sixDayWeek ? [1, 2, 3, 4, 5, 6] : undefined),
+    [settings.sixDayWeek]
+  );
+
   const first = tasks.find((task) => task.parentId !== null) ?? tasks[0];
 
   // `scrollToToday()` no-ops off-range; both sides stay UTC `YYYY-MM-DD` so the string compare holds.
   const [rangeStart, rangeEnd] = range.split(' .. ');
   const today = new Date().toISOString().slice(0, 10);
   const todayInRange = Boolean(rangeEnd) && rangeStart <= today && today <= rangeEnd;
+  const todayHint = todayInRange
+    ? undefined
+    : 'Today is outside the rendered range, so scrollToToday() is a documented no-op';
+
+  // `readOnly` blocks creation too, so both copies of the button follow both switches.
+  const canCreate = settings.allowTaskCreate && !settings.readOnly;
+  const createHint = canCreate ? undefined : 'Turn task creation on first';
 
   return (
     // 3.5rem is HomeLayout's `h-14` navbar; z-50 clears Fumadocs' sticky nav, which sits at z-40.
     <div
       className={
         fullscreen
-          ? 'fixed inset-0 z-50 w-full overflow-hidden bg-fd-background'
-          : 'relative h-[calc(100svh-3.5rem)] w-full overflow-hidden bg-fd-background'
+          ? 'fixed inset-0 z-50 flex w-full flex-col overflow-hidden bg-fd-background'
+          : 'relative flex h-[calc(100svh-3.5rem)] w-full flex-col overflow-hidden bg-fd-background'
       }
     >
+      {/* The verbs a viewer presses many times a session, lifted out of the console: the two view
+          methods that need no fixture id, task creation, and the scale. Every switch stays in the
+          console - a strip of switches is just a second console. Painted on the chart's own ground
+          rather than the site's card, which would read as a band above the chart's header. */}
       <div
-        className="bg-fd-card"
-        style={{
-          height: settings.chartHeight === 'fill' ? '100%' : `${settings.chartHeight}px`,
-        }}
+        data-testid="toolbar"
+        className={`relative flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b bg-[#fafafa] px-3 py-1.5 dark:bg-[#09090b] ${HAIRLINE}`}
       >
-        <ReactGanttChart
-          ref={ref}
-          // `initialScrollTo` is read once, at mount, so the row only means anything on a remount.
-          key={settings.initialScrollTo}
-          tasks={tasks}
-          onTasksChange={setTasks}
-          onTaskCreate={(draft) => {
-            // The chart adds nothing itself - the host appends the row.
-            setTasks((current) => [
-              ...current,
-              {
-                id: `new-${current.length + 1}`,
-                name: 'New task',
-                startDate: draft.startDate,
-                endDate: draft.endDate,
-                parentId: null,
-                sequence: `${current.length + 1}`,
-              },
-            ]);
-          }}
-          onTaskSelect={setSelected}
-          selectable={settings.selectable}
-          onRangeChange={(next) =>
-            setRange(`${next.start.format('YYYY-MM-DD')} .. ${next.end.format('YYYY-MM-DD')}`)
-          }
-          // Each veto returns false, which is the documented "reject it" answer - the gesture runs,
-          // the chart draws it, and then nothing is applied.
-          onDependencyCreate={settings.vetoLinkCreate ? () => false : undefined}
-          onDependencyDelete={settings.vetoLinkDelete ? () => false : undefined}
-          onTaskMove={settings.vetoMove ? () => false : undefined}
-          readOnly={settings.readOnly}
-          // Each `allow*` beats `readOnly`, so only the off state is passed through.
-          allowMove={settings.allowMove ? undefined : false}
-          allowResize={settings.allowResize ? undefined : false}
-          allowProgressChange={settings.allowProgressChange ? undefined : false}
-          allowLinkCreate={settings.allowLinkCreate ? undefined : false}
-          allowLinkDelete={settings.allowLinkDelete ? undefined : false}
-          allowTaskCreate={settings.allowTaskCreate ? undefined : false}
-          allowReorder={settings.reorder}
-          minDate={settings.dateBounds ? FIXTURE_START : undefined}
-          maxDate={settings.dateBounds ? FIXTURE_END : undefined}
-          visibleStart={settings.visibleRange ? shift(FIXTURE_START, -14) : undefined}
-          visibleEnd={settings.visibleRange ? shift(FIXTURE_END, 14) : undefined}
-          height="100%"
-          width="100%"
-          showTaskList={settings.showTaskList}
-          showRowNumbers={settings.showRowNumbers}
-          collapsedIds={collapsed}
-          onCollapsedChange={setCollapsed}
-          showDetail={settings.showDetail}
-          renderDetail={
-            settings.customDetail
-              ? ({ task, close, scale }) => (
-                  <div className="flex flex-col gap-2 p-3 text-[12.5px]">
-                    <strong className="text-[13px]">{task.name}</strong>
-                    <span className="text-fd-muted-foreground">
-                      {task.startDate} &rarr; {task.endDate} &middot; {scale}
-                    </span>
-                    <button type="button" className={ACTION} onClick={close}>
-                      Close
-                    </button>
-                  </div>
-                )
-              : undefined
-          }
-          detailTaskId={settings.controlledDetail ? detailId : undefined}
-          onDetailChange={(task) => setDetailId(task?.id ?? null)}
-          // Seeded from the console, so a remount lands on the scale the console is showing
-          // instead of snapping back to the default.
-          defaultScale={settings.scale}
-          initialScrollTo={
-            settings.initialScrollTo === 'none'
-              ? undefined
-              : settings.initialScrollTo === 'today'
-                ? 'today'
-                : DEMO_ANCHOR
-          }
-          // Keeps the console's `scale` row honest when ctrl+wheel or zoomToFit moves the scale.
-          onScaleChange={(scale) => update('scale', scale)}
-          // 'host' means "no prop" - the chart then inherits the site's color-scheme.
-          theme={settings.theme === 'host' ? undefined : settings.theme}
-          locale={settings.locale}
-          firstDayOfWeek={Number(settings.firstDayOfWeek)}
-          hierarchy={settings.hierarchy}
-          showNonWorkingDays={settings.showNonWorkingDays}
-          holidays={holidays}
-          // Replaces the weekend/holiday check outright, which is why the two rows above stop
-          // mattering while it is on.
-          isNonWorkingDay={settings.customNonWorking ? (date) => date.day() === 5 : undefined}
-          formats={settings.customFormats ? DEMO_FORMATS : undefined}
-          workingCalendar={settings.workingCalendar}
-          autoScrollOnDrag={settings.autoScrollOnDrag}
-          showTooltip={settings.showTooltip}
-          zoomOnWheel={settings.zoomOnWheel}
-          infiniteScroll={settings.infiniteScroll}
-        />
-      </div>
+        <button
+          type="button"
+          className={ACTION}
+          disabled={!todayInRange}
+          title={todayHint}
+          onClick={() => ref.current?.scrollToToday()}
+        >
+          Today
+        </button>
+        <button type="button" className={ACTION} onClick={() => ref.current?.zoomToFit()}>
+          Fit
+        </button>
+        <button
+          type="button"
+          className={ACTION}
+          disabled={!canCreate}
+          title={createHint}
+          onClick={() => ref.current?.addTask()}
+        >
+          Add task
+        </button>
+        {/* Writes the same `settings.scale` the console's row does, so the two cannot disagree,
+            and `onScaleChange` below carries a wheel or keyboard zoom back into both. */}
+        <select
+          data-testid="toolbar-scale"
+          aria-label="Timeline scale"
+          className={`${SELECT_BASE} ml-auto w-[4.75rem] sm:w-[7.5rem]`}
+          value={settings.scale}
+          onChange={(e) => update('scale', e.target.value as SelectValue)}
+        >
+          {SCALES.map((scale) => (
+            <option key={scale} value={scale}>
+              {scale}
+            </option>
+          ))}
+        </select>
 
-      {/* One dock carries both toggles and anchors the panel, so the corner holds a single object
-          rather than two stacked buttons. z-index clears every chart layer and stays under
-          Agentation's 100000. */}
-      <div
-        className={`absolute bottom-4 left-4 z-[1000] flex items-center gap-1 p-1 ${DOCK}`}
-      >
         {/* Native <details>: controls stay in the DOM while closed, so a test clicks
-            `console-toggle` first. `contents` keeps the summary in the dock's own flex row. */}
-        <details data-testid="console" className="group/console contents">
+            `console-toggle` first. Unpositioned, so the panel below anchors to the strip and lands
+            on its right gutter rather than on this button's edge. */}
+        <details data-testid="console" className="group/console">
           <summary
             data-testid="console-toggle"
             title="Console"
             aria-label="Toggle the console"
-            className={`${ICON_BUTTON} list-none group-open/console:bg-console-accent/10 group-open/console:text-console-accent [&::-webkit-details-marker]:hidden`}
+            className={`${ICON_ACTION} list-none group-open/console:bg-console-accent/10 group-open/console:text-console-accent [&::-webkit-details-marker]:hidden`}
           >
             <Icon>
               <path d="M4 6h9M17.5 6H20M4 12h2.5M11 12h9M4 18h9M17.5 18H20" />
@@ -302,7 +257,14 @@ export function PlaygroundView() {
           </summary>
 
           <div
-            className={`absolute bottom-[calc(100%+0.625rem)] left-0 flex max-h-[min(40rem,calc(100svh-8rem))] w-[21rem] max-w-[calc(100vw-2rem)] origin-bottom-left flex-col overflow-hidden text-[12.5px] motion-safe:animate-console-in ${PANEL}`}
+            data-testid="console-panel"
+            // Hangs from the toggle at the strip's right edge, capped by what the window leaves
+            // below it - the navbar, the strip and a gap at either end.
+            // `overflow-clip`, not `hidden`: a hidden box is still a scroll container, and
+            // focusing a row's sr-only checkbox scrolled the whole panel out of its own frame -
+            // with no scrollbar to bring it back, the console read as an empty card. Clipping
+            // leaves .console-scroll as the only scroller, which is the one the rows live in.
+            className={`absolute right-3 top-[calc(100%+0.5rem)] z-[1000] flex max-h-[min(40rem,calc(100svh-8rem))] w-[21rem] max-w-[calc(100vw-2rem)] origin-top-right cursor-auto touch-auto select-text flex-col overflow-clip text-[12.5px] motion-safe:animate-console-in ${PANEL}`}
           >
             <header
               className={`flex h-10 shrink-0 items-center gap-2 border-b px-3.5 ${HAIRLINE}`}
@@ -322,11 +284,7 @@ export function PlaygroundView() {
                   type="button"
                   className={ACTION}
                   disabled={!todayInRange}
-                  title={
-                    todayInRange
-                      ? undefined
-                      : 'Today is outside the rendered range, so scrollToToday() is a documented no-op'
-                  }
+                  title={todayHint}
                   onClick={() => ref.current?.scrollToToday()}
                 >
                   Today
@@ -349,6 +307,20 @@ export function PlaygroundView() {
                   onClick={() => first && ref.current?.scrollToTask(first.id)}
                 >
                   Scroll to {first?.id}
+                </button>
+                {/* The one handle member with no gesture behind it: the scroll node itself,
+                    for whatever the chart does not do for you. */}
+                <button
+                  type="button"
+                  className={ACTION}
+                  title="getScrollElement().scrollTo({ left: 0 })"
+                  onClick={() =>
+                    ref.current
+                      ?.getScrollElement()
+                      ?.scrollTo({ left: 0, behavior: 'smooth' })
+                  }
+                >
+                  Scroll to start
                 </button>
                 <button
                   type="button"
@@ -388,13 +360,8 @@ export function PlaygroundView() {
                 <button
                   type="button"
                   className={ACTION}
-                  // `readOnly` blocks creation too, so the button follows both switches.
-                  disabled={!settings.allowTaskCreate || settings.readOnly}
-                  title={
-                    settings.allowTaskCreate && !settings.readOnly
-                      ? undefined
-                      : 'Turn task creation on first'
-                  }
+                  disabled={!canCreate}
+                  title={createHint}
                   onClick={() => ref.current?.addTask()}
                 >
                   Add task
@@ -405,11 +372,12 @@ export function PlaygroundView() {
               </div>
 
               {/* The header already carries the task count and the scale, so this holds only what
-                  it does not repeat - and reads as two more rows rather than a second layout. */}
+                  it does not repeat - and reads as more rows rather than a second layout. */}
               <dl data-testid="stats" className="pb-3">
                 {(
                   [
                     ['Selected', selected?.id ?? '-'],
+                    ['Last click', click],
                     ['Detail', detailId ?? '-'],
                     ['Collapsed', collapsed.length ? collapsed.join(', ') : '-'],
                     ['Rendered range', range],
@@ -445,14 +413,17 @@ export function PlaygroundView() {
                         // turned the panel into prose you had to scroll past to reach a control.
                         <label
                           key={control.key}
-                          className={`${ROW} cursor-pointer`}
+                          className={`${ROW} relative cursor-pointer`}
                           title={control.hint}
                         >
                           <span>{control.label}</span>
+                          {/* Transparent over the whole row rather than `sr-only`: the browser
+                              reveals the box it focuses, and a 1px clipped one told it the row was
+                              already on screen - tabbing landed on switches nobody could see. */}
                           <input
                             data-testid={control.key}
                             type="checkbox"
-                            className="peer sr-only"
+                            className="peer absolute inset-0 cursor-pointer opacity-0"
                             checked={settings[control.key]}
                             onChange={(e) => update(control.key, e.target.checked)}
                           />
@@ -491,7 +462,7 @@ export function PlaygroundView() {
           aria-pressed={fullscreen}
           title={fullscreen ? 'Leave fullscreen (Esc)' : 'Fill the window'}
           aria-label={fullscreen ? 'Leave fullscreen' : 'Fill the window'}
-          className={`${ICON_BUTTON} aria-pressed:bg-console-accent/10 aria-pressed:text-console-accent`}
+          className={`${ICON_ACTION} aria-pressed:bg-console-accent/10 aria-pressed:text-console-accent`}
           onClick={() => setFullscreen((current) => !current)}
         >
           <Icon>
@@ -502,6 +473,116 @@ export function PlaygroundView() {
             )}
           </Icon>
         </button>
+      </div>
+
+      {/* The chart's own box, under the strip: the height row sizes it and the rest of the
+          column is what "fill" fills. */}
+      <div className="min-h-0 flex-1">
+        <div
+          className="bg-fd-card"
+          style={{
+            height: settings.chartHeight === 'fill' ? '100%' : `${settings.chartHeight}px`,
+          }}
+        >
+          <ReactGanttChart
+            ref={ref}
+            // `initialScrollTo` is read once, at mount, so the row only means anything on a remount.
+            key={settings.initialScrollTo}
+            tasks={tasks}
+            onTasksChange={setTasks}
+            onTaskCreate={(draft) => {
+              // The chart adds nothing itself - the host appends the row.
+              setTasks((current) => [
+                ...current,
+                {
+                  id: `new-${current.length + 1}`,
+                  name: 'New task',
+                  startDate: draft.startDate,
+                  endDate: draft.endDate,
+                  parentId: null,
+                  sequence: `${current.length + 1}`,
+                },
+              ]);
+            }}
+            onTaskSelect={setSelected}
+            // A double click fires two clicks first, so the last write wins and reads "(double)".
+            onTaskClick={(task) => setClick(task.id)}
+            onTaskDoubleClick={(task) => setClick(`${task.id} (double)`)}
+            selectable={settings.selectable}
+            onRangeChange={(next) =>
+              setRange(`${next.start.format('YYYY-MM-DD')} .. ${next.end.format('YYYY-MM-DD')}`)
+            }
+            // Each veto returns false, which is the documented "reject it" answer - the gesture runs,
+            // the chart draws it, and then nothing is applied.
+            onDependencyCreate={settings.vetoLinkCreate ? () => false : undefined}
+            onDependencyDelete={settings.vetoLinkDelete ? () => false : undefined}
+            onTaskMove={settings.vetoMove ? () => false : undefined}
+            readOnly={settings.readOnly}
+            // Each `allow*` beats `readOnly`, so only the off state is passed through.
+            allowMove={settings.allowMove ? undefined : false}
+            allowResize={settings.allowResize ? undefined : false}
+            allowProgressChange={settings.allowProgressChange ? undefined : false}
+            allowLinkCreate={settings.allowLinkCreate ? undefined : false}
+            allowLinkDelete={settings.allowLinkDelete ? undefined : false}
+            allowTaskCreate={settings.allowTaskCreate ? undefined : false}
+            allowReorder={settings.reorder}
+            minDate={settings.dateBounds ? FIXTURE_START : undefined}
+            maxDate={settings.dateBounds ? FIXTURE_END : undefined}
+            visibleStart={settings.visibleRange ? shift(FIXTURE_START, -14) : undefined}
+            visibleEnd={settings.visibleRange ? shift(FIXTURE_END, 14) : undefined}
+            height="100%"
+            width="100%"
+            showTaskList={settings.showTaskList}
+            showRowNumbers={settings.showRowNumbers}
+            collapsedIds={collapsed}
+            onCollapsedChange={setCollapsed}
+            showDetail={settings.showDetail}
+            renderDetail={
+              settings.customDetail
+                ? ({ task, close, scale }) => (
+                    <div className="flex flex-col gap-2 p-3 text-[12.5px]">
+                      <strong className="text-[13px]">{task.name}</strong>
+                      <span className="text-fd-muted-foreground">
+                        {task.startDate} &rarr; {task.endDate} &middot; {scale}
+                      </span>
+                      <button type="button" className={ACTION} onClick={close}>
+                        Close
+                      </button>
+                    </div>
+                  )
+                : undefined
+            }
+            detailTaskId={settings.controlledDetail ? detailId : undefined}
+            onDetailChange={(task) => setDetailId(task?.id ?? null)}
+            // Seeded from the console, so a remount lands on the scale the console is showing
+            // instead of snapping back to the default.
+            defaultScale={settings.scale}
+            initialScrollTo={
+              settings.initialScrollTo === 'none'
+                ? undefined
+                : settings.initialScrollTo === 'today'
+                  ? 'today'
+                  : DEMO_ANCHOR
+            }
+            // Keeps the console's `scale` row honest when ctrl+wheel or zoomToFit moves the scale.
+            onScaleChange={(scale) => update('scale', scale)}
+            // 'host' means "no prop" - the chart then inherits the site's color-scheme.
+            theme={settings.theme === 'host' ? undefined : settings.theme}
+            locale={settings.locale}
+            firstDayOfWeek={Number(settings.firstDayOfWeek)}
+            hierarchy={settings.hierarchy}
+            showNonWorkingDays={settings.showNonWorkingDays}
+            holidays={holidays}
+            workingWeekdays={workingWeekdays}
+            formats={settings.customFormats ? DEMO_FORMATS : undefined}
+            workingCalendar={settings.workingCalendar}
+            autoScrollOnDrag={settings.autoScrollOnDrag}
+            showTooltip={settings.showTooltip}
+            zoomOnWheel={settings.zoomOnWheel}
+            infiniteScroll={settings.infiniteScroll}
+          />
+        </div>
+
       </div>
     </div>
   );

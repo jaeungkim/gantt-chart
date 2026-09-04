@@ -22,8 +22,6 @@ export interface WorkingCalendarOptions {
   workingWeekdays?: number[];
   /** Non-working dates as UTC `YYYY-MM-DD` strings */
   holidays?: string[];
-  /** Replaces the weekday + holiday check entirely */
-  isNonWorkingDay?: (date: Dayjs) => boolean;
 }
 
 const DAY = 'day';
@@ -118,11 +116,8 @@ export const CALENDAR_DAYS: WorkingCalendar = build(null);
 export function createWorkingCalendar(
   options: WorkingCalendarOptions = {}
 ): WorkingCalendar {
-  const { isNonWorkingDay, holidays } = options;
-  if (isNonWorkingDay) return build(isNonWorkingDay);
-
   const working = new Set(options.workingWeekdays ?? DEFAULT_WORKING_WEEKDAYS);
-  const holidaySet = new Set(holidays ?? []);
+  const holidaySet = new Set(options.holidays ?? []);
   return build(
     (date) =>
       !working.has(date.day()) || holidaySet.has(date.format(HOLIDAY_FORMAT))

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { TaskTransformed } from "shared/task";
 
 type TaskMouseHandler = (task: TaskTransformed, event: React.MouseEvent) => void;
@@ -104,4 +104,58 @@ export function useGanttDetail({
   );
 
   return { task, open, close, onTaskClick: handleClick };
+}
+
+// Headroom over the 200ms flex-basis transition in styles.css, for a transitionend
+// the browser never fires (a display: none ancestor, an interrupted transition)
+const CLOSE_FALLBACK_MS = 400;
+
+interface GanttDetailSlide {
+  /** The task to keep rendered - the open one, or the last one while the panel slides shut */
+  task: TaskTransformed | null;
+  /** Drives .gantt-detail-open - false on the mount frame so opening transitions up from zero */
+  open: boolean;
+  onTransitionEnd: React.TransitionEventHandler<HTMLElement>;
+}
+
+/** Holds the panel mounted through the slide-closed transition, then releases it */
+export function useGanttDetailSlide(
+  task: TaskTransformed | null
+): GanttDetailSlide {
+  const [retained, setRetained] = useState(task);
+  const [open, setOpen] = useState(false);
+
+  // Render-phase sync, so the body never shows a stale task while one is open
+  if (task !== null && task !== retained) setRetained(task);
+
+  const opening = task !== null;
+  useEffect(() => {
+    // Two frames on open: the first paints the closed basis the transition starts from
+    let raf = requestAnimationFrame(() => {
+      if (!opening) {
+        setOpen(false);
+        return;
+      }
+      raf = requestAnimationFrame(() => setOpen(true));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [opening]);
+
+  useEffect(() => {
+    if (opening || retained === null) return;
+    const id = setTimeout(() => setRetained(null), CLOSE_FALLBACK_MS);
+    return () => clearTimeout(id);
+  }, [opening, retained]);
+
+  const onTransitionEnd = useCallback<React.TransitionEventHandler<HTMLElement>>(
+    (event) => {
+      // The open transition ends on the same property - only the closed panel unmounts
+      if (event.target !== event.currentTarget) return;
+      if (event.propertyName !== "flex-basis") return;
+      if (!opening) setRetained(null);
+    },
+    [opening]
+  );
+
+  return { task: retained, open, onTransitionEnd };
 }

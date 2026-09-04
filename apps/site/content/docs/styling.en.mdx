@@ -48,6 +48,13 @@ export function App() {
 }
 ```
 
+<GanttDemo preset="basic" />
+
+The chart above is not the snippet — it is the site's shared fixture, and no task in it sets
+`color`, so every bar reads the theme grays: the fallback column of the table below. Give a task a
+`color` the way the snippet does and the bar, its hover shade, its progress fill and its label all
+derive from that single value.
+
 One value colors the whole bar. The chart does not read a second token for the hover shade, the
 progress fill or the label; it derives all three from the color you gave, so a colored bar never
 mixes in the theme gray. A colored task sets exactly four CSS custom properties, inline on the bar
@@ -71,6 +78,7 @@ Each declaration names the task property first and a theme token as its `var()` 
 |---|---|
 | bar background | `var(--gantt-bar-color, var(--gantt-bar-bg))` |
 | bar background on hover | `var(--gantt-bar-color-hover, var(--gantt-bar-bg-hover))` |
+| bar while a drawn link targets it | `var(--gantt-bar-color-hover, var(--gantt-bar-bg-hover))` |
 | summary bar background | `var(--gantt-bar-color, var(--gantt-summary-bg))` |
 | summary bar on hover | `var(--gantt-bar-color-hover, var(--gantt-summary-bg-hover))` |
 | progress fill | `var(--gantt-progress-color, var(--gantt-progress-bg))` |
@@ -99,10 +107,12 @@ color syntax — Chrome 125, Firefox 128, Safari 18 — which is a higher floor 
 the two shades use. Below it the property does not resolve and the label falls back to
 `--gantt-bar-text`, which is what every bar did before this existed.
 
-Two edges are worth knowing. The label is pure black or pure white and nothing between, so a bar
-sitting near the crossover clears 4.5:1 but not by much — `#2277d3` measures 4.65:1. And the label
+Three edges are worth knowing. The label is pure black or pure white and nothing between, so a bar
+sitting near the crossover clears 4.5:1 but not by much — `#2277d3` measures 4.65:1. The label
 sits over the progress fill, which is mixed 62% toward `#000`, so on a light bar the black label
-loses contrast across the filled portion.
+loses contrast across the filled portion. And the derivation only reaches a label inside its bar:
+under 56px wide the label moves outside the right edge and takes the theme's muted color, whatever
+`color` says.
 
 To opt out, take the specificity: `className` on the task plus a rule of your own.
 
@@ -121,7 +131,7 @@ theme does not override a task's own `color`; see [Theming](theming) for the tok
 The color loses in two places.
 
 - **Anything that is not a background or the label.** The bar's radius, its shadow, the selection
-  outline and the dependency arrows all come from theme tokens. `color` changes the seven
+  outline and the dependency arrows all come from theme tokens. `color` changes the eight
   declarations in the table above and nothing else.
 - **The task list.** `color` never reaches the left pane. A row in the task list is styled by the
   theme and by `className`.
@@ -133,6 +143,9 @@ in both class strings, which changes nothing about the cascade — the order of 
 attribute is not a CSS ordering. A rule of yours wins the way any rule wins: on specificity, or on
 coming later at equal specificity. `.gantt-task-bar.blocked` outranks `.gantt-task-bar`, which is
 why the example is written that way.
+
+A row that packs several lane-mates is one row for many tasks, so it takes the first lane-mate's
+`className`; each bar still carries its own. See [Lanes](lanes).
 
 ```tsx
 const task: Task = {
@@ -165,9 +178,9 @@ const task: Task = {
 ## Replacing a node
 
 There is one render prop, `renderDetail`, and it replaces the body of the docked detail panel. It is
-not a styling hook — it exists because the default body shows a name and two dates and no prop adds
-a row to it. What opens the panel, its props bag and how to control it are in
-[Detail panel](detail-panel); the type is in [Renderers](ref/renderers).
+not a styling hook — it exists because the built-in body is a fixed field list that no prop adds a
+row to. What opens the panel, what it renders and how to control it are in
+[Detail panel](detail-panel); the type is in [Detail renderer](ref/renderers).
 
 Nothing else in the chart is replaceable. The bar, the tooltip, the header cells, the task-list row,
 the drag readout, the drop indicator and the dependency arrows are all reachable through CSS and
@@ -175,12 +188,19 @@ nothing else.
 
 ## showTooltip
 
-`showTooltip` defaults to `true`. Setting it to `false` suppresses the hover tooltip and the live
-tooltip during a move, a resize and a progress drag.
+`showTooltip` defaults to `true` and controls two things: the hover card — name, dates, duration
+and progress, after a short pause — and the `%` readout that rides a progress drag. Setting it to
+`false` removes both.
 
-Turning tooltips off removes the only live-region announcement a pointer drag produces — the gesture
-tooltip is that `role="status"` node. Keyboard date edits are announced by a separate live region
-that `showTooltip` does not touch; see [Keyboard and screen readers](accessibility).
+A move or a resize shows no tooltip either way. Its readout is the date the tick row writes at the
+dragged edge — part of the header, not a tooltip, so `showTooltip` does not touch it. What it
+writes is in [Locale and date formats](i18n).
+
+`false` also removes every live-region announcement a pointer drag produces: the progress readout
+is a `role="status"` node, and a move or a resize keeps a visually hidden one. Keyboard date edits
+are announced by a separate live region that `showTooltip` does not touch; see
+[Keyboard and screen readers](accessibility). The signature and default of every prop named here
+are in [GanttProps](ref/props).
 
 ## Limits
 
@@ -196,8 +216,9 @@ that `showTooltip` does not touch; see [Keyboard and screen readers](accessibili
 - **The header cell is text.** There is no way to put markup in it. `formats` changes what it says
   and CSS on `.gantt-top-group` and `.gantt-bottom-cell` changes how it looks; that is the whole
   surface. The 44px group row and the 28px tick row are fixed heights.
-- **The task list takes no per-task detail.** Its one cell renders `task.name`. Put the rest in the
-  [detail panel](detail-panel).
+- **The task list takes no per-task detail.** Its one cell renders `task.name`, plus the row's
+  `sequence` when `showRowNumbers` is on — see [Task list and hierarchy](task-list). Put the rest
+  in the [Detail panel](detail-panel).
 
 Reach for the two options in that order. `color` handles anything that is a color, and one value
 sets all four properties. `className` handles anything the stylesheet can express — a pattern, a

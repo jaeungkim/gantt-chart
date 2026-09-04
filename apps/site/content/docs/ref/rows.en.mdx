@@ -33,26 +33,12 @@ export interface GanttRow {
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | `string` | See [Row ids](#row-ids). |
+| `id` | `string` | The row's task ids joined with `"+"`, in the order the tasks sit on the row. A one-task row has nothing to join, so its id is that task's id. |
 | `tasks` | `TaskTransformed[]` | One entry on a plain row, several when tasks share a `lane`. Never empty — every row is built from at least one task. |
 | `depth` | `number` | 0-based, taken from the row's first task. Equal to that task's `depth`. |
 | `level` | `number` | `aria-level`. Always `depth + 1`. |
 | `posinset` | `number` | `aria-posinset` among the rows sharing this row's parent. A row's parent is the nearest row above it one `depth` shallower. |
 | `setsize` | `number` | `aria-setsize` for that same set. Counts visible rows only — collapsing is applied before the rows are built. |
-
-### Row ids
-
-| Row kind | `id` | Example |
-|---|---|---|
-| Plain row | the task id | `"a"` |
-| Lane row | the packed task ids joined with `"+"` | `"a+b"` |
-
-One rule, really: an id is the row's task ids joined with `"+"`, and a one-task row leaves nothing
-to join. On a lane row the tasks sit in start order, ties keeping their incoming order, and the ids
-join in that same order.
-
-A row id and a task id are therefore the same string on every plain row, which is what lets a
-`collapsedIds` / `defaultCollapsedIds` entry name a row.
 
 ## Not exported
 
@@ -63,8 +49,8 @@ on the render side.
 ## Notes
 
 - No prop or callback hands you a `GanttRow`. The type is exported so host code can name the shape
-  the chart works in — for reading `TaskTransformed.order`, or for matching a `collapsedIds` entry.
-- `order` on a `TaskTransformed` is rewritten to the 1-based row number. Every task on a lane row
-  reports the same `order`, because they share the row.
+  the chart works in.
+- A plain row's id is its task's id, which is what lets a `collapsedIds` entry name a row. Those
+  props are covered in [Task list and hierarchy](../task-list).
 
-Next: [Task](task) for `TaskTransformed`, or [GanttProps](props) for the prop index.
+`TaskTransformed` is in [Task and task types](task); the prop index is [GanttProps](props).

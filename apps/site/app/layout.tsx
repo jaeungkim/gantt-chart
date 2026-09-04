@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     template: '%s | @jaeungkim/gantt-chart',
   },
   description:
-    'Virtualized React Gantt chart with six timeline scales, four dependency types, a working-day calendar, and keyboard and screen-reader support.',
+    'Virtualized React Gantt chart with five timeline scales, four dependency types, a working-day calendar, and keyboard and screen-reader support.',
   openGraph: {
     type: 'website',
     siteName: '@jaeungkim/gantt-chart',

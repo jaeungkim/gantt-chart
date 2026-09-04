@@ -8,7 +8,7 @@ bug:
 skip-changelog:
   - head-branch: ['^release/', '^chore/', '^ci/']
 
-# Markdown-only PRs
+# Markdown-only PRs. The docs pages are .mdx, so both extensions have to match.
 documentation:
   - changed-files:
-      - all-globs-to-all-files: '**/*.md'
+      - all-globs-to-all-files: '**/*.{md,mdx}'

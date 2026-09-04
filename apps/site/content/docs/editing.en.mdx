@@ -1,13 +1,14 @@
 ---
 title: "Editing tasks"
-description: "Move, resize, progress, permissions, touch, and drawing a task"
+description: "Move, resize, progress, permissions, drag bounds, touch, and auto-scrolling"
 ---
 
 Someone grabs a bar, slides it three days later, and lets go. Between the press and the release the
 chart has to decide whether this task may be edited at all, how far it is allowed to travel, what it
-lands on, and what your app hears about it. Four pointer gestures write task data. A fifth draws a
-range below the last row and writes nothing at all. A sixth drags a row in the task list instead of
-a bar, and is the only one that is off until you ask for it.
+lands on, and what your app hears about it. Four pointer gestures write task data. Two more have
+pages of their own: a range drawn below the last row proposes a new task in
+[Creating tasks](task-creation), and a row dragged in the task list changes the order in
+[Reordering rows](reordering).
 
 ## The four gestures
 
@@ -57,17 +58,19 @@ holds even when the gesture moved a whole subtree. A gesture that never travels 
 the bar commits nothing and calls nothing.
 
 Nothing is written while the pointer is down. The bar you see moving is a pixel offset held
-separately from your data, and the array only changes on release.
+separately from your data, and the array only changes on release. What tracks it is the drag
+readout: the date each moving edge has reached, written in the date header's tick cell above it.
+[Locale and date formats](i18n) covers how it is spelled.
 
 ### Where the edge zones are
 
 The edge zone is 8px wide for a mouse and 44px for touch or pen. A pen counts as touch throughout
 this page.
 
-Those zones only exist on a bar that is wide enough to hold them: 24px of rendered width for a
-mouse, 132px for touch or pen. Below that the whole bar is the move handle and there is nothing to
-resize with. 132px is about 16.5 days at the quarter scale and about 33 days at the year scale, so
-a task loses its touch resize edges long before it looks small.
+A mouse always has the zones: a bar is never rendered narrower than 24px, and 24px is exactly the
+minimum a mouse needs. Touch and pen need 132px of rendered width; below that the whole bar is the
+move handle and there is nothing to resize with. 132px is 33 days at the quarter scale and 132 days
+at the year scale, so a task loses its touch resize edges long before it looks small.
 
 The edge zones are tested before the move zone. A task with `allowMove: false` and
 `allowResize: true` therefore resizes at its edges and does nothing at all in the middle.
@@ -97,17 +100,9 @@ of drag steps, then adds that many steps to the task's original dates.
 A task that starts at 09:37 still starts at 09:37 after being dragged four days on the month scale.
 The time of day survives every drag. Nothing aligns a bar to midnight or to a tick boundary.
 
-| Scale | One drag step | Pointer travel before the first step |
-|---|---|---|
-| `hour` | 15 minutes | 15px |
-| `day` | 1 hour | 16px |
-| `week` | 6 hours | 27px |
-| `month` | 1 day | 16px |
-| `quarter` | 3 days | 12px |
-| `year` | 7 days | 14px |
-
-The step count is rounded, so the bar jumps to the next step at half a step of pointer travel. The
-full per-scale configuration lives in [The timeline](timeline).
+The step count is rounded, so the bar jumps to the next step at half a step of pointer travel. How
+long one step is, and how much pointer travel it takes, differs per scale and lives in
+[The timeline](timeline).
 
 The scale is captured when the gesture starts. Changing scale mid-drag does not re-unit the gesture
 in flight.
@@ -122,23 +117,18 @@ working day, and a move snaps both ends together so the bar keeps its length; se
 
 ## Who may edit what
 
-Every capability resolves on its own, per task, through four rungs. The first rung that has a value
-wins, and nothing below it is consulted.
+The chart below is read-only, so every bar refuses a drag and the grips and handles are gone.
 
-| Rank | Setting | Scope | Beaten by |
-|---|---|---|---|
-| 1 | `allowMove` / `allowResize` / `allowProgressChange` on the task | one task, one capability | nothing |
-| 2 | `readOnly` on the task | one task, every capability | rank 1 |
-| 3 | `allowMove` / `allowResize` / `allowProgressChange` prop on the chart | every task, one capability | ranks 1-2 |
-| 4 | `readOnly` prop on the chart | every task, every capability | ranks 1-3 |
-| 5 | nothing set | - | - |
+<GanttDemo preset="readOnly" />
 
-Rank 5 means the gesture is allowed. There is no explicit default of `true` anywhere; the observable
-default is "allowed unless something says otherwise".
+Five capabilities resolve on their own, per task, through four rungs: move, resize, progress, and
+the two dependency-link ones. Two do not. `allowReorder` runs a shorter chain whose floor is
+`false`, so only an explicit flag ever turns it on, and `allowTaskCreate` is chart-wide with no
+per-task rung at all. [GanttInteractionConfig](ref/interaction-config) has the ladder in full.
 
 Two consequences are easy to get backwards. A task's `readOnly: true` beats a permissive
-`allowMove` prop on the chart, because rank 2 sits above rank 3. And a task's own `allowMove: true`
-punches through both `readOnly` settings, because rank 1 sits above everything.
+`allowMove` prop on the chart. And a task's own `allowMove: true` punches through both `readOnly`
+settings, its own and the chart's.
 
 `minDate` and `maxDate` resolve through a shorter chain of their own: the task's value if it has
 one, otherwise the chart's. The two ends resolve independently, so a task can take its floor from
@@ -147,15 +137,12 @@ itself and its ceiling from the chart.
 A blocked gesture is not a gesture that fails. No drag starts at all: the press is a no-op. The
 affordances go with it, so a bar that cannot be resized hides its resize grips and a bar whose
 progress is fixed hides its handle. The progress fill stays visible as a read-only readout. The
-full type is in [`GanttInteractionConfig`](ref/interaction-config).
+signature and default of every prop named here are in [GanttProps](ref/props).
 
 ### One rule no flag turns back on
 
-It is applied in front of the resolution chain, so no combination of flags at any level re-enables
-it.
-
-**A summary row is never resizable and its progress is never draggable.** Both ends and the
-percentage are rolled up from its children, so an edit would snap straight back on the next render.
+**A summary row is never resizable and its progress is never draggable**, whatever is set at either
+level; the rule and its reason are in [GanttInteractionConfig](ref/interaction-config).
 
 Moving a summary row is still allowed, and it carries its whole subtree. That is the only gesture
 that writes more than one task's dates.
@@ -166,7 +153,7 @@ completely, move included.
 
 ### A frozen chart with one editable bar
 
-`readOnly` on the chart is rank 4, so a single task can opt back in.
+`readOnly` on the chart is the lowest rung, so a single task can opt back in.
 
 ```tsx title="src/ReviewBoard.tsx"
 import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
@@ -188,7 +175,7 @@ const tasks: Task[] = [
     endDate: '2026-03-13T00:00:00Z',
     parentId: null,
     sequence: '2',
-    // rank 1 - beats the chart's readOnly below
+    // the task's own flag - beats the chart's readOnly below
     allowMove: true,
     allowResize: true,
   },
@@ -287,287 +274,21 @@ drop leaves the viewport where it scrolled to.
 Only bar moves and resizes auto-scroll. Dragging progress or drawing a task near the edge does
 nothing.
 
-## Adding a task
+## Editing from the detail panel
 
-Three ways in, one way out. The button under the task list, `addTask()` on the chart ref, and a
-range drawn below the last row all propose the same thing: a draft handed to `onTaskCreate`. The
-chart adds nothing itself, whichever one the user reached for.
-
-### The button under the task list
-
-With `showTaskList` on, an **Add task** strip sits at the foot of the pane. A click proposes one
-tick at today, snapped to the current scale — the shortest range a drawn one can come out as.
-
-It is also the only way in from a keyboard. The strip is rendered outside the treegrid, so it is an
-ordinary tab stop after the grid rather than a second one inside it. A chart with no pane has no
-button: draw the range, or call `addTask()`.
-
-Its label is the hardcoded English string `Add task`, like the rest of the chart's chrome — see
-[Localization](i18n).
-
-### `addTask()` on the chart ref
-
-The same proposal from your own toolbar, or your own keyboard shortcut:
-
-```tsx
-ganttRef.current?.addTask();
-```
-
-It is inert while creation is off, so a button wired to it needs no guard of its own. The rest of
-the handle is in [Imperative API](imperative-api).
-
-### Drawing a range below the last row
-
-Press in the blank space below the last row, drag sideways, and release. A dashed ghost follows
-the pointer, and on release the chart hands your app the range that was drawn.
-
-The press has to land below the last row. A press on a row draws nothing at all — not on its bar,
-not on an arrow or a handle, and not on the empty part of the row either. Rows belong to tasks. A
-mouse starts drawing immediately; touch and pen need the same 400 ms long press as a bar drag.
-
-The whole blank region is one target, not a stack of empty rows. Wherever in it the press lands,
-the ghost sits in the band directly under the last row, because that is where the new task will
-appear once your app adds it.
-
-Only horizontal distance counts, so a diagonal drag changes nothing. A drag shorter than 4px
-proposes nothing.
-
-`Escape` cancels a draw in progress. It has no effect on a bar or progress drag.
-
-### Drawn ranges snap to ticks, not to drag steps
-
-This is the one place where the snapping unit differs from the rest of the page. A drawn range
-expands outwards to whole ticks of the current scale.
-
-| Scale | A drawn range snaps to whole |
-|---|---|
-| `hour` | hours |
-| `day` | hours |
-| `week` | days |
-| `month` | days |
-| `quarter` | months |
-| `year` | months |
-
-So on the year scale a bar drags in 7-day steps but draws as a whole month. A range that stays
-inside a single tick still comes out one tick long.
-
-Drag bounds are not applied. A drawn range can start before `minDate`.
-
-### The draft, and what the chart does with it
-
-Nothing. The chart creates no task, writes no array, and fires no `onTasksChange`. It calls
-`onTaskCreate` with a draft and stops there. The new row appears only when your app builds a task
-and passes a new `tasks` array back in.
-
-`GanttTaskDraft` has two fields: `startDate` and `endDate`, UTC ISO strings snapped to the scale.
-It names no row. A range can only be drawn where no row is, and the button and `addTask()` point at
-no row either — where the new task goes in the tree is your app's decision, not something an entry
-point can report.
-
-```tsx title="src/PlanBoard.tsx"
-import { useState } from 'react';
-import {
-  ReactGanttChart,
-  type GanttTaskDraft,
-  type Task,
-} from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
-
-export function PlanBoard({ initial }: { initial: Task[] }) {
-  const [tasks, setTasks] = useState<Task[]>(initial);
-
-  const handleTaskCreate = ({ startDate, endDate }: GanttTaskDraft) => {
-    const name = window.prompt('Task name');
-    if (!name) return; // nothing is added - the chart adds nothing itself
-
-    setTasks((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        name,
-        startDate, // UTC ISO, snapped to whole ticks of the current scale
-        endDate,
-        parentId: null, // the draft names no row - you decide where it lands
-        sequence: `${current.length + 1}`,
-      },
-    ]);
-  };
-
-  return (
-    <ReactGanttChart
-      tasks={tasks}
-      onTasksChange={setTasks}
-      onTaskCreate={handleTaskCreate}
-    />
-  );
-}
-```
-
-### Turning task creation off
-
-`allowTaskCreate` is chart-wide, and it is one switch for all three entry points: off, the strip is
-not rendered, `addTask()` does nothing, and there is no drawing gesture. It resolves through two
-rungs only: its own value, then `!readOnly`. `Task` has no `allowTaskCreate` field, and putting one
-there is ignored.
-
-> [!IMPORTANT]
-> Creation also needs `onTaskCreate`. Without that callback there is no strip, no crosshair cursor,
-> no ghost, and no gesture at all, whatever `allowTaskCreate` says. `allowTaskCreate` on its own
-> does nothing.
-
-All three are also unreachable in a chart with no tasks, unless the window is pinned with
-`visibleStart` and `visibleEnd`: with neither tasks nor a pinned window there is no timeline, and
-so no ticks to snap a range to.
-
-## Reordering rows
-
-The dates are right and the order is wrong. Two rows belong the other way round, and one of them
-belongs under a different parent. Every gesture above is on until you turn it off. This one is off
-until you turn it on.
-
-`allowReorder` on the chart turns it on for every row.
-
-```tsx
-<ReactGanttChart tasks={tasks} onTasksChange={setTasks} allowReorder hierarchy />
-```
-
-A task's own `allowReorder` still wins over the chart's, and `readOnly: true` on a task blocks it.
-The chart's `readOnly` is not consulted at all, because reordering has no permissive default to
-fall back through. [`GanttInteractionConfig`](ref/interaction-config) has the resolution in full.
-
-What appears is a grip on the left edge of every task-list row, on hover and on keyboard focus. It
-is the only place a row drag starts: a press anywhere else in the row still clicks and selects as
-before.
-
-The same move is available from the keyboard, and the keyboard is the only way to outdent a row to
-the root level; see [Keyboard and screen readers](accessibility).
-
-### Where the row lands
-
-A drop reads how far down the row under the pointer it is.
-
-| Band | Where the dragged row lands |
-|---|---|
-| top quarter | before that row, as its sibling |
-| middle half | inside that row, as its last child |
-| bottom quarter | after that row, as its sibling |
-
-The middle band is half the row, so re-parenting is the wide target and the two sibling bands are
-the precise ones.
-
-A drop the chart refuses is refused while the pointer is still down, not swallowed on release. Three
-drops are refused this way and never reach your app: a row dropped inside its own subtree, a
-re-parent while `hierarchy` is off, and a drop that would change nothing.
-
-### What a move rewrites
-
-Row order comes from `sequence` alone, and `sequence` is a path — `"2.1"` is the first child of
-`"2"`. No string sorts between `"1.1"` and `"1.2"`, so a move cannot slip a fractional key between
-two rows. It renumbers instead, and the numbering it writes is read off the row order the move
-produces, which is the order on screen.
-
-One move therefore rewrites `sequence` on every task whose path changed, and `parentId` on the
-moved task only. The moved row's children still point at it and travel with it. All of it reaches
-your app in a single `onTasksChange` carrying the whole array, like any other committed gesture.
-
-### What a move does not change
-
-- **A task's dates.** `startDate` and `endDate` survive a new parent untouched. Nothing is
-  stretched or clipped to fit the parent's span.
-- **Where the bars sit** — summary rows aside. A summary's start and end are recomputed from its
-  children, so moving one child out redraws both the old parent's bar and the new one's. See
-  [Task list and hierarchy](task-list).
-- **Dependencies.** Links are stored by id. Wherever a row lands, its arrows still join the same
-  two tasks, with the same type and direction.
-
-### Rejecting a move
-
-`onTaskMove` runs before anything is applied. Return `false` and the move is dropped: no `sequence`
-is rewritten, no `onTasksChange` fires, and the row stays where it was.
-
-```ts
-export interface GanttTaskMoveChange {
-  taskId: string;
-  fromParentId: string | null;
-  fromIndex: number;
-  toParentId: string | null;
-  /** Slot among the new parent's children, counted after the move */
-  toIndex: number;
-  /** Sibling it now follows - null when it is the first child */
-  afterId: string | null;
-  /** Sibling it now precedes - null when it is the last child */
-  beforeId: string | null;
-}
-```
-
-`toParentId` with `toIndex` suits an index-based API, `afterId` or `beforeId` a position-based one.
-Both describe the same landing spot, read off the same result, so they cannot disagree.
-
-```tsx title="src/PlanBoard.tsx"
-import { useState } from 'react';
-import {
-  ReactGanttChart,
-  type GanttTaskMoveChange,
-  type Task,
-} from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
-
-export function PlanBoard({ initial }: { initial: Task[] }) {
-  const [tasks, setTasks] = useState<Task[]>(initial);
-
-  const handleTaskMove = ({ taskId, toParentId, toIndex, afterId }: GanttTaskMoveChange) => {
-    const previous = tasks;
-
-    // An index API takes toParentId + toIndex; a position API takes
-    // { parentId: toParentId, after: afterId } instead
-    api
-      .moveTask(taskId, { parentId: toParentId, index: toIndex })
-      .catch(() => setTasks(previous)); // the server said no - put the rows back
-  };
-
-  return (
-    <ReactGanttChart
-      tasks={tasks}
-      onTasksChange={setTasks}
-      onTaskMove={handleTaskMove}
-      allowReorder
-      hierarchy
-    />
-  );
-}
-```
-
-`onTaskMove` is never awaited. Only a literal `false` rejects a move, so a handler that returns a
-promise has already let it through — which is the shape above: apply it, send it, and put the
-previous array back if the server refuses.
-
-### Reverting a move the server refused
-
-Undoing a move needs no API of its own. The chart reads the host's `tasks` prop as the truth, so
-passing the previous array back in reverts it. That only works while the host keeps the array in
-state: a chart handed a literal array, left to track its own copy, has nothing to revert to. A chart
-wired to a server should be controlled. See [Task data](task-data).
-
-The same moves are on the keyboard: `Alt` + the vertical arrows moves a row among its siblings,
-`Ctrl`/`Cmd` + the horizontal arrows indents and outdents it. See
-[Keyboard and screen readers](accessibility).
+Some edits are a known date, not a distance to drag. The detail panel's built-in fields take typed
+values, and a committed field flows through the same single `onTasksChange` call and the same
+permission rungs as the gestures above — a typed date counts as a resize, so a summary row's dates
+stay plain text. Which fields take input, and what an invalid value does, is owned by
+[Detail panel](detail-panel).
 
 ## Limits
 
 Pointer editing writes dates and progress on existing tasks. Everything else is somewhere else, or
 is yours to do.
 
-- **The chart never creates a task.** The strip, `addTask()` and a drawn range all propose a draft;
-  your app decides. The chart never deletes one with the pointer either - deletion exists only in
-  the keyboard layer.
 - **A bar cannot be dragged to another row.** Vertical dragging lives in the task list, on the row
-  grip, and never on the bar.
-- **A row carrying more than one task cannot be dragged.** A shared `lane` puts several tasks on
-  one row, and the grip then names no single one to move; see [Lanes](lanes).
-- **A drag cannot outdent to the root level.** Every drop band is expressed relative to another
-  row, and none of them means "top level, after everything". `Ctrl`/`Cmd` + `ArrowLeft` does it.
-- **A row drag does not auto-scroll.** `autoScrollOnDrag` covers bar moves and resizes only, so a
-  drop target off the top or bottom of the viewport has to be scrolled into view first.
+  grip, and never on the bar; see [Reordering rows](reordering).
 - **There is no multi-select drag.** Exactly one bar is grabbed at a time. A summary carrying its
   subtree is the only many-task drag.
 - **Nothing snaps to midnight or to a tick.** Drags are relative step shifts, so the original time
@@ -579,20 +300,18 @@ is yours to do.
   else. Business rules belong in your `onTasksChange` handler.
 - **Drawing dependency arrows is a separate gesture** with its own permission flags; see
   [Dependencies](dependencies).
-- **A bar narrower than one drag step grows when you grab its edge.** The shrink clamp has nothing
+- **A bar shorter than one drag step grows when you grab its edge.** The shrink clamp has nothing
   left to give, so the first pointer movement adds a step in the direction you grabbed, with no
-  travel, and that commits. With a mouse it is reachable between 24px and one drag step of rendered
-  width - 24-53px on the `week` scale, 24-31px on `day` and `month`, 24-29px on `hour`, 24-27px on
-  `year`. Touch needs 132px before the edges exist at all, so it never hits this.
+  travel, and that commits. Every such bar is reachable with a mouse, because rendering floors a
+  bar at 24px and 24px keeps its edges grabbable. Touch needs 132px of rendered width before the
+  edges exist — several drag steps on every scale — so it never hits this.
 - **The progress handle is less guarded than the bar.** It has no primary-pointer or left-button
   check, so a right-button press arms it, and it does not filter by pointer id, so a second finger's
   movement rewrites the percentage of the gesture already running.
 
-Move, resize, progress and reordering each have a keyboard equivalent, running through the same
-permission checks; the key map is in
-[Keyboard and screen readers](accessibility). The drawing gesture has none - the **Add task** strip
-is the keyboard way to the same draft, and there is no key bound to it. Drawing a dependency arrow
-has no keyboard equivalent at all.
+Move, resize and progress each have a keyboard equivalent, running through the same permission
+checks and the same drag bounds; the key map is in [Keyboard and screen readers](accessibility).
+Drawing a dependency arrow has no keyboard equivalent at all.
 
-Next: [Dependencies](dependencies), which covers linking two bars and what the chart rejects
-before your handler ever sees it.
+Next: [Creating tasks](task-creation), which covers the three ways a new task is proposed and what
+the chart does with the draft.

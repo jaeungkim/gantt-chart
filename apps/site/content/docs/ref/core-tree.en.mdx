@@ -29,7 +29,7 @@ import {
 
 For what the chart does with the hierarchy on screen, see
 [Task list and hierarchy](../task-list); for the reorder gesture itself, see
-[Editing tasks](../editing); for running these outside React, see
+[Reordering rows](../reordering); for running these outside React, see
 [Headless core](../headless-core).
 
 ## TaskTree
@@ -72,7 +72,7 @@ export function buildTaskTree(tasks: TaskNode[]): TaskTree
 
 `TaskNode` is `Pick<Task, "id" | "parentId">`. It is structural, so any object with
 `{ id: string; parentId: string | null }` satisfies it — a `Task` and a `TaskTransformed` both fit
-as they are. See [Task](task).
+as they are. See [Task and task types](task).
 
 ### Parent resolution
 
@@ -200,23 +200,16 @@ Ten days at 100% plus thirty days at 0% gives `25`. Two zero-duration children a
 ## sortTasksBySequence
 
 ```ts
-/**
- * Sort tasks by their sequence hierarchy
- *
- * Row order comes from this and nothing else - '1.10' lands after '1.2' because the
- * segments compare as numbers.
- */
+/** Sort tasks by their sequence hierarchy - row order comes from this and nothing else */
 export function sortTasksBySequence<T extends Pick<Task, "sequence">>(
   tasks: T[]
 ): T[]
 ```
 
 The argument is structural: anything with a `sequence` string sorts, and the element type comes back
-unchanged. A fresh array is returned; the input is not mutated.
-
-Each `sequence` is split on `.` and the segments compare as numbers. A missing segment counts as
-`0`, so `'1'` sorts before `'1.1'`, and so does a segment that is not a number at all. The rules are
-the same ones [Task data](../task-data) describes for the field itself.
+unchanged. A fresh array is returned; the input is not mutated and the elements keep their identity.
+The sort is stable, so two tasks with the same `sequence` keep their input order. How the strings
+themselves compare is described in [Task data](../task-data).
 
 ## GanttTaskMove
 
@@ -264,7 +257,7 @@ export interface GanttTaskMoveChange extends GanttTaskMove {
 `toIndex` on the change is the clamped index that was actually used, not the one that was asked for.
 `toParentId` with `toIndex` suits an index-based API and `afterId`/`beforeId` a position-based one;
 both are read off the same result, so they cannot disagree. This is also the object the chart hands
-to `onTaskMove` — see [Editing tasks](../editing).
+to `onTaskMove` — see [Reordering rows](../reordering).
 
 ## GanttMoveOptions
 
@@ -318,9 +311,9 @@ export function validateMove(
 
 `null` means the move is allowed; anything else is a `GanttMoveRejection` naming the reason.
 
-The checks run in the order the table below lists them, and the first one that fails is what comes
-back. It is cheap enough to call on every frame of a drag, which is how the chart shows a blocked
-drop while the pointer is still down.
+The checks run in the order the `GanttMoveRejection` table above lists them, and the first one that
+fails is what comes back. It is cheap enough to call on every frame of a drag, which is how the
+chart shows a blocked drop while the pointer is still down.
 
 ## moveTask
 
@@ -337,9 +330,9 @@ export function moveTask(
 
 `null` is returned for any move `validateMove` refuses; call that first to learn why.
 
-`sequence` is a path, and no string sorts between `"1.1"` and `"1.2"`, so a move cannot insert a
-fractional key. It renumbers instead: the forest is rearranged, walked depth first in row order, and
-every task gets the path it renders at. `parentId` is rewritten on the moved task alone — its
+`sequence` is a path — its length is the depth, its last segment the slot among siblings — so there
+is no key to insert between `"1.1"` and `"1.2"`. It renumbers instead: the forest is rearranged,
+walked depth first in row order, and every task gets the path it renders at. `parentId` is rewritten on the moved task alone — its
 children still point at it, so the subtree travels without being touched.
 
 | What changes | On which tasks |

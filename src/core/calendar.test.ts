@@ -72,15 +72,6 @@ describe('working-day calendar', () => {
     expect(withHoliday.daysBetween(d('06-06'), d('06-13'))).toBe(4);
   });
 
-  it('honours a custom non-working-day predicate', () => {
-    // Wednesdays off, weekends on
-    const custom = createWorkingCalendar({
-      isNonWorkingDay: (date) => date.day() === 3,
-    });
-    expect(iso(custom.addDays(d('06-03'), 1))).toBe('2025-06-05T00:00');
-    expect(custom.daysBetween(d('06-02'), d('06-09'))).toBe(6);
-  });
-
   it('snaps a non-working day forward, keeping the time of day', () => {
     expect(iso(workweek.snapForward(d('06-07T09:00')))).toBe('2025-06-09T09:00');
     expect(iso(workweek.snapForward(d('06-08')))).toBe('2025-06-09T00:00');
@@ -111,7 +102,7 @@ describe('working-day calendar', () => {
   });
 
   it('falls back to plain days rather than hanging on a calendar with no working day', () => {
-    const nothing = createWorkingCalendar({ isNonWorkingDay: () => true });
+    const nothing = createWorkingCalendar({ workingWeekdays: [] });
     expect(iso(nothing.addDays(d('06-02'), 3))).toBe('2025-06-05T00:00');
     expect(iso(nothing.snapForward(d('06-02')))).toBe('2025-06-02T00:00');
   });

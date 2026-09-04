@@ -13,3 +13,10 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/labeler@v7
+      # A conventional-commit `!` (feat!: / refactor(scope)!:) has no branch prefix, so it is read
+      # from the title. The label files the PR under "Breaking changes" in generated release notes.
+      - name: Label breaking changes from the PR title
+        if: contains(github.event.pull_request.title, '!:')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --add-label breaking

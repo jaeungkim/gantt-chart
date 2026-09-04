@@ -14,13 +14,7 @@ import type { GanttInteractionConfig } from '@jaeungkim/gantt-chart';
 ## GanttInteractionConfig
 
 ```ts title="src/shared/task.ts"
-/**
- * 차트 전체에 걸리는 상호작용 설정
- *
- * 모든 필드는 선택이고, 같은 이름의 작업 필드가 이 값을 이겨요.
- * 아무것도 설정하지 않으면 모든 제스처가 허용되고 드래그 경계도 없어요 - 단
- * 새 작업 생성만은 `onTaskCreate` 콜백이 있어야 동작해요.
- */
+/** 차트 전체에 걸리는 상호작용 설정 - 기본으로 모든 제스처가 허용되고(작업 생성은 `onTaskCreate`도 필요해요), 같은 이름의 작업 필드가 이 값을 이겨요. */
 export interface GanttInteractionConfig {
   readOnly?: boolean;
   allowMove?: boolean;
@@ -29,7 +23,7 @@ export interface GanttInteractionConfig {
   allowLinkCreate?: boolean;
   allowLinkDelete?: boolean;
   allowTaskCreate?: boolean;
-  /** 행 순서 바꾸기를 켜요 - opt-in이라, 이 값이나 작업 자신의 플래그가 true가 되기 전까지 아무것도 움직이지 않아요 */
+  /** 행 순서 바꾸기를 켜요 - opt-in이에요(기본값 false). */
   allowReorder?: boolean;
   minDate?: string;
   maxDate?: string;
@@ -38,25 +32,25 @@ export interface GanttInteractionConfig {
 
 | 필드 | 타입 | 기본값 | 의미 |
 |---|---|---|---|
-| `readOnly` | `boolean` | `undefined` | 모든 작업의 모든 제스처를 막아요. 어느 단계에서든 권한 플래그를 설정하면 그 플래그가 이겨요. |
+| `readOnly` | `boolean` | `undefined` | 모든 작업의 모든 제스처를 막고, 상세 패널의 기본 필드도 읽기만 되는 텍스트로 남겨요. 어느 단계에서든 권한 플래그를 설정하면 그 플래그가 이겨요. 다만 패널의 **Name**은 예외예요. `readOnly` 단계만 읽어서, 권한 플래그를 어떻게 두든 읽기만 되는 텍스트로 남아요. |
 | `allowMove` | `boolean` | `undefined` | 타임라인을 따라 막대를 끌어 옮기는 동작이에요. |
-| `allowResize` | `boolean` | `undefined` | 막대의 어느 쪽 끝이든 끌어 크기를 바꾸는 동작이에요. |
-| `allowProgressChange` | `boolean` | `undefined` | 진행률 핸들을 끄는 동작이에요. |
+| `allowResize` | `boolean` | `undefined` | 막대의 어느 쪽 끝이든 끌어 크기를 바꾸는 동작이에요. 상세 패널의 **Start**와 **End**가 편집 가능한 날짜 입력이 되는지도 이 플래그가 정해요. |
+| `allowProgressChange` | `boolean` | `undefined` | 진행률 핸들을 끄는 동작이에요. 상세 패널의 **Progress**가 편집 가능한 숫자 입력이 되는지도 이 플래그가 정해요. |
 | `allowLinkCreate` | `boolean` | `undefined` | 막대의 핸들에서 의존성 드래그를 시작하는 동작이에요. |
 | `allowLinkDelete` | `boolean` | `undefined` | 의존성 화살표를 선택해 지우는 동작이에요. |
 | `allowTaskCreate` | `boolean` | `undefined` | 새 작업을 제안하는 동작이에요. **Add task** 버튼, `addTask()`, 그린 범위 모두요. 차트 전체 설정만 있어요. |
-| `allowReorder` | `boolean` | `undefined` | 작업 목록 행을 끌어 다른 자리나 다른 부모로 옮기는 동작이에요. 비워 두면 꺼진 것으로 읽혀요. |
-| `minDate` | `string` | `undefined` | 막대를 끌어 갈 수 있는 가장 이른 날짜예요. UTC ISO 문자열이에요. |
-| `maxDate` | `string` | `undefined` | 막대를 끌어 갈 수 있는 가장 늦은 날짜예요. UTC ISO 문자열이에요. |
+| `allowReorder` | `boolean` | `undefined` | 작업 목록 행을 끌어 다른 자리나 다른 부모로 옮기는 동작과, 같은 일을 하는 키보드 바인딩이에요. |
+| `minDate` | `string` | `undefined` | 막대를 끌어 갈 수 있는 가장 이른 날짜예요. UTC ISO 문자열이에요. 상세 패널에 입력한 날짜도 이 경계로 잘려요. |
+| `maxDate` | `string` | `undefined` | 막대를 끌어 갈 수 있는 가장 늦은 날짜예요. UTC ISO 문자열이에요. 상세 패널에 입력한 날짜도 이 경계로 잘려요. |
 
 모든 필드를 비워 두면 모든 제스처가 허용되고 드래그 경계도 없어요. 예외가 둘 있어요.
-`allowTaskCreate`는 `onTaskCreate` 콜백까지 있어야 하고(아래 [작업 생성](#작업-생성)),
-`allowReorder`는 비워 두면 아예 꺼진 것으로 읽혀요(아래
-[순서 바꾸기](#순서-바꾸기는-이-사슬을-타지-않아요)).
+`allowTaskCreate`는 `onTaskCreate` 콜백까지 있어야 해요 — 아래 [작업 생성](#작업-생성)을 보세요.
+`allowReorder`는 비워 둔다고 허용되는 것이 전혀 아니에요 —
+[canReorder는 이 사슬을 타지 않아요](#canreorder는-이-사슬을-타지-않아요)를 보세요.
 
 같은 이름을 가진 `GanttProps`의 prop 열 개가 이 객체를 채워요.
 [GanttProps](props)를 참고하세요. 이 값을 덮어쓰는 작업별 필드는
-[Task](task)에 있어요.
+[Task와 작업 타입](task)에 있어요.
 
 ## 권한 해석
 
@@ -65,25 +59,9 @@ export interface GanttInteractionConfig {
 차트의 동작을 결정하기 때문이에요.
 
 ```ts title="src/shared/task.ts"
-/**
- * 작업 하나가 무엇을 허용하는지 가장 구체적인 설정부터 해석해요:
- *
- * `task.allowX` > `task.readOnly` > `config.allowX` > `config.readOnly` > 허용
- *
- * 같은 단계에서는 권한 플래그가 전체를 덮는 `readOnly`를 항상 이겨요. 그래서
- * 차트에 `readOnly`를 걸고 작업 하나에 `allowProgressChange: true`를 주면
- * "그 진행률 막대만 빼고 전부 잠금"이 돼요.
- *
- * 구조적인 규칙 한 가지는 플래그가 아니고, 플래그로 다시 켤 수도 없어요. 제스처가
- * 값을 쓸 곳이 없기 때문이에요. 요약 행은 크기를 바꿀 수 없고 진행률도 끌 수
- * 없어요(둘 다 자식에서 집계한 값이라, 편집해도 곧바로 되돌아가요). 요약 행
- * 이동은 괜찮아요 - 하위 트리 전체를 함께 데려가요.
- *
- * 순서 바꾸기는 기본으로 꺼져 있는 유일한 제스처예요. 바닥이 `!config.readOnly`가
- * 아니라 `false`라서, 이에 대해 아무 말도 하지 않는 차트는 있던 그대로 남아요.
- * 사다리의 나머지는 그대로예요 - 작업 자신의 `allowReorder`가 그 작업의
- * `readOnly`를 이기고, 그것이 차트의 플래그를 이겨요.
- */
+// 우선순위: `task.allowX` > `task.readOnly` > `config.allowX` > `config.readOnly` > 허용.
+// 요약 행은 크기를 바꿀 수 없고 진행률도 끌 수 없어요 - 둘 다 자식에서 집계돼요.
+// 순서 바꾸기만 예외예요: 바닥이 `false`라서, 명시적인 플래그만 이것을 켜요.
 export function resolveTaskInteraction(
   task: Pick<
     Task,
@@ -109,9 +87,6 @@ export function resolveTaskInteraction(
     return !config.readOnly;
   };
 
-  // 순서 바꾸기는 위 사다리를 타지 않아요. 바닥이 `!config.readOnly`가 아니라 `false`라서,
-  // 명시적인 플래그만 이것을 켜요. 작업 자신의 플래그는 여전히 이기고, `readOnly`로 얼어붙은
-  // 작업은 차트 전체 플래그로도 끌 수 없어요.
   const canReorder =
     task.allowReorder ??
     (task.readOnly === true ? false : (config.allowReorder ?? false));
@@ -135,6 +110,9 @@ export function resolveTaskInteraction(
 }
 ```
 
+아래 순서는 여섯 중 다섯이 밟는 순서예요. `canReorder`는 더 짧은 사슬을 따로 타요.
+[canReorder는 이 사슬을 타지 않아요](#canreorder는-이-사슬을-타지-않아요)에서 다뤄요.
+
 가장 구체적인 것부터, 순서는 이래요:
 
 1. `task.allowX` — 작업이 이 권한의 플래그를 직접 들고 있으면, 그 값이 답이에요.
@@ -156,10 +134,42 @@ export function resolveTaskInteraction(
 | — | — | — | `false` | 허용 | 4 |
 | — | — | — | — | 허용 | 4 |
 
+이 사다리를 스니펫 하나로 보면 이래요. 차트는 잠겨 있고, 작업 하나의 플래그가 제스처 하나를 다시
+열어요:
+
+```tsx title="잠긴 차트, 살아 있는 진행률 핸들 하나"
+<ReactGanttChart
+  readOnly
+  tasks={[
+    {
+      id: 'design',
+      name: 'Design',
+      startDate: '2026-03-02',
+      endDate: '2026-03-06',
+      parentId: null,
+      sequence: '1',
+    },
+    {
+      id: 'build',
+      name: 'Build',
+      startDate: '2026-03-09',
+      endDate: '2026-03-20',
+      parentId: null,
+      sequence: '2',
+      progress: 40,
+      allowProgressChange: true,
+    },
+  ]}
+/>
+```
+
+두 번째 작업의 `allowProgressChange`는 1단계에서 결정돼서, 그 진행률 핸들은 여전히 끌려요.
+두 작업의 나머지 제스처는 모두 4단계까지 떨어지고, 거기서 `readOnly`가 막아요.
+
 ### 여섯 가지 권한
 
-권한마다 위 사슬을 따라 필드 한 쌍을 읽어요. 그다음 마지막 열의 구조적 마스크가 그 결과 앞에
-`&&`로 붙어요. 마지막 줄만 예외예요. `canReorder`는 위 사슬을 아예 타지 않아요.
+여섯 중 다섯은 위 사슬을 따라 필드 한 쌍을 읽고, 마지막 열의 구조적 마스크가 그 결과 앞에
+`&&`로 붙어요. `canReorder`는 표 아래에서 설명하는 더 짧은 사슬로 자기 쌍을 읽어요.
 
 | 해석된 권한 | `Task` 필드 | `GanttInteractionConfig` 필드 | 구조적 마스크 |
 |---|---|---|---|
@@ -168,7 +178,7 @@ export function resolveTaskInteraction(
 | `canChangeProgress` | `allowProgressChange` | `allowProgressChange` | `!isSummary` |
 | `canCreateLink` | `allowLinkCreate` | `allowLinkCreate` | 없음 |
 | `canDeleteLink` | `allowLinkDelete` | `allowLinkDelete` | 없음 |
-| `canReorder` | `allowReorder` | `allowReorder` | 없음 — 대신 사슬이 달라요 |
+| `canReorder` | `allowReorder` | `allowReorder` | 없음 |
 
 해석기는 이 값들을 `ResolvedTaskInteraction`에 담아 돌려줘요. 이 타입도 패키지 루트에서
 **export되지 않아요**. 필드 이름이 소스와 이 표에 나오기 때문에 여기 옮겨 적었어요.
@@ -186,18 +196,19 @@ interface ResolvedTaskInteraction {
 }
 ```
 
-### 순서 바꾸기는 이 사슬을 타지 않아요
+### canReorder는 이 사슬을 타지 않아요
 
-`canReorder`는 네 단계를 밟는 대신 한 줄로 끝나요.
+순서 바꾸기는 opt-in이라, 사슬의 바닥이 `!config.readOnly`가 아니라 `false`예요.
 
 ```ts title="src/shared/task.ts"
-task.allowReorder ??
+const canReorder =
+  task.allowReorder ??
   (task.readOnly === true ? false : (config.allowReorder ?? false));
 ```
 
-차이는 바닥이에요. 다른 권한은 아무도 말이 없으면 `!config.readOnly`, 그러니까 허용으로
-떨어지지만, 이것은 `false`로 떨어져요. 순서 바꾸기를 모르는 차트가 업그레이드만으로 행에 손잡이가
-생기는 일을 막으려고 그래요. `config.readOnly`는 이 계산에 아예 등장하지 않아요.
+`config.readOnly`는 아예 읽히지 않아요. 잠긴 차트도 손대지 않은 차트도 순서 바꾸기를 거부하고,
+어느 단계에서든 명시적인 `allowReorder`만 이것을 켜요. 위의 두 단계는 그대로예요. 작업 자신의
+플래그가 이기고, 자신의 `readOnly`로 잠긴 작업은 차트 전체 플래그로도 끌 수 없어요.
 
 | `task.allowReorder` | `task.readOnly` | `config.allowReorder` | 결과 |
 |---|---|---|---|
@@ -205,11 +216,8 @@ task.allowReorder ??
 | `false` | 무엇이든 | 무엇이든 | 차단 |
 | — | `true` | 무엇이든 | 차단 |
 | — | `false` 또는 — | `true` | 허용 |
-| — | `false` 또는 — | `false` 또는 — | 차단 |
-
-읽어 두면 좋은 결과가 둘 있어요. 잠기지 않은 차트라도 `allowReorder`를 켜지 않으면 아무 행도
-끌리지 않아요. 그리고 `readOnly: true`인 작업은 차트 쪽 `allowReorder`로 풀리지 않아요. 그 작업
-자신의 `allowReorder: true`만이 풀 수 있어요.
+| — | `false` 또는 — | `false` | 차단 |
+| — | `false` 또는 — | — | 차단 |
 
 ### 드래그 경계
 
@@ -225,14 +233,11 @@ maxDate: task.maxDate ?? config.maxDate,
 
 ### 작업 생성
 
-작업 생성은 차트 전체 설정만 있어서, 두 단계짜리 해석기를 따로 써요. 이것도 내부용이고
-export되지 않아요:
+작업 생성은 차트 전체 설정만 있어서, 두 단계짜리 해석기를 따로 써요. 이것도 내부용이고 export되지
+않아요:
 
 ```ts title="src/shared/task.ts"
-/**
- * 차트가 새 작업을 제안할 수 있는지 정해요
- * 차트 전체 설정만 있어요 - 어느 입구도 작업에서 시작하지 않으니 작업별 단계가 없어요
- */
+// 차트 전체 설정만 있어요 - 어느 입구도 작업에서 시작하지 않으니 작업별 단계가 없어요
 export function canCreateTasks(
   config: GanttInteractionConfig = NO_INTERACTION_CONFIG
 ): boolean {
@@ -257,7 +262,7 @@ const canCreateTask = onTaskCreate !== undefined && canCreateTasks(interaction);
 
 이 값 하나가 세 입구를 모두 여닫아요. 이게 없으면 **Add task** 띠가 그려지지 않고, `addTask()`는
 곧바로 돌아가고, 그리기 제스처도 꺼져 있어요. 그래서 `onTaskCreate`가 없으면 플래그를 어떻게 두든
-작업을 만들 길이 없어요. [작업 편집](../editing)을 참고하세요.
+작업을 만들 길이 없어요. [작업 생성](../task-creation)을 참고하세요.
 
 ## 제약
 
@@ -268,6 +273,11 @@ const canCreateTask = onTaskCreate !== undefined && canCreateTasks(interaction);
 `allowProgressChange: true`를 줘도 그대로예요. `canMove`는 영향을 받지 않아요. 요약 행 이동은
 허용되고, 하위 트리 전체를 함께 데려가요.
 
+두 값 다 파생된 값이에요. `rollUpTasks`가 렌더링할 때마다 요약 행의 시작과 끝을 자식에서 다시
+계산하고, 요약 행이 자기 진행률을 들고 있지 않으면 진행률도 자식에서 롤업해요. 그래서 여기서 고친
+값은 다음 렌더링에서 버려지거나 파생된 값을 붙박이로 만들어요. 어떤 플래그로도 이것을 다시 켤 수
+없는 이유가 이거예요.
+
 `isSummary`는 `hierarchy` prop이 켜져 있을 때만 설정돼요. 그래서 이 규칙은 계층 없는 차트에는 해당하지
 않아요. `readOnly`는 여전히 요약 행 전체를 잠가요.
 
@@ -275,9 +285,10 @@ const canCreateTask = onTaskCreate !== undefined && canCreateTasks(interaction);
 
 패키지 루트에서 export되는 것: `GanttInteractionConfig`(타입만).
 
-export되지 않고, 차트의 동작을 설명하려고 이 문서에서만 이름을 꺼낸 것:
+다음은 export되지 않아요. 차트의 동작을 설명하려고 이 문서에서만 이름을 꺼냈어요:
 `resolveTaskInteraction`, `canCreateTasks`, `ResolvedTaskInteraction`,
 `NO_INTERACTION_CONFIG`. import하지 마세요.
 
 이 플래그들이 다루는 제스처는 [작업 편집](../editing)과
-[의존성](../dependencies)에서 설명해요.
+[의존성](../dependencies)에서 설명해요. 이 플래그들이 여닫는 패널 필드는
+[상세 패널](../detail-panel)에서 다뤄요.

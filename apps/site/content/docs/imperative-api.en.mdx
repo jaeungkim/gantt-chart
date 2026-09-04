@@ -1,6 +1,6 @@
 ---
 title: "Imperative API"
-description: "The `ref` handle: scrolling, zoom and the detail panel"
+description: "The `ref` handle: scrolling, zoom, the detail panel and task creation"
 ---
 
 The chart draws the timeline and nothing around it — no toolbar, no scale picker. So the "today" button, the "fit everything" button and the scale control are all yours to render. None of them is a prop. They go through a ref on the chart.
@@ -61,29 +61,21 @@ ganttRef.current?.scrollToTask('task-42');
 
 `scrollToDate` and `scrollToToday` move the horizontal axis only. Neither touches `scrollTop`.
 
+The one scroll that needs no ref is the first one: `initialScrollTo="today"` seeds the position once after the first render, described in [The timeline](timeline). Everything after that is the ref's job.
+
 `scrollToTask` moves both axes. Horizontally it targets the bar's left edge under `align: 'start'` and the bar's midpoint otherwise. Vertically it acts only when the row is outside the viewport, and then it centres the row. `align` has no effect on the vertical axis.
 
 Every one of these fails silently. A date outside the rendered range, an unknown task id, and a chart that is not mounted yet all take an early return with no throw and no console output. This is deliberate, so that calling one while data is still loading is safe.
 
-`scrollToTask` searches the rendered rows only. A task under a collapsed parent or a collapsed group is not in that list, so the call is a no-op. Expand the row first. Collapse state is covered in [Task list and hierarchy](task-list).
+`scrollToTask` searches the rendered rows only. A task under a collapsed parent is not in that list, so the call is a no-op. Expand the row first. Collapse state is covered in [Task list and hierarchy](task-list).
 
 ## Changing the scale
 
-The chart used to render a six-button scale picker above the timeline. It does not any more. It does not remember a scale either — the `storageKey` prop and the `sessionStorage` write behind it are gone, so the scale is plain per-instance state that starts at `defaultScale` and starts over on a remount.
+The chart renders no scale control, so the picker is yours to build. `setScale` writes the scale and the `onScaleChange` prop reads it back: the signature is in [GanttHandle](ref/handle), and everything else that moves the scale is in [The timeline](timeline).
 
-Two pieces of API replace the picker. `setScale` writes:
+Make it a native `<select>`. Your app writes the option text, so the labels translate with the rest of your UI, and the platform brings the keyboard, screen-reader and touch behaviour that five hand-rolled buttons would each have to earn.
 
-```ts
-ganttRef.current?.setScale('week');
-```
-
-It keeps the date at the centre of the timeline area at the centre, so the view stays where the reader was looking instead of jumping the way a raw scale swap does. A key that is not one of the five scales is ignored — the same silence as an unknown task id. With nothing on screen to anchor to, meaning no mounted scroll container or a centre that falls outside the ticks, it switches with no anchor.
-
-The `onScaleChange` prop reads back. It fires once per committed change, whatever caused it: `setScale`, `Ctrl`/`Cmd` + wheel, `zoomToFit()`, and the keyboard binding. It does not fire on mount.
-
-A native `<select>` is the whole control.
-
-```tsx title="src/ChartWithScale.tsx"
+```tsx title="src/GanttToolbar.tsx"
 import { useRef, useState } from 'react';
 import {
   ReactGanttChart,
@@ -95,55 +87,66 @@ import '@jaeungkim/gantt-chart/style.css';
 
 const SCALES: GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
 
-export function ChartWithScale({ tasks }: { tasks: Task[] }) {
+export function GanttToolbar({ tasks }: { tasks: Task[] }) {
   const ganttRef = useRef<GanttHandle>(null);
   const [scale, setScale] = useState<GanttScaleKey>('month');
 
   return (
     <>
-      <select
-        value={scale}
-        onChange={(e) => ganttRef.current?.setScale(e.target.value as GanttScaleKey)}
-      >
-        {SCALES.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
-      </select>
+      <div>
+        {/* the ref is null until the chart mounts, so every call is optional-chained */}
+        <button onClick={() => ganttRef.current?.scrollToToday()}>Today</button>
+        <button onClick={() => ganttRef.current?.zoomToFit()}>Fit</button>
+        <button onClick={() => ganttRef.current?.openDetail('task-42')}>
+          Details for 42
+        </button>
+
+        <select
+          aria-label="Timeline scale"
+          value={scale}
+          onChange={(e) => ganttRef.current?.setScale(e.target.value as GanttScaleKey)}
+        >
+          {SCALES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </div>
 
       <ReactGanttChart
         ref={ganttRef}
         tasks={tasks}
         defaultScale="month"
         onScaleChange={setScale}
+        showDetail
       />
     </>
   );
 }
 ```
 
-The select never sets its own state. The choice goes into the chart and the chart reports it back, so a change made with the wheel or the keyboard travels the same path and the select follows it.
+The select never sets its own state. The choice goes into the chart and the chart reports it back, so a change made with the wheel or the keyboard travels the same path and the select follows it. `zoomToFit()` lands on a scale of its own and is reported the same way, so the **Fit** button updates the select without a line of wiring.
 
-Keep `onScaleChange` wired even when your select is the only caller of `setScale`. `Ctrl`/`Cmd` + `ArrowUp` steps the scale finer and `Ctrl`/`Cmd` + `ArrowDown` steps it coarser while focus is inside the grid, and `Ctrl`/`Cmd` + wheel does the same when `zoomOnWheel` is on. Both clamp at the ends of the ladder. Without the callback the select drifts out of step with the chart.
+The buttons mirror nothing: the methods read the store at the moment they are called. Only the select holds a value, and `onScaleChange` is what keeps it honest.
 
-Your app writes the option text, so the labels translate with the rest of your UI. The deleted picker printed the six raw English keys inside a chart whose every header cell, tick and tooltip already goes through `Intl`. A `<select>` also brings keyboard, screen-reader and touch behaviour from the platform, which six hand-rolled buttons have to earn.
+The row above the chart on the [playground](/playground) is a toolbar of this shape, and every method on this page except `setScale` is a button in the console beside it. `setScale` is the one with no button: the strip's native `<select>` drives it, exactly as above.
 
 ## Zooming
 
-`zoomToFit()` reads the earliest `startDate` and the latest `endDate` across the rendered tasks. It then walks the scale ladder from finest to coarsest — `hour`, `day`, `week`, `month`, `quarter`, `year` — and takes the first scale where the whole span fits in the timeline's width. When nothing fits, it lands on `year`. The earliest date is pinned to the timeline's left edge.
+`zoomToFit()` reads the earliest `startDate` and the latest `endDate` across the rendered tasks. It then walks the scale ladder from finest to coarsest — `day`, `week`, `month`, `quarter`, `year` — and takes the first scale where the whole span fits in the timeline's width. When nothing fits, it lands on `year`. The earliest date is pinned to the timeline's left edge.
 
 It takes no options. The resulting scroll is always instant, because the anchor is applied by assigning `scrollLeft` directly rather than through `scrollTo({ behavior })`.
 
-The fit is measured against an average px-per-millisecond figure per scale, not against the ticks that will actually be built. That figure is exact for the scales whose ticks are a fixed duration and approximate on `quarter` and `year`, whose ticks are months of 28 to 31 days, so a span that lands within a few percent of the viewport width can pick the neighbouring scale.
+The fit is measured against an average px-per-millisecond figure per scale, not against the ticks that will actually be built. That figure is exact for the scales whose ticks are a fixed duration and approximate on `quarter` and `year`, whose ticks follow the calendar — month cells on `quarter`, quarter cells on `year` — so a span that lands within a few percent of the viewport width can pick the neighbouring scale.
 
 It bails out silently with no tasks, with no mounted scroll element, and when the min or max date is not a finite number.
 
-There is no `zoomIn` or `zoomOut` on the handle. Step your own array of the six keys through `setScale`, or leave the stepping to `Ctrl`/`Cmd` + wheel and `Ctrl`/`Cmd` + `ArrowUp`/`ArrowDown`. Both are described in [The timeline](timeline).
+There is no `zoomIn` or `zoomOut` on the handle. Step your own array of the five keys through `setScale`, or leave the stepping to `Ctrl`/`Cmd` + wheel and `Ctrl`/`Cmd` + `ArrowUp`/`ArrowDown`. Both are described in [The timeline](timeline).
 
 `GanttZoomAnchor` is exported from the package, but nothing on the handle accepts one. `setScale` and `zoomToFit` each build their own. It is a type you may see in the surface, not something you can pass.
 
 ## The detail panel
 
-The last two methods are the only part of the handle that is not about the viewport. `openDetail(taskId)` opens the docked side panel on a task, `closeDetail()` closes it. What the panel is, what turns it on and what it renders live in [Detail panel](detail-panel). This is the ref side of it.
+Two methods drive the detail panel from outside the chart. `openDetail(taskId)` opens the docked side panel on a task, `closeDetail()` closes it. What the panel is, what turns it on and what it renders live in [Detail panel](detail-panel). This is the ref side of it.
 
 ```ts
 ganttRef.current?.openDetail('task-42');
@@ -188,91 +191,31 @@ export function ChartWithDetail({ tasks }: { tasks: Task[] }) {
 
 With `showDetail` on, the panel also opens on the click that selects a row and on `Enter` on the focused row, so your button joins the chart's own triggers rather than replacing them. To make your code the only way in, hold `detailTaskId` yourself and set it from the button: a chart click then only reports through `onDetailChange`, and you decide whether to follow it.
 
-`Escape` closes the panel from anywhere, whatever holds focus, and leaves the row selected. There is no opening key to match it, so a keyboard shortcut of your own is `openDetail` again.
+`Escape` closes the panel from anywhere, whatever holds focus, and leaves the row selected. There is no global opening key to match it — `Enter` needs a focused row — so a keyboard shortcut of your own is `openDetail` again.
 
 With `detailTaskId` given the chart is controlled, and neither method moves the panel by itself. They report the request through `onDetailChange` and the panel follows when your state does. Without the prop the chart holds the open task itself, both methods act at once, and `onDetailChange` fires all the same.
 
 ## Adding a task
 
-`addTask()` is the one member that is not about the viewport. It builds the same draft the **Add task** strip under the task list builds — one tick at today, snapped to the current scale — and hands it to `onTaskCreate`.
+`addTask()` is the one member that is about the data rather than the view. It builds the same draft the **Add task** strip under the task list builds — one tick at today, snapped to the current scale — and hands it to `onTaskCreate`.
 
 ```tsx
 ganttRef.current?.addTask();
 ```
 
-It writes nothing, exactly like the strip and like a drawn range: the row appears when your handler puts the task in the `tasks` array. Without `onTaskCreate`, or with `allowTaskCreate={false}`, the call is inert — so a button of yours wired to it needs no guard, the same as one wired to `openDetail`.
+It writes nothing, exactly like the strip and like a drawn range: the row appears when your handler puts the task in the `tasks` array. Without `onTaskCreate`, or with creation switched off — `allowTaskCreate={false}`, or `readOnly` while `allowTaskCreate` is unset — the call is inert. So a button of yours wired to it needs no guard, the same as one wired to `openDetail`.
 
 It is also what a keyboard shortcut of your own calls. The chart binds no key to task creation.
 
-The draft, and what turns creation off, are in [Editing tasks](editing).
-
-## A toolbar wired to the ref
-
-The chart renders no controls, so this is the toolbar. Everything above lands in one component of yours.
-
-The buttons carry no state: the methods read the store at the moment they are called. Only the scale select mirrors a value, and `onScaleChange` is what keeps that mirror honest.
-
-```tsx title="src/GanttToolbar.tsx"
-import { useRef, useState } from 'react';
-import {
-  ReactGanttChart,
-  type GanttHandle,
-  type GanttScaleKey,
-  type Task,
-} from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
-
-const SCALES: GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
-
-export function GanttToolbar({ tasks }: { tasks: Task[] }) {
-  const ganttRef = useRef<GanttHandle>(null);
-  const [scale, setScale] = useState<GanttScaleKey>('month');
-
-  return (
-    <>
-      <div>
-        {/* the ref is null until the chart mounts, so every call is optional-chained */}
-        <button onClick={() => ganttRef.current?.scrollToToday()}>Today</button>
-        <button onClick={() => ganttRef.current?.zoomToFit()}>Fit</button>
-        <button
-          onClick={() => ganttRef.current?.scrollToTask('task-42', { align: 'start' })}
-        >
-          Go to task 42
-        </button>
-        <button onClick={() => ganttRef.current?.openDetail('task-42')}>
-          Details for 42
-        </button>
-
-        <select
-          aria-label="Timeline scale"
-          value={scale}
-          onChange={(e) => ganttRef.current?.setScale(e.target.value as GanttScaleKey)}
-        >
-          {SCALES.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-      </div>
-
-      <ReactGanttChart
-        ref={ganttRef}
-        tasks={tasks}
-        defaultScale="month"
-        onScaleChange={setScale}
-        showDetail
-      />
-    </>
-  );
-}
-```
-
-`zoomToFit()` lands on a scale of its own, and `onScaleChange` reports that too — so the "Fit" button updates the select without a line of wiring.
+The draft, and what turns creation off, are in [Creating tasks](task-creation).
 
 ## Limits
 
-- **The handle never touches the data.** `addTask()` is the only member that is about the tasks at all, and it only proposes one: it calls `onTaskCreate` and writes nothing. No method edits, moves or deletes a task, and every change to the tasks goes through the `tasks` prop and `onTasksChange`.
+- **The handle never touches the data.** `addTask()` is the only member that comes near a write, and it only proposes one task: it calls `onTaskCreate` and writes nothing. No method edits, moves or deletes a task, and every change to the tasks goes through the `tasks` prop and `onTasksChange`.
 - **There is no vertical scroll API.** Nothing exposes `scrollToRow` or a scroll-position getter beyond `getScrollElement()`, which hands back the raw DOM node for you to drive yourself.
 - **No method reports failure.** An out-of-range date, an unknown id, an unknown scale key and a detail call made while the panel is off all look exactly like success from the outside.
 - **The handle has no getter for the scale.** `setScale` writes it and `onScaleChange` reports it. Nothing on the ref reads it back, so the current scale lives in your state or nowhere.
+
+The signature and default of every prop named here are in [GanttProps](ref/props).
 
 Next: [Keyboard and screen readers](accessibility) — the treegrid structure and every key the grid handles.

@@ -11,8 +11,9 @@ description: "서로 겹치지 않는 작업을 한 행에 모으는 `lane` 작�
 
 `lane`은 차트 prop이 아니라 작업의 필드예요. 따로 켤 것은 없어요.
 
-```tsx
+```tsx title="src/SupportLanes.tsx"
 import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
 
 const tasks: Task[] = [
   { id: 'spec', name: 'Spec', lane: 'ana', parentId: null, sequence: '1',
@@ -21,7 +22,9 @@ const tasks: Task[] = [
     startDate: '2026-03-09T00:00:00Z', endDate: '2026-03-12T00:00:00Z' },
 ];
 
-<ReactGanttChart tasks={tasks} height={480} />;
+export function SupportLanes() {
+  return <ReactGanttChart tasks={tasks} height={480} />;
+}
 ```
 
 falsy한 `lane`은 레인이 없는 것과 같아요. `lane: ""`은 필드를 생략했을 때와 똑같이 작업에 자기
@@ -36,22 +39,23 @@ lane 문자열은 공백도 대소문자도 다듬지 않고 그대로 비교해
 
 | 규칙 | 효과 |
 |---|---|
-| 정렬 | 입력 순서가 아니라 `startDate` 기준이에요. 시작이 같으면 입력 순서를 지켜요 |
+| 정렬 | `sequence`가 아니라 `startDate` 기준이에요. 시작이 같으면 `sequence` 순서를 지켜요 |
 | 배치 | 가장 빈틈없는 행이 아니라, 마지막 막대가 이미 끝난 **첫** 행에 들어가요 |
 | 맞닿음 | 앞 막대가 끝나는 시점에 정확히 시작하는 작업은 같은 행을 써요 |
 | 겹침 | 겹치는 작업은 행을 하나 더 열어요 |
 | 재사용 | 행은 비는 즉시 다시 쓰여요 |
 
 패킹은 `parentId`를 보지 않아요. 부모와 자식이 같은 lane 문자열을 가지면 다른 어떤 짝과도
-똑같이 한 행에 묶이고, 그 행의 depth는 첫 작업의 depth를 따라가요.
+똑같이 한 행에 묶이고, 그 행의 depth는 가장 먼저 시작하는 작업의 depth를 따라가요.
 
-묶인 행들은 그 레인에서 처음 등장한 멤버의 자리에 들어가요. 뒤에 오는 멤버는 자기 자리에
-아무것도 남기지 않아요.
+묶인 행들은 그 레인의 첫 멤버가 있던 자리에 들어가요. 첫 멤버란 `sequence`가 가장 낮은
+작업이에요. 모든 행의 순서를 정하는 필드죠 — [작업 데이터](task-data) 참고. 뒤에 오는 멤버는
+자기 자리에 아무것도 남기지 않아요.
 
 레인 행의 id는 그 행에 있는 작업 id를 `"+"`로 이은 문자열이에요. `spec+wires` 같은 모양이죠.
-행이 작업 하나를 지목하지 않기 때문이에요. 작업 목록에서는 `tasks[0]`의 이름을 보여줘요. 입력
-배열의 첫 작업이 아니라 그 행에서 가장 먼저 시작하는 작업이에요. 그 뒤에 나머지 개수를 세는
-`+N` 배지가 붙어요.
+행이 작업 하나를 지목하지 않기 때문이에요. 작업 목록에서는 `tasks[0]`의 이름을 보여줘요.
+`sequence`가 가장 낮은 작업이 아니라 그 행에서 가장 먼저 시작하는 작업이에요. 그 뒤에 나머지
+개수를 세는 `+N` 배지가 붙어요.
 
 ## 레인 행이 치르는 대가
 
@@ -63,7 +67,7 @@ lane 문자열은 공백도 대소문자도 다듬지 않고 그대로 비교해
 넣을 자리 하나를 지목하지도 않기 때문이에요 — [작업 목록과 계층](task-list) 참고.
 
 새 작업 그리기는 영향을 받지 않아요. 마지막 행 아래 빈 영역에서만 일어나므로 레인 행이든
-아니든 행은 대상이 아니에요 — [작업 편집](editing) 참고.
+아니든 행은 대상이 아니에요 — [작업 생성](task-creation) 참고.
 
 파싱할 수 없는 `endDate`는 그 작업이 연 행을 오염시켜요. 배치 검사는 `rowEnd <= start`인데,
 `NaN`과의 비교는 전부 false예요. 그래서 그 행은 다시는 뒤 작업에게 제안되지 않아요. 뒤따르는
@@ -77,12 +81,13 @@ lane 문자열은 공백도 대소문자도 다듬지 않고 그대로 비교해
 
 색은 [테마](theming)의 `--gantt-*` 커스텀 속성에서 와요.
 
-## 예제로 따라가 보기
+## 예제로 따라가기
 
 작업 네 개예요. 그중 셋은 `ana` 레인을 함께 써요.
 
-```tsx
+```tsx title="src/LaneExample.tsx"
 import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
 
 const tasks: Task[] = [
   { id: 'spec', name: 'Spec', lane: 'ana', parentId: null, sequence: '1',
@@ -95,7 +100,9 @@ const tasks: Task[] = [
     startDate: '2026-03-04T00:00:00Z', endDate: '2026-03-05T00:00:00Z' },
 ];
 
-<ReactGanttChart tasks={tasks} height={480} />;
+export function LaneExample() {
+  return <ReactGanttChart tasks={tasks} height={480} />;
+}
 ```
 
 작업 네 개에서 행 세 개가 나와요.
@@ -107,8 +114,8 @@ const tasks: Task[] = [
 | 3 | `api` | `API` | `3` |
 
 `spec`은 3월 6일에 끝나고 `wires`는 3월 9일에 시작해서 둘이 1행을 함께 써요. `review`는
-`spec`과 겹치니까 2행을 열어요. `api`는 입력에서 두 번째이고 레인도 없지만, 레인 전체가 첫
-멤버의 자리에 들어가면서 `api`가 마지막 행으로 밀려요.
+`spec`과 겹치니까 2행을 열어요. `api`는 `sequence`로는 두 번째이고 레인도 없지만, 레인 전체가
+첫 멤버의 자리에 들어가면서 `api`가 마지막 행으로 밀려요.
 
 ## 한계
 
@@ -122,8 +129,10 @@ const tasks: Task[] = [
 - **레인 라벨 없음.** lane 문자열 자체는 어디에도 그려지지 않아요. 행 이름은 가장 먼저 시작하는
   작업에서 가져와요.
 - **작업 목록에서는 레인 행마다 작업 하나.** 이름 셀은 물론이고 행의 클릭, 더블클릭, 목록 셀
-  포커스도 `tasks[0]`만 건드려요. 나머지 멤버는 자기 막대로만 닿을 수 있고, 그 막대 하나하나가
-  자기 키보드 셀이에요 — [키보드와 스크린 리더](accessibility) 참고.
+  포커스도 `tasks[0]`만 건드려요. `showRowNumbers`가 켜져 있을 때 찍히는 번호도 `tasks[0]`의
+  `sequence`예요. 나머지 멤버는 자기 막대로만 닿을 수 있어요. 막대를 클릭하면 그 멤버가
+  대상이 되고, 막대 하나하나가 자기 키보드 셀이에요 — [키보드와 스크린 리더](accessibility)
+  참고.
 - **객체 동일성 보장 없음.** 행 번호가 바뀐 작업은 얕은 복사본으로 넘어가요. 그래서 레인을
   묶으면 차트가 렌더러와 콜백에 넘기는 참조가 바뀌어요. 레인이 없는 차트는 받은 객체를 그대로
   돌려줘요.
@@ -136,4 +145,6 @@ const tasks: Task[] = [
 - 레인 행의 나머지 멤버가 필요하면 직접 찾기. 작업 목록에서 나가는 콜백은 그 행의 첫 작업을
   넘겨줘요.
 
-다음: [타임라인](timeline)에서 배율, 표시 범위, 확대와 축소를 다뤄요.
+여기 나온 prop의 시그니처와 기본값은 [GanttProps](ref/props)에 있어요.
+
+다음: [타임라인](timeline)에서 배율, 표시 범위, 줌을 다뤄요.

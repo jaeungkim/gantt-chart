@@ -26,10 +26,15 @@ description: "나머지 문서가 쓰는 용어를 한 번에 정리"
 | 행(row) | 그리드의 한 줄이에요. 작업 하나를 담거나, 레인을 공유하는 여러 작업을 담아요. |
 | 작업 목록(task list) | 왼쪽 패널이에요. 타임라인 옆에 놓인 작업 이름 목록을 말해요. [작업 목록과 계층](task-list)을 참고해요. |
 | 타임라인(timeline) | 시간 축과 그 위에 그려지는 모든 것이에요. [타임라인](timeline)을 참고해요. |
-| 배율(scale) | 타임라인을 그리는 단위예요. `hour`, `day`, `week`, `month`, `quarter`, `year` 중 하나예요. [타임라인](timeline)을 참고해요. |
+| 배율(scale) | 타임라인을 그리는 단위예요. `day`, `week`, `month`, `quarter`, `year` 중 하나예요. [타임라인](timeline)을 참고해요. |
 | 눈금(tick) | 아래쪽 헤더 행의 칸 하나예요. 눈금 하나가 덮는 시간은 배율에 따라 달라져요. |
+| 드래그 단계(drag step) | 막대를 끌 때 한 번에 움직이는 폭이에요. 이것도 배율이 정해요. `day`에서는 한 시간, `year`에서는 28일이에요. [작업 편집](editing)을 참고해요. |
+| 드래그 판독값(drag readout) | 드래그하는 동안 움직이는 가장자리가 닿은 눈금 셀에 쓰이는 날짜예요. 그 아래에는 막대의 자취가 옅게 깔려요. 이동은 양쪽 끝을, 크기 조절은 움직이는 쪽 끝만 써요. [작업 편집](editing)을 참고해요. |
 | 요약 행(summary row) | `parentId`로 자식을 가진 작업이고, `hierarchy`가 켜져 있을 때예요. 날짜는 자식에게서 와요. [작업 목록과 계층](task-list)을 참고해요. |
+| 롤업(roll-up) | 요약 행이 자식에게서 가져오는 날짜와 진행률이에요. [작업 목록과 계층](task-list)을 참고해요. |
 | 레인(lane) | `lane` 필드예요. 여러 작업을 한 행에 나란히 놓아요. [레인](lanes)을 참고해요. |
+| 상세 패널(detail panel) | 차트 옆에 도킹되는 패널이에요. 작업 하나를 보여줘요. [상세 패널](detail-panel)을 참고해요. |
+| 트리그리드(treegrid) | 작업 목록과 타임라인을 하나의 그리드로 담는 `role="treegrid"` 요소예요. 그 안의 탭 정지점은 하나뿐이에요. [키보드와 스크린 리더](accessibility)를 참고해요. |
 
 위의 모든 단어는 이 스니펫 안의 무언가를 가리켜요.
 
@@ -99,7 +104,10 @@ export function Demo() {
 
 **작업(Task).** 직접 넘기는 단위예요. 필수 필드는 `id`, `name`, `startDate`, `endDate`, `parentId`,
 `sequence` 여섯 개고, 나머지는 선택이에요. 필드 표는 [작업 데이터](task-data)에, 타입은
-[`Task`](ref/task)에 있어요.
+[Task와 작업 타입](ref/task)에 있어요.
+
+**초안(draft).** 차트가 `onTaskCreate`로 넘기는 새 작업 제안이에요. 날짜 두 개만 담고, 그 밖에는
+아무것도 없어요. `id`, `parentId`, `sequence`는 호스트 앱이 만들어요. [작업 생성](task-creation)을 참고해요.
 
 **의존성(dependency).** 작업 두 개를 잇는 링크예요. 타입은 `FS`, `SS`, `FF`, `SF` 네 가지예요. 첫
 글자는 선행 작업(predecessor)의 끝점, 둘째 글자는 후행 작업(successor)의 끝점이에요.
@@ -117,10 +125,15 @@ const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
 
 ## 근무일 달력
 
-막대를 놓을 수 있는 자리를 정하는 규칙이에요. `workingCalendar`가 꺼져 있으면 막대는 포인터를 놓은
-자리에 그대로 있어요. 켜져 있으면 주말이나 `holidays` 날짜에 놓인 막대가 다음 근무일로 밀려요. 화면에서
-막대는 여전히 주말을 가로지르고, 드래그 단위도 여전히 달력일로 세요. 무엇이 바뀌고 무엇이 바뀌지
-않는지는 [근무일 달력](working-calendar)이 정확히 말해줘요.
+**근무일**은 `workingWeekdays`가 나열한 요일이면서 `holidays`가 덮지 않는 날이에요. 따로 정하지
+않으면 월요일부터 금요일이에요. **휴일**은 그 `holidays` 항목이에요. `YYYY-MM-DD` 문자열이거나,
+이름과 색까지 담은 객체예요.
+
+**근무일 달력**은 그 둘을 읽는 규칙이에요. `workingCalendar`가 꺼져 있으면 막대는 포인터를 놓은
+자리에 그대로 있어요. 켜져 있으면 근무일이 아닌 날에 놓인 막대가 다음 근무일로 밀려요. 화면에서
+막대는 여전히 그 날들을 가로지르고, 드래그 단계도 여전히 달력일로 세요. 무엇이 바뀌고 무엇이 바뀌지
+않는지는 [근무일 달력](working-calendar)이 정확히 말해주고, 음영과 휴일 이름은
+[타임라인](timeline)이 말해줘요.
 
 ## sequence는 순서를, parentId는 중첩을 정해요
 
@@ -150,7 +163,7 @@ const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
 
 제스처 하나만 예외예요. `allowReorder`를 켜면 행을 끌어서 다른 자리나 다른 부모로 옮길 수 있고, 그때
 트리 경로가 바뀐 모든 작업의 `sequence`가 다시 매겨져요. `sequence`가 경로라서 중간을 쪼갤 수 없거든요.
-켜지 않으면 꺼져 있어요. [행 순서 바꾸기](editing#행-순서-바꾸기)를 참고해요.
+켜지 않으면 꺼져 있어요. [행 순서 바꾸기](reordering)를 참고해요.
 
 ## 행은 작업이 아니에요
 
@@ -163,7 +176,7 @@ const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
 
 그래서 `lane`이 끼는 순간 "세 번째 행"과 "세 번째 작업"은 서로 다른 말이 돼요. `row.tasks[0]`을 읽는
 코드는 그 행의 첫 번째 작업을 읽는 것이지, 행 자체를 읽는 게 아니에요. 행 모델과 그 id, ARIA 번호
-매기기는 [레인](lanes)과 [`GanttRow`](ref/rows)가 소유해요.
+매기기는 [레인](lanes)과 [GanttRow](ref/rows)가 소유해요.
 
 ## 어떤 단어가 prop을 켜야 하는지
 
@@ -173,7 +186,11 @@ const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
 |---|---|---|
 | 요약 행, 롤업, 하위 트리 끌기, 작업 행 접기 | `hierarchy` | `false` |
 | 레인 행 | 작업 두 개 이상에 붙은 `lane` 값 | prop 없음 |
-| 놓은 막대가 주말이나 휴일에서 밀려나기 | `workingCalendar` | `false` |
+| 작업 목록 | `showTaskList` | `false` |
+| 상세 패널 | `showDetail`, 또는 `renderDetail`만으로도 | 꺼짐 |
+| 놓은 막대가 근무일이 아닌 날에서 밀려나기 | `workingCalendar` | `false` |
+
+여기 나온 prop의 시그니처와 기본값은 [GanttProps](ref/props)에 있어요.
 
 ## 한계
 
@@ -186,7 +203,7 @@ const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
   생기는지는 [작업 데이터](task-data)가 나열해요.
 - **차트는 데이터를 소유하지 않아요.** `tasks` prop을 그리고, 모든 편집을 `onTasksChange`로 넘겨요.
   저장, 낙관적 업데이트, 서버 왕복은 호스트 앱의 몫이에요. 새 작업을 그리는 것도 초안을 제안할 뿐이고,
-  `id`, `parentId`, `sequence`는 호스트가 만들어요. [작업 편집](editing)을 참고해요.
+  `id`, `parentId`, `sequence`는 호스트가 만들어요. [작업 생성](task-creation)을 참고해요.
 - **리소스, 비용, 공수 모델은 없어요.** 작업에는 담당자, 소유자, 예산 필드가 없어요. 작업 객체에 원하는
   속성을 붙일 수는 있어요. 다만 타입이 없고, `tasks` 비교에도 포함돼요 —
   [작업 데이터](task-data)가 그 비교를 설명해요.

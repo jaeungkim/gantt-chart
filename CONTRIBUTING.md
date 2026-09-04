@@ -128,10 +128,16 @@ frontmatter. `pnpm --filter @gantt-chart/site build` is what catches a broken pa
   touching its twin in the same PR. Prose is translated; code, identifiers, type names and CLI
   commands are not. Korean pages use `-해요체`.
 - **Sidebar order** is the `pages` array in `meta.en.json` / `meta.ko.json`, not the filenames.
+- **A new reference page must be listed in `ref/meta.en.json` and `ref/meta.ko.json`**, which are
+  separate files from the root `meta.en.json` / `meta.ko.json`.
 - **One fact, one owner.** Each fact is explained on exactly one page; every other page gets a
   sentence and a link. `ref/props` is the only place the full prop surface is described.
 - **A line may not begin with `import` or `export`** outside a code fence — MDX parses those as
   ESM and the build fails. Wrap the keyword in backticks when a sentence starts with it.
+- **Internal links carry no extension.** Write `[Task data](../task-data)`, never `task-data.md`
+  or `task-data.mdx`.
+- **Every guide ends with a `Next:` line** pointing at the page that follows it in `meta.en.json`,
+  so moving a page in the sidebar means fixing the tail of the page before it.
 - Add a live demo with `<GanttDemo preset="..." />`; presets live in
   `apps/site/components/demo/gantt-demo.tsx` and all share one fixture.
 

@@ -1,4 +1,3 @@
-import { Dayjs } from "dayjs";
 import { GanttTaskMoveChange } from "core/reorder";
 import { GanttTaskDraft } from "bars/hooks/useGanttDrawCreate";
 import { GanttDependencyChange } from "dependencies/hooks/useGanttLinkDrag";
@@ -8,6 +7,7 @@ import {
   GanttFormatOverrides,
   GanttScaleKey,
   GanttTheme,
+  Holiday,
 } from "shared/types";
 import { Task, TaskTransformed } from "shared/task";
 
@@ -28,12 +28,12 @@ export interface GanttProps {
   onScaleChange?: (scale: GanttScaleKey) => void;
   /** Additional CSS class name */
   className?: string;
-  /** Whether to shade weekends/holidays (default true) */
+  /** Whether to shade non-working days (default true) - also hides holiday names */
   showNonWorkingDays?: boolean;
-  /** Holiday list (ISO date strings, e.g. '2026-01-01') */
-  holidays?: string[];
-  /** Custom non-working-day predicate - replaces the default weekend/holiday check when given */
-  isNonWorkingDay?: (date: Dayjs) => boolean;
+  /** Which weekdays are worked, 0 = Sunday (default Mon-Fri). Pass a stable array. */
+  workingWeekdays?: number[];
+  /** Days off beyond the weekend. A bare `YYYY-MM-DD` string is one with no label. Pass a stable array. */
+  holidays?: (string | Holiday)[];
   /** Scroll here once after the first render - `"today"` or a date string; later data updates leave the scroll alone. */
   initialScrollTo?: "today" | string;
   /** Blocks moving, resizing and progress dragging on every task */
@@ -102,12 +102,13 @@ export interface GanttProps {
   /** Whether clicking selects a row - omitted, selection is on exactly when `onTaskSelect` is given. */
   selectable?: boolean;
 
-  /** Panel body shown beside the chart for one task - passing it turns the panel on, and the timeline narrows rather than being covered. */
+  /** Panel body shown beside the chart for one task - passing it turns the panel on, and the timeline narrows rather than being covered. The props include `update` for committing edits. */
   renderDetail?: GanttDetailRenderer;
   /**
    * Whether the detail panel is available (omitted, it exists exactly when `renderDetail` is given;
-   * `true` alone shows the built-in field list). A click on a bar or row opens it, `Enter` on a
-   * focused row too. Turning it on also turns row selection on unless `selectable` says otherwise.
+   * `true` alone shows the built-in field list, editable in place where the task's interaction
+   * flags allow). A click on a bar or row opens it, `Enter` on a focused row too. Turning it on
+   * also turns row selection on unless `selectable` says otherwise.
    */
   showDetail?: boolean;
   /** Id of the task whose detail is open, `null` for closed (controlled - given, this value is what the chart shows) */
@@ -124,6 +125,6 @@ export interface GanttProps {
   onRangeChange?: (range: GanttDateRange) => void;
   /** Whether a bar drag reaching a viewport edge scrolls the timeline (default true) */
   autoScrollOnDrag?: boolean;
-  /** Snap a drag result forward off non-working days (default false) - uses the same `holidays` / `isNonWorkingDay` config that shades the timeline; bars still span them visually. */
+  /** Snap a drag result forward off non-working days (default false) - uses the same days that shade the timeline; bars still span them visually. */
   workingCalendar?: boolean;
 }
