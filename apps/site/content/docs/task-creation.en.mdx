@@ -1,63 +1,57 @@
 ---
 title: "Creating tasks"
-description: "The three ways a new task is proposed, the draft they all hand to onTaskCreate, and why the chart never adds the row itself"
+description: "The three entry points that create a task draft, the draft they hand to onTaskCreate, and the switch that turns creation off"
 ---
 
-Someone wants a row that does not exist yet. Where they reach for it differs — the task list, your
-own toolbar, the blank space below the last row — but what the chart does with it never changes.
+Three entry points create a task draft: the **Add task** button, `addTask()` on the chart ref, and
+a range drawn below the last row. Each one calls `onTaskCreate` with the draft. The chart adds no
+row itself. This page covers the three entry points, tick snapping, and `allowTaskCreate`.
 
-Three ways in, one way out. The button under the task list, `addTask()` on the chart ref, and a
-range drawn below the last row all propose the same thing: a draft handed to `onTaskCreate`. The
-chart adds nothing itself, whichever one the user reached for.
+## The Add task button
 
-## The button under the task list
+With `showTaskList` on, the **Add task** button is rendered at the foot of the pane. A click sends
+a draft one tick long at today. That is the shortest range the drawing gesture produces. When today
+is outside the rendered timeline, the draft starts at the first tick.
 
-With `showTaskList` on, an **Add task** strip sits at the foot of the pane. A click proposes one
-tick at today — the shortest range a drawn one can come out as. When today is outside the rendered
-timeline, it proposes the first tick instead.
+The button is the keyboard path to a draft. It is rendered outside the `treegrid`, so it takes its
+own tab stop after the grid. A chart without the pane has no button. Draw a range or call
+`addTask()` instead.
 
-It is also the only way in from a keyboard. The strip is rendered outside the treegrid, so it is an
-ordinary tab stop after the grid rather than a second one inside it. A chart with no pane has no
-button: draw the range, or call `addTask()`.
-
-Its label is the hardcoded English string `Add task`, like the rest of the chart's chrome — see
-[Locale and date formats](i18n).
+The label is the hardcoded English string `Add task`, like every other string the chart renders.
+See [Locale and date formats](i18n).
 
 ## `addTask()` on the chart ref
 
-The same proposal from your own toolbar, or your own keyboard shortcut:
+Call `addTask()` from your own toolbar or keyboard shortcut for the same draft.
 
 ```tsx
 ganttRef.current?.addTask();
 ```
 
-It is inert while creation is off, so a button wired to it needs no guard of its own. The rest of
-the handle is in [Imperative API](imperative-api).
+The call does nothing while creation is off, so a button wired to it needs no guard.
+[Imperative API](imperative-api) describes the rest of the handle.
 
-## Drawing a range below the last row
+## Drawing a range
 
-Press in the blank space below the last row, drag sideways, and release. A dashed ghost follows
-the pointer, and on release the chart hands your app the range that was drawn.
+Press in the blank space below the last row, drag sideways and release. A dashed ghost follows the
+pointer, and the release sends the drawn range to `onTaskCreate`.
 
-The press has to land below the last row. A press on a row draws nothing at all — not on its bar,
-not on an arrow or a handle, and not on the empty part of the row either. Rows belong to tasks. A
-mouse starts drawing immediately; touch and pen need the same 400 ms long press as a bar drag;
-see [Editing tasks](editing).
+The press has to land below the last row. A press on a row draws nothing, whether it lands on the
+bar, on an arrow, on a handle or on the empty part of the row. A mouse starts drawing at once.
+Touch and pen need the same 400 ms long press as a bar drag. [Editing tasks](editing) describes
+that long press.
 
-The whole blank region is one target, not a stack of empty rows. Wherever in it the press lands,
-the ghost sits in the band directly under the last row, because that is where the new task will
-appear once your app adds it.
+The blank space is one target rather than a stack of empty rows. The ghost is drawn directly under
+the last row wherever the press lands, because your app adds the new task there.
 
-Only horizontal distance counts, so a diagonal drag changes nothing. A drag shorter than 4px
-proposes nothing.
+Vertical movement is ignored, so a diagonal drag draws the same range as a horizontal one. A drag
+shorter than 4px sends nothing. `Escape` cancels a draw in progress and has no effect on a bar or
+progress drag.
 
-`Escape` cancels a draw in progress. It has no effect on a bar or progress drag.
+## Tick snapping
 
-## Drawn ranges snap to ticks, not to drag steps
-
-This is the one place where the snapping unit differs from the drag step
-[Editing tasks](editing) describes. A drawn range
-expands outwards to whole ticks of the current scale.
+A drawn range expands outwards to whole ticks of the current scale. A bar moves and resizes in the
+drag step [Editing tasks](editing) describes.
 
 | Scale | A drawn range snaps to whole |
 |---|---|
@@ -67,22 +61,21 @@ expands outwards to whole ticks of the current scale.
 | `quarter` | months |
 | `year` | quarters |
 
-So on the month scale a bar drags in 1-day steps but draws in whole weeks, and on the year scale it
-drags in 28-day steps but draws as a whole quarter. A range that stays inside a single tick still
-comes out one tick long.
+On the month scale a bar drags in 1-day steps and draws in whole weeks. On the year scale it drags
+in 28-day steps and draws in whole quarters. A range that stays inside a single tick comes out one
+tick long.
 
-Drag bounds are not applied; see [Editing tasks](editing). A drawn range can start before `minDate`.
+Drag bounds are not applied to a drawn range, so it can start before `minDate`. See
+[Editing tasks](editing).
 
-## The draft, and what the chart does with it
+## The draft
 
-Nothing. The chart creates no task, writes no array, and fires no `onTasksChange`. It calls
-`onTaskCreate` with a draft and stops there. The new row appears only when your app builds a task
-and passes a new `tasks` array back in.
+The chart does not create the task and does not fire `onTasksChange`. It calls `onTaskCreate` with
+a draft and does nothing else. The row appears when your app adds a task to the `tasks` array.
 
-`GanttTaskDraft` has two fields: `startDate` and `endDate`, UTC ISO strings snapped to the scale.
-It names no row. A range can only be drawn where no row is, and the button and `addTask()` point at
-no row either — where the new task goes in the tree is your app's decision, not something an entry
-point can report.
+`GanttTaskDraft` has two fields, `startDate` and `endDate`, UTC ISO strings snapped to the current
+scale. The draft names no row. A range is only drawn where there is no row, and the button and
+`addTask()` do not start on a row.
 
 ```tsx title="src/PlanBoard.tsx"
 import { useState } from 'react';
@@ -125,31 +118,28 @@ export function PlanBoard({ initial }: { initial: Task[] }) {
 
 ## Turning task creation off
 
-`allowTaskCreate` is chart-wide, and it is one switch for all three entry points: off, the strip is
-not rendered, `addTask()` does nothing, and there is no drawing gesture. It resolves through two
-rungs only: its own value, then `!readOnly`. `Task` has no `allowTaskCreate` field, and putting one
-there is ignored.
+`allowTaskCreate` is chart-wide and controls all three entry points. With `allowTaskCreate` set to
+`false`, the button is not rendered, `addTask()` does nothing and the drawing gesture is off. It
+resolves from its own value, then from `!readOnly`. `Task` has no `allowTaskCreate` field, and a
+value set there is ignored.
 
 > [!IMPORTANT]
-> Creation also needs `onTaskCreate`. Without that callback there is no strip, no crosshair cursor,
-> no ghost, and no gesture at all, whatever `allowTaskCreate` says. `allowTaskCreate` on its own
-> does nothing.
+> Creation also needs `onTaskCreate`. Without that callback `allowTaskCreate` has no effect. The
+> button, the crosshair cursor and the ghost are not rendered, and the drawing gesture is off.
 
-All three are also unreachable in a chart with no tasks, unless the window is pinned with
-`visibleStart` and `visibleEnd`: with neither tasks nor a pinned window there is no timeline, and
-so no ticks to snap a range to.
+With no tasks and no pinned window, none of the three produces a draft. The chart renders no
+timeline, so there are no ticks to snap a range to. Pin the window with `visibleStart` and
+`visibleEnd` to render one.
 
-## Limits
+## Limitations
 
-- **The chart never creates a task.** The strip, `addTask()` and a drawn range all propose a draft;
-  your app decides. The chart never deletes one with the pointer either — deletion exists only in
-  the keyboard layer.
-- **The draft names no row.** `GanttTaskDraft` carries `startDate` and `endDate` and nothing else,
-  so where the new task lands in the tree stays your app's decision.
-- **Without `onTaskCreate` nothing is created.** All three entry points hang off that callback, so
-  `allowTaskCreate` on its own changes nothing.
-- **The drawing gesture has no keyboard equivalent.** The **Add task** strip is the keyboard way to
-  the same draft, and no key is bound to it.
+- Creation stops at the draft. The button, `addTask()` and a drawn range each call `onTaskCreate`,
+  and your app adds the row.
+- Task deletion has no pointer path. A task is deleted from the keyboard layer.
+- `GanttTaskDraft` carries `startDate` and `endDate` and nothing else, so your app decides where
+  the new task goes in the tree.
+- `allowTaskCreate` on its own changes nothing. All three entry points need `onTaskCreate`.
+- The drawing gesture has no keyboard equivalent. The **Add task** button produces the same draft,
+  and no key is bound to it.
 
-Next: [Reordering rows](reordering), which covers dragging a row to a new position or a new parent
-and what that rewrites.
+Next: [Reordering rows](reordering).

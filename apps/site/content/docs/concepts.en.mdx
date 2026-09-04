@@ -1,42 +1,41 @@
 ---
 title: "Concepts and vocabulary"
-description: "Every term the rest of the docs use, defined once"
+description: "The terms the rest of the docs use, each defined once"
 ---
 
-You read `row` on one page and `task` on the next, and you assume they are the same thing. They
-are not, and the difference bites the first time two tasks share a row. This page fixes one word per
-thing. Every other page uses these words and only these words.
+This page defines the terms the rest of the docs use, one word per thing. A row and a task are
+different things, and the difference matters when two tasks share a row.
 
-## The chart and the host app
+## Chart and host app
 
-**The chart** is the `<ReactGanttChart>` component exported by `@jaeungkim/gantt-chart`. It draws
-what the `tasks` prop gives it and reports every edit back.
+The chart is the `<ReactGanttChart>` component that `@jaeungkim/gantt-chart` exports. It renders
+the `tasks` prop and calls `onTasksChange` with every edit.
 
-**The host app** is your application around it. It owns the task array, decides what to persist,
-and applies whatever the chart hands to `onTasksChange` — see [Events](events).
+The host app is the application around the chart. It holds the task array, decides what to persist
+and applies the array the chart passes to `onTasksChange`. See [Events](events).
 
-## What is on screen
+## Parts of the chart
 
 <ChartSketch preset="anatomy" />
 
-| Word | What it names |
+| Term | Meaning |
 |---|---|
-| task | One item of data — one entry in the `tasks` array. |
-| bar | The horizontal block drawn for one task. Dragging it is [Editing tasks](editing). |
-| row | One line of the grid. It carries one task, or several that share a lane. |
-| task list | The left pane, the list of task names beside the timeline. See [Task list and hierarchy](task-list). |
+| task | One entry in the `tasks` array. |
+| bar | The horizontal block drawn for one task. Dragging it is described in [Editing tasks](editing). |
+| row | One line of the grid. It holds one task, or several that share a lane. |
+| task list | The left pane, listing task names beside the timeline. See [Task list and hierarchy](task-list). |
 | timeline | The time axis and everything drawn against it. See [The timeline](timeline). |
-| scale | Which unit the timeline is drawn in: `day`, `week`, `month`, `quarter` or `year`. See [The timeline](timeline). |
-| tick | One cell of the lower header row. How much time one tick covers depends on the scale. |
-| drag step | How far one snap of a bar drag moves it. The scale decides it too — one hour at `day`, 28 days at `year`. See [Editing tasks](editing). |
-| drag readout | The dates a live drag writes into the tick cells its moving edges land in, over a tinted footprint of the bar. A move writes both ends, a resize only the end it moves. See [Editing tasks](editing). |
-| summary row | A task that has children under `parentId`, with `hierarchy` on. Its dates come from the children. See [Task list and hierarchy](task-list). |
+| scale | The unit the timeline is drawn in, one of `day`, `week`, `month`, `quarter` or `year`. See [The timeline](timeline). |
+| tick | One cell of the lower header row. The time one tick covers depends on the scale. |
+| drag step | The distance one snap of a bar drag moves it. The scale sets it, one hour at `day` and 28 days at `year`. See [Editing tasks](editing). |
+| drag readout | The dates a live drag writes into the tick cells where its moving edges land, over a tint the width of the bar. A move writes both ends. A resize writes only the end it moves. See [Editing tasks](editing). |
+| summary row | A task with children under `parentId`, when `hierarchy` is on. Its dates come from the children. See [Task list and hierarchy](task-list). |
 | roll-up | The dates and progress a summary row takes from its children. See [Task list and hierarchy](task-list). |
-| lane | The `lane` field, which puts several tasks side by side on one row. See [Lanes](lanes). |
-| detail panel | The docked pane beside the chart that shows one task. See [Detail panel](detail-panel). |
-| treegrid | The `role="treegrid"` element holding the task list and the timeline as one grid, with one tab stop inside it. See [Keyboard and screen readers](accessibility). |
+| lane | The `lane` field, which places several tasks side by side on one row. See [Lanes](lanes). |
+| detail panel | The pane docked beside the chart that shows one task. See [Detail panel](detail-panel). |
+| treegrid | The `role="treegrid"` element that holds the task list and the timeline as one grid, with one tab stop inside it. See [Keyboard and screen readers](accessibility). |
 
-Every word above names something in this snippet:
+The snippet below uses every term above.
 
 ```tsx title="concepts-demo.tsx"
 import { useState } from 'react';
@@ -97,24 +96,25 @@ export function Demo() {
 }
 ```
 
-Four tasks, three rows: `design` and `build` share the lane `Ana` and do not overlap, so they are
-packed onto one row. [Lanes](lanes) owns that packing.
+The snippet renders four tasks on three rows. `design` and `build` share the lane `Ana` without
+overlapping, so they are packed onto one row. [Lanes](lanes) describes the packing.
 
-## The words for your data
+## Data terms
 
-**Task.** The unit you pass in. Six fields are required — `id`, `name`, `startDate`, `endDate`,
-`parentId`, `sequence` — and the rest are optional. The field table lives in
-[Task data](task-data), the type in [Task and task types](ref/task).
+A task is the unit you pass in. The required fields are `id`, `name`, `startDate`, `endDate`,
+`parentId` and `sequence`, and every other field is optional. The field table is in
+[Task data](task-data) and the type in [Task and task types](ref/task).
 
-**Draft.** The new task the chart proposes to `onTaskCreate`. It carries two dates and nothing else;
-your app produces the `id`, `parentId` and `sequence`. See [Creating tasks](task-creation).
+A draft is the new task the chart passes to `onTaskCreate`. It carries two dates and no other
+field. The host app supplies the `id`, `parentId` and `sequence`. See
+[Creating tasks](task-creation).
 
-**Dependency.** A link between two tasks, in one of four types: `FS`, `SS`, `FF`, `SF`. The first
-letter is the predecessor's end, the second is the successor's end. See
-[Dependencies](dependencies).
+A dependency is a link between two tasks, of type `FS`, `SS`, `FF` or `SF`. The first letter is the
+predecessor's end and the second is the successor's end. See [Dependencies](dependencies).
 
-**Predecessor and successor.** The predecessor is the earlier task in a link, the successor the
-later one. The entry lives on the **successor**, and its `targetId` names the predecessor:
+The predecessor is the earlier task in a link and the successor is the later one. The entry is
+stored on the successor, and its `targetId` names the predecessor. The entry below is on `build`,
+the successor.
 
 ```ts
 import type { TaskDependency } from '@jaeungkim/gantt-chart';
@@ -123,95 +123,93 @@ import type { TaskDependency } from '@jaeungkim/gantt-chart';
 const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
 ```
 
-## The working calendar
+## Working calendar
 
-**A working day** is a weekday `workingWeekdays` lists — Monday to Friday unless you say otherwise —
-that no `holidays` entry covers. **A holiday** is one of those entries: a `YYYY-MM-DD` string, or an
-object that also carries a label and a colour.
+A working day is a weekday listed in `workingWeekdays` that no `holidays` entry covers.
+`workingWeekdays` defaults to Monday to Friday. A holiday is one of those entries, either a
+`YYYY-MM-DD` string or an object that also carries a label and a colour.
 
-**The working calendar** is the rule that reads both. With `workingCalendar` off, a bar stays wherever
-the pointer let go. With it on, a drop that lands on a non-working day moves forward onto the next
-working day. Bars still span those days on screen, and the drag step is still counted in calendar
-days. [Working calendar](working-calendar) says exactly what it does and does not change; the shading
-and the holiday names are [The timeline](timeline).
+The working calendar is the rule that reads both. With `workingCalendar` off, a bar stays where the
+pointer released it. With it on, a drop on a non-working day moves forward to the next working day.
+In both modes, bars span those days on screen and the drag step counts calendar days.
+[Working calendar](working-calendar) covers what the setting changes and what it leaves alone. The
+shading and the holiday names are described in [The timeline](timeline).
 
-## Sequence orders, parentId nests
+## `sequence` and `parentId`
 
-They are two independent fields and nothing reconciles them.
+`sequence` and `parentId` are independent fields. The chart does not reconcile them.
 
-`sequence` decides **row order**, always, hierarchy or not. It is a dotted string compared segment
-by segment as numbers — [Task data](task-data) owns the comparison rules.
+`sequence` sets the row order, with or without hierarchy. It is a dotted string compared segment by
+segment as numbers. [Task data](task-data) describes the comparison.
 
-`parentId` decides **nesting**, and only when the `hierarchy` prop is on. With it off, indentation is
-read from the number of dots in `sequence` instead. `parentId` is not inert, though: deleting a task
-still takes its whole subtree with it, hierarchy on or off — see
+`parentId` sets the nesting, and only when `hierarchy` is on. With `hierarchy` off, indentation
+comes from the number of dots in `sequence`. Deleting a task removes its whole subtree with
+`hierarchy` on or off, so `parentId` is read in both modes. See
 [Keyboard and screen readers](accessibility).
 
-Three tasks, where `Audit` is a child of `Phase 1` but carries a top-level `sequence`:
+In the table below, `Audit` is a child of `Phase 1` but carries a top-level `sequence`.
 
-| task | `sequence` | `parentId` | `hierarchy` off | `hierarchy` on |
+| Task | `sequence` | `parentId` | Depth, `hierarchy` off | Depth, `hierarchy` on |
 |---|---|---|---|---|
-| Phase 1 | `'1'` | `null` | Phase 1 | Phase 1 |
-| Design | `'1.1'` | `'phase-1'` | ↳ Design | ↳ Design |
-| Audit | `'3'` | `'phase-1'` | Audit | ↳ Audit |
+| Phase 1 | `'1'` | `null` | 0 | 0 |
+| Design | `'1.1'` | `'phase-1'` | 1 | 1 |
+| Audit | `'3'` | `'phase-1'` | 0 | 1 |
 
-Row order is the same in both columns, because both read `sequence`. Only the indentation moves.
+Both modes read `sequence` for row order, so the rows come out in the order shown and only the
+depth differs.
 
-The two agreeing is a convention, not a rule. A child whose `sequence` sorts above its parent
-renders above its parent, indented, with no warning. The host app owns that string: on a task
-drawn on the chart, on one it edits, and on every task it hands in.
+Agreement between the two fields is a convention. The chart does not enforce it. A child whose
+`sequence` sorts above its parent renders above its parent, indented, with no warning. The host app
+is responsible for that string on every task it passes in, including tasks drawn on the chart and
+tasks it edits.
 
-One gesture is the exception. `allowReorder` lets a row be dragged to a new slot or a new parent,
-and that renumbers `sequence` on every task whose tree path changed — because `sequence` is a path,
-and a path cannot be split. It is off unless you turn it on. See [Reordering rows](reordering).
+Row reordering is the exception. With `allowReorder` on, a row can be dragged to a new slot or a
+new parent. A move renumbers `sequence` from the resulting row order, so every task whose position
+changed gets a new value. `allowReorder` is off by default. See [Reordering rows](reordering).
 
-## A row is not a task
+## Rows and tasks
 
-`GanttRow.tasks` is an array, and its length is 1 or more:
+`GanttRow.tasks` is an array with one or more entries.
 
 | Row | `tasks.length` | When |
 |---|---|---|
 | ordinary row | 1 | the normal case |
-| lane row | 2 or more | tasks sharing a `lane`, that do not overlap in time |
+| lane row | 2 or more | tasks that share a `lane` and do not overlap in time |
 
-So "the third row" and "the third task" are different statements as soon as `lane` is in play. Code
-reading `row.tasks[0]` is reading the first task on that row, not the row itself. The row model, its
-ids and its ARIA numbering are owned by [Lanes](lanes) and [GanttRow](ref/rows).
+With `lane` in use, the third row and the third task are different things. Code that reads
+`row.tasks[0]` reads the first task on that row, not the row itself. The row model, its ids and its
+ARIA numbering are described in [Lanes](lanes) and [GanttRow](ref/rows).
 
-## Which words need a prop turned on
+## Terms that need a prop
 
-Half of the vocabulary above describes nothing until you switch something on.
+Some of the terms above describe nothing until a prop is set.
 
-| Concept | Needs | Default |
+| Term | Needs | Default |
 |---|---|---|
 | summary row, roll-up, subtree drag, collapsing a task row | `hierarchy` | `false` |
 | lane row | a `lane` value on two or more tasks | no prop |
 | task list | `showTaskList` | `false` |
-| detail panel | `showDetail`, or `renderDetail` alone | off |
+| detail panel | `showDetail`, or `renderDetail` on its own | off |
 | a drop moving off a non-working day | `workingCalendar` | `false` |
 
 The signature and default of every prop named here are in [GanttProps](ref/props).
 
-## Limits
+## Limitations
 
-The vocabulary is wider than the behaviour behind it. These are the gaps, and the work that stays
-with the host app.
+The terms above cover more than the chart enforces. The following work stays with the host app.
 
-- **No word here implies validation.** There is no schema and no runtime type check on `Task`: no
-  id-uniqueness check, no date parsing check, no progress range check on input. Bad data degrades
-  silently, and a missing `sequence` throws during render. Two tasks sharing an `id` both draw a row,
-  but every lookup keyed by id — the tree, the dependency graph, the roll-up — keeps only the last of
-  them. [Task data](task-data) lists what each malformed field does.
-- **The chart owns no data.** It renders the `tasks` prop and hands every edit to `onTasksChange`.
-  Persistence, optimistic updates and server round-trips are the host app's, and drawing a new task
-  only proposes a draft — the host produces the `id`, `parentId` and `sequence`. See
-  [Creating tasks](task-creation).
-- **There is no resource, cost or effort model.** A task has no assignee, owner or budget field.
-  You can hang your own properties on a task object, but they are untyped and they count toward the
-  `tasks` diff — [Task data](task-data) explains that diff.
-- **One calendar per chart.** There is no per-task working calendar and no per-task time zone. All
-  dates are UTC.
-- **Rows are not a layout API.** You cannot set a row's height, and every row comes from a task —
-  there is no way to force an empty one.
+- `Task` has no schema or runtime type check. The chart does not check id uniqueness, date parsing
+  or progress range. Bad data degrades with no warning, and a missing `sequence` throws during
+  render. Two tasks with the same `id` both draw a row, but every lookup keyed by id (the tree, the
+  dependency graph, the roll-up) keeps only the last one. [Task data](task-data) lists what each
+  malformed field does.
+- Persistence is the host app's work. The chart renders the `tasks` prop, passes every edit to
+  `onTasksChange` and stores nothing itself. Optimistic updates and server round trips are the host
+  app's work too. Drawing a new task produces a draft only. See [Creating tasks](task-creation).
+- Resources, cost and effort have no model. A task has no assignee, owner or budget field. Custom
+  properties on a task object are allowed, but they are untyped and they count toward the `tasks`
+  diff. [Task data](task-data) explains that diff.
+- The working calendar and the time zone apply to the whole chart, not per task. All dates are UTC.
+- Row height is fixed, and every row comes from a task, so an empty row cannot be created.
 
-Next: [Quick start](quick-start) puts these words on screen.
+Next: [Quick start](quick-start).

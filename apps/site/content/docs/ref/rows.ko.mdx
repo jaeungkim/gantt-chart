@@ -1,19 +1,18 @@
 ---
 title: "GanttRow"
-description: "차트가 작업에서 만들어 내는 행 모델"
+description: "차트가 작업에서 만드는 행 모델"
 ---
 
-`GanttRow`는 차트가 렌더링하는 행 모델을 설명해요. 화면에 보이는 순서대로, 행 하나에 항목
-하나예요. 패키지 루트에서 가져와요.
+`GanttRow`는 차트가 렌더링하는 행 모델이에요. 화면에 보이는 순서대로 행 하나마다 `GanttRow`
+하나가 만들어져요. 패키지 루트에서 가져오세요.
 
 ```ts
 import type { GanttRow } from '@jaeungkim/gantt-chart';
 ```
 
-레인이 무엇을 하고 같은 레인의 작업이 어떻게 한 행으로 채워지는지는 [레인](../lanes)을
-참고하세요.
+레인은 서로 겹치지 않는 작업을 한 행에 모아요. [레인](../lanes)을 참고하세요.
 
-## GanttRow
+## 필드
 
 ```ts
 /** One rendered row: one task, or several sharing a `lane` */
@@ -34,24 +33,25 @@ export interface GanttRow {
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
-| `id` | `string` | 행에 놓인 순서대로 작업 id들을 `"+"`로 이은 값이에요. 작업이 하나뿐인 행은 이을 것이 없으니 그 작업의 id가 곧 행 id예요. |
-| `tasks` | `TaskTransformed[]` | 보통 행에는 항목이 하나, 작업이 `lane`을 공유하면 여러 개예요. 비어 있는 경우는 없어요. 모든 행은 최소 한 개의 작업에서 만들어지니까요. |
-| `depth` | `number` | 0부터 시작해요. 행의 첫 작업에서 가져오고, 그 작업의 `depth`와 같아요. |
-| `level` | `number` | `aria-level`이에요. 언제나 `depth + 1`이에요. |
-| `posinset` | `number` | 이 행과 부모가 같은 행들 사이에서의 `aria-posinset`이에요. 행의 부모는 위쪽에서 가장 가까운, `depth`가 한 단계 얕은 행이에요. |
-| `setsize` | `number` | 같은 집합에 대한 `aria-setsize`예요. 보이는 행만 세어요. 접기는 행을 만들기 전에 적용되니까요. |
+| `id` | `string` | 행에 놓인 순서대로 작업 id를 `"+"`로 이은 값이에요. 작업이 하나뿐인 행은 그 작업의 id를 그대로 써요. |
+| `tasks` | `TaskTransformed[]` | 레인이 없는 행에는 하나, 작업이 `lane`을 공유하면 여러 개가 들어가요. 모든 행은 작업 하나 이상으로 만들어져서 비어 있는 경우는 없어요. |
+| `depth` | `number` | 0부터 시작하는 들여쓰기 단계예요. 행의 첫 작업에서 가져오니 그 작업의 `depth`와 같아요. |
+| `level` | `number` | `aria-level` 값이에요. 언제나 `depth + 1`로 계산해요. |
+| `posinset` | `number` | 부모가 같은 행들 중에서 이 행이 몇 번째인지 나타내는 `aria-posinset`이에요. 부모는 `depth`가 한 단계 얕으면서 위쪽에서 가장 가까운 행으로 정해져요. |
+| `setsize` | `number` | `posinset`과 같은 집합의 `aria-setsize`예요. 접기는 행을 만들기 전에 적용되니 보이는 행만 세어요. |
 
-## 내보내지 않는 것들
+## 내부 헬퍼
 
-`src/rows/utils/rows.ts`에는 `buildGanttRows`, `packLanes`, `isRowExpandable`도 들어 있어요. 이
-중 어느 것도 패키지에서 다시 내보내지 않고, 헤드리스 코어에 속하지도 않아요. 레인 채우기는
-렌더링 쪽에서 돌아가요.
+`src/rows/utils/rows.ts`에는 `buildGanttRows`, `packLanes`, `isRowExpandable`도 있어요. 패키지는
+이 셋을 다시 내보내지 않아요. 헤드리스 코어에도 들어 있지 않고요. 레인 채우기는 렌더링 쪽에서
+실행돼요.
 
 ## 참고
 
-- `GanttRow`를 넘겨주는 prop이나 콜백은 없어요. 이 타입을 내보내는 건 호스트 앱이 차트가 다루는
-  형태를 이름으로 부를 수 있게 하려는 거예요.
-- 보통 행의 id는 그 작업의 id예요. `collapsedIds` 항목이 행을 가리킬 수 있는 이유죠. 이 prop들은
+- `GanttRow`를 넘겨주는 prop이나 콜백은 없어요. 호스트 앱에서 차트가 렌더링하는 행 형태를
+  타입으로 참조할 수 있도록 내보내기만 해요.
+- 레인이 없는 행의 id는 그 작업의 id라서 `collapsedIds` 항목이 행 하나를 가리켜요. 이 prop들은
   [작업 목록과 계층](../task-list)에서 다뤄요.
 
-`TaskTransformed`는 [Task와 작업 타입](task), prop 목록은 [GanttProps](props)에 있어요.
+`TaskTransformed`는 [Task와 작업 타입](task)에 있어요. prop 목록은 [GanttProps](props)를
+참고하세요.

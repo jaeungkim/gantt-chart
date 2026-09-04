@@ -3,10 +3,10 @@ title: "Scale and theme types"
 description: "`GanttScaleKey`, `GanttScaleFormat`, `GanttFormatOverrides`, `GanttTheme`, `Holiday`"
 ---
 
-Five types describe how the timeline is measured and how the chart is painted: `GanttScaleKey`
-names one of the five scales, `GanttScaleFormat` and `GanttFormatOverrides` replace the labels
-of a scale, `GanttTheme` picks the palette, and `Holiday` marks a day off. All five are exported
-from the package root.
+Five types describe how the timeline is measured and how the chart is painted. `GanttScaleKey`
+names one of the five scales. `GanttScaleFormat` and `GanttFormatOverrides` replace the labels of
+a scale, `GanttTheme` selects the palette, and `Holiday` marks a day off beyond the weekend. All
+five are exported from the package root.
 
 ```tsx
 import type {
@@ -24,22 +24,23 @@ import type {
 export type GanttScaleKey = 'day' | 'week' | 'month' | 'quarter' | 'year';
 ```
 
-The declaration order is the ladder, finest first. Ctrl/Cmd + ArrowUp steps one rung finer and
-Ctrl/Cmd + ArrowDown one rung coarser, clamped at both ends. Ctrl/Cmd + wheel walks the same ladder
-when `zoomOnWheel` is on. `defaultScale` takes one of these values and defaults to `'month'`.
+The declaration order is the scale order, finest first. Ctrl/Cmd + ArrowUp moves one scale finer
+and Ctrl/Cmd + ArrowDown one scale coarser, clamped at both ends. Ctrl/Cmd + wheel moves through the
+same order when `zoomOnWheel` is on. `defaultScale` takes one of these values and defaults to
+`'month'`.
 
-The chart renders no scale picker of its own, and remembers no scale across a remount. A host that
-wants a picker renders it, drives it through `setScale` on the ref, and follows every change —
-wheel and keyboard included — with `onScaleChange`. See [GanttHandle](handle).
+The chart renders no scale picker of its own and does not keep the scale across a remount. Render
+your own picker and drive it through `setScale` on the ref. `onScaleChange` reports every change,
+including the wheel and keyboard ones. See [GanttHandle](handle).
 
-The key appears in several other shapes: `formats` is keyed by it, and
-`GanttDetailRenderProps.scale` carries it. See [Detail renderer](renderers).
+`formats` is keyed by this type, and `GanttDetailRenderProps.scale` carries it. See
+[Detail renderer](renderers).
 
 ### Per-scale configuration
 
-Each key maps to one row of a fixed table. The row decides what the header cells say, how much time
-one tick covers, and how many pixels one drag step is worth. The five rows' values are laid out in
-[The timeline](../timeline); this page describes the shape of one row:
+Each key maps to one row of a fixed table. The row sets the header cell labels, the time one tick
+covers, and the pixels one drag step is worth. [The timeline](../timeline) lists the five rows'
+values. This page describes the shape of one row:
 
 ```ts
 export interface GanttScaleConfig {
@@ -70,16 +71,16 @@ export type GanttLabelUnit =
   | 'year';
 ```
 
-`GanttScaleConfig`, `GanttLabelUnit` and the `GANTT_SCALE_CONFIG` object itself are **not exported
-from the package** — they are module-internal. The table cannot be imported, extended or
-replaced, and no prop adds a sixth scale. Tick widths are derived from
-`basePxPerDragStep / dragStepAmount`; see [The timeline](../timeline) for the arithmetic and
-[Editing tasks](../editing) for the drag grid the same two fields define.
+`GanttScaleConfig`, `GanttLabelUnit` and the `GANTT_SCALE_CONFIG` object itself are module-internal
+and not exported from the package. The table cannot be imported, extended or replaced, and no prop
+adds a sixth scale. Tick widths are derived from `basePxPerDragStep / dragStepAmount`.
+[The timeline](../timeline) has the arithmetic, and [Editing tasks](../editing) has the drag grid
+the same two fields define.
 
 ### Built-in labels
 
-`formatTickLabel` and `formatHeaderLabel` are the last layer of the label chain — what renders when
-no `formats` override and no `locale` applies.
+`formatTickLabel` and `formatHeaderLabel` are the last layer of the label chain. They produce the
+labels when neither a `formats` override nor a `locale` applies.
 
 | scale | `formatTickLabel` | `formatHeaderLabel` | tooltip format string | readout format string |
 |---|---|---|---|---|
@@ -89,17 +90,19 @@ no `formats` override and no `locale` applies.
 | `quarter` | `d.format('MMM')` | `` `Q${quarterOfYear(d)} ${d.format('YYYY')}` `` | `'MMM YYYY'` | `'MMM YYYY'` |
 | `year` | `d.format('MMM')` | `d.format('YYYY')` | `'MMM YYYY'` | `'MMM YYYY'` |
 
-The tooltip and readout strings live in separate `DATE_FORMATS` and `RANGE_FORMATS` constants,
-neither exported. `[UTC]` in the hour and day strings is a dayjs escaped literal, not a resolved
+With `firstDayOfWeek` set, the `week` scale takes its header from the `day` row.
+
+The tooltip and readout strings are in separate `DATE_FORMATS` and `RANGE_FORMATS` constants,
+neither exported. `[UTC]` in the two `day` strings is a dayjs escaped literal, not a resolved
 zone name.
 
 The tooltip string is the chart's general-purpose date label. The hover tooltip, the bar's ARIA
-label, the drag and keyboard announcements and the built-in detail panel's Start and End fields
-all print it — the panel only where those two fields are not editable, an editable one being a
+label, the drag and keyboard announcements and the built-in detail panel's Start and End fields all
+print it. The panel prints it only where those two fields are not editable. An editable field is a
 native `<input type="date">` showing `YYYY-MM-DD`. See [Detail panel](../detail-panel).
 
-The readout string is the compact per-scale variant used by the header drag readout. What the
-readout writes, where it writes it, and why the shorter strings drop the year are in
+The readout string is the compact per-scale variant used by the header drag readout. Where the
+chart writes the readout and why the shorter strings drop the year are in
 [Locale and date formats](../i18n).
 
 ## GanttScaleFormat
@@ -130,11 +133,11 @@ export interface GanttScaleFormat {
 | `header` | `(date: Dayjs) => string` | no | one label per group, top header row |
 | `tooltip` | `(date: Dayjs) => string` | no | every date off the header rows: the hover tooltip, the bar's ARIA label, the drag and keyboard announcements, and the built-in detail panel's dates where they are not editable |
 
-The three are resolved independently, so supplying `header` alone leaves `tick` and `tooltip` on
-whatever the `locale` or the built-in labels produce.
+The three slots are resolved independently. Supplying `header` alone leaves `tick` and `tooltip` on
+the `locale` or built-in labels.
 
 A `tooltip` override also formats each end of the header drag readout. Without one, the readout
-keeps its own compact per-scale strings — the readout column under Built-in labels.
+keeps the compact per-scale strings in the readout column under Built-in labels.
 
 ## GanttFormatOverrides
 
@@ -145,8 +148,7 @@ export type GanttFormatOverrides = Partial<
 >;
 ```
 
-This is the type of the `formats` prop. A scale left out of the record keeps its resolved labels
-whole.
+This is the type of the `formats` prop. A scale left out of the record keeps its resolved labels.
 
 ```tsx title="QuarterHeader.tsx"
 import { ReactGanttChart } from '@jaeungkim/gantt-chart';
@@ -177,8 +179,9 @@ export default function QuarterHeader() {
 }
 ```
 
-`formats` is declared at module scope here on purpose. Which layer wins for each of the three
-labels, and why the object's identity matters, are in [Locale and date formats](../i18n).
+`formats` is declared at module scope so the object keeps the same identity across renders.
+[Locale and date formats](../i18n) covers which layer wins for each of the three labels and why
+identity matters.
 
 ## GanttTheme
 
@@ -187,12 +190,12 @@ labels, and why the object's identity matters, are in [Locale and date formats](
 export type GanttTheme = 'light' | 'dark' | 'system';
 ```
 
-This is the type of the `theme` prop, which has no default. Whatever it resolves to is written to
-`data-theme` on the container, and that attribute is what the stylesheet reads. How each value
-resolves, and what the palette behind it is, are in [Theming](../theming).
+This is the type of the `theme` prop, which has no default. The resolved value is written to
+`data-theme` on the container, and the stylesheet reads that attribute. How each value resolves and
+what the palette holds are in [Theming](../theming).
 
-There is no theme object and no token prop. `GanttTheme` is a three-value union; every color is a
-CSS custom property.
+`GanttTheme` is a three-value union, and every color is a CSS custom property. There is no theme
+object or token prop.
 
 ## Holiday
 
@@ -217,7 +220,7 @@ export interface Holiday {
 | `label` | `string` | no | text written in the tick row over the holiday's band |
 | `color` | `string` | no | any CSS color, tinted onto the grid at the weekend shade's weight |
 
-What a holiday draws, when the label appears and how the entries are supplied are in
+What the chart draws for a holiday, when the label appears and how the entries are supplied are in
 [The timeline](../timeline).
 
 ## Notes
@@ -226,7 +229,7 @@ How the three slots resolve, what each formatter receives, and the identity rule
 [Locale and date formats](../i18n).
 
 - `GanttScaleFormat` functions must return a `string`. There is no `ReactNode` escape hatch, and no
-  prop replaces a header cell. A header cell is text, and CSS on `.gantt-top-group` and
-  `.gantt-bottom-cell` is the only way to change how one looks.
-- The chart's UTC `dayjs` instance is not exported from the package. Import `dayjs` and its `utc`
-  plugin directly if an override needs the same instance.
+  prop replaces a header cell. A header cell is text. Style one with CSS on `.gantt-top-group` and
+  `.gantt-bottom-cell`.
+- The chart's UTC `dayjs` instance is not exported from the package. An override that needs the same
+  instance imports `dayjs` and its `utc` plugin directly.

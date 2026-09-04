@@ -3,9 +3,9 @@ import Link from 'next/link';
 import { GanttDemo } from '@/components/demo/gantt-demo';
 
 export const metadata: Metadata = {
-  title: 'A Gantt chart for React that you can actually edit',
+  title: 'An editable Gantt chart for React',
   description:
-    'Virtualized React Gantt chart with five timeline scales, four dependency types, a working-day calendar, and keyboard and screen-reader support.',
+    'A virtualized React Gantt chart with five timeline scales, four dependency types, a working calendar, and keyboard and screen reader support.',
 };
 
 // The card order. Each href is also the key its copy is filed under, so a card can never
@@ -38,13 +38,13 @@ interface Copy {
 // The landing page is a translation pair like every docs page: en and ko move together.
 const COPY: Record<'en' | 'ko', Copy> = {
   en: {
-    heroTitle: 'A Gantt chart for React that you can actually edit',
+    heroTitle: 'An editable Gantt chart for React',
     heroBody:
-      'Virtualized rows, four dependency types and a working-day calendar — with a date core that runs without a DOM.',
+      'Virtualized rows, four dependency types and a working calendar. The date core runs without a DOM.',
     getStarted: 'Get started',
     tryTitle: 'Try it',
     tryBody:
-      'The real component, not a screenshot. Drag a bar, pull an edge, draw a link.',
+      'The chart below is the published component. Drag a bar, pull an edge, or draw a link between two rows.',
     playground: 'Open the playground',
     docsTitle: 'Read the docs',
     docsBody: 'Every prop, guide and reference page, in English and Korean.',
@@ -53,38 +53,38 @@ const COPY: Record<'en' | 'ko', Copy> = {
     features: {
       '/docs/editing': {
         title: 'Editable by default',
-        body: 'Drag to move, pull an edge to resize, drag a handle to set progress, draw an arrow to link two rows. Every gesture hands you the new task array.',
+        body: 'Drag to move, pull an edge to resize, drag the handle to set progress, draw an arrow to link two rows. Every gesture calls onTasksChange with the new array.',
       },
       '/docs/working-calendar': {
-        title: 'Working-day dates',
-        body: 'Set your own work week, and name a holiday and give it a colour. With the working calendar on, a drop lands on the next working day instead of a Saturday.',
+        title: 'Working calendar',
+        body: 'Set the working weekdays, and give each holiday a name and a colour. Turn on workingCalendar and a drop on a non-working day moves forward to the next working day.',
       },
       '/docs/headless-core': {
         title: 'Headless core',
-        body: 'createWorkingCalendar and the task-tree helpers import no React and touch no DOM, so a server or a worker can run them.',
+        body: 'createWorkingCalendar and the task tree helpers import no React. They use no DOM, so a server or a worker can run them.',
       },
       '/docs/introduction': {
         title: 'Virtualized',
-        body: 'Rows and the timeline are both windowed, so the row count stops mattering long before your data does.',
+        body: 'Rows and timeline ticks are both windowed, so the chart renders what is on screen plus a small overscan.',
       },
       '/docs/accessibility': {
         title: 'Keyboard and screen readers',
-        body: 'An ARIA treegrid with roving focus, arrow-key navigation and announced edits. The gaps that remain are written down, not hidden.',
+        body: 'An ARIA treegrid with a roving tabindex, arrow key navigation and keyboard edits announced in a status region. The accessibility page lists the gaps.',
       },
       '/docs/theming': {
-        title: 'Yours to style',
-        body: "Every colour reads from a CSS custom property, and with no theme prop set the chart follows the host page's color-scheme, so it inherits your theme instead of fighting your tokens.",
+        title: 'CSS custom properties',
+        body: "Every colour reads from a CSS custom property. With no theme prop set, the chart follows the host page's color-scheme.",
       },
     },
   },
   ko: {
-    heroTitle: '진짜로 편집할 수 있는 React 간트 차트',
+    heroTitle: '편집 가능한 React 간트 차트',
     heroBody:
-      '가상화된 행, 네 가지 의존성 타입, 근무일 달력 — 날짜 코어는 DOM 없이도 돌아가요.',
+      '가상화된 행, 네 가지 의존성 타입, 근무일 달력을 제공해요. 날짜 코어는 DOM 없이 동작해요.',
     getStarted: '시작하기',
     tryTitle: '직접 해보기',
     tryBody:
-      '스크린샷이 아니라 실제 컴포넌트예요. 막대를 끌고, 가장자리를 당기고, 링크를 그어 보세요.',
+      '아래 차트는 배포된 실제 컴포넌트예요. 막대를 끌고 가장자리를 당기고 두 행 사이에 링크를 그어 보세요.',
     playground: '플레이그라운드 열기',
     docsTitle: '문서 읽기',
     docsBody: '모든 prop과 가이드, 레퍼런스 페이지를 영어와 한국어로 제공해요.',
@@ -92,28 +92,28 @@ const COPY: Record<'en' | 'ko', Copy> = {
     props: 'GanttProps',
     features: {
       '/docs/editing': {
-        title: '기본부터 편집 가능',
-        body: '막대를 끌어 옮기고, 가장자리를 당겨 길이를 바꾸고, 핸들을 끌어 진행률을 정하고, 화살표를 그어 두 행을 이어요. 모든 제스처가 새 task 배열을 넘겨줘요.',
+        title: '설정 없이 편집 가능',
+        body: '막대를 끌어 옮기고 가장자리를 당겨 크기를 조절해요. 핸들을 끌면 진행률이 정해지고 화살표를 그으면 두 행이 연결돼요. 모든 제스처가 바뀐 작업 배열로 onTasksChange를 호출해요.',
       },
       '/docs/working-calendar': {
-        title: '근무일 기준 날짜',
-        body: '근무 요일을 직접 정하고, 휴일에 이름과 색을 줄 수 있어요. 근무일 달력을 켜면 토요일 대신 다음 근무일에 놓여요.',
+        title: '근무일 달력',
+        body: '근무 요일을 정하고 휴일마다 이름과 색을 지정하세요. workingCalendar를 켜면 비근무일에 놓은 막대가 다음 근무일에 놓여요.',
       },
       '/docs/headless-core': {
         title: '헤드리스 코어',
-        body: 'createWorkingCalendar와 작업 트리 헬퍼는 React를 가져오지 않고 DOM도 건드리지 않아서, 서버나 워커에서도 돌아가요.',
+        body: 'createWorkingCalendar와 작업 트리 헬퍼는 React를 가져오지 않아요. DOM도 쓰지 않아서 서버나 워커에서도 실행할 수 있어요.',
       },
       '/docs/introduction': {
         title: '가상화',
-        body: '행과 타임라인이 모두 보이는 만큼만 렌더링돼서, 데이터가 커지기 한참 전부터 행 개수는 문제가 되지 않아요.',
+        body: '행과 타임라인 눈금을 모두 가상화해요. 화면에 보이는 범위와 오버스캔만큼만 렌더링해요.',
       },
       '/docs/accessibility': {
         title: '키보드와 스크린 리더',
-        body: '로빙 포커스와 화살표 키 이동, 편집 알림을 갖춘 ARIA treegrid예요. 남아 있는 빈틈은 숨기지 않고 문서에 적어 뒀어요.',
+        body: '로빙 tabindex와 방향키 이동을 지원하는 ARIA treegrid예요. 키보드로 만든 편집은 role="status" 요소로 알려요. 남은 한계는 접근성 문서에 정리해 뒀어요.',
       },
       '/docs/theming': {
-        title: '스타일은 마음대로',
-        body: '모든 색을 CSS 커스텀 속성에서 읽고, theme prop을 주지 않으면 호스트 페이지의 color-scheme을 따라가요. 그래서 토큰과 싸우지 않고 테마를 그대로 물려받아요.',
+        title: 'CSS 커스텀 속성',
+        body: '모든 색을 CSS 커스텀 속성에서 읽어요. theme prop을 넘기지 않으면 호스트 페이지의 color-scheme을 그대로 따라요.',
       },
     },
   },

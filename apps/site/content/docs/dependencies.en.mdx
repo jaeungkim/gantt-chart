@@ -1,15 +1,17 @@
 ---
 title: "Dependencies"
-description: "The four link types, and drawing arrows"
+description: "Dependency entries, the four link types, and drawing and deleting arrows"
 ---
 
-Your API hands each task a `blocks` list — the tasks that wait on it. You copy it onto `dependencies`, and every arrow comes out backwards. The field is called `targetId`, which reads like the task at the far end of the arrow. It is not. A dependency entry lives on the successor, and `targetId` holds the id of the predecessor it waits on.
+A dependency is an arrow between two bars. The entry is stored on the successor, the task that waits, and its `targetId` holds the predecessor's id. The arrow points at the successor, so `targetId` is not the id at the arrowhead.
+
+This page covers the entry, the four link types, drawing and deleting links, and what the chart does not validate.
 
 <GanttDemo preset="dependencies" />
 
-## Where a link lives
+## Dependency entries
 
-One entry, on the task that waits.
+The entry goes on the task that waits.
 
 ```tsx title="src/DependencyExample.tsx"
 import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
@@ -41,29 +43,37 @@ export function DependencyExample() {
 }
 ```
 
-That draws one arrow from Design to Build. `design` itself carries no `dependencies` at all. The field types are listed in [Task and task types](ref/task).
+This draws one arrow from Design to Build. `design` has no `dependencies` field. The field types are described in [Task and task types](ref/task).
 
-An entry whose `targetId` matches no task in the array is dropped while arrows are built, silently. Nothing else in your data is checked — that sharp edge is covered under [Interaction traps](#interaction-traps).
+An entry whose `targetId` matches no task in the array is skipped when arrows are built, with no warning. No other check runs on the data. See [Interaction traps](#interaction-traps).
 
-## The four types
+## Link types
 
-The two letters name the two ends of the link. The first is the predecessor's end, the second the successor's. Finish is the bar's right edge, start its left, so the pair decides which edge the arrow leaves and which edge it enters.
+The two letters name the ends the arrow leaves and enters. The first is the predecessor's end and the second is the successor's. Finish is the right edge of a bar and start is the left edge.
 
-`type` is required on every entry, and there is no default. The four values are listed in [Task and task types](ref/task).
+`type` is required on every entry and has no default. The four values are listed in [Task and task types](ref/task).
 
-The names come from scheduling tools, where `FS` means the successor may not start before the predecessor finishes. Here it means none of that. No date is compared against another, and no bar is ever moved to satisfy a link. A link whose two dates contradict its own name is drawn exactly like one that agrees.
+These are the names scheduling tools use, where `FS` means the successor cannot start before the predecessor finishes. The chart does not apply that rule. A link whose dates contradict its type is drawn the same as one whose dates agree.
 
-Arrows render at 45% opacity. Hovering or selecting a task lifts every arrow touching either of its ends to full strength, so one hover picks a task's chain out of a dense chart.
+Arrows render at 45% opacity. Hovering or selecting a task raises every arrow with that task at either end to full opacity.
 
 ## Drawing a link
 
-Each bar carries two connector dots, one per end. They are 12px circles floated 18px outside the bar's edges, with a larger invisible hit pad. With a mouse they are invisible until the bar is hovered or selected; on a device with no hover they stay faintly visible and pressable instead. They render only when that task's `allowLinkCreate` resolves to true — the task's own field first, then the chart prop of the same name, the order [GanttInteractionConfig](ref/interaction-config) sets out. `allowLinkDelete`, further down, resolves the same way.
+Each bar has two connector dots, one at each end. They are 12px circles placed 18px outside the bar's edges, with a larger invisible hit area.
 
-Press a dot and drag. Nothing starts until the pointer has moved 4px, so a stray click on a dot creates nothing.
+With a mouse the dots appear when the bar is hovered or selected. On a device without hover they stay faintly visible and pressable.
 
-Release anywhere on the target's row — the whole row band accepts the drop, not just the bar. On a lane row holding several bars, the horizontally nearest bar takes the link. The target is computed from the row model, not from the element under the pointer, so an overlay of your own cannot swallow the drop.
+The dots render only when the task's `allowLinkCreate` resolves to true. The task's own field overrides the chart prop of the same name, in the order [GanttInteractionConfig](ref/interaction-config) describes. `allowLinkDelete` resolves the same way.
 
-The type comes from the two ends. The dot you grabbed sets the first letter. Where you release sets the second: the last 24px of the target bar — a third of it when the bar is narrow — plus everything to its right count as the finish. The rest of the row is the start.
+Press a dot and drag. The drag starts after the pointer has moved 4px, so a plain click on a dot creates nothing.
+
+Release anywhere on the target's row. The whole row accepts the drop, including the space beside the bar. On a lane row with several bars, the horizontally nearest bar receives the link.
+
+The target is computed from the row model. The chart ignores the element under the pointer, so an overlay in your app cannot intercept the drop.
+
+The dot you pressed sets the first letter of the type and the release point sets the second.
+
+The finish zone is the last 24px of the target bar, capped at a third of its width, plus everything to its right. The rest of the row counts as the start, so a drop outside the finish zone makes `FS`.
 
 | Drag starts at | Released over | Type |
 |---|---|---|
@@ -72,15 +82,13 @@ The type comes from the two ends. The dot you grabbed sets the first letter. Whe
 | the end dot | the finish zone | `FF` |
 | the start dot | the finish zone | `SF` |
 
-A loose drop makes `FS`, the common case.
+During the drag a dashed line follows the pointer. Over a valid target the line becomes solid and takes the elbow route the committed arrow will use. The two-letter type appears beside it and the receiving dot fills in.
 
-While you drag, a dashed line follows the pointer. Over a valid target it snaps solid into the elbow the committed arrow will use, the two-letter type is written beside it, and the receiving dot fills in — read it before releasing. Dragging against a viewport edge scrolls the timeline, so a link can join two bars that never fit on screen together.
+Dragging against a viewport edge scrolls the timeline, so a link can join two bars that do not fit on screen together. `Escape` cancels the drag.
 
-`Escape` cancels the drag.
+### Rejected targets
 
-### What the drag rejects
-
-While the pointer is over a candidate, the chart validates the pair. A rejected target's outline turns red, the preview line turns red with it, and the reason is drawn beside the pointer. Releasing commits nothing.
+While the pointer is over a candidate, the chart validates the pair. On a rejected target the outline and the preview line turn red and the reason appears beside the pointer. Releasing there commits nothing.
 
 | Rejection | Condition | Text shown |
 |---|---|---|
@@ -88,17 +96,17 @@ While the pointer is over a candidate, the chart validates the pair. A rejected 
 | duplicate | the successor already has an entry whose `targetId` is this predecessor | `These tasks are already linked` |
 | cycle | walking the predecessor's own predecessors reaches the successor | `That would create a circular dependency` |
 
-The order is fixed: self, then duplicate, then cycle.
+The checks run in the order the table lists.
 
-The duplicate check compares `targetId` alone. It ignores `type`, so an existing `design → build` link of any type refuses a second link between the same ordered pair. The reverse pair is a different question and is checked separately, by the cycle rule.
+The duplicate check compares `targetId` only and ignores `type`. An existing link from `design` to `build` of any type blocks a second link between the same ordered pair. The reverse pair is checked by the cycle rule instead.
 
-The three strings are hardcoded English. They do not pass through `locale` or `formats`.
+The three messages are hardcoded English and do not pass through `locale` or `formats`.
 
-A target whose `allowLinkCreate` resolves to false is rejected earlier and more quietly: it never highlights, no reason text appears, and the release does nothing.
+A target whose `allowLinkCreate` resolves to false is not a candidate. The row shows no highlight or reason text. Releasing there does nothing.
 
-### What reaches onDependencyCreate
+### The create callback
 
-Everything the drag did not reject. Links across lanes, links onto a summary row, and links whose two dates flatly contradict each other all arrive at the callback.
+Every link the drag did not reject reaches `onDependencyCreate`. That includes links across lanes, links onto a summary row, and links whose dates contradict the type.
 
 ```tsx title="src/LinkGuard.tsx"
 import { useState } from 'react';
@@ -128,19 +136,21 @@ export function LinkGuard({ initial }: { initial: Task[] }) {
 }
 ```
 
-The return value is compared with `=== false`. `true`, `undefined`, `null` and `0` all commit. So does a Promise: these two callbacks are synchronous only, and a returned Promise is never awaited, so an async guard resolves after the link is already in the data.
+The return value is compared with `=== false`. `true`, `undefined`, `null` and `0` all commit. A returned `Promise` also commits, because the two callbacks are synchronous and never await it. An async guard resolves after the link is already in the data.
 
-`GanttDependencyChange` carries `predecessorId`, `successorId` and `type`, and nothing else.
+`GanttDependencyChange` has three fields: `predecessorId`, `successorId` and `type`.
 
-A committed link is written into the task array, and `onTasksChange` fires with the new array. To undo one, re-pass the array you had.
+A committed link is written into the task array and `onTasksChange` fires with the new array. To undo it, pass the previous array back.
 
-The signature and default of every prop named here are in [GanttProps](ref/props).
+Props and defaults: [GanttProps](ref/props).
 
 ## Deleting a link
 
-Every arrow has an invisible 12px-wide hit path along its route, drawn only when the successor's `allowLinkDelete` resolves to true. Hovering it lights the arrow in the accent colour and shows a pointer cursor — the only hint an arrow is deletable. Pointerdown on it selects the arrow. A selected arrow switches to the accent colour and grows a round delete button, a cross in a circle, at the midpoint of its two endpoints.
+Each arrow has an invisible 12px wide hit path along its route, rendered only when the successor's `allowLinkDelete` resolves to true. Hovering the path colours the arrow with the accent colour and shows a pointer cursor. The hover colour marks an arrow as deletable.
 
-While one arrow is selected:
+Pressing the path selects the arrow. A selected arrow takes the accent colour and shows a round delete button, a cross in a circle, at the midpoint between its two endpoints.
+
+While an arrow is selected, these inputs apply.
 
 | Input | Effect |
 |---|---|
@@ -148,34 +158,36 @@ While one arrow is selected:
 | `Escape` | deselect |
 | pointerdown anywhere | deselect |
 
-Key presses are ignored while focus sits in an `input`, `textarea`, `select`, or `contentEditable` element.
+Key presses are ignored while focus is in an `input`, `textarea`, `select` or `contentEditable` element.
 
-The permission read is the successor's `allowLinkDelete` — the task whose `dependencies` array loses the entry. Setting `allowLinkDelete: false` on the predecessor changes nothing. When the flag is false the delete returns silently.
+`allowLinkDelete` is read on the successor, the task whose `dependencies` array loses the entry. The same field on the predecessor has no effect. When the flag is false the delete returns without a change or a warning.
 
-The removal filters by `targetId` alone. If your data holds two entries on one successor pointing at the same predecessor, both arrows select together and one delete removes both.
+The removal filters by `targetId` only. If one successor holds two entries with the same predecessor, both arrows select together and one delete removes both.
 
-`Delete` reaches two handlers at once when a bar cell has keyboard focus and an arrow is selected: the link is removed and the focused task is deleted, as two separate changes. The task-delete key is documented in [Keyboard and screen readers](accessibility).
+When a bar cell has keyboard focus and an arrow is selected, `Delete` reaches both handlers. The link is removed and the focused task is deleted, as two separate changes. The task delete key is described in [Keyboard and screen readers](accessibility).
 
 ## Interaction traps
 
-`allowLinkCreate: false` on a task blocks it in both directions. It is read on the source when the dots are rendered, and again on the drop target during the drag, so the task can neither start a link nor receive one.
+`allowLinkCreate: false` on a task blocks links in both directions. The chart reads it on the source when it renders the dots, and again on the target during the drag. The task cannot start a link or receive one.
 
-The self, duplicate and cycle guards run during a drag, and only then. Your data is never validated: a self link or a cycle already sitting in the `tasks` array is drawn as-is, with no warning. A pre-existing cycle does not break the drag guard either — the walk skips ids it has already seen, so it terminates instead of spinning, and still catches every new cycle.
+The self, duplicate and cycle checks run only during a drag. The chart does not validate the `tasks` array, so a self link or a cycle already in the data is drawn as is, with no warning.
 
-A link never moves a bar. A fresh `FS` link leaves an overlapping successor exactly where it was, and dragging one of the two afterwards leaves the other where it is.
+The drag check works when the data already contains a cycle. The walk skips ids it has visited, so it terminates and catches new cycles.
 
-## Limits
+A link never moves a bar. A new `FS` link leaves an overlapping successor where it is, and dragging either bar afterwards leaves the other in place.
 
-The chart draws and removes links. It does not manage them.
+## Limitations
 
-- **No type editing.** Once an arrow exists, changing `FS` to `SS` means rewriting the entry in your `tasks` array.
-- **No enforcement at all.** Adding an `FS` link does not move the successor, and nothing checks the dates afterwards either. A link is an arrow.
-- **No keyboard path to a link.** The connector dots carry `tabIndex={-1}` and no key starts a link drag. An arrow must be selected with a pointer before `Delete` applies to it.
-- **No multi-select.** One arrow is selected at a time.
-- **No hover tooltip, context menu or label on an arrow.** The only affordances are the hit path and the delete button on the selected arrow.
-- **No arrow re-routing.** The elbow is computed from the two endpoints and the type alone, so arrows cross bars freely.
-- **No arrow to a hidden task.** A link whose predecessor is filtered out or hidden under a collapsed parent is not drawn. The entry still sits in your data.
-- **No "link edited" callback.** There is `onDependencyCreate` and `onDependencyDelete`, and nothing between them.
-- **The drag's own guard is internal.** The package exports no link validator, so a host that wants to run the same self, duplicate and cycle checks writes them itself.
+The chart draws and removes links but does not manage them.
 
-Next: [Working calendar](working-calendar) — the one thing that does bend a drag result.
+- Link types cannot be edited in place. Changing `FS` to `SS` means rewriting the entry in your `tasks` array.
+- Links are not enforced. Adding an `FS` link does not move the successor, and no check runs on the dates afterwards.
+- Links have no keyboard path. The connector dots have `tabIndex={-1}` and no key starts a link drag, so an arrow must be selected with a pointer before `Delete` applies to it.
+- Arrows select one at a time. There is no multi-select.
+- Arrows have no hover tooltip, context menu or label. An arrow is controlled through its hit path and, when selected, its delete button. No other control acts on an arrow.
+- Arrow routes are fixed. The elbow is computed from the two endpoints and the type, so an arrow can cross other bars.
+- Arrows to hidden tasks are not drawn. A link whose predecessor is filtered out or hidden under a collapsed parent has no arrow, and the entry stays in your data.
+- Changing an existing link has no callback. `onDependencyCreate` and `onDependencyDelete` cover creation and deletion.
+- Link validation is not exported. A host that wants the same self, duplicate and cycle checks writes them itself.
+
+Next: [Working calendar](working-calendar).

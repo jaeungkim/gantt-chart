@@ -1,45 +1,46 @@
 ---
 title: "문서"
-description: "@jaeungkim/gantt-chart의 모든 가이드와 레퍼런스 문서를 순서대로 정리했어요."
+description: "@jaeungkim/gantt-chart의 모든 가이드와 레퍼런스 문서를 읽는 순서대로 정리했어요"
 ---
 
-처음이라면 순서대로 읽어요. 이미 알고 있다면 필요한 문서로 바로 가도 돼요.
+가이드는 위에서부터 읽거나 필요한 문서로 바로 가세요. 아래 레퍼런스 표에는 내보내는 타입과
+헬퍼가 있어요.
 
 ## 가이드
 
 | 문서 | 다루는 내용 |
 |---|---|
-| [소개](introduction) | 이 라이브러리가 무엇이고, 무엇을 하지 않는지 |
-| [개념과 용어](concepts) | 나머지 문서가 쓰는 용어를 한 번에 정리 |
-| [빠른 시작](quick-start) | 설치부터 편집 가능한 차트까지 |
-| [작업 데이터](task-data) | `Task` 형태, 날짜 처리, `tasks` prop 비교 방식 |
-| [작업 목록과 계층](task-list) | 왼쪽 패널과 `parentId` 트리 |
-| [레인](lanes) | 서로 겹치지 않는 작업을 한 행에 모으는 `lane` 작업 필드 |
+| [소개](introduction) | 패키지에 들어 있는 것과 호스트 앱이 맡는 것 |
+| [개념과 용어](concepts) | 나머지 문서가 쓰는 용어를 한 곳에서 정의 |
+| [빠른 시작](quick-start) | 설치부터 편집 결과를 앱 상태로 받는 차트까지 |
+| [작업 데이터](task-data) | `Task` 형태, 날짜 파싱, `tasks` prop 비교 방식 |
+| [작업 목록과 계층](task-list) | 왼쪽 패널과 스플리터, `parentId` 트리 |
+| [레인](lanes) | 같은 문자열을 가진 작업을 한 행에 두는 `lane` 작업 필드 |
 | [타임라인](timeline) | 배율, 범위, 줌, 오늘 선, 비근무일 |
-| [작업 편집](editing) | 이동, 크기 조절, 진행률, 권한, 드래그 경계, 터치, 자동 스크롤 |
-| [작업 생성](task-creation) | 새 작업을 제안하는 세 가지 길, 셋 다 `onTaskCreate`로 넘기는 초안, 그리고 차트가 행을 직접 만들지 않는 이유 |
-| [행 순서 바꾸기](reordering) | 작업 목록의 행을 새 자리나 새 부모로 끄는 방법, 그 이동이 다시 쓰는 것, 그리고 이동을 거부하는 법 |
-| [의존성](dependencies) | 네 가지 링크 타입, 화살표 그리기 |
-| [근무일 달력](working-calendar) | 드롭이 주말과 휴일에 앉지 않게 하기 |
-| [상세 패널](detail-panel) | 도킹된 사이드 패널: 무엇이 패널을 여는지, 그 자리에서 편집하기, `renderDetail`, 제어 방식 |
-| [이벤트](events) | 클릭과 드래그, 키보드 편집이 실행하는 모든 콜백 |
+| [작업 편집](editing) | 이동, 크기 조절, 진행률 제스처와 권한 플래그, 드래그 경계, 터치, 자동 스크롤 |
+| [작업 생성](task-creation) | 작업 초안을 만드는 세 가지 진입점과 `onTaskCreate`로 넘기는 초안 |
+| [행 순서 바꾸기](reordering) | 작업 목록의 행을 새 자리나 새 부모로 옮기기, 이동을 거부하는 방법 |
+| [의존성](dependencies) | 네 가지 링크 타입과 화살표를 그리고 지우는 방법 |
+| [근무일 달력](working-calendar) | 막대 드래그 결과를 주말과 휴일 뒤 근무일로 밀기 |
+| [상세 패널](detail-panel) | 도킹된 패널 켜기, 패널 안에서 편집하기, `renderDetail`, 제어 모드 |
+| [이벤트](events) | 클릭과 드래그, 키보드 편집이 호출하는 콜백 |
 | [스타일링](styling) | 작업별 색상과 클래스 이름 |
-| [명령형 API](imperative-api) | `ref` 핸들: 스크롤과 줌, 상세 패널, 그리고 작업 생성 |
-| [키보드와 스크린 리더](accessibility) | 키 맵, ARIA 트리, 그리고 빈틈 |
-| [로케일과 날짜 형식](i18n) | `locale`, 배율별 재정의, 주 시작 요일 |
-| [테마](theming) | theme prop과 CSS 커스텀 속성 |
-| [헤드리스 코어](headless-core) | React와 DOM 없이 트리와 달력 계산하기 |
+| [명령형 API](imperative-api) | `ref` 핸들로 하는 스크롤, 배율 변경, 전체 보기 줌, 상세 패널, 작업 생성 |
+| [키보드와 스크린 리더](accessibility) | 키 맵, ARIA 트리, 알림 문구, 키보드로 닿지 않는 부분 |
+| [로케일과 날짜 형식](i18n) | `locale`, `formats`, `firstDayOfWeek` |
+| [테마](theming) | 스타일시트, `theme` prop, CSS 커스텀 속성 |
+| [헤드리스 코어](headless-core) | React와 DOM 없이 쓰는 트리와 달력 계산 |
 
 ## 레퍼런스
 
 | 문서 | 다루는 내용 |
 |---|---|
-| [GanttProps](ref/props) | 컴포넌트가 받는 모든 prop |
+| [GanttProps](ref/props) | 컴포넌트가 받는 모든 prop과 타입, 기본값 |
 | [Task와 작업 타입](ref/task) | `Task`, `TaskDependency`, `DependencyType`, `TaskTransformed` |
-| [GanttInteractionConfig](ref/interaction-config) | `GanttInteractionConfig`와 권한 결정 순서 |
-| [GanttRow](ref/rows) | 차트가 작업에서 만들어 내는 행 모델 |
-| [상세 렌더러](ref/renderers) | `renderDetail`의 타입인 `GanttDetailRenderer`와 `GanttDetailRenderProps`예요 |
+| [GanttInteractionConfig](ref/interaction-config) | 차트 전체 상호작용 플래그와 권한 우선순위, 요약 행 마스크 |
+| [GanttRow](ref/rows) | 차트가 작업에서 만드는 행 모델 |
+| [상세 렌더러](ref/renderers) | `renderDetail`의 타입인 `GanttDetailRenderer`와 `GanttDetailRenderProps` |
 | [GanttHandle](ref/handle) | `GanttHandle`, `GanttScrollApi`, `GanttDetailApi`, `GanttTaskCreateApi`, `GanttScrollOptions`, `GanttZoomAnchor` |
 | [배율과 테마 타입](ref/scales) | `GanttScaleKey`, `GanttScaleFormat`, `GanttFormatOverrides`, `GanttTheme`, `Holiday` |
 | [트리 헬퍼](ref/core-tree) | `buildTaskTree`, `collectSubtreeIds`, `rollUpTasks`, `moveTask`, `validateMove`, `sortTasksBySequence` |
-| [근무일 달력 헬퍼](ref/core-calendar) | 달력 API로 내보내는 것들이에요: `createWorkingCalendar`, `CALENDAR_DAYS`, `WorkingCalendar` |
+| [근무일 달력 헬퍼](ref/core-calendar) | 내보내는 달력 API인 `createWorkingCalendar`, `CALENDAR_DAYS`, `WorkingCalendar` |

@@ -1,134 +1,123 @@
 ---
 title: "Introduction"
-description: "What the library is, and what it deliberately leaves to you"
+description: "What the package includes, and what it leaves to the host app"
 ---
 
-A project timeline looks like a table with coloured rectangles next to it. Then the first bar gets
-dragged. The drag has to snap to a step that changes with the scale. The day it lands on is a
-Saturday, and nobody starts a task on a Saturday, so the drop has to move forward off it. The arrow
-to the bar behind it has to be re-routed around the rows in between. And the project has 4,000 rows,
-so none of this may mount 4,000 DOM nodes.
-
-That is a virtualized grid, a drag system, a dependency router and a working-day calendar,
-underneath what looked like a table.
-
-`@jaeungkim/gantt-chart` is that stack as one React component. It renders the chart, handles the
-gestures, and hands the host app a new `tasks` array every time something commits. The date math
-that decides where a bar lands is a separate React-free layer in the same package, so a server or a
-worker can call it without rendering anything.
+`@jaeungkim/gantt-chart` is an editable Gantt chart for React. One component renders the chart,
+handles the gestures, and returns a new `tasks` array on every commit. This page covers what the
+package includes and what it leaves to the host app.
 
 ```ts
 import { ReactGanttChart, createWorkingCalendar, type Task } from '@jaeungkim/gantt-chart';
 import '@jaeungkim/gantt-chart/style.css';
 ```
 
-The package has two runtime dependencies — `dayjs` and `zustand` —
-and takes `react` and `react-dom` as peer dependencies, `^18` or `^19`. Every prop is optional;
-`tasks` defaults to an empty array. The install command and the first working chart are in
-[Quick start](quick-start).
+The package has two runtime dependencies, `dayjs` and `zustand`. `react` and `react-dom` (`^18`
+or `^19`) are peer dependencies. Every prop is optional, and `tasks` defaults to an empty array.
+The install command and the first working chart are in [Quick start](quick-start).
 
-## What you get
+## What the package includes
 
 ### Rendering
 
-- Rows and time columns are virtualized against the same scroll container: only the window on screen renders, plus five items of overscan, doubled toward the edge you are scrolling toward. An axis of 24 items or fewer, or one that already fits the viewport, renders whole. Bars and dependency arrows cull against that same window, so a 4,000-row plan mounts what fits on screen and nothing else.
-- A task list pane on the left, listing task names, optionally numbered, behind a draggable splitter — see [Task list and hierarchy](task-list).
-- Five timeline scales, day through year, each with its own tick unit, drag step and label formats — see [The timeline](timeline).
-- Dependency arrows routed as elbows, for all four link types — see [Dependencies](dependencies).
-- A today line and non-working-day shading; a holiday can carry its own colour and a name written in the tick row — see [The timeline](timeline).
+- Rows and time columns are virtualized against the same scroll container. Only the window on screen renders, plus five items of overscan, doubled in the scroll direction. An axis of 24 items or fewer, or one that already fits the viewport, renders whole. Bars and dependency arrows cull against the same window, so a 4,000-row plan mounts what fits on screen.
+- A [task list pane](task-list) on the left lists task names, optionally numbered, behind a draggable splitter.
+- Five [timeline scales](timeline), day through year, each with its own tick unit, drag step and label formats.
+- [Dependency arrows](dependencies) routed as elbows, for all four link types.
+- A today line and non-working day shading. A holiday can carry its own colour and a name written in the tick row. See [The timeline](timeline).
 
 ### Editing
 
-- Drag a bar to move it, drag either edge to resize it, drag the handle to set progress — see [Editing tasks](editing).
-- While a drag is live, the dragged dates print in the date-axis cells they land in; nothing floats over the chart.
-- Drag below the last row to draw a new task; the chart proposes a draft and never adds the row itself — see [Creating tasks](task-creation).
-- Drag from a bar's link handle to another bar to create a dependency; click an arrow to select it, then press Delete — see [Dependencies](dependencies).
-- One click opens the detail panel when it is on, and the built-in panel body edits the name, dates and progress in place — see [Detail panel](detail-panel).
+- Drag a bar to move it, drag either edge to resize it, drag the handle to set progress. See [Editing tasks](editing).
+- During a drag the dragged dates are written in the date axis cells they land in. No readout floats over the chart.
+- Drag below the last row to draw a new task. The chart calls `onTaskCreate` with a draft and does not add the row. See [Creating tasks](task-creation).
+- Drag from a bar's link handle to another bar to create a dependency. Click an arrow to select it, then press Delete. See [Dependencies](dependencies).
+- One click opens the detail panel when it is on, and the built-in panel body edits the name, dates and progress in place. See [Detail panel](detail-panel).
 
 ### Dates
 
-- A working calendar moves a drop forward off a weekend or a holiday — see [Working calendar](working-calendar).
-- Dependency arrows are drawn and edited, never enforced: the bar you moved is the only bar that moves.
-- The tree and calendar math are exported as plain functions, callable without rendering — see [Headless core](headless-core).
+- A [working calendar](working-calendar) moves a drop forward off a weekend or a holiday.
+- Dependency arrows are drawn and edited, and the chart does not enforce them. A drag moves the bar it started on.
+- The tree and calendar math are exported as plain functions, callable without rendering. See [Headless core](headless-core).
 
 ### Accessibility
 
-- The chart is one ARIA treegrid; each row carries `aria-level`, `aria-posinset`/`aria-setsize` and `aria-rowindex`.
-- The grid body is a single roving tab stop; arrow keys move between rows, and across the cells of a row. The pane splitter is the one other tab stop.
-- Bars move, resize and step their progress from the keyboard — see [Keyboard and screen readers](accessibility).
+- The chart is one ARIA `treegrid`, and each row carries `aria-level`, `aria-posinset`/`aria-setsize` and `aria-rowindex`.
+- The grid body is a single roving tab stop. The pane splitter is the second tab stop. Arrow keys move between rows, and across the cells of a row.
+- Bars move, resize and step their progress from the keyboard. See [Keyboard and screen readers](accessibility).
 - Ctrl/Cmd + ArrowUp and ArrowDown step the timeline scale finer and coarser, and announce the new one.
 - A bar's accessible name is built from the task name, its dates and its progress.
 
 ### Theming
 
-- `theme` takes `'light'`, `'dark'` or `'system'`; omitted, the chart follows the host page's `color-scheme`, which is what an app's own light/dark toggle already sets — see [Theming](theming).
-- Theme tokens are `--gantt-*` custom properties scoped to `.gantt-container`, not `:root`, so they cannot collide with your app's variables. One `#fff` stays literal.
-- A per-task `color` derives the bar, its progress fill, its hover shade and a readable label color from one value — see [Styling](styling).
-- `renderDetail` replaces the detail panel body, the one node the chart lets you swap — see [Detail panel](detail-panel).
-- `locale` renders every date label through `Intl.DateTimeFormat`, and `formats` overrides the tick, header and tooltip labels per scale — see [Locale and date formats](i18n).
+- `theme` takes `'light'`, `'dark'` or `'system'`. Omitted, the chart follows the host page's `color-scheme`. An app's own theme toggle sets that value. See [Theming](theming).
+- Theme tokens are `--gantt-*` custom properties scoped to `.gantt-container` instead of `:root`, so they cannot collide with the host app's variables. One `#fff` stays literal.
+- A per-task `color` derives the bar, its progress fill, its hover shade and a readable label colour from one value. See [Styling](styling).
+- `renderDetail` replaces the detail panel body. No other part of the chart accepts a custom renderer. See [Detail panel](detail-panel).
+- `locale` renders every date label through `Intl.DateTimeFormat`, and `formats` overrides the tick, header and tooltip labels per scale. See [Locale and date formats](i18n).
 
-## What it does not do
+## Limitations
 
-**No server, and no data fetching.** There is no `fetch`, no `XMLHttpRequest` and no `WebSocket`
-anywhere in the source. Tasks arrive as a prop. `onRangeChange` fires when the rendered timeline
-range changes, which is the hook for loading more.
+The chart runs no network code. The source has no `fetch`, `XMLHttpRequest` or `WebSocket` call,
+and tasks arrive as a prop. `onRangeChange` fires when the rendered timeline range changes, and
+the host app loads more data there.
 
-**No chrome.** The chart renders the timeline, and the task list pane when you ask for one. It
-renders no controls of its own — no toolbar, no scale picker, no zoom buttons — so a scale control
-is a control you build. The scale changes through `setScale` on the ref, Ctrl/Cmd + ArrowUp /
-ArrowDown, or Ctrl/Cmd + wheel once `zoomOnWheel` is on, and `onScaleChange` reports every change
-so your control can follow the chart. The `<select>` to pair with them is in
-[Imperative API](imperative-api).
+The chart renders the timeline, and the task list pane when the host app asks for one. It renders
+no controls of its own, so a toolbar or a scale control is something the host app builds. The
+scale changes through `setScale` on the ref, Ctrl/Cmd + ArrowUp / ArrowDown, or Ctrl/Cmd + wheel
+when `zoomOnWheel` is on. `onScaleChange` reports every change, so that control can follow the
+chart. The `<select>` to pair with them is in [Imperative API](imperative-api).
 
-**No persistence.** Not the task data, not the scale, not the pane width, not the collapsed rows,
-not the scroll position, and not the theme. The scale is plain state on the chart instance, so a
-remount starts again from `defaultScale`.
+The chart persists nothing. The task data, the scale, the pane width, the collapsed rows, the
+scroll position and the theme are all held in memory only. The scale is plain state on the chart
+instance, so a remount starts again from `defaultScale`.
 
-**No resource or cost model.** A `Task` has no assignee, no effort, no rate and no cost field —
-see [Task data](task-data). There is no resource pane, no histogram and no levelling. A `lane`
-packs tasks onto a shared row by a string you supply; it does not know what a person is — see
-[Lanes](lanes).
+The package has no resource or cost model. A `Task` carries no assignee, effort, rate or cost
+field, and the package includes no resource pane, histogram or levelling. A `lane` packs tasks
+onto a shared row by a string the host app supplies, with no notion of a person. See
+[Task data](task-data) and [Lanes](lanes).
 
-**Almost no validation.** Nothing checks that ids are unique, that `endDate` follows `startDate`,
-or that a date string parses; bad values degrade quietly instead of throwing. An unparseable date
-draws a bar across the whole timeline. The one exception is `sequence`: a task without it throws a
-`TypeError` during render, because the row sort splits that string. See [Task data](task-data).
+The chart validates almost nothing. Nothing checks that ids are unique, that `endDate` follows
+`startDate`, or that a date string parses. Bad values degrade quietly instead of throwing, and an
+unparseable date draws a bar across the whole timeline. `sequence` is an exception. A task
+without it throws a `TypeError` during render, because the row sort splits that string. See
+[Task data](task-data).
 
-**No automatic rescheduling.** Dragging a bar moves that bar, and its subtree when it is a summary
-row. A successor never moves because its predecessor did, whatever the link between them says.
-See [Dependencies](dependencies).
+The chart reschedules nothing on its own. Dragging a bar moves that bar, and its subtree when it
+is a summary row. A successor stays where it is when its predecessor moves. The link type does
+not change that. See [Dependencies](dependencies).
 
-**No export, and no print path.** Nothing turns the chart into a PNG, an SVG, a PDF, a CSV or a
-clipboard payload, and the stylesheet carries no print rules. What leaves the chart is the `tasks`
-array.
+The package has no export and no print path. Nothing turns the chart into a PNG, an SVG, a PDF, a
+CSV or a clipboard payload, and the stylesheet carries no print rules. What leaves the chart is
+the `tasks` array.
 
-**React only.** `react` and `react-dom` are peer dependencies. The headless core is written
-without React or DOM access, but the package ships a single entry point with no `./core` subpath,
-so importing `createWorkingCalendar` in Node still resolves the bundle that needs the React peers
+The package is React only. `react` and `react-dom` are peer dependencies. The headless core is
+written without React or DOM access. The package ships a single entry point with no `./core`
+subpath, so `createWorkingCalendar` in Node resolves the bundle that needs the React peers
 present.
 
-**The built-in text is English, and most of it is fixed.** The ARIA labels and the screen-reader
-announcements are hardcoded — `"Gantt chart"`, `"Resize task list"`, `"Delete FS dependency"`, and
-a scale change announces the raw key, as in `"week scale"` — and there is no string bundle and no
-`messages` prop. No prop replaces any of them. Anything you render around the chart is your own
-text, so a scale control's option labels translate with the rest of your UI. There is also no RTL support: the stylesheet uses physical properties
-throughout.
+The built-in text is English, and most of it is fixed. The ARIA labels and the screen reader
+announcements are hardcoded, as in `"Gantt chart"`, `"Resize task list"` and
+`"Delete FS dependency"`. A scale change announces the raw key, as in `"week scale"`. There is no
+string bundle and no `messages` prop, and no prop replaces any of them. Anything rendered around
+the chart is the host app's own text, so a scale control's option labels translate with the rest
+of the UI. The stylesheet uses physical properties throughout, so RTL is unsupported.
 
-### What the host app does
+## Host app responsibilities
 
-- Owns the `tasks` array, and stores it. The chart adds no row on its own.
-- Applies each commit: a committed gesture ends in `onTasksChange` with a new array.
+- Stores the `tasks` array. The chart adds no row on its own.
+- Applies each commit. A committed gesture ends in `onTasksChange` with a new array.
 - Supplies `id`, `parentId` and `sequence` for a task drawn on the chart.
 - Validates dates and ids before they reach the `tasks` prop.
 - Loads more data on `onRangeChange`.
-- Renders the scale control, and any other chrome around the chart.
+- Renders the scale control, and any other UI around the chart.
 
-## Where to start reading
+## Reading order
 
-Read [Concepts and vocabulary](concepts) first. It fixes the words the rest of the docs use —
-task, bar, row, tick, lane, predecessor — so the later pages stay short.
+Read [Concepts and vocabulary](concepts) first. It fixes the words the rest of the docs use, such
+as task, bar, row, tick, lane and predecessor, so the later pages stay short.
 
-Then [Quick start](quick-start), which installs the package and renders a chart with real data.
+[Quick start](quick-start) installs the package and renders a chart with real data.
 
 After that, go to the page for the thing you are building.
 

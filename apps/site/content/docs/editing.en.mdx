@@ -1,25 +1,23 @@
 ---
 title: "Editing tasks"
-description: "Move, resize, progress, permissions, drag bounds, touch, and auto-scrolling"
+description: "Move, resize and progress gestures, permission flags, drag bounds, touch and auto-scrolling"
 ---
 
-Someone grabs a bar, slides it three days later, and lets go. Between the press and the release the
-chart has to decide whether this task may be edited at all, how far it is allowed to travel, what it
-lands on, and what your app hears about it. Four pointer gestures write task data. Two more have
-pages of their own: a range drawn below the last row proposes a new task in
-[Creating tasks](task-creation), and a row dragged in the task list changes the order in
-[Reordering rows](reordering).
+Four pointer gestures on a bar write task data: move, resize left, resize right and progress. This
+page covers those gestures, the permission flags, drag bounds, touch and auto-scrolling. Drawing a
+range below the last row is described in [Creating tasks](task-creation).
+[Reordering rows](reordering) covers dragging a row in the task list.
 
-## The four gestures
+## Gestures
 
-| Gesture | How it starts | What it writes |
+| Gesture | Start | Writes |
 |---|---|---|
-| Move | press on the bar, away from the edge zones | `startDate` and `endDate` |
-| Resize left | press inside the bar's left edge zone | `startDate` |
-| Resize right | press inside the bar's right edge zone | `endDate` |
+| Move | press on the bar, outside the edge zones | `startDate` and `endDate` |
+| Resize left | press in the bar's left edge zone | `startDate` |
+| Resize right | press in the bar's right edge zone | `endDate` |
 | Progress | press on the progress handle | `progress` |
 
-All four are on by default. The minimum wiring is a `tasks` array and an `onTasksChange` handler.
+All four are on by default. The minimum setup is a `tasks` array and an `onTasksChange` handler.
 
 ```tsx title="src/App.tsx"
 import { useState } from 'react';
@@ -53,107 +51,104 @@ export function App() {
 }
 ```
 
-A gesture that commits produces exactly one `onTasksChange` call, carrying the full array. That
-holds even when the gesture moved a whole subtree. A gesture that never travels far enough to move
-the bar commits nothing and calls nothing.
+A committed gesture produces one `onTasksChange` call with the full array, even when it moved a
+whole subtree. A gesture that does not travel far enough to move the bar commits nothing and calls
+nothing.
 
-Nothing is written while the pointer is down. The bar you see moving is a pixel offset held
-separately from your data, and the array only changes on release. What tracks it is the drag
-readout: the date each moving edge has reached, written in the date header's tick cell above it.
-[Locale and date formats](i18n) covers how it is spelled.
+The array does not change while the pointer is down. The moving bar is a pixel offset kept apart
+from the task data, and the array changes on release. The drag readout shows the date each moving
+edge has reached, in the tick cell above it. [Locale and date formats](i18n) covers its format.
 
-### Where the edge zones are
+### Edge zones
 
 The edge zone is 8px wide for a mouse and 44px for touch or pen. A pen counts as touch throughout
 this page.
 
-A mouse always has the zones: a bar is never rendered narrower than 24px, and 24px is exactly the
-minimum a mouse needs. Touch and pen need 132px of rendered width; below that the whole bar is the
-move handle and there is nothing to resize with. 132px is 33 days at the quarter scale and 132 days
-at the year scale, so a task loses its touch resize edges long before it looks small.
+A mouse always has the zones, because a bar is never rendered narrower than 24px and 24px is the
+minimum a mouse needs. Touch and pen need 132px of rendered width. Below that the whole bar is the
+move handle and there is no resize zone. 132px is 33 days at the quarter scale and 132 days at the
+year scale. A task loses its touch resize edges well before it looks small.
 
 The edge zones are tested before the move zone. A task with `allowMove: false` and
-`allowResize: true` therefore resizes at its edges and does nothing at all in the middle.
+`allowResize: true` resizes at its edges and does nothing in the middle.
 
-### The progress drag
+### Progress drag
 
-The percentage is the pointer's position inside the bar's rendered rectangle, clamped to 0-100 and
-rounded to a whole percent. There is no step size on the pointer path.
+The percentage is the pointer's position across the bar's rendered rectangle, clamped to 0 to 100
+and rounded to a whole percent. There is no step size on the pointer path.
 
-The value is only sampled on pointer movement. Pressing the handle and releasing without moving
+The value is sampled on pointer movement only. Pressing the handle and releasing without moving
 changes nothing.
 
-The two gestures part ways on cancellation. A progress drag that the browser cancels mid-gesture
+Cancellation differs between the two kinds of gesture. A progress drag that the browser cancels
 commits its last value. A bar move or resize cancelled the same way reverts and writes nothing.
 
-### A short drag is a click
+### Drag threshold
 
-A drag commits nothing until the pointer has travelled half a drag step. Below that the gesture ends
-with no write, and the trailing click still reaches `onTaskClick`. Once the bar has moved by a step,
-the click that ends the drag is swallowed. See [Events](events) for the click callbacks themselves.
+A drag commits nothing until the pointer has travelled half a drag step. Below that the gesture
+ends without a write, and the trailing click reaches `onTaskClick`. After the bar has moved by a
+step, the click that ends the drag is not delivered. See [Events](events) for the click callbacks.
 
-## What a drag snaps to
+## Drag steps
 
-A drag never snaps to an absolute grid line. The chart rounds the pointer's travel to a whole number
-of drag steps, then adds that many steps to the task's original dates.
+A drag does not snap to an absolute grid line. The chart rounds the pointer's travel to a whole
+number of drag steps and adds that many steps to the task's original dates.
 
-A task that starts at 09:37 still starts at 09:37 after being dragged four days on the month scale.
-The time of day survives every drag. Nothing aligns a bar to midnight or to a tick boundary.
+A task that starts at 09:37 starts at 09:37 after a four-day drag on the month scale. The time of
+day survives every drag, and no bar is aligned to midnight or to a tick boundary.
 
-The step count is rounded, so the bar jumps to the next step at half a step of pointer travel. How
-long one step is, and how much pointer travel it takes, differs per scale and lives in
-[The timeline](timeline).
+Rounding the step count moves the bar to the next step at half a step of pointer travel. The
+length of a step and the pointer travel per step differ per scale. See [The timeline](timeline).
 
-The scale is captured when the gesture starts. Changing scale mid-drag does not re-unit the gesture
-in flight.
+The scale is captured when the gesture starts. Changing scale during a drag does not change the
+unit of the gesture in progress.
 
-A resize always leaves at least one drag step of width. The step count itself is clamped, not just
-the preview, so a resize can never commit an end date before its start date. On a bar that is
-already narrower than one step the same clamp pushes the other way and widens it.
+A resize always leaves at least one drag step of width. The step count itself is clamped, not only
+the preview, so a resize never commits an end date before its start date. On a bar already narrower
+than one step the same clamp works the other way and widens it.
 
-With a working-day calendar configured, the dragged edge additionally snaps forward to the next
-working day, and a move snaps both ends together so the bar keeps its length; see
-[Working calendar](working-calendar).
+With a working calendar configured, the dragged edge also snaps forward to the next working day. A
+move snaps both ends together and the bar keeps its length. See [Working calendar](working-calendar).
 
-## Who may edit what
+## Permissions
 
-The chart below is read-only, so every bar refuses a drag and the grips and handles are gone.
+The chart below is read-only. No bar accepts a drag, and the grips and handles are hidden.
 
 <GanttDemo preset="readOnly" />
 
-Five capabilities resolve on their own, per task, through four rungs: move, resize, progress, and
-the two dependency-link ones. Two do not. `allowReorder` runs a shorter chain whose floor is
-`false`, so only an explicit flag ever turns it on, and `allowTaskCreate` is chart-wide with no
-per-task rung at all. [GanttInteractionConfig](ref/interaction-config) has the ladder in full.
+Move, resize, progress and the two dependency link flags resolve per task through four levels.
+`allowReorder` resolves through a shorter chain whose fallback is `false`. Only an explicit flag
+turns it on. `allowTaskCreate` applies to the whole chart and has no level per task.
+[GanttInteractionConfig](ref/interaction-config) has the full order.
 
-Two consequences are easy to get backwards. A task's `readOnly: true` beats a permissive
-`allowMove` prop on the chart. And a task's own `allowMove: true` punches through both `readOnly`
-settings, its own and the chart's.
+Two results follow from that order. A task's `readOnly: true` overrides a permissive `allowMove`
+prop on the chart. A task's own `allowMove: true` overrides both `readOnly` settings, its own and
+the chart's.
 
-`minDate` and `maxDate` resolve through a shorter chain of their own: the task's value if it has
-one, otherwise the chart's. The two ends resolve independently, so a task can take its floor from
-itself and its ceiling from the chart.
+`minDate` and `maxDate` resolve through a shorter chain of their own, the task's value if it has one
+and otherwise the chart's. The two ends resolve independently, so a task can take its lower bound
+from itself and its upper bound from the chart.
 
-A blocked gesture is not a gesture that fails. No drag starts at all: the press is a no-op. The
-affordances go with it, so a bar that cannot be resized hides its resize grips and a bar whose
-progress is fixed hides its handle. The progress fill stays visible as a read-only readout. The
-signature and default of every prop named here are in [GanttProps](ref/props).
+A blocked gesture does not start. The press does nothing, and the grips and handles for that gesture
+are hidden. A bar that cannot be resized hides its resize grips, and a bar whose progress is fixed
+hides its handle. The progress fill stays visible as a read-only readout. The signature and default
+of every prop named here are in [GanttProps](ref/props).
 
-### One rule no flag turns back on
+### Summary rows
 
-**A summary row is never resizable and its progress is never draggable**, whatever is set at either
-level; the rule and its reason are in [GanttInteractionConfig](ref/interaction-config).
+A summary row is never resizable and its progress is never draggable, regardless of the flags at
+either level. The rule and its reason are in [GanttInteractionConfig](ref/interaction-config).
 
-Moving a summary row is still allowed, and it carries its whole subtree. That is the only gesture
-that writes more than one task's dates.
+Moving a summary row is allowed and carries its whole subtree. No other gesture writes more than one
+task's dates.
 
-Summary rows only exist when `hierarchy` is on, so the rule does not apply to a flat chart;
-see [Task list and hierarchy](task-list). Setting `readOnly` on a summary still freezes it
-completely, move included.
+Summary rows exist only when `hierarchy` is on. The rule does not apply to a flat chart. See
+[Task list and hierarchy](task-list). `readOnly` on a summary row freezes it completely, move
+included.
 
-### A frozen chart with one editable bar
+### Task level overrides
 
-`readOnly` on the chart is the lowest rung, so a single task can opt back in.
+`readOnly` on the chart is the lowest level, so a single task can opt back in.
 
 ```tsx title="src/ReviewBoard.tsx"
 import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
@@ -187,131 +182,125 @@ export function ReviewBoard({ onChange }: { onChange: (tasks: Task[]) => void })
 ```
 
 The same shape covers the narrower case. A task with `readOnly: true` and
-`allowProgressChange: true` cannot be moved or resized, but its progress handle still drags.
+`allowProgressChange: true` cannot be moved or resized, but its progress handle drags.
 
 ## Drag bounds
 
-`minDate` and `maxDate` fence a bar into a window. Both take a UTC ISO string, and a string without
-a zone is read as a UTC wall clock: `minDate="2026-03-01"` means midnight UTC, not local midnight.
+`minDate` and `maxDate` limit a bar to a window. Both take a UTC ISO string, and a string without a
+zone is read as UTC: `minDate="2026-03-01"` means midnight UTC, not local midnight.
 
-What the bar does at the fence depends on the gesture.
+What happens at the bound depends on the gesture.
 
-- **Resize left.** The start date is clamped into the window, then pulled back so it stays at least
-  one drag step before the end date.
-- **Resize right.** The end date is clamped into the window, then pushed out so it stays at least one
-  drag step after the start date.
-- **Move.** Both ends travel together and the bar keeps its length. When the bar is longer than its
-  own window, `minDate` wins and the bar overhangs `maxDate`.
+- Resize left clamps the start date into the window and keeps it at least one drag step before the
+  end date.
+- Resize right clamps the end date into the window and keeps it at least one drag step after the
+  start date.
+- Move shifts both ends together and the bar keeps its length. When the bar is longer than its
+  window, `minDate` applies and the bar overhangs `maxDate`.
 
-The bar visibly stops on the bound rather than overshooting and springing back, because the pixel
-offset is re-measured from the clamped dates every frame. The date handed to `onTasksChange` is the
-bound itself.
+The pixel offset is re-measured from the clamped dates every frame, so the bar stops on the bound
+instead of overshooting and springing back. The date passed to `onTasksChange` is the bound itself.
 
-Moving a summary row applies one shared delta to the whole subtree, and the tightest bound among the
-moving tasks wins. A descendant's `maxDate` therefore stops its parent's drag. The delta never
-overshoots the requested direction, so a task that already sits outside its window refuses to move
-further instead of being yanked back inside.
+Moving a summary row applies one shared delta to the whole subtree, limited by the tightest bound
+among the moving tasks. A child's `maxDate` therefore stops its parent's drag. The delta never
+overshoots the requested direction, so a task already outside its window does not move further out
+and is not pulled back inside.
 
-The one-step minimum width is applied after the bound, so a bar whose window has already been passed
-stays a valid bar instead of folding over.
+The minimum width of one step is applied after the bound, so a bar whose window has already been
+passed stays a valid bar instead of folding over.
 
-A working-day snap runs before the clamp. A bar pinned to its bound can therefore end up on a
-non-working day.
+The working calendar snap runs before the clamp. A bar held at its bound can end on a non-working
+day.
 
-Bounds cover bar moves and resizes only. They are not read by the progress drag or by the
-draw-a-task gesture.
+Bounds apply to bar moves and resizes only. The progress drag and the draw gesture do not read them.
 
 ## Touch
 
-A mouse press starts a gesture immediately. A touch or pen press has to rest on the bar for 400 ms
-before the drag lifts.
+A mouse press starts a gesture immediately. A touch or pen press must rest on the bar for 400 ms
+before the drag starts.
 
-During that wait the finger may drift up to 10px. Drift is measured as horizontal plus vertical
-distance from the landing point, so 6px across and 6px down is 12px and cancels the press even
+During that wait the finger may drift up to 10px. Drift is horizontal plus vertical distance from
+the landing point. A drift of 6px across and 6px down counts as 12px and cancels the press, even
 though it is 8.5px on screen.
 
-Until the press lifts, the bar scrolls with the timeline like any other part of the page. That is
-what makes a swipe across a dense chart a scroll and not an accidental drag. Once the press has
-lifted, touch scrolling is suppressed for the duration of the gesture.
+Until the drag starts, the bar scrolls with the timeline like the rest of the page. A swipe across a
+dense chart is a scroll and not a drag. After the drag starts, touch scrolling is suppressed until
+the gesture ends.
 
-The drag starts from where the finger settled, not from where it landed. Four things cancel a
-pending lift:
+The drag starts from where the finger is after the wait, not from where it landed. Four things
+cancel a pending drag.
 
-| Cause | What it usually is |
+| Cause | Typical case |
 |---|---|
 | Drift past 10px | a swipe, not a press |
 | Release before 400 ms | a tap |
 | The browser cancelling the pointer | a system gesture taking over |
 | The row unmounting | the row scrolled out of view under the finger |
 
-A bar only answers the primary pointer's left button. A second finger and a right-click are
-dropped before anything is armed, so neither starts a gesture nor cancels the one already pending.
-The progress handle does not share that guard.
+A bar responds only to the primary pointer's left button. A second finger or a right-click is
+rejected at the press, so it does not start a gesture or cancel a pending one. The progress handle
+does not have that guard.
 
-On a device with no hover state that handle is a 10px dot with a 44px hit area, and it stays
-visible because nothing can hover to reveal it.
+On a device with no hover state the handle stays visible as a 10px dot with a 44px hit area.
 
-## Auto-scrolling at the viewport edge
+## Auto-scrolling
 
-`autoScrollOnDrag` is `true` by default. Only the literal `false` turns it off.
+`autoScrollOnDrag` defaults to `true`. Only the literal `false` turns it off.
 
-It fires when the pointer comes within 48px of the timeline viewport's left or right edge during a
-bar move or resize. The left edge is the timeline's own, measured past the task list pane, so the
-48px is counted from where the pane ends and not from the window. Dragging back over the pane is
-past the edge, not short of the zone, so it scrolls left at full speed.
+Auto-scrolling starts when the pointer comes within 48px of the timeline viewport's left or right
+edge during a bar move or resize. The left edge is the timeline's own, past the task list pane, so
+the 48px is counted from where the pane ends and not from the window. A pointer over the pane is
+past the edge, so the timeline scrolls left at full speed.
 
-The speed ramps linearly from zero at the boundary of the zone to 22px per frame at the edge itself,
-and is capped there. On a narrow timeline the zone shrinks to half the viewport width, so the two
+The speed ramps linearly from zero at the inner boundary of the zone to 22px per frame at the edge,
+where it is capped. On a narrow timeline the zone shrinks to half the viewport width, and the two
 zones never overlap.
 
 Each scrolled frame re-applies the move from the last known pointer position. The drag keeps
-advancing while the pointer is held still at the edge.
+advancing while the pointer stays at the edge.
 
-The auto-scroll is undone and the viewport smooth-scrolls back to where it started whenever the
-gesture is discarded: a cancelled drag, or a drop that never travelled a whole step. A committed
-drop leaves the viewport where it scrolled to.
+When the gesture is discarded, the auto-scroll is undone and the viewport scrolls smoothly back to
+where it started. That covers a cancelled drag and a drop that never travelled a whole step. A
+committed drop leaves the viewport where it scrolled to.
 
-Only bar moves and resizes auto-scroll. Dragging progress or drawing a task near the edge does
-nothing.
+Bar moves and resizes auto-scroll. The progress drag and the draw gesture do not.
 
 ## Editing from the detail panel
 
-Some edits are a known date, not a distance to drag. The detail panel's built-in fields take typed
-values, and a committed field flows through the same single `onTasksChange` call and the same
-permission rungs as the gestures above — a typed date counts as a resize, so a summary row's dates
-stay plain text. Which fields take input, and what an invalid value does, is owned by
-[Detail panel](detail-panel).
+The detail panel's built-in fields take typed values instead of a drag, for an edit where the date
+is already known. A committed field goes through the same single `onTasksChange` call and the same
+permission levels as the gestures above. A typed date counts as a resize, so a summary row's dates
+stay plain text. [Detail panel](detail-panel) describes which fields take input and what an invalid
+value does.
 
-## Limits
+## Limitations
 
-Pointer editing writes dates and progress on existing tasks. Everything else is somewhere else, or
-is yours to do.
+Pointer editing writes dates and progress on existing tasks. Everything else is on another page or
+is the host app's job.
 
-- **A bar cannot be dragged to another row.** Vertical dragging lives in the task list, on the row
-  grip, and never on the bar; see [Reordering rows](reordering).
-- **There is no multi-select drag.** Exactly one bar is grabbed at a time. A summary carrying its
-  subtree is the only many-task drag.
-- **Nothing snaps to midnight or to a tick.** Drags are relative step shifts, so the original time
-  of day is preserved. The working-day snap is the one exception, and it too shifts by whole days
-  and leaves the time of day alone.
-- **Persistence is yours.** `onTasksChange` hands you an array and expects it back as the `tasks`
-  prop. Nothing is stored, nothing is sent anywhere.
-- **Validation is yours.** The chart enforces its own bounds and its minimum bar length, and nothing
-  else. Business rules belong in your `onTasksChange` handler.
-- **Drawing dependency arrows is a separate gesture** with its own permission flags; see
+- Vertical dragging is not a bar gesture. A bar stays in its row, and the row grip in the task list
+  moves it. See [Reordering rows](reordering).
+- Multiple selection is not supported. One bar is grabbed at a time, and only a summary row moves
+  more than one task.
+- Midnight and tick snapping are not supported. Drags are relative step shifts that preserve the
+  time of day. The working calendar snap shifts by whole days and also leaves the time of day alone.
+- Persistence is the host app's job. `onTasksChange` passes an array, and the host app passes it
+  back as the `tasks` prop. The chart stores nothing and sends nothing.
+- Validation is the host app's job. The chart enforces its own bounds and its minimum bar length and
+  nothing else. Business rules belong in the `onTasksChange` handler.
+- Dependency arrows are a separate gesture with their own permission flags. See
   [Dependencies](dependencies).
-- **A bar shorter than one drag step grows when you grab its edge.** The shrink clamp has nothing
-  left to give, so the first pointer movement adds a step in the direction you grabbed, with no
-  travel, and that commits. Every such bar is reachable with a mouse, because rendering floors a
-  bar at 24px and 24px keeps its edges grabbable. Touch needs 132px of rendered width before the
-  edges exist — several drag steps on every scale — so it never hits this.
-- **The progress handle is less guarded than the bar.** It has no primary-pointer or left-button
-  check, so a right-button press arms it, and it does not filter by pointer id, so a second finger's
-  movement rewrites the percentage of the gesture already running.
+- A bar shorter than one drag step grows when its edge is grabbed. The shrink clamp has no room
+  left. The first pointer movement adds a step in the grabbed direction, without travel, and that
+  commits. Rendering floors a bar at 24px and keeps its edges grabbable, so every such bar is
+  reachable with a mouse. Touch needs 132px of rendered width before the edges exist. That is
+  several drag steps on every scale, so touch never reaches this case.
+- The progress handle is less guarded than the bar. It has no check for the primary pointer or the
+  left button, and a right button press starts it. It does not filter by pointer id, and a second
+  finger's movement rewrites the percentage of the running gesture.
 
-Move, resize and progress each have a keyboard equivalent, running through the same permission
-checks and the same drag bounds; the key map is in [Keyboard and screen readers](accessibility).
-Drawing a dependency arrow has no keyboard equivalent at all.
+Move, resize and progress each have a keyboard equivalent, with the same permission checks and the
+same drag bounds. The key map is in [Keyboard and screen readers](accessibility). Drawing a
+dependency arrow has no keyboard equivalent.
 
-Next: [Creating tasks](task-creation), which covers the three ways a new task is proposed and what
-the chart does with the draft.
+Next: [Creating tasks](task-creation).

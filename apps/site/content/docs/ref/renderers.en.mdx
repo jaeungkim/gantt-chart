@@ -3,9 +3,9 @@ title: "Detail renderer"
 description: "`GanttDetailRenderer` and `GanttDetailRenderProps`, the types behind `renderDetail`"
 ---
 
-`renderDetail` is the chart's one render prop. It replaces the body of the detail panel, and its
-types come from `@jaeungkim/gantt-chart`. Behaviour and worked examples live in
-[Detail panel](../detail-panel).
+`renderDetail` replaces the body of the detail panel. Its types are exported from
+`@jaeungkim/gantt-chart`. [Detail panel](../detail-panel) covers the behaviour and worked
+examples.
 
 ```ts
 import type {
@@ -16,7 +16,7 @@ import type {
 ```
 
 `Task` and `TaskTransformed` are documented in [Task and task types](task) and `GanttScaleKey` in
-[Scale and theme types](scales). `ReactNode` comes from `react`.
+[Scale and theme types](scales). `ReactNode` is a type from `react`.
 
 ## GanttDetailRenderer
 
@@ -43,7 +43,7 @@ export type GanttDetailRenderer = (props: GanttDetailRenderProps) => ReactNode;
 | Field | Type | Value |
 |---|---|---|
 | `task` | `TaskTransformed` | The open task, as the chart transformed it |
-| `close` | `() => void` | Closes the panel — the same function the built-in close button calls |
+| `close` | `() => void` | Closes the panel. The built-in close button calls the same function |
 | `scale` | `GanttScaleKey` | The scale currently selected |
 | `update` | `(patch: Partial<Omit<Task, 'id'>>) => void` | Patches the open task through the chart's commit path |
 
@@ -68,29 +68,32 @@ const renderDetail: GanttDetailRenderer = ({ task, close, scale, update }) => (
 
 ### Constraints
 
-Only the panel's children are the renderer's, so there is no props bag to spread.
+The renderer supplies the panel's children, so there is no props bag to spread. No other part of
+the chart accepts a custom renderer.
 
-- The `<aside class="gantt-detail" role="complementary" aria-label="Task details">` stays the
-  chart's, and so does its width — that comes from the `--gantt-detail-width` custom property
-  (`320px`), not from the renderer.
-- The close button is not carried over. `close` is the same function the built-in one calls, and
-  `Escape` closes the panel from anywhere whether or not a replacement renders a control of its own.
-- Returning `null` or `undefined` renders an **empty** panel, not the default body.
-- Passing the renderer turns the panel on when `showDetail` is omitted, the way `showTaskList`
-  turns the task list on. An explicit `showDetail={false}` still wins.
-- The renderer is never called without a task, but closing does not unmount it at once. The panel
-  keeps the last task rendered through the 200ms close transition, and a 400ms timer releases it if
-  `transitionend` never fires, so a body with mount side effects sees extra render passes while the
-  panel slides shut. The `<aside>` leaves the DOM only once that transition finishes.
-- `update` is the same commit path the built-in body's inputs use — the store, then
-  `onTasksChange` — so an edit lands in uncontrolled mode without wiring `tasks` back yourself.
-- `update` applies **no** checks of its own. The interaction flags, the date clamping and the
-  progress normalization gate only the built-in body; a patch passed here reaches the store and
+- The chart renders the `<aside class="gantt-detail" role="complementary" aria-label="Task details">`
+  element itself. The `--gantt-detail-width` custom property sets its width (`320px`). The renderer
+  does not change it.
+- The built-in close button is not carried over into a custom body. `close` calls the same function
+  that button calls. `Escape` closes the panel from anywhere on the page, even when the body renders
+  no close control.
+- Returning `null` or `undefined` renders an empty panel, not the default body.
+- Passing the renderer turns the panel on when `showDetail` is omitted. An explicit
+  `showDetail={false}` keeps it off.
+- The renderer always receives a task. Closing the panel does not unmount it immediately. The panel
+  keeps the last task through the 200ms close transition, and a 400ms timer releases it if
+  `transitionend` never fires. A body with mount side effects gets extra render passes while the
+  panel slides shut. The `<aside>` leaves the DOM after that transition.
+- `update` uses the same commit path as the built-in body's inputs. It writes the task to the store
+  and calls `onTasksChange`. An edit applies in uncontrolled mode, so your app does not have to pass
+  `tasks` back.
+- `update` applies no checks of its own. The interaction flags, the date clamping and the progress
+  normalization gate the built-in body only. A patch passed here reaches the store and
   `onTasksChange` as given, so a custom body enforces its own rules.
-- The patch cannot rename the task's `id` — the type strips it, and the patch always lands on the
-  open task.
-- The renderer is the only way to put a task's other fields in the panel. The default body shows
-  the name, the dates and the duration; progress and predecessors appear only when the task has
-  them. No prop adds a row to it or translates its captions.
+- The patch cannot change the task's `id`. The type omits it, and the patch applies to the open
+  task.
+- The default body shows the name, the dates and the duration. Progress and predecessors appear
+  only when the task has them. No prop adds a row or translates the captions, so other fields reach
+  the panel only through the renderer.
 
 Every prop named here is indexed in [GanttProps](props).

@@ -1,17 +1,16 @@
 ---
 title: "Theming"
-description: "The theme prop and the CSS custom properties"
+description: "The stylesheet, the theme prop and the CSS custom properties"
 ---
 
-You render the chart and get a column of unpositioned divs with no colors. The stylesheet is a
-separate file, and importing the component does not pull it in. Once it is loaded the chart is
-themed by 26 CSS custom properties and one `theme` prop.
+The chart is themed by one `theme` prop and 26 CSS custom properties in a stylesheet the host
+app imports. This page covers the stylesheet, how the theme is resolved, every token, and how
+to override one.
 
-Nearly every color, shadow and transition in the chart reads a `--gantt-*` variable; the ones
-that do not are named under Limits. There is no theme object in JS and no `tokens` prop. CSS is
-the whole mechanism.
+Nearly every color, shadow and transition in the chart reads a `--gantt-*` variable. The
+exceptions are listed under Limitations. There is no theme object in JS and no `tokens` prop.
 
-## The stylesheet
+## Stylesheet
 
 The package exports the built CSS under its own subpath.
 
@@ -20,21 +19,21 @@ import { ReactGanttChart } from '@jaeungkim/gantt-chart';
 import '@jaeungkim/gantt-chart/style.css';
 ```
 
-That subpath resolves to `dist/gantt-chart.css`. The package entry does import the stylesheet,
-but the library build emits it as that separate file instead of inlining it, so importing the
-component pulls in no styles.
+That subpath resolves to `dist/gantt-chart.css`. The package entry imports the stylesheet, but
+the library build emits it as a separate file instead of inlining it. The component alone pulls
+in no styles.
 
-Without the import the chart still mounts and still responds to clicks. It has no styles at all:
-no token declarations, no colors, and none of the layout rules. Sticky headers, the bar geometry,
-the flex column of the container and the `box-sizing: border-box` the layout math assumes all live
-in that file. The result is unreadable rather than merely plain.
+Without the import the chart mounts and responds to clicks, but it has no styles. The token
+declarations, the colors, the sticky headers, the bar geometry, the container's flex column and
+the `box-sizing: border-box` the layout math assumes are all in that file. Without them the
+chart is unreadable.
 
 `box-sizing` is scoped to `.gantt-container` and its descendants. The library ships no global
-reset, so the file is safe to import into an app that has its own.
+reset, so the file does not conflict with an app's own reset.
 
 ## The theme prop
 
-`theme` takes `'light'`, `'dark'` or `'system'`. It is optional.
+`theme` is optional and takes `'light'`, `'dark'` or `'system'`.
 
 ```tsx
 import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
@@ -50,117 +49,117 @@ export function DarkChart() {
 }
 ```
 
-This chart is pinned to `theme="dark"`. Flip the site's own theme switch — the chart does not
-move, because an explicit prop outranks the host.
+The demo below is pinned to `theme="dark"`. An explicit prop overrides the host page, so the
+site's own theme switch does not change it.
 
 <GanttDemo preset="dark" />
 
-The container always ends up with a resolved `data-theme`, which is the only thing the stylesheet
-reads. What decides it:
+The container always carries a resolved `data-theme`, and the stylesheet reads only that
+attribute. The table shows what decides it.
 
 | `theme` | `data-theme` | Decided by |
 |---|---|---|
 | `'light'` | `"light"` | the prop |
 | `'dark'` | `"dark"` | the prop |
-| `'system'` | `"light"` / `"dark"` | `prefers-color-scheme` — the OS |
+| `'system'` | `"light"` / `"dark"` | `prefers-color-scheme`, the OS setting |
 | *(omitted)* | `"light"` / `"dark"` | the host page's `color-scheme` |
-| `'system'` / omitted, on the server and the first hydration render | `"light"` | fixed — neither the OS nor the host is readable without a document |
+| `'system'` or omitted, on the server and the first hydration render | `"light"` | fixed. Without a document neither the OS setting nor the host page's `color-scheme` can be read |
 
-`className` is folded into the class attribute separately and no longer carries any theme meaning.
-`className="my-chart"` yields `gantt-container my-chart`; the theme rides on `data-theme` alone, so
-a host class named `dark` or `light` no longer fights the prop.
+`className` is appended to the class attribute and carries no theme meaning.
+`className="my-chart"` yields `gantt-container my-chart`. The theme is on `data-theme` alone, so
+a host class named `dark` or `light` does not conflict with the prop.
 
-The signature and default of every prop named here are in [GanttProps](ref/props).
+Props and defaults: [GanttProps](ref/props).
 
-### With no theme prop: the host decides
+### Following the host page
 
-Omitting `theme` is not the same as `theme="light"`. With no prop the chart follows the page's
-`color-scheme`, read off `<html>`:
+Omitting `theme` differs from `theme="light"`. With no prop the chart follows the page's
+`color-scheme`, read from `<html>`.
 
 ```css title="your app"
 :root { color-scheme: light; }
 .dark { color-scheme: dark; }
 ```
 
-`color-scheme` is the platform's own light/dark signal, it inherits, and every mainstream theme
-switch already writes it — `next-themes` sets it on `<html>`, and so do Tailwind and fumadocs
-setups built on it. So a chart with no `theme` prop moves with your app's toggle, with no wiring:
+`color-scheme` is the platform's own light and dark signal, and it inherits. Mainstream theme
+switches already write it. `next-themes` sets it on `<html>`, and Tailwind and fumadocs setups
+built on it do too. A chart with no `theme` prop follows the app's toggle with no extra wiring.
 
 ```tsx
 // The app's own switch already drives this.
 <ReactGanttChart tasks={tasks} height={480} />
 ```
 
-A `MutationObserver` watches `<html>` for `class`, `style` and `data-theme` changes, so flipping
-the switch repaints the chart on the next render. No reload, no remount.
+A `MutationObserver` watches `<html>` for `class`, `style` and `data-theme` changes, so a theme
+switch repaints the chart on the next render without a reload or a remount.
 
-Only `<html>` is read and watched. `color-scheme` inherits, so a rule on `:root` covers the whole
-page — but a value set only on `<body>` or a wrapper never reaches the chart.
+Only `<html>` is read and watched. A rule on `:root` covers the whole page through inheritance.
+A value set only on `<body>` or a wrapper does not reach the chart.
 
-If the page's `color-scheme` is `light dark`, either suits the host, so the OS decides — the same
-question `theme="system"` asks. A page that never sets it computes to `normal`, which reads as
-light — which is what such a page is.
+A page whose `color-scheme` is `light dark` accepts either, so the OS setting decides, as it
+does for `theme="system"`. A page that never sets it computes to `normal`, which the chart
+reads as light.
 
-### How system is detected
+### System detection
 
 `theme="system"` reads `window.matchMedia('(prefers-color-scheme: dark)')` through
-`useSyncExternalStore`, and ignores the host page. It is for a chart that should track the OS even
-inside an app whose own theme is pinned. If you want the chart to match the app, leave `theme` out.
+`useSyncExternalStore` and ignores the host page. Use it for a chart that should track the OS
+inside an app whose own theme is pinned. To match the app instead, omit `theme`.
 
-The server snapshot is fixed at `"light"`: neither the host's `color-scheme` nor the OS is readable
-without a document. An explicit `'light'` or `'dark'` prop skips detection entirely, so it renders
-as itself even on the server. For the other two values, a host that themes before paint —
-`next-themes` injects a blocking script that does — is already correct on the first client render,
-so only static HTML shows the light frame.
+The server snapshot is fixed at `"light"`, because neither the host's `color-scheme` nor the OS
+is readable without a document. An explicit `'light'` or `'dark'` prop skips detection and
+renders as given on the server too. For `'system'` and the omitted prop, a host that themes
+before paint, such as `next-themes` with its blocking script, is correct on the first client
+render. The light value appears only in the served HTML.
 
-## The custom properties
+## Custom properties
 
-All 26 tokens are declared on `.gantt-container`, never on `:root`. On `:root` they would collide
-with a host app's own `--background` and `--border`.
+All 26 tokens are declared on `.gantt-container`, not on `:root`, where they would collide with
+a host app's own `--background` and `--border`.
 
-20 of them are redefined for dark. The other 6 are shared by both themes and are marked with a
-dash below.
+The dark block redefines 20 of them. The other 6 are not redefined and show `same` in the Dark
+column below.
 
-Next to the tokens the stylesheet sets `color-scheme` on the container — `light`, flipped to
-`dark` in the dark block. That paints the browser's own chrome inside the chart, the scrollbars
-and the caret, to match instead of leaving them light on a dark chart.
+The stylesheet also sets `color-scheme` on the container, `light` by default and `dark` in the
+dark block. The browser paints its own scrollbars and caret inside the chart to match the
+theme.
 
 ### Surface and text
 
 | Token | Light | Dark | Paints |
 |---|---|---|---|
-| `--gantt-background` | `#fafafa` | `#09090b` | container, grid pane, grid header, top header groups, content area, the detail panel and its inputs; link-handle and progress-handle fill; tooltip text |
-| `--gantt-foreground` | `#18181b` | `#fafafa` | body text, grid cells, top group label, bar tooltip background, a bar label rendered outside the bar once that bar is hovered, selected or moving, and at 6% the dragged bar's footprint on the tick row |
-| `--gantt-muted` | `#f4f4f5` | `#18181b` | bottom header row, row hover and selection; the tick cell the drag readout writes its date in, which keeps the tick row's own surface so only that numeral steps aside |
-| `--gantt-muted-foreground` | `#71717a` | `#a1a1aa` | secondary text (grid header cells, tick labels, row numbers, lane-count badge, detail-panel field labels), a resting bar label rendered outside its bar, bar resize grips and row grips, scrollbar thumb hover |
-| `--gantt-border` | `#e4e4e7` | `#27272a` | header and grid borders, scrollbar thumb, expander hover fill, the lane-count badge's fill, the detail panel's input borders |
+| `--gantt-background` | `#fafafa` | `#09090b` | container, grid pane, grid header, top header groups, content area, the detail panel and its inputs. Also the link handle and progress handle fill, and the tooltip text |
+| `--gantt-foreground` | `#18181b` | `#fafafa` | body text, grid cells, top group label, bar tooltip background, a bar label outside its bar while that bar is hovered, selected or dragged, and the dragged bar's span on the tick row at 6% |
+| `--gantt-muted` | `#f4f4f5` | `#18181b` | bottom header row, row hover and selection, and the tick cell that shows the drag readout, which keeps the tick row's surface and hides only its numeral |
+| `--gantt-muted-foreground` | `#71717a` | `#a1a1aa` | secondary text (grid header cells, tick labels, row numbers, lane count badge, detail panel field labels), a resting bar label outside its bar, bar resize grips and row grips, scrollbar thumb hover |
+| `--gantt-border` | `#e4e4e7` | `#27272a` | header and grid borders, scrollbar thumb, expander hover fill, the lane count badge fill, the detail panel input borders |
 | `--gantt-border-subtle` | `rgba(0, 0, 0, 0.04)` | `rgba(255, 255, 255, 0.04)` | row separators, the line between the two header rows |
-| `--gantt-accent` | `#3b82f6` | — | every focus ring, the selected bar's outline and the selected row's inset bar, selected or hovered dependency arrows and their delete button, link handle border, link preview, the reorder drop indicator, splitter hover, draw-to-create ghost |
+| `--gantt-accent` | `#3b82f6` | same | every focus ring, the selected bar's outline and the selected row's inset bar, selected or hovered dependency arrows and their delete button, link handle border, link preview, the reorder drop indicator, splitter hover, the ghost bar drawn while creating a task |
 
 ### Bars and summary rows
 
 | Token | Light | Dark | Paints |
 |---|---|---|---|
 | `--gantt-bar-bg` | `#c7c7cd` | `#3a3a41` | `.gantt-task-bar` background |
-| `--gantt-bar-bg-hover` | `#b4b4bc` | `#47474f` | its hover |
-| `--gantt-bar-text` | `#18181b` | `#fafafa` | the task name inside a bar that carries no `color` of its own |
-| `--gantt-bar-shadow` | `none` | `none` | a resting bar - flat on purpose, so a row of bars keeps its own edges instead of stacking into a haze |
+| `--gantt-bar-bg-hover` | `#b4b4bc` | `#47474f` | the same bar on hover |
+| `--gantt-bar-text` | `#18181b` | `#fafafa` | the task name inside a bar with no task `color` |
+| `--gantt-bar-shadow` | `none` | `none` | a bar at rest, kept flat so adjacent bars keep separate edges |
 | `--gantt-bar-shadow-hover` | `0 1px 2px rgba(0, 0, 0, 0.08)` | `0 1px 2px rgba(0, 0, 0, 0.4)` | a hovered bar |
 | `--gantt-bar-shadow-drag` | `0 4px 12px rgba(0, 0, 0, 0.16)` | `0 4px 12px rgba(0, 0, 0, 0.5)` | a bar being dragged |
-| `--gantt-shadow-overlay` | `0 4px 16px rgba(0, 0, 0, 0.15)` | `0 8px 24px rgba(0, 0, 0, 0.55)` + a `1px` white ring | the bar tooltip |
-| `--gantt-summary-bg` | `#dcdce0` | `#2a2a2f` | summary-row bar - quieter than a task bar on purpose, so a roll-up does not outshout the rows it spans |
-| `--gantt-summary-bg-hover` | `#cfcfd4` | `#35353c` | its hover |
+| `--gantt-shadow-overlay` | `0 4px 16px rgba(0, 0, 0, 0.15)` | `0 8px 24px rgba(0, 0, 0, 0.55)` plus a `1px` white ring | the bar tooltip |
+| `--gantt-summary-bg` | `#dcdce0` | `#2a2a2f` | a summary row's bar, quieter than a task bar so a roll-up does not dominate the rows it spans |
+| `--gantt-summary-bg-hover` | `#cfcfd4` | `#35353c` | the same bar on hover |
 
 ### Progress
 
 | Token | Light | Dark | Paints |
 |---|---|---|---|
-| `--gantt-progress-bg` | `#8e8e97` | `#6c6c76` | the progress fill inside a bar - a step toward the foreground in both themes, so the filled part reads against the bar without losing the label on top of it |
-| `--gantt-progress-handle` | `#52525b` | `#a1a1aa` | the progress handle border; its fill is `--gantt-background` |
+| `--gantt-progress-bg` | `#8e8e97` | `#6c6c76` | the progress fill inside a bar, one step toward the foreground in both themes so the fill is visible against the bar and the label stays readable over it |
+| `--gantt-progress-handle` | `#52525b` | `#a1a1aa` | the progress handle border. Its fill is `--gantt-background` |
 
 A summary row's roll-up fill does not read `--gantt-progress-bg`. It is `--gantt-foreground` at
-25% opacity — one step quieter than a task's fill, and untouched by an override of the progress
-token.
+25% opacity, one step quieter than a task's fill, and an override of the progress token does not
+affect it.
 
 ### Dependency arrows
 
@@ -168,13 +167,15 @@ token.
 |---|---|---|---|
 | `--gantt-arrow` | `#a1a1aa` | `#71717a` | arrow stroke and arrowhead fill |
 
-Arrows rest at 45% opacity so a dense chart is not dominated by its own relationships, and go to full strength when they are selected, hovered, or attached to the hovered or selected task. A selected or hovered arrow also switches to `--gantt-accent`.
+Arrows rest at 45% opacity, so a dense chart is not dominated by its links. An arrow goes to
+full opacity when it is selected, hovered, or attached to the hovered or selected task. A
+selected or hovered arrow also switches to `--gantt-accent`.
 
-### The today line
+### Today line
 
 | Token | Light | Dark | Paints |
 |---|---|---|---|
-| `--gantt-today-marker` | `#f43f5e` | `#fb7185` | the today line and the dot that pins it to the header, **and** every invalid-state color: rejected link previews, rejected link targets, a blocked reorder drop |
+| `--gantt-today-marker` | `#f43f5e` | `#fb7185` | the today line and the dot that pins it to the header. Also every invalid state: a rejected link preview, a rejected link target and a blocked reorder drop |
 
 ### Non-working days
 
@@ -182,46 +183,46 @@ Arrows rest at 45% opacity so a dense chart is not dominated by its own relation
 |---|---|---|---|
 | `--gantt-non-working-bg` | `rgba(0, 0, 0, 0.035)` | `rgba(255, 255, 255, 0.03)` | the shaded non-working columns, holidays included unless one carries its own `color` |
 
-Which days get shaded is decided by `showNonWorkingDays`, `workingWeekdays` and `holidays` — see
+`showNonWorkingDays`, `workingWeekdays` and `holidays` decide which days are shaded. See
 [The timeline](timeline).
 
-A holiday's `color` replaces this token on its own band alone, tinted to the same weight rather than
-painted at full strength. It is a prop, not a token, so it cannot be themed per color scheme — one
-color serves both. The band's name is `.gantt-holiday-cell`, which takes `--gantt-muted` and
-`--gantt-foreground` like the tick row it sits in.
+A holiday's `color` replaces this token on that holiday's own columns only, tinted to the same
+weight rather than painted at full strength. It is a prop, not a token, so one color serves both
+themes. The holiday's name is shown in `.gantt-holiday-cell`, which takes `--gantt-muted` and
+`--gantt-foreground` like the tick row it is in.
 
-### The detail panel
+### Detail panel
 
 | Token | Light | Dark | Paints |
 |---|---|---|---|
-| `--gantt-detail-width` | `320px` | — | the width of the docked detail panel |
+| `--gantt-detail-width` | `320px` | same | the width of the docked detail panel |
 
-A layout token, not a color one, so the dark blocks leave it alone. The token is the open panel's
-flex-basis: the panel slides between `0` and it, and paints itself from the tokens above — see
-[Detail panel](detail-panel).
+This is a layout token, so the dark block does not redefine it. It is the open panel's
+flex-basis. The panel slides between `0` and that width and takes its colors from the tokens
+above. See [Detail panel](detail-panel).
 
 ### Typography and motion
 
 | Token | Light | Dark | Paints |
 |---|---|---|---|
-| `--gantt-font-sans` | `"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", "Geist", system-ui, sans-serif` | — | the container's `font-family` |
-| `--gantt-duration-fast` | `150ms` | — | the bar tooltip's fade-in only; it is duration-only because the transition tokens carry easing, which an `animation` shorthand rejects |
-| `--gantt-transition-fast` | `150ms ease` | — | the bar background, the expander chevron's rotation, and the fade of the resize grips, row grips, link handles and progress handle |
-| `--gantt-transition-normal` | `200ms ease` | — | the box-shadow transition on a bar |
+| `--gantt-font-sans` | `"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", "Geist", system-ui, sans-serif` | same | the container's `font-family` |
+| `--gantt-duration-fast` | `150ms` | same | the bar tooltip's fade-in only. It carries a duration with no easing, because the `animation` shorthand rejects a value that carries both |
+| `--gantt-transition-fast` | `150ms ease` | same | the bar background, the expander chevron's rotation, and the fade of the resize grips, row grips, link handles and progress handle |
+| `--gantt-transition-normal` | `200ms ease` | same | the box-shadow transition on a bar |
 
-No font is bundled and none is fetched: the stylesheet names Pretendard, so a host that
-already serves it gets it, and everyone else falls straight through to the system font. Shipping
-it is the host's job — the docs site self-hosts a subsetted variable build through `next/font`.
-The base font size is `13px` and is not tokenized.
+No font is bundled or fetched. The stylesheet names Pretendard, so a host that serves it gets
+it and any other host falls through to the system font. Serving the font is the host app's
+job. The docs site self-hosts a subsetted variable build through `next/font`. The base font
+size is `13px` and is not a token.
 
 Under `@media (prefers-reduced-motion: reduce)` every transition and animation inside the
-container is forced to `0.01ms`, and `scroll-behavior` to `auto`. That happens whatever the motion
-tokens are set to.
+container is forced to `0.01ms` and `scroll-behavior` to `auto`, regardless of the motion
+tokens.
 
 ## Overriding a token
 
-Write the override on `.gantt-container` and load your stylesheet after the library's. Your rule
-and the library's base rule have the same specificity, so source order is what decides.
+Write the override on `.gantt-container` and load your stylesheet after the library's. The two
+rules have the same specificity, so source order decides.
 
 ```css title="app.css"
 .gantt-container {
@@ -229,14 +230,14 @@ and the library's base rule have the same specificity, so source order is what d
 }
 ```
 
-That is enough for the 6 tokens the dark block never touches: `--gantt-font-sans`,
-`--gantt-accent`, `--gantt-detail-width`, and the three motion tokens. For the other 20 it is
-not.
+One rule is enough for the 6 tokens the dark block does not redefine: `--gantt-font-sans`,
+`--gantt-accent`, `--gantt-detail-width` and the three motion tokens. The other 20 need two
+rules.
 
 > [!WARNING]
-> A one-line override on `.gantt-container` wins in light mode and loses in dark. The library's
-> dark rule is `.gantt-container[data-theme="dark"]` at specificity `(0,2,0)`; a plain
-> `.gantt-container` rule is `(0,1,0)` and is outranked by it.
+> A single override on `.gantt-container` wins in light mode and loses in dark mode. The
+> library's dark rule is `.gantt-container[data-theme="dark"]` at specificity `(0,2,0)`, and a
+> plain `.gantt-container` rule at `(0,1,0)` loses to it.
 
 A themed token takes two rules, one per theme.
 
@@ -252,18 +253,18 @@ A themed token takes two rules, one per theme.
 }
 ```
 
-Setting the tokens on `:root` does nothing. They are declared on `.gantt-container` itself, and a
-declaration on the element beats anything inherited from an ancestor.
+Setting the tokens on `:root` has no effect. They are declared on `.gantt-container` itself,
+and a declaration on the element beats an inherited value.
 
-Source order only settles a tie in specificity, and only between rules in the same cascade layer.
-If you import the library's stylesheet into a layer — `@import '@jaeungkim/gantt-chart/style.css'
-layer(gantt)` — that layer's order decides instead, and an unlayered rule of yours beats it
-outright.
+Source order settles a specificity tie only between rules in the same cascade layer. If the
+library's stylesheet is imported into a layer, as in
+`@import '@jaeungkim/gantt-chart/style.css' layer(gantt)`, layer order decides instead, and an
+unlayered rule of yours beats it.
 
 ### Scoping to one chart
 
-Pass a `className` and qualify every selector with it. Each qualified selector gains one class
-over the library's, so it outranks the block it mirrors.
+Pass a `className` and add it to every selector. Each qualified selector has one more class
+than the library's, so it wins over the block it mirrors.
 
 ```tsx
 <ReactGanttChart tasks={tasks} className="planning-chart" height={480} />
@@ -279,50 +280,47 @@ over the library's, so it outranks the block it mirrors.
 }
 ```
 
-### Per-task color wins over the tokens
+### Task color
 
-A task's own `color` is written as an inline `--gantt-bar-color` on that bar, which the bar reads
-ahead of the theme tokens, so a colored task ignores them entirely. That color derives the bar's
-label color as well, so `--gantt-bar-text` decides the label only on a bar with no task color — see
+A task's `color` is written to that bar as an inline `--gantt-bar-color`, which the bar reads
+before the theme tokens. A colored task ignores the bar tokens. The label color is derived from
+the same value, so `--gantt-bar-text` applies only to a bar with no task color. See
 [Styling](styling).
 
-## Limits
+## Limitations
 
-What theming does not cover:
+Theming does not cover the following.
 
-- **No JS theme API.** There is no `tokens` prop, no theme object, and no exported default
-  palette. `GanttTheme` is the three-value union and nothing else.
-- **One color is hardcoded and cannot be themed.** The dependency delete glyph stroke (`#fff`).
-- **Geometry is not tokenized for you.** The top header row is `44px`, the bottom row `28px`, the
-  base font size `13px` — plain values, not variables. The row height does appear as
-  `--gantt-row-height`, but the component writes it inline from a JS constant, so a stylesheet
-  override loses to it.
-- **The detail panel's slide is not tokenized.** Opening and closing runs over a plain `200ms
-  ease`; the three motion tokens do not drive it.
-- **`--top-group-inset` is out of reach.** It is declared on `.gantt-top-group`, not on the
-  container, and it carries no `--gantt-` prefix. A host cannot set it from `.gantt-container`.
-- **The `light` and `dark` classes carry nothing.** Earlier versions also wrote the resolved theme
-  as a class on the container. Only `data-theme` is read now; a rule written as
-  `.gantt-container.dark { … }` matches nothing the library sets.
-- **No provider, and none is needed for the common case.** `theme` is a per-chart prop, but every
-  chart that omits it follows the page's `color-scheme`, so one `color-scheme` rule themes them
-  all.
-- **Nothing is persisted.** Neither the resolved theme nor the scale is stored anywhere. The
-  chart does not touch `sessionStorage` at all.
-- **No RTL.** Nothing reads or sets `dir`, and the stylesheet uses physical properties throughout.
-- **Nothing is validated.** An unknown `theme` value produces no warning; it just behaves like an
-  omitted prop.
+- `GanttTheme` is the union `'light' | 'dark' | 'system'`. There is no `tokens` prop, theme
+  object or exported default palette.
+- The dependency delete glyph stroke is hardcoded to `#fff` and cannot be themed. It is the
+  only hardcoded color.
+- Geometry is not tokenized. The top header row is `44px`, the bottom row `28px` and the base
+  font size `13px`, as plain values. The row height appears as `--gantt-row-height`, but the
+  component writes it inline from a JS constant, so a stylesheet override loses to it.
+- The detail panel's slide is a plain `200ms ease`. The three motion tokens do not drive it.
+- `--top-group-inset` is declared on `.gantt-top-group`, not on the container, and carries no
+  `--gantt-` prefix. A host cannot set it from `.gantt-container`.
+- The `light` and `dark` classes carry nothing. Earlier versions also wrote the resolved theme
+  as a class on the container. Only `data-theme` is read, and a rule such as
+  `.gantt-container.dark { ... }` matches nothing the library sets.
+- There is no theme provider. `theme` is set per chart, but every chart that omits it follows the
+  page's `color-scheme`, so one `color-scheme` rule themes them all.
+- Nothing is persisted. Neither the resolved theme nor the scale is stored, and the chart does
+  not use `sessionStorage`.
+- There is no RTL support. Nothing reads or sets `dir`, and the stylesheet uses physical
+  properties throughout.
+- `theme` is not validated. An unknown value produces no warning and behaves like an omitted
+  prop.
 
-What the host app does itself:
+The host app does the following itself.
 
-- Import `@jaeungkim/gantt-chart/style.css`, and import it before its own stylesheet.
+- Load `@jaeungkim/gantt-chart/style.css` before its own stylesheet.
 - Repeat every themed override under both of the library's selectors.
-- Persist the scale itself, if a reload should keep it: take the new value from `onScaleChange`
-  and pass it back as `defaultScale` on the next mount — see [The timeline](timeline).
-- Set `color-scheme` when it flips its own light/dark state, which is what a chart with no `theme`
-  prop follows. Pass `theme` explicitly only to override that per chart.
-- Reach for a task's `className` when a token cannot express the change — see
-  [Styling](styling).
+- Persist the scale, if a reload should keep it. Take the new value from `onScaleChange` and
+  pass it back as `defaultScale` on the next mount. See [The timeline](timeline).
+- Set `color-scheme` when it flips its own light and dark state. A chart with no `theme` prop
+  follows that value. Pass `theme` only to override it per chart.
+- Use a task's `className` when a token cannot express the change. See [Styling](styling).
 
-Next: [Headless core](headless-core) covers the tree, roll-up and calendar functions that
-run without React.
+Next: [Headless core](headless-core).

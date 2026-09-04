@@ -3,10 +3,10 @@ title: "GanttHandle"
 description: "`GanttHandle`, `GanttScrollApi`, `GanttDetailApi`, `GanttTaskCreateApi`, `GanttScrollOptions`, `GanttZoomAnchor`"
 ---
 
-`GanttHandle` is the object a `ref` on the chart receives. It carries the scroll and zoom methods,
-the two detail-panel methods and `addTask`, and nothing else — it is `GanttScrollApi`,
-`GanttDetailApi` and `GanttTaskCreateApi` together. All six types on this page are
-type-only exports of the package.
+`GanttHandle` is the object a `ref` on the chart receives. It combines `GanttScrollApi`,
+`GanttDetailApi` and `GanttTaskCreateApi`, so it carries the scroll and zoom methods, the two
+detail panel methods and `addTask`. All six types on this page are type-only exports of the
+package.
 
 ```ts
 import type {
@@ -29,7 +29,7 @@ export interface GanttHandle
     GanttTaskCreateApi {}
 ```
 
-It declares no member of its own — every method below comes from one of the three interfaces it
+It declares no member of its own. Every method below is defined in one of the three interfaces it
 extends. The chart builds the handle by spreading the scroll API and adding the two detail methods
 and `addTask`.
 
@@ -37,17 +37,17 @@ and `addTask`.
 
 | Member | Signature | Effect |
 |---|---|---|
-| `scrollToDate` | `(date: string \| Date \| Dayjs, options?: GanttScrollOptions) => void` | Scrolls horizontally so that date sits at the requested position; does nothing when the date is outside the rendered timeline. |
+| `scrollToDate` | `(date: string \| Date \| Dayjs, options?: GanttScrollOptions) => void` | Scrolls horizontally so the date lands at the requested position. Does nothing when the date is outside the rendered timeline. |
 | `scrollToToday` | `(options?: GanttScrollOptions) => void` | `scrollToDate` with the current instant. |
-| `scrollToTask` | `(taskId: string, options?: GanttScrollOptions) => void` | Scrolls horizontally to the task's bar, and vertically only when its row is off screen; does nothing for an id that no row shows. |
-| `setScale` | `(scale: GanttScaleKey) => void` | Switches the scale; the centre date stays put. |
+| `scrollToTask` | `(taskId: string, options?: GanttScrollOptions) => void` | Scrolls horizontally to the task's bar, and vertically only when its row is off screen. Does nothing for an id that no row shows. |
+| `setScale` | `(scale: GanttScaleKey) => void` | Switches the scale and keeps the centre date in place. |
 | `zoomToFit` | `() => void` | Switches to the finest scale at which the whole project fits the timeline width and pins the earliest task date to the left edge. |
 | `getScrollElement` | `() => HTMLDivElement \| null` | Returns the chart's scroll container element, or `null` when the chart is not mounted. |
-| `openDetail` | `(taskId: string) => void` | Opens the detail panel on that task; does nothing for an id that names no task, or while the panel is off. |
+| `openDetail` | `(taskId: string) => void` | Opens the detail panel on that task. Does nothing for an id that names no task, or while the panel is off. |
 | `closeDetail` | `() => void` | Closes the detail panel. |
-| `addTask` | `() => void` | Proposes a new task through `onTaskCreate` — one tick at today, snapped to the current scale; does nothing while task creation is off. |
+| `addTask` | `() => void` | Calls `onTaskCreate` with a draft one tick long at today, snapped to the current scale. Does nothing while task creation is off. |
 
-Every method returns `void`; only `getScrollElement` returns a value.
+Every method except `getScrollElement` returns `void`.
 
 ## `GanttScrollApi`
 
@@ -79,14 +79,12 @@ export interface GanttScrollApi {
 }
 ```
 
-`Dayjs` is the object type from `dayjs`; the package does not re-export it, so import it from
-`dayjs` itself. A plain string or `Date` is accepted and parsed as UTC — see
-[Task data](../task-data).
+`Dayjs` is the object type from `dayjs`. The package does not re-export it, so import it from
+`dayjs`. A plain string or `Date` is accepted and parsed as UTC. See [Task data](../task-data).
 
 `GanttScaleKey` is the union of the five scale keys, listed in
-[Scale and theme types](scales). It is the only
-scale symbol the package exports; the scale table `setScale` checks its argument against stays
-internal.
+[Scale and theme types](scales). The scale table that `setScale` checks its argument against is
+internal and not exported.
 
 ## `GanttDetailApi`
 
@@ -105,9 +103,10 @@ export interface GanttDetailApi {
 }
 ```
 
-The panel is on when `showDetail` says so — or, with `showDetail` omitted, when `renderDetail` is
-given. Both props, and the rest of the detail surface, live in [GanttProps](props). While it is off
-both methods are inert, so a toolbar button wired to `openDetail` needs no guard of its own.
+The panel is on when `showDetail` is `true`. With `showDetail` omitted, it is on when
+`renderDetail` is given. Both props, and the rest of the detail surface, are in
+[GanttProps](props). While the panel is off, both methods do nothing, so a toolbar button wired
+to `openDetail` needs no guard.
 
 ## `GanttTaskCreateApi`
 
@@ -125,11 +124,11 @@ export interface GanttTaskCreateApi {
 }
 ```
 
-`addTask()` is the ref side of the **Add task** strip under the task list: the same draft, the same
-callback, the same silence while creation is off. Today outside the rendered timeline moves the
-draft to the first tick rather than dropping it. It returns nothing and reports nothing — the row
-appears when the `tasks` array your `onTaskCreate` builds carries it. What the draft holds and what
-turns creation off are in [Creating tasks](../task-creation).
+`addTask()` is the ref counterpart of the **Add task** button under the task list. It sends the
+same draft to the same callback and does nothing while creation is off. When today is outside the
+rendered timeline, the draft moves to the first tick. The row appears when the `tasks` array your
+`onTaskCreate` builds includes it. [Creating tasks](../task-creation) describes the draft and what
+turns creation off.
 
 ## `GanttScrollOptions`
 
@@ -146,13 +145,13 @@ export interface GanttScrollOptions {
 | Field | Type | Default | Effect |
 |---|---|---|---|
 | `smooth` | `boolean` | `true` | `false` scrolls with `behavior: "auto"`. Any other value, `undefined` included, animates with `behavior: "smooth"`. |
-| `align` | `"start" \| "center"` | `"center"` | `"start"` puts the target at the left edge of the timeline area. `"center"` centres it in the timeline area, measured against the width left over after the task list pane. |
+| `align` | `"start" \| "center"` | `"center"` | `"start"` puts the target at the left edge of the timeline area. `"center"` centres it in the timeline area, measured against the width that remains beside the task list pane. |
 
-Horizontal targets are clamped with `Math.max(0, …)`, so a target left of the timeline origin
+Horizontal targets are clamped with `Math.max(0, ...)`, so a target left of the timeline origin
 scrolls to `0`.
 
-`align` applies to the horizontal axis only. `scrollToTask` always centres the row vertically when
-it moves vertically at all.
+`align` applies to the horizontal axis only. When `scrollToTask` scrolls vertically, it always
+centres the row.
 
 ## `GanttZoomAnchor`
 
@@ -165,10 +164,9 @@ export interface GanttZoomAnchor {
 }
 ```
 
-The type is exported from the package, but no member of `GanttHandle` accepts it. It describes the
-anchor the chart keeps fixed while the scale changes — the behaviour behind `setScale`, `zoomToFit`
-and wheel zoom, each of which builds its own. Nothing public consumes it, so there is nothing to
-pass one to.
+The package exports this type, but no member of `GanttHandle` accepts it. It describes the date
+the chart keeps fixed on screen while the scale changes. `setScale`, `zoomToFit` and wheel zoom
+each build their own anchor.
 
 ## Attaching the ref
 
@@ -204,55 +202,51 @@ export function TimelinePane() {
 }
 ```
 
-## Before mount, and calling too early
+## Early calls
 
 `ref.current` is `null` until React commits the chart, and `null` again after it unmounts. A read
-during the parent's render sees `null`; the handle is in place by the time the parent's
-`useEffect` or `useLayoutEffect` runs. Guard with `?.` rather than `!`.
+during the parent's render sees `null`. By the time the parent's `useEffect` or
+`useLayoutEffect` runs, the handle is set. Guard with `?.` rather than `!`.
 
-Once the handle exists, the methods tolerate being called before the data they need is there. Each
-one below returns without throwing and without a console warning:
+After the handle exists, the methods tolerate calls made before their data is ready. Each case
+below returns without throwing and without a console warning.
 
 | Call | Condition | Result |
 |---|---|---|
-| `scrollToDate` | the timeline has no ticks, or the date falls before the first tick or past the end of the last | no scroll |
+| `scrollToDate` | the timeline has no ticks, or the date is before the first tick or past the end of the last | no scroll |
 | `scrollToToday` | today is outside the rendered range | no scroll |
-| `scrollToTask` | the id is on no row — unknown, or hidden under a collapsed parent | no scroll |
+| `scrollToTask` | no row shows the id, because it is unknown or hidden under a collapsed parent | no scroll |
 | `setScale` | the key is not one of the five scales | no scale change |
 | `setScale` | the scroll container is not mounted, or the centre of the timeline area is not over a tick | the scale changes, with no anchor |
 | `zoomToFit` | `tasks` is empty, or the scroll container is not mounted | no scale change, no scroll |
 | `getScrollElement` | the chart is not mounted | `null` |
 | `openDetail` | the id names no task in `tasks` | no open |
-| `openDetail` | the panel is off — neither `renderDetail` nor `showDetail` turns it on | no open |
+| `openDetail` | the panel is off, with neither `renderDetail` nor `showDetail` turning it on | no open |
 | `closeDetail` | the panel is off, or already closed | nothing, and no `onDetailChange` |
-| `addTask` | `onTaskCreate` is not given, or creation is off — `allowTaskCreate` false, or `readOnly` without an overriding `allowTaskCreate` | no draft, and no callback |
-| `addTask` | the timeline has no ticks — no tasks, and no window pinned with `visibleStart`/`visibleEnd` | no draft, and no callback |
+| `addTask` | `onTaskCreate` is not given, `allowTaskCreate` is `false`, or `readOnly` is set without an overriding `allowTaskCreate` | no draft, no callback |
+| `addTask` | the timeline has no ticks, because there are no tasks and no window pinned with `visibleStart` and `visibleEnd` | no draft, no callback |
 
 ## Notes
 
-- The handle is the scroll API object spread into a new one with the two detail methods and
-  `addTask` added,
-  rebuilt whenever any of those change identity. `getScrollElement` reads the ref on each call, so
-  a handle reference captured earlier still returns the current element.
-- `scrollToDate` and `scrollToToday` never touch `scrollTop`. Only `scrollToTask` scrolls
+- The handle is rebuilt whenever the scroll API, either detail method or `addTask` changes
+  identity. `getScrollElement` reads the ref on each call, so a handle captured earlier returns
+  the current element.
+- `scrollToDate` and `scrollToToday` never change `scrollTop`. Only `scrollToTask` scrolls
   vertically, and only when the target row is outside the viewport.
-- `setScale` is the only way to set an exact scale from code. `defaultScale` is a one-time seed
-  read when the store is built, so a later change to it is ignored.
-- The chart renders no scale picker of its own. `setScale` is what a picker of yours calls, and the
-  `onScaleChange` prop — in [GanttProps](props) — is how it follows a change the keyboard or the
-  wheel made instead.
-- `zoomToFit` takes no `GanttScrollOptions`. Its scroll is always instant, never animated.
-- `zoomToFit` picks from the five scales in the order `day`, `week`, `month`, `quarter`, `year`,
-  and falls back to `year` when the project fits none of them — see
-  [The timeline](../timeline).
-- Row height for the vertical `scrollToTask` math is a fixed 38 px.
-- `openDetail` resolves the id against every task, collapsed rows included — unlike `scrollToTask`,
-  which needs the row to be rendered. Collapsing a parent hides the row without closing the panel
-  that describes it.
-- With `detailTaskId` given the chart is controlled, and the two detail methods change nothing on
-  their own: they report the request through `onDetailChange` and wait for the prop to follow.
-  Without it they move the panel themselves, and fire `onDetailChange` too.
-- `addTask` is the only member that is not about the viewport, and it still changes no data: it
-  calls `onTaskCreate` and stops. The chart never writes to `tasks`.
-- Behaviour, worked examples and the reasons behind these methods live in
-  [Imperative API](../imperative-api).
+- No prop sets the scale after mount. `setScale` sets an exact scale from code. `defaultScale` is
+  read once when the store is created, so a later change to it is ignored.
+- The chart renders no scale picker. A picker in your app calls `setScale`. The `onScaleChange`
+  prop in [GanttProps](props) reports a change made by the keyboard or the wheel.
+- `zoomToFit` takes no `GanttScrollOptions`. Its scroll is instant, with no animation.
+- `zoomToFit` tries the five scales in the order `day`, `week`, `month`, `quarter`, `year`, and
+  falls back to `year` when the project fits none of them. See [The timeline](../timeline).
+- Row height for the vertical `scrollToTask` math is a fixed 38px.
+- `openDetail` resolves the id against every task, collapsed rows included. `scrollToTask` needs
+  the row to be rendered. Collapsing a parent hides the row without closing the panel that
+  describes it.
+- With `detailTaskId` given, the chart is controlled and the two detail methods change nothing on
+  their own. They report the request through `onDetailChange` and wait for the prop to follow.
+  Without it they move the panel themselves and fire `onDetailChange` too.
+- `addTask` does not scroll or change the scale. It calls `onTaskCreate` and the chart never
+  writes to `tasks`.
+- [Imperative API](../imperative-api) covers these methods in use.

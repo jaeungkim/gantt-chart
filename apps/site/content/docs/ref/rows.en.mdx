@@ -1,18 +1,18 @@
 ---
 title: "GanttRow"
-description: "The row model the chart builds from your tasks"
+description: "The row model the chart builds from the tasks it renders"
 ---
 
-`GanttRow` describes the row model the chart renders — one entry per rendered row, in screen
-order. It comes from the package root.
+`GanttRow` is the row model the chart renders, one entry per rendered row in screen order. The
+package root exports the type.
 
 ```ts
 import type { GanttRow } from '@jaeungkim/gantt-chart';
 ```
 
-For what a lane does and how lane-mates pack onto one row, see [Lanes](../lanes).
+A lane packs tasks that never overlap onto one row. See [Lanes](../lanes).
 
-## GanttRow
+## Fields
 
 ```ts
 /** One rendered row: one task, or several sharing a `lane` */
@@ -33,24 +33,25 @@ export interface GanttRow {
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | `string` | The row's task ids joined with `"+"`, in the order the tasks sit on the row. A one-task row has nothing to join, so its id is that task's id. |
-| `tasks` | `TaskTransformed[]` | One entry on a plain row, several when tasks share a `lane`. Never empty — every row is built from at least one task. |
-| `depth` | `number` | 0-based, taken from the row's first task. Equal to that task's `depth`. |
-| `level` | `number` | `aria-level`. Always `depth + 1`. |
+| `id` | `string` | The row's task ids joined with `"+"`, in the order the tasks appear on the row. A one-task row uses that task's id. |
+| `tasks` | `TaskTransformed[]` | One entry on a plain row, several when tasks share a `lane`. Every row is built from at least one task, so the array is never empty. |
+| `depth` | `number` | 0-based indentation level, taken from the row's first task and equal to that task's `depth`. |
+| `level` | `number` | `aria-level`, always `depth + 1`. |
 | `posinset` | `number` | `aria-posinset` among the rows sharing this row's parent. A row's parent is the nearest row above it one `depth` shallower. |
-| `setsize` | `number` | `aria-setsize` for that same set. Counts visible rows only — collapsing is applied before the rows are built. |
+| `setsize` | `number` | `aria-setsize` for that same set. Counts visible rows only, because collapsing is applied before the rows are built. |
 
-## Not exported
+## Internal helpers
 
-`src/rows/utils/rows.ts` also holds `buildGanttRows`, `packLanes` and `isRowExpandable`. None of
-them are re-exported from the package, and none are part of the headless core — lane packing runs
+`src/rows/utils/rows.ts` also defines `buildGanttRows`, `packLanes` and `isRowExpandable`. These
+three stay internal to the package, and the headless core does not include them. Lane packing runs
 on the render side.
 
 ## Notes
 
-- No prop or callback hands you a `GanttRow`. The type is exported so host code can name the shape
-  the chart works in.
-- A plain row's id is its task's id, which is what lets a `collapsedIds` entry name a row. Those
-  props are covered in [Task list and hierarchy](../task-list).
+- No prop or callback passes a `GanttRow`. The type is exported so host code can name the shape the
+  chart renders.
+- A plain row's id is its task's id, so a `collapsedIds` entry names a row. Those props are covered
+  in [Task list and hierarchy](../task-list).
 
-`TaskTransformed` is in [Task and task types](task); the prop index is [GanttProps](props).
+`TaskTransformed` is described in [Task and task types](task). The prop index is
+[GanttProps](props).

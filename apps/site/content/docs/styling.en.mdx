@@ -3,16 +3,14 @@ title: "Styling"
 description: "Per-task color and class names"
 ---
 
-Design hands back a screenshot where blocked tasks are amber and the client's tasks carry a brand
-blue. None of that needs a fork, and none of it needs a render prop. The chart takes a color per
-task and a class name per task, and those two fields reach every part of a bar you would want to
-change. Start with `color`; reach for `className` when the answer is not a color.
+`Task` carries two styling fields, `color` and `className`. This page covers what each one
+changes, how the derived colors are computed, the render prop, and `showTooltip`.
 
 ## Per-task color
 
-A `Task` carries an optional `color`. Any CSS color value is legal, including `var(--brand)` and
-`rgb(255 0 0 / 50%)` — the string is passed through untouched. The rest of the field list is in
-[Task data](task-data).
+`color` is an optional field on `Task`. Any CSS color value is accepted, including `var(--brand)`
+and `rgb(255 0 0 / 50%)`, and the string is passed through unchanged. The rest of the fields are
+in [Task data](task-data).
 
 ```tsx title="src/App.tsx"
 import { useState } from 'react';
@@ -50,15 +48,13 @@ export function App() {
 
 <GanttDemo preset="basic" />
 
-The chart above is not the snippet — it is the site's shared fixture, and no task in it sets
-`color`, so every bar reads the theme grays: the fallback column of the table below. Give a task a
-`color` the way the snippet does and the bar, its hover shade, its progress fill and its label all
-derive from that single value.
+The demo renders the site's shared fixture rather than the snippet above. No task in it sets
+`color`, so every bar uses the theme grays in the fallback column below. Give a task a `color` and
+the bar, its hover shade, its progress fill and its label all derive from that one value.
 
-One value colors the whole bar. The chart does not read a second token for the hover shade, the
-progress fill or the label; it derives all three from the color you gave, so a colored bar never
-mixes in the theme gray. A colored task sets exactly four CSS custom properties, inline on the bar
-node.
+A colored task sets four CSS custom properties inline on the bar node. The chart reads no second
+token for the hover shade, the progress fill or the label, so a colored bar does not mix in the
+theme gray.
 
 | Custom property | Value |
 |---|---|
@@ -67,10 +63,10 @@ node.
 | `--gantt-progress-color` | `color-mix(in srgb, <color> 62%, #000)` |
 | `--gantt-bar-text-color` | `oklch(from <color> clamp(0, (l / 0.5637 - 1) * -infinity, 1) 0 h)` |
 
-The string is trimmed before it is used. A `color` that is `undefined`, `''` or whitespace emits no
-properties at all, and that bar renders exactly like an uncolored one.
+The string is trimmed first. A `color` that is `undefined`, `''` or whitespace sets no
+properties, and the bar renders like an uncolored one.
 
-### Where the four properties are read
+### Declarations
 
 Each declaration names the task property first and a theme token as its `var()` fallback.
 
@@ -78,43 +74,46 @@ Each declaration names the task property first and a theme token as its `var()` 
 |---|---|
 | bar background | `var(--gantt-bar-color, var(--gantt-bar-bg))` |
 | bar background on hover | `var(--gantt-bar-color-hover, var(--gantt-bar-bg-hover))` |
-| bar while a drawn link targets it | `var(--gantt-bar-color-hover, var(--gantt-bar-bg-hover))` |
+| bar as a valid target while a link is drawn | `var(--gantt-bar-color-hover, var(--gantt-bar-bg-hover))` |
 | summary bar background | `var(--gantt-bar-color, var(--gantt-summary-bg))` |
 | summary bar on hover | `var(--gantt-bar-color-hover, var(--gantt-summary-bg-hover))` |
 | progress fill | `var(--gantt-progress-color, var(--gantt-progress-bg))` |
 | progress fill on a summary bar | `var(--gantt-progress-color, var(--gantt-foreground))` |
 | task name inside the bar | `var(--gantt-bar-text-color, var(--gantt-bar-text))` |
 
-A summary bar falls back to the summary token, not the bar token. That is only visible when the
-task has no `color`.
+A summary bar falls back to the summary token. The bar token applies to a non-summary bar. The
+difference is visible only when the task has no `color`.
 
-### The label color
+### Label color
 
-The last row is the one that is computed rather than mixed. A bar painted `#fde68a` with a label
-in the theme's near-white is unreadable, so the label is derived from the color instead of from the
-theme: `l` is the color's own lightness, and dividing it by the threshold before multiplying by
-`-infinity` collapses it to one end or the other. A pale bar gets a black label, a dark bar a white
-one.
+The label color is computed rather than mixed. A pale bar such as `#fde68a` under a near-white
+theme label is unreadable, so the label derives from the bar color instead of the theme. `l` is
+the color's own lightness. Dividing it by the threshold and multiplying by `-infinity` clamps the
+result to one end or the other. A pale bar gets a black label and a dark bar a white one.
 
-The threshold is `0.5637`, which is not arbitrary. It is the OKLab lightness of the relative
-luminance where black and white tie on WCAG contrast, so the label is always the higher-contrast of
-the two. A higher cut looks reasonable and is not: at `0.7` a Tailwind `#ef4444` bar takes a white
-label at 3.76:1 when black would have given 5.58:1.
+The threshold `0.5637` is the OKLab lightness of the relative luminance where black and white tie
+on WCAG contrast, so the label is always the higher-contrast of the two. A higher threshold picks
+the wrong side on mid-tone colors. At `0.7` a Tailwind `#ef4444` bar takes a white label at
+3.76:1 when black would give 5.58:1.
 
-This is done in CSS, not in JavaScript, because `var(--brand)` is a legal `color` and its lightness
-is not knowable until the browser substitutes it. The cost is that the label flip needs relative
-color syntax — Chrome 125, Firefox 128, Safari 18 — which is a higher floor than the `color-mix`
-the two shades use. Below it the property does not resolve and the label falls back to
-`--gantt-bar-text`, which is what every bar did before this existed.
+The computation is in CSS rather than JavaScript because `var(--brand)` is a valid `color` and its
+lightness is unknown until the browser substitutes it.
 
-Three edges are worth knowing. The label is pure black or pure white and nothing between, so a bar
-sitting near the crossover clears 4.5:1 but not by much — `#2277d3` measures 4.65:1. The label
-sits over the progress fill, which is mixed 62% toward `#000`, so on a light bar the black label
-loses contrast across the filled portion. And the derivation only reaches a label inside its bar:
-under 56px wide the label moves outside the right edge and takes the theme's muted color, whatever
-`color` says.
+The label needs relative color syntax, supported from Chrome 125, Firefox 128 and Safari 18. That
+is newer than the `color-mix` support the two shades need. Below those versions the property does
+not resolve and the label falls back to `--gantt-bar-text`.
 
-To opt out, take the specificity: `className` on the task plus a rule of your own.
+The label is pure black or pure white, so a bar near the crossover clears 4.5:1 by a small margin.
+`#2277d3` measures 4.65:1.
+
+The label sits over the progress fill, which is mixed 62% toward `#000`. On a light bar the black
+label loses contrast across the filled portion.
+
+The computation applies only to a label inside its bar. Under 56px wide the label moves outside
+the right edge and takes the theme's muted color regardless of `color`.
+
+To override the label color, set `className` on the task and write a rule with higher
+specificity.
 
 ```css title="src/gantt-overrides.css"
 .gantt-task-bar.mine .gantt-task-name {
@@ -122,30 +121,30 @@ To opt out, take the specificity: `className` on the task plus a rule of your ow
 }
 ```
 
-### When a color wins, and when it does not
+### Precedence
 
-The color wins over every theme token in the table above. The token is only a `var()` fallback, so
-it is consulted when the task property is absent. Setting `--gantt-bar-bg` chart-wide through the
-theme does not override a task's own `color`; see [Theming](theming) for the token list.
+`color` wins over every theme token in the table above. The token is a `var()` fallback,
+consulted only when the task property is absent. Setting `--gantt-bar-bg` chart-wide through the
+theme does not override a task's own `color`. The token list is in [Theming](theming).
 
-The color loses in two places.
+`color` changes the eight declarations above and nothing else.
 
-- **Anything that is not a background or the label.** The bar's radius, its shadow, the selection
-  outline and the dependency arrows all come from theme tokens. `color` changes the eight
-  declarations in the table above and nothing else.
-- **The task list.** `color` never reaches the left pane. A row in the task list is styled by the
-  theme and by `className`.
+- The bar radius, shadow, selection outline and the dependency arrows are set by the stylesheet
+  and theme tokens.
+- The task list does not read `color`. A row in the left pane is styled by the theme and by
+  `className`.
 
 ## className
 
-`className` on a task is put on that task's bar and on its row in the task list. It is appended last
-in both class strings, which changes nothing about the cascade — the order of names in a `class`
-attribute is not a CSS ordering. A rule of yours wins the way any rule wins: on specificity, or on
-coming later at equal specificity. `.gantt-task-bar.blocked` outranks `.gantt-task-bar`, which is
-why the example is written that way.
+`className` on a task is added to that task's bar and to its row in the task list. It is appended
+last in both class strings. The position of a name in a `class` attribute has no effect on the
+cascade.
 
-A row that packs several lane-mates is one row for many tasks, so it takes the first lane-mate's
-`className`; each bar still carries its own. See [Lanes](lanes).
+A rule of yours wins on specificity, or on source order at equal specificity.
+`.gantt-task-bar.blocked` outranks `.gantt-task-bar`. The example uses that form.
+
+A row that holds several tasks in one lane takes the first task's `className`. Each bar keeps its
+own. See [Lanes](lanes).
 
 ```tsx
 const task: Task = {
@@ -175,54 +174,50 @@ const task: Task = {
 }
 ```
 
-## Replacing a node
+## Render prop
 
-There is one render prop, `renderDetail`, and it replaces the body of the docked detail panel. It is
-not a styling hook — it exists because the built-in body is a fixed field list that no prop adds a
-row to. What opens the panel, what it renders and how to control it are in
-[Detail panel](detail-panel); the type is in [Detail renderer](ref/renderers).
+The chart accepts one render prop, `renderDetail`. It replaces the body of the docked detail
+panel. The built-in body is a fixed field list that no prop extends.
 
-Nothing else in the chart is replaceable. The bar, the tooltip, the header cells, the task-list row,
-the drag readout, the drop indicator and the dependency arrows are all reachable through CSS and
-nothing else.
+It is not a styling hook. [Detail panel](detail-panel) covers what opens the panel, what it
+renders and how to control it. The type is in [Detail renderer](ref/renderers).
+
+No other part of the chart accepts a custom renderer. The bar, the tooltip, the header cells, the
+task-list row, the drag readout, the drop indicator and the dependency arrows are styled through
+CSS only.
 
 ## showTooltip
 
-`showTooltip` defaults to `true` and controls two things: the hover card — name, dates, duration
-and progress, after a short pause — and the `%` readout that rides a progress drag. Setting it to
+`showTooltip` defaults to `true`. It controls the tooltip and the `%` readout during a progress
+drag.
+
+The tooltip shows the name, dates, duration and progress after a short delay. Setting it to
 `false` removes both.
 
 A move or a resize shows no tooltip either way. Its readout is the date the tick row writes at the
-dragged edge — part of the header, not a tooltip, so `showTooltip` does not touch it. What it
-writes is in [Locale and date formats](i18n).
+dragged edge. That readout is part of the header, so `showTooltip` does not affect it.
+[Locale and date formats](i18n) covers what it writes.
 
-`false` also removes every live-region announcement a pointer drag produces: the progress readout
+`false` also removes every live region announcement a pointer drag produces. The progress readout
 is a `role="status"` node, and a move or a resize keeps a visually hidden one. Keyboard date edits
-are announced by a separate live region that `showTooltip` does not touch; see
-[Keyboard and screen readers](accessibility). The signature and default of every prop named here
-are in [GanttProps](ref/props).
+are announced by a separate live region that `showTooltip` does not affect. See
+[Keyboard and screen readers](accessibility). Props and defaults: [GanttProps](ref/props).
 
-## Limits
+## Limitations
 
-- **Colors are not computed for you.** There is no palette, no color-by-status and no legend. The
-  chart reads `task.color` and derives three values from it; every other rule is yours. Map a status
-  to a color before you hand the tasks over — `tasks.map((t) => ({ ...t, color: PALETTE[t.status] }))`
-  — which is what comparable scheduling libraries expect too.
-- **`color-mix` is required for the two shades.** The hover and progress shades are emitted as
-  `color-mix(in srgb, …)`, so a browser that cannot parse it resolves neither. `--gantt-bar-color`
-  is a plain color and keeps working there.
-- **Relative color syntax is required for the label.** It is a higher floor than `color-mix`, and
-  below it the label stays `--gantt-bar-text`.
-- **The header cell is text.** There is no way to put markup in it. `formats` changes what it says
-  and CSS on `.gantt-top-group` and `.gantt-bottom-cell` changes how it looks; that is the whole
-  surface. The 44px group row and the 28px tick row are fixed heights.
-- **The task list takes no per-task detail.** Its one cell renders `task.name`, plus the row's
-  `sequence` when `showRowNumbers` is on — see [Task list and hierarchy](task-list). Put the rest
-  in the [Detail panel](detail-panel).
+- `color` is not computed for you. The chart reads `task.color` and derives three values from it.
+  There is no built-in palette or legend. Map a status to a color before passing the tasks, for
+  example `tasks.map((t) => ({ ...t, color: PALETTE[t.status] }))`.
+- `color-mix` is required for the two shades. The hover and progress shades are emitted as
+  `color-mix(in srgb, ...)`, so a browser that cannot parse it resolves neither.
+  `--gantt-bar-color` is a plain color and keeps working there.
+- Relative color syntax is required for the label. Fewer browsers support it than `color-mix`, and
+  where it is missing the label stays `--gantt-bar-text`.
+- The header cell is text only. `formats` changes what it says and CSS on `.gantt-top-group` and
+  `.gantt-bottom-cell` changes how it looks. Markup cannot be placed in it. The 44px group row and
+  the 28px tick row are fixed heights.
+- The task list shows no per-task detail. Its one cell renders `task.name`, plus the row's
+  `sequence` when `showRowNumbers` is on. See [Task list and hierarchy](task-list). Other fields
+  belong in the [Detail panel](detail-panel).
 
-Reach for the two options in that order. `color` handles anything that is a color, and one value
-sets all four properties. `className` handles anything the stylesheet can express — a pattern, a
-border, a font — and wins over the chart's own rules on specificity.
-
-Next: [Imperative API](imperative-api), which covers the `ref` handle — scrolling, zooming, and
-opening the detail panel.
+Next: [Imperative API](imperative-api).

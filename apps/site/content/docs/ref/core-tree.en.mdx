@@ -3,13 +3,10 @@ title: "Tree helpers"
 description: "`buildTaskTree`, `collectSubtreeIds`, `rollUpTasks`, `moveTask`, `validateMove`, `sortTasksBySequence`"
 ---
 
-`buildTaskTree`, `collectSubtreeIds` and `rollUpTasks` are the headless helpers behind the
-`parentId` hierarchy: they normalize the parent links, walk a subtree, and recompute every parent
-as a summary row. `TaskTree` is the normalized shape they pass between each other.
-
-`sortTasksBySequence`, `validateMove` and `moveTask` are the row-order half: they put the tasks in
-render order, decide whether a move is legal, and apply it. All of them come from the package root
-and touch neither React nor the DOM.
+`buildTaskTree`, `collectSubtreeIds` and `rollUpTasks` normalize the `parentId` links, walk a
+subtree and recompute each parent as a summary row. `TaskTree` is the normalized tree they share.
+`sortTasksBySequence`, `validateMove` and `moveTask` sort tasks into row order, check a move and
+apply it. All six are exported from the package root and run without React or the DOM.
 
 ```ts
 import {
@@ -27,10 +24,9 @@ import {
 } from '@jaeungkim/gantt-chart';
 ```
 
-For what the chart does with the hierarchy on screen, see
-[Task list and hierarchy](../task-list); for the reorder gesture itself, see
-[Reordering rows](../reordering); for running these outside React, see
-[Headless core](../headless-core).
+The hierarchy on screen is described in [Task list and hierarchy](../task-list) and the row drag
+gesture in [Reordering rows](../reordering). [Headless core](../headless-core) covers running
+these helpers outside React.
 
 ## TaskTree
 
@@ -57,12 +53,12 @@ export interface TaskTree {
 
 | Field | Type | Contents |
 |---|---|---|
-| `childIds` | `Map<string, string[]>` | Parent id to its child ids, in input array order. A key exists only for a parent that has at least one child — `childIds.has(leafId)` is `false`. There is no `null` key; depth-0 siblings live in `rootIds`. |
-| `parentOf` | `Map<string, string \| null>` | One entry for **every** input task. `null` means root, orphan, self-reference, or a member of a cycle. |
-| `depthOf` | `Map<string, number>` | Steps from the root. A root is `0`. No cap. |
-| `rootIds` | `string[]` | Every id whose `parentOf` is `null`, in input array order. |
+| `childIds` | `Map<string, string[]>` | Parent id to its child ids, in input order. A key exists only for a parent with at least one child, so `childIds.has(leafId)` is `false`. There is no `null` key. The root-level sibling list is `rootIds` instead. |
+| `parentOf` | `Map<string, string \| null>` | One entry for every input task. `null` means a root, an orphan, a self-reference or a member of a cycle. |
+| `depthOf` | `Map<string, number>` | Steps from the root. A root is `0`. There is no cap. |
+| `rootIds` | `string[]` | Every id whose `parentOf` is `null`, in input order. |
 
-Nothing is sorted: `childIds.get(parent)` and `rootIds` follow the order of the array passed in.
+The tree is not sorted. `childIds.get(parent)` and `rootIds` follow the order of the input array.
 
 ## buildTaskTree
 
@@ -70,37 +66,36 @@ Nothing is sorted: `childIds.get(parent)` and `rootIds` follow the order of the 
 export function buildTaskTree(tasks: TaskNode[]): TaskTree
 ```
 
-`TaskNode` is `Pick<Task, "id" | "parentId">`. It is structural, so any object with
-`{ id: string; parentId: string | null }` satisfies it — a `Task` and a `TaskTransformed` both fit
-as they are. See [Task and task types](task).
+`TaskNode` is `Pick<Task, "id" | "parentId">`. The type is structural, so any object with
+`{ id: string; parentId: string | null }` fits, including a `Task` or a `TaskTransformed`.
+See [Task and task types](task).
 
 ### Parent resolution
 
-Each task's `parentId` is resolved to either a parent id or `null`.
+Each task's `parentId` resolves to a parent id or `null`. A task that resolves to `null` is a root.
 
-| Input condition | Resolved parent |
+| Input | Resolved parent |
 |---|---|
-| `parentId` is `null`, `undefined` or `""` | `null` — the task is a root |
-| `parentId === task.id` (self-reference) | `null` — the task is a root |
-| `parentId` names an id that is not in `tasks` (orphan) | `null` — the task is a root |
-| Walking the raw `parentId` chain up from that parent revisits an id already seen (cycle) | `null` — the task is a root |
+| `parentId` is `null`, `undefined` or `""` | `null` |
+| `parentId === task.id` (self-reference) | `null` |
+| `parentId` names an id that is not in `tasks` (orphan) | `null` |
+| The raw `parentId` chain above that parent revisits an id already seen (cycle) | `null` |
 | Anything else | `parentId` |
 
-Nothing is reported when a link is cut: there is no callback, no console warning and no field on
-`TaskTree` marking the task. The cycle walk records every id it passes, so it terminates within
-*n* steps for any input.
+A cut link is not reported by a callback, a console warning or a field on `TaskTree`. The cycle
+walk records every id it passes, so it ends within *n* steps for any input.
 
-The cycle check reads the raw `parentId` of each ancestor, not the already-resolved `parentOf`.
-A task whose ancestor chain passes through a cycle is therefore rooted too: with `a` and `b`
-pointing at each other and `c` pointing at `a`, all three end up with `parentOf === null` and
-`depth 0`.
+The cycle check reads each ancestor's raw `parentId`, not the resolved `parentOf`. A task whose
+ancestor chain passes through a cycle is therefore a root as well. With `a` and `b` pointing at
+each other and `c` pointing at `a`, all three get `parentOf === null` and depth `0`.
 
-`parentId` is required and nullable on `Task` — `string | null`, not optional.
+`parentId` is a required field of `Task` with type `string | null`, so it accepts `null` but may
+not be omitted.
 
 ### Duplicate ids
 
-An id that appears twice in `tasks` is not deduplicated and not reported. The internal lookup keeps
-the last occurrence, while the per-task passes run once per array element, so the id is written to
+An id that appears twice in `tasks` is not deduplicated and not reported. The internal lookup
+keeps the last occurrence, but each pass runs once per array element. The id is written to
 `parentOf` and `depthOf` twice and pushed into `childIds` or `rootIds` twice.
 
 ## collectSubtreeIds
@@ -117,19 +112,20 @@ export function collectSubtreeIds(
 ): string[]
 ```
 
-| Parameter | Type | Default | Meaning |
+| Parameter | Type | Default | Description |
 |---|---|---|---|
-| `tasks` | `TaskNode[]` | — | Read only when `tree` is omitted. |
-| `rootId` | `string` | — | The id whose subtree is collected. |
-| `tree` | `TaskTree` | `buildTaskTree(tasks)` | A prebuilt tree. Supplying one skips the O(n) build; there is no overload that drops `tasks`. |
+| `tasks` | `TaskNode[]` | `none` | Read only when `tree` is omitted. |
+| `rootId` | `string` | `none` | The id whose subtree is collected. |
+| `tree` | `TaskTree` | `buildTaskTree(tasks)` | A prebuilt tree. Passing one skips the rebuild. `tasks` is still required. |
 
 | Case | Result |
 |---|---|
 | `rootId` is in `tree.parentOf` | `[rootId, ...descendants]`, breadth first |
 | `rootId` is not in `tree.parentOf` | `[]` |
-| `rootId` is on a cut cycle | `[rootId]` — its children were rooted away |
+| `rootId` is a member of a cut cycle | `[rootId]`, because its children became roots |
 
-Order is breadth first, not depth first. For `root → (a → a1, a2), b`:
+The order is breadth first, not depth first. The example below has a root `root` with children
+`a` and `b`, and `a` has children `a1` and `a2`.
 
 ```ts
 collectSubtreeIds(tasks, 'root'); // ['root', 'a', 'b', 'a1', 'a2']
@@ -154,48 +150,48 @@ export function rollUpTasks(
 ): Task[]
 ```
 
-Input is the full `Task`, not `TaskNode` — `startDate`, `endDate` and `progress` are read.
+The input is the full `Task`, not `TaskNode`. `startDate`, `endDate` and `progress` are read.
 
-### What a parent gets
+### Parent fields
 
 | Field | Value on the returned parent |
 |---|---|
-| `startDate` | `min(child startDate)`, always. The parent's own value is discarded. |
-| `endDate` | `max(child endDate)`, always. The parent's own value is discarded. |
-| `progress` | `parent.progress ?? rollUpProgress(children)`. An explicit value survives, including `0`, and is not clamped. |
-| everything else | Spread through unchanged. |
+| `startDate` | Always `min(child startDate)`. The parent's own value is discarded. |
+| `endDate` | Always `max(child endDate)`. The parent's own value is discarded. |
+| `progress` | `parent.progress ?? rollUpProgress(children)`. An explicit value is kept, including `0`, and is not clamped. |
+| everything else | Copied through unchanged. |
 
-Both dates are re-serialized with `dayjs(ms).toISOString()`, so `'2025-03-04'` on a child comes
-back as `'2025-03-04T00:00:00.000Z'` on the parent.
+Both dates are re-serialized with `dayjs(ms).toISOString()`. A child's `'2025-03-04'` comes back
+as `'2025-03-04T00:00:00.000Z'` on the parent.
 
-Parents are processed deepest first, and each parent reads the already-rewritten version of its
-children, so a grandchild's dates reach the grandparent in one call.
+Parents are processed deepest first, and each parent reads the already rewritten version of its
+children. A grandchild's dates reach the grandparent in one call.
 
-A parent whose children all have unparseable dates is left exactly as it was.
+A parent whose children have no parseable `startDate` or no parseable `endDate` is left unchanged.
 
-### Rolled-up progress
+### Progress roll-up
 
-Used only when the parent has no `progress`. Children are weighted by duration in milliseconds,
-`max(0, endDate - startDate)`.
+This runs only when the parent has no `progress`. Each child is weighted by its duration in
+milliseconds, `endDate` minus `startDate`, floored at `0`.
 
 | Rule | Value |
 |---|---|
-| Child `progress` | Clamped to `0`–`100` before weighting. |
-| Child with a missing or non-numeric `progress` | Counts as `0`, and does not count as a reported value. |
-| No child reports a `progress` | Returns `undefined`; the parent keeps `progress: undefined`. |
-| Every child has zero duration | Falls back to a plain mean over the child count. |
-| Result | `Math.round`ed to an integer percent. |
+| Child `progress` | Clamped to `0` to `100` before weighting. |
+| Missing or non-numeric child `progress` | Counts as `0` and does not count as a reported value. |
+| No child reports a `progress` | `undefined`. The parent keeps `progress: undefined`. |
+| Every child has zero duration | A plain mean over the child count. |
+| Result | Rounded with `Math.round` to an integer percent. |
 
-Ten days at 100% plus thirty days at 0% gives `25`. Two zero-duration children at 100% and 0% give
-`50`.
+Ten days at 100% plus thirty days at 0% gives `25`. Two children with zero duration at 100% and
+0% give `50`.
 
 ### Return identity
 
 | Case | Returned array |
 |---|---|
-| `tree.childIds` is empty (no parents at all) | The same array instance that was passed in |
-| No parent was rewritten | The same array instance that was passed in |
-| Otherwise | A new array; rewritten parents are new objects, every other element keeps its identity, order is preserved |
+| `tree.childIds` is empty (no parents) | The input array instance |
+| No parent was rewritten | The input array instance |
+| Otherwise | A new array. Rewritten parents are new objects. Every other element keeps its identity and the order is unchanged. |
 
 ## sortTasksBySequence
 
@@ -206,14 +202,14 @@ export function sortTasksBySequence<T extends Pick<Task, "sequence">>(
 ): T[]
 ```
 
-The argument is structural: anything with a `sequence` string sorts, and the element type comes back
-unchanged. A fresh array is returned; the input is not mutated and the elements keep their identity.
-The sort is stable, so two tasks with the same `sequence` keep their input order. How the strings
-themselves compare is described in [Task data](../task-data).
+The argument is structural. Anything with a `sequence` string sorts, and the element type comes
+back unchanged. The result is a new array. The input is not mutated, and the elements keep their
+identity. The sort is stable, so two tasks with the same `sequence` keep their input order.
+[Task data](../task-data) describes how the strings compare.
 
 ## GanttTaskMove
 
-Where a task is going. This is the input both functions below take.
+The destination of a move. `validateMove` and `moveTask` both take it.
 
 ```ts
 export interface GanttTaskMove {
@@ -225,16 +221,15 @@ export interface GanttTaskMove {
 }
 ```
 
-| Field | Type | Meaning |
+| Field | Type | Description |
 |---|---|---|
-| `taskId` | `string` | The task being moved. Its whole subtree travels with it. |
+| `taskId` | `string` | The task to move. Its whole subtree moves with it. |
 | `toParentId` | `string \| null` | The new parent, or `null` for the root level. Passing the current parent reorders among siblings. |
-| `toIndex` | `number` | Slot among the new parent's children, counted **after** the dragged subtree has been lifted out. Out-of-range values are clamped into the list rather than refused. |
+| `toIndex` | `number` | Slot among the new parent's children, counted after the moved subtree has been lifted out. An out-of-range value is clamped into the list, not refused. |
 
 ## GanttTaskMoveChange
 
-What `moveTask` reports back, and what the chart hands to `onTaskMove`: the move that was
-applied, in the shape a backend wants.
+The move that was applied. `moveTask` returns it and the chart passes it to `onTaskMove`.
 
 ```ts
 export interface GanttTaskMoveChange extends GanttTaskMove {
@@ -247,17 +242,17 @@ export interface GanttTaskMoveChange extends GanttTaskMove {
 }
 ```
 
-| Field | Meaning |
+| Field | Description |
 |---|---|
-| `fromParentId` | The parent it left, `null` if it was at the root level. |
-| `fromIndex` | Its index among that parent's children before the move. |
-| `afterId` | The sibling it now follows, `null` when it landed first. |
-| `beforeId` | The sibling it now precedes, `null` when it landed last. |
+| `fromParentId` | The previous parent, `null` for the root level. |
+| `fromIndex` | The index among that parent's children before the move. |
+| `afterId` | The sibling the task follows after the move, `null` when it is first. |
+| `beforeId` | The sibling the task precedes after the move, `null` when it is last. |
 
-`toIndex` on the change is the clamped index that was actually used, not the one that was asked for.
-`toParentId` with `toIndex` suits an index-based API and `afterId`/`beforeId` a position-based one;
-both are read off the same result, so they cannot disagree. This is also the object the chart hands
-to `onTaskMove` — see [Reordering rows](../reordering).
+`toIndex` on the change is the clamped index that was used, not the requested one. `toParentId`
+with `toIndex` suits an API that takes an index. `afterId` and `beforeId` suit an API that takes
+a neighbouring id. Both are read from the same result, so they cannot disagree.
+[Reordering rows](../reordering) covers `onTaskMove`.
 
 ## GanttMoveOptions
 
@@ -268,14 +263,15 @@ export interface GanttMoveOptions {
 }
 ```
 
-| Field | Required | Effect |
+| Field | Required | Description |
 |---|---|---|
-| `hierarchy` | yes | On, the sibling lists are read from `parentId`, normalized exactly as `buildTaskTree` normalizes it. Off, `sequence` is the only thing carrying depth: the sibling list is read off the path, and any move that would change the parent is refused. |
-| `canReorder` | no | Whether a task may move at all. Left out, every task may. The chart passes `resolveTaskInteraction(task, config).canReorder` — see [GanttInteractionConfig](interaction-config). |
+| `hierarchy` | yes | On, sibling lists come from `parentId`, normalized the way `buildTaskTree` normalizes it. Off, depth comes from `sequence` alone and sibling lists come from the path. A move that changes the parent is refused. |
+| `canReorder` | no | Whether a task may move. Omitted, every task may. The chart passes `resolveTaskInteraction(task, config).canReorder`. See [GanttInteractionConfig](interaction-config). |
 
 ## GanttMoveRejection
 
-Why a move was refused. `validateMove` returns one of these, or `null` when the move is allowed.
+The reason a move was refused. `validateMove` returns one of these, or `null` when the move is
+allowed.
 
 ```ts
 export type GanttMoveRejection =
@@ -287,14 +283,14 @@ export type GanttMoveRejection =
   | "no-op";
 ```
 
-| Value | What triggers it |
+| Value | Trigger |
 |---|---|
 | `'unknown-task'` | `move.taskId` is not in `tasks`. |
-| `'unknown-parent'` | `move.toParentId` is set and names an id that is not in `tasks`. A `null` parent is always fine. |
+| `'unknown-parent'` | `move.toParentId` is set and not in `tasks`. A `null` parent is always accepted. |
 | `'read-only'` | `options.canReorder` returned `false` for the task. |
 | `'reparent-disabled'` | `options.hierarchy` is `false` and the move changes the parent. |
 | `'cycle'` | `move.toParentId` is inside the moved task's own subtree, the task itself included. |
-| `'no-op'` | The task is already that parent's child at that index, so nothing would change. |
+| `'no-op'` | The task is already that parent's child at that index. |
 
 ## validateMove
 
@@ -309,11 +305,11 @@ export function validateMove(
 ): GanttMoveRejection | null
 ```
 
-`null` means the move is allowed; anything else is a `GanttMoveRejection` naming the reason.
+`null` means the move is allowed. Any other value is the `GanttMoveRejection` naming the reason.
 
-The checks run in the order the `GanttMoveRejection` table above lists them, and the first one that
-fails is what comes back. It is cheap enough to call on every frame of a drag, which is how the
-chart shows a blocked drop while the pointer is still down.
+The checks run in the order of the `GanttMoveRejection` table above, and the first failure is
+returned. The function is cheap enough to call on every frame of a drag. The chart calls it that
+way to show a blocked drop while the pointer is down.
 
 ## moveTask
 
@@ -328,25 +324,28 @@ export function moveTask(
 ): { tasks: Task[]; change: GanttTaskMoveChange } | null
 ```
 
-`null` is returned for any move `validateMove` refuses; call that first to learn why.
+`moveTask` returns `null` for any move that `validateMove` refuses. Call `validateMove` first to
+get the reason.
 
-`sequence` is a path — its length is the depth, its last segment the slot among siblings — so there
-is no key to insert between `"1.1"` and `"1.2"`. It renumbers instead: the forest is rearranged,
-walked depth first in row order, and every task gets the path it renders at. `parentId` is rewritten on the moved task alone — its
-children still point at it, so the subtree travels without being touched.
+`sequence` is a path. Its length is the depth and its last segment the slot among siblings, so no
+key fits between `"1.1"` and `"1.2"`. `moveTask` renumbers instead. It rearranges the forest,
+walks it depth first in row order and gives every task the path it renders at. `parentId` is
+rewritten on the moved task only. Its children keep pointing at it, so the subtree moves untouched.
 
-| What changes | On which tasks |
+| Field | Changed on |
 |---|---|
 | `sequence` | Every task whose path in the tree changed. |
 | `parentId` | The moved task only, and only when `options.hierarchy` is on. |
-| everything else | Nothing. Dates, progress and dependencies are copied through. |
+| everything else | No task. Dates, progress and dependencies are copied through. |
 
-A task whose `sequence` and `parentId` both came out unchanged is returned as **the same object**,
-so a host diffing the array by identity sees only what actually moved. The array itself is always
-new, and its element order is the input order, not the new row order — sort it with
-`sortTasksBySequence` to render it.
+A task whose `sequence` and `parentId` are both unchanged is returned as the same object, so a
+host diffing by identity sees only the tasks that moved. The array itself is always new. Its
+element order is the input order, not the new row order. Sort it with `sortTasksBySequence` to
+render it.
 
 ## Example
+
+The example below builds a tree, rolls up the parent and moves a child to the root level.
 
 ```ts
 import {
@@ -392,18 +391,18 @@ moved!.change.beforeId;                           // 'p' - c2 landed above it
 
 ## Notes
 
-- `getVisibleTasks` — the collapse filter that drops any task with a collapsed ancestor — lives in
-  the same core module and is exported from the internal `src/core` barrel, but it is **not**
-  exported from the package root. It cannot be imported from `@jaeungkim/gantt-chart`. The chart
-  calls it internally; a host drives the same behaviour through the `collapsedIds` and
-  `defaultCollapsedIds` props, described in [Task list and hierarchy](../task-list).
-- `TaskNode` and `rollUpProgress` are internal. Neither is exported from the package root; the
-  page names them only to describe the signatures above.
-- All six functions are pure and never mutate their input. `buildTaskTree` returns a fresh
-  `TaskTree`, and `collectSubtreeIds`, `sortTasksBySequence` and `moveTask` a fresh array on every
-  call; only `rollUpTasks` can hand back the array instance it was given.
-- The three tree helpers order nothing. Row order comes from `sequence` and `parentId` sets depth
-  only; `sortTasksBySequence` applies that order and `moveTask` is the one function that rewrites
-  it. Nothing validates that the two fields agree — see [Task data](../task-data).
-- `validateMove` and `moveTask` check structure and nothing else. Whether a task may be moved at all
-  is the host's answer, handed in as `options.canReorder`.
+- `getVisibleTasks` is the collapse filter that drops any task with a collapsed ancestor. It is in
+  the same core module and the internal `src/core` barrel, but not exported from the package root,
+  so it cannot be imported from `@jaeungkim/gantt-chart`. The chart calls it internally. A host
+  drives the same behaviour through the `collapsedIds` and `defaultCollapsedIds` props, described
+  in [Task list and hierarchy](../task-list).
+- `TaskNode` and `rollUpProgress` are internal and not exported from the package root. This page
+  names them only to describe the signatures above.
+- All six functions are pure and never mutate their input. `buildTaskTree` returns a new
+  `TaskTree` on every call, and `collectSubtreeIds`, `sortTasksBySequence` and `moveTask` a new
+  array. Only `rollUpTasks` can return the array instance it was given.
+- The three tree helpers order nothing. Row order comes from `sequence`, and `parentId` sets depth
+  only. `sortTasksBySequence` applies that order and `moveTask` is the only function that rewrites
+  it. Nothing validates that the two fields agree. See [Task data](../task-data).
+- `validateMove` and `moveTask` check structure only. Whether a task may be moved is the host's
+  decision, passed in as `options.canReorder`.

@@ -1,45 +1,49 @@
 ---
 title: "Locale and date formats"
-description: "`locale`, per-scale overrides, week start"
+description: "`locale`, `formats` and `firstDayOfWeek`"
 ---
 
-Your chart ships to a team in Seoul. The top header row says `Sep 2025`, the ticks under it count `1 2 3`, and a dragged bar writes `Sep 1` into the tick row. Three props move all of that. `locale` switches every date label to another language, `formats` replaces one label with a function of your own, and `firstDayOfWeek` decides where a week starts. None of them needs a locale package.
+`locale`, `formats` and `firstDayOfWeek` control every date label in the chart. `locale` switches the labels to another language through `Intl.DateTimeFormat`, `formats` replaces one label with your own function, and `firstDayOfWeek` sets where a week starts. This page covers the three formatter slots, the three props and what the chart does not localize.
 
-## The three label slots
+## Label slots
 
-Every date label in the chart comes out of one of three formatter slots.
+Every date label in the chart comes from one of three formatter slots.
 
 | Slot | Renders | Receives |
 |---|---|---|
 | `tick` | one label per cell in the bottom header row | that cell's start date |
 | `header` | one label per group in the top header row | the group's start date |
-| `tooltip` | every date off the grid: the hover card, every bar's ARIA label, the keyboard announcements, the detail panel's `Start` and `End` while they are read-only — and, compacted, the drag readout | one date at a time |
+| `tooltip` | every other date: the hover card, bar ARIA labels, keyboard announcements, the read-only `Start` and `End` in the detail panel, and the drag readout in compact form | one date at a time |
 
-An editable `Start` or `End` never reaches the formatter. It is a native `<input type="date">`, whose value is always `YYYY-MM-DD` whatever `locale` says. Which fields take input is in [Detail panel](detail-panel).
+An editable `Start` or `End` never reaches the formatter. It is a native `<input type="date">`, whose value is `YYYY-MM-DD` whatever `locale` says. Which fields take input is in [Detail panel](detail-panel).
 
-The `tooltip` slot is therefore what a screen reader reads out, the live-region announcement a keyboard edit produces included. Those announcements are covered in [Keyboard and screen readers](accessibility).
+The `tooltip` slot is what a screen reader reads, including the live region announcement after a keyboard edit. Those announcements are covered in [Keyboard and screen readers](accessibility).
 
-### The drag readout
+### Drag readout
 
-The readout under a move or resize writes each end of the dragged span in the tick cell that end lands in, over a faint footprint of the bar. A move writes both ends, a resize only the end it is moving. So the slot is called once per end with a point, not once with a span.
+During a move or resize, the readout writes each end of the dragged span in the tick cell that end falls in, over a faint tint of the bar's span. A move writes both ends and a resize writes only the moving end. The slot is called once per end, with a single date.
 
-Left to the locale or the built-in labels, the readout compacts the `tooltip` format: the year the row above already shows is dropped, and the day scale prints only the clock — `Sep 1` on the month scale, `15:00 UTC` on day. The `quarter` and `year` scales are the exception: they keep the year, because a span at those scales can cross a year boundary, so their readout is the `tooltip` format unchanged. A `tooltip` override is not compacted; the readout prints whatever it returns.
+Under `locale` or the built-in labels, the readout is a compact form of the `tooltip` format. The year the row above already shows is dropped, and the `day` scale prints only the clock. The `month` scale prints `Sep 1` and the `day` scale `15:00 UTC`.
 
-Two ends landing in the same tick cell — a task shorter than one tick — print one merged label. With a `locale` set, it is `Intl.DateTimeFormat.formatRange` that merges them, dropping what the ends share: a two-day span on the month scale reads `Jan 15 – 17`. The other two layers can only join the two finished labels with an en dash, collapsing them into one when both read alike — a same-day span is `Jan 7` in every layer.
+A span on the `quarter` and `year` scales can cross a year, and their readout keeps the year and matches the `tooltip` format. A `tooltip` override is not compacted and the readout prints what it returns.
 
-### Which layer fills a slot
+When both ends fall in the same tick cell, as for a task shorter than one tick, the readout prints one merged label. With `locale` set, `Intl.DateTimeFormat.formatRange` merges the two ends and drops what they share. A span of two days on the `month` scale reads as `Jan 15` and `17` joined by an en dash.
 
-Each slot is filled from the first of three layers that has something for it:
+The override and built-in layers join the two finished labels with an en dash, or print one label when both read alike. A span within one day reads `Jan 7` in every layer.
 
-1. `formats[scale][slot]` — your own function.
-2. `locale` — an `Intl.DateTimeFormat` formatter.
-3. the built-in English label.
+### Label precedence
 
-The three chains resolve independently. Supplying `formats.quarter.header` alongside `locale="ko-KR"` leaves `tick` and `tooltip` on the Korean output. The built-in format strings that layer 3 uses are listed in [Scale and theme types](ref/scales).
+Each slot is filled from the first of three layers that has a value for it.
+
+1. `formats[scale][slot]`, your own function.
+2. `locale`, an `Intl.DateTimeFormat` formatter.
+3. The built-in English label.
+
+The three slots resolve independently. `formats.quarter.header` alongside `locale="ko-KR"` leaves `tick` and `tooltip` on the Korean output. The built-in format strings of layer 3 are listed in [Scale and theme types](ref/scales).
 
 ## locale
 
-`locale` takes a BCP 47 tag and hands it to `Intl.DateTimeFormat`.
+`locale` takes a BCP 47 tag and passes it to `Intl.DateTimeFormat`.
 
 ```tsx
 <ReactGanttChart tasks={tasks} locale="ko-KR" />
@@ -47,11 +51,11 @@ The three chains resolve independently. Supplying `formats.quarter.header` along
 
 <GanttDemo preset="locale" />
 
-There is nothing to install. The chart registers no dayjs locale files, only the `utc` plugin, and the whole locale layer is the platform `Intl` object. Every formatter is constructed with `timeZone: 'UTC'` forced in, so a label never drifts into the viewer's zone.
+There is nothing to install. The chart registers no dayjs locale file, only the `utc` plugin, and the locale layer is the platform `Intl` object. Every formatter is constructed with `timeZone: 'UTC'`, so a label never shifts into the viewer's time zone.
 
 The same instant, `2025-09-01T15:00:00Z`, rendered both ways:
 
-| Scale | no `locale` — tick / header / tooltip | `locale="ko-KR"` |
+| Scale | no `locale` (tick / header / tooltip) | `locale="ko-KR"` |
 |---|---|---|
 | `day` | `15` / `Sep 1, 2025` / `Sep 1, 2025 15:00 UTC` | `15시` / `2025년 9월 1일` / `2025년 9월 1일 15:00 UTC` |
 | `week` | `1` / `Sep 2025` / `Sep 1, 2025` | `1일` / `2025년 9월` / `2025년 9월 1일` |
@@ -59,27 +63,27 @@ The same instant, `2025-09-01T15:00:00Z`, rendered both ways:
 | `quarter` | `Sep` / `Q3 2025` / `Sep 2025` | `9월` / `2025년 Q3` / `2025년 9월` |
 | `year` | `Sep` / `2025` / `Sep 2025` | `9월` / `2025년` / `2025년 9월` |
 
-Leaving `locale` out builds no `Intl.DateTimeFormat` at all. An empty string counts as left out.
+With `locale` omitted, the chart builds no `Intl.DateTimeFormat`. An empty string counts as omitted.
 
-Passing `"en-US"` is not the same as leaving it out. The day scale's tooltip gains a comma: `Sep 1, 2025, 15:00 UTC` from `Intl`, against `Sep 1, 2025 15:00 UTC` from the built-in label. Every other label matches.
+`"en-US"` and an omitted `locale` differ in one label. The `day` scale's tooltip gains a comma: `Sep 1, 2025, 15:00 UTC` from `Intl` against `Sep 1, 2025 15:00 UTC` from the built-in label. Every other label matches.
 
-`Intl` has no quarter field, so the quarter header is assembled by hand. The chart formats the localized year, then puts `Q3` before or after it depending on whether that year string ends in a digit. `2025` gets `Q3 2025`; `2025년` gets `2025년 Q3`.
+`Intl` has no quarter field, so the chart assembles the `quarter` header itself. It formats the localized year and places `Q3` before it when the year string ends in a digit, after it otherwise. `2025` gives `Q3 2025` and `2025년` gives `2025년 Q3`.
 
-### A tag Intl cannot use
+### Malformed tags
 
-A structurally malformed tag makes `Intl.DateTimeFormat` throw — `"en_US"` with an underscore, `"ko kr"` with a space. The chart catches the throw and drops the entire locale layer, so `tick`, `header` and `tooltip` all fall back to the built-in English labels. It writes one line to the console:
+A structurally malformed tag, such as `"en_US"` with an underscore or `"ko kr"` with a space, makes `Intl.DateTimeFormat` throw. The chart catches the error and drops the whole locale layer. `tick`, `header` and `tooltip` fall back to the built-in English labels. It writes one line to the console:
 
 ```text title="console"
 [gantt-chart] Unusable locale "en_US" - falling back to the built-in labels.
 ```
 
-That warning fires once per distinct tag per page load. The list of already-reported tags is module scope, so a second chart carrying the same bad tag stays silent.
+The warning fires once per distinct tag per page load. The list of reported tags is module scope, so a second chart with the same bad tag logs nothing.
 
-A tag that is well formed but unknown does not throw. `"xx-YY"` and `"zz"` are accepted by `Intl`, which then falls back to the runtime's own default locale. The chart renders in the browser's language, with no warning and no built-in fallback. A typo that keeps the hyphen is invisible.
+A tag that is well formed but unknown does not throw. `Intl` accepts `"xx-YY"` and `"zz"` and falls back to the runtime's default locale. The chart renders in the browser's language with no warning and no built-in fallback. A typo that keeps the hyphen produces no feedback.
 
 ## formats
 
-`formats` is a per-scale record. Each scale takes any of the three slots, and anything left out keeps the label the locale or the built-in layer produced.
+`formats` is a record keyed by scale. Each scale accepts any of the three slots, and an omitted slot keeps the label from the locale or built-in layer.
 
 ```tsx title="formats.ts"
 import type { GanttFormatOverrides } from '@jaeungkim/gantt-chart';
@@ -95,30 +99,32 @@ export const formats: GanttFormatOverrides = {
 };
 ```
 
-An override wins over `locale`. It is the only way to reach a label `Intl` cannot express, which is why the fiscal example below overrides the `quarter` header. The full type is in [Scale and theme types](ref/scales).
+An override wins over `locale`. A label `Intl` cannot express, such as a fiscal quarter, needs an override. The example below overrides the `quarter` header. The full type is in [Scale and theme types](ref/scales).
 
 > [!WARNING]
-> The `Dayjs` handed to a formatter is in UTC mode. Inside an override, `d.format('HH:mm')`, `d.year()`, `d.month()` and `d.day()` all read UTC wall-clock values. Writing a formatter that spells out local time — converting the date, or reaching for the host's own local-time helper — prints a label that disagrees with the cell it sits in. A bar at `2025-09-01T23:00Z` belongs to the September 1 cell, and a Seoul-local formatter labels it September 2.
+> The `Dayjs` passed to a formatter is in UTC mode, so `d.format('HH:mm')`, `d.year()`, `d.month()` and `d.day()` return UTC values. A formatter that converts to local time prints a label that disagrees with its cell. A bar at `2025-09-01T23:00Z` belongs to the September 1 cell, and a formatter in Seoul time labels it September 2.
 
-### What the override receives
+### Override arguments
 
-`header` is called with the group's start date, not with the first visible cell's date. On a week scale grouped from Monday, a group whose first rendered cell is `2025-08-31` is handed `2025-08-25T00:00:00Z`.
+`header` receives the group's start date, not the first visible cell's date. On the `week` scale grouped from Monday, a group whose first rendered cell is `2025-08-31` receives `2025-08-25T00:00:00Z`.
 
-The record is keyed by the scale on screen, never by a derived unit. On the `week` scale with `firstDayOfWeek` set, the header is built from day-scale options, but the override is still read from `formats.week.header`. Writing `formats.day.header` there does nothing.
+The record is keyed by the scale on screen. A derived unit has no key of its own. On the `week` scale with `firstDayOfWeek` set, the header uses `day` scale options, but the override is read from `formats.week.header`. `formats.day.header` has no effect there.
 
-Adjacent bottom cells group into the top row by their group start date, and neighbouring groups whose labels come out identical then merge into one wider cell. A `header` override returning the same string for two groups therefore collapses them into one — a week header that prints only the month welds every week of that month together. The units the top row groups by are in [The timeline](timeline).
+Bottom cells group into the top row by group start date, and neighbouring groups with identical labels merge into one wider cell.
 
-### Keep the object identity stable
+A `header` override that returns the same string for two groups merges them. A `week` header that prints only the month merges every week of that month. The units the top row groups by are in [The timeline](timeline).
 
-Declare `formats` at module scope, or wrap it in `useMemo`. A fresh object literal on every render is a new identity, which invalidates every label memo — and with `locale` set, rebuilds every `Intl.DateTimeFormat` instance behind them. Nothing warns about it.
+### Stable object identity
+
+Declare `formats` at module scope or wrap it in `useMemo`. A new object literal on every render is a new identity, which invalidates every label memo and, with `locale` set, rebuilds every `Intl.DateTimeFormat` behind them. The chart does not warn about this.
 
 ## firstDayOfWeek
 
-`firstDayOfWeek` is a number, `0` for Sunday through `6` for Saturday. Setting it groups the `week` scale's top header row by week, starting on that day, instead of by month.
+`firstDayOfWeek` is a number from `0` for Sunday to `6` for Saturday. Setting it groups the `week` scale's top header row by week, starting on that day, instead of by month.
 
-The test is whether the prop is present, not whether it is truthy. `firstDayOfWeek={0}` does turn week grouping on.
+The chart checks whether the prop is present. `firstDayOfWeek={0}` turns week grouping on.
 
-Eight day cells, `2025-08-31` (Sunday) through `2025-09-07`, at `week` scale:
+Eight `day` cells, `2025-08-31` (Sunday) to `2025-09-07`, at `week` scale:
 
 | Prop | Top header groups |
 |---|---|
@@ -126,19 +132,19 @@ Eight day cells, `2025-08-31` (Sunday) through `2025-09-07`, at `week` scale:
 | `firstDayOfWeek={0}` | `Aug 31, 2025`, `Sep 7, 2025` |
 | *(omitted)* | `Aug 2025`, `Sep 2025` |
 
-Two things follow from that table. The header labels change shape when the prop is set, because a week group is labelled with a full date rather than a month. And the first group is labelled `Aug 25` even though the first rendered cell is `Aug 31`, because the label comes from the true week start.
+The prop changes the shape of the header labels. A week group is labelled with a full date rather than a month. The first group is labelled `Aug 25` although the first rendered cell is `Aug 31`, because the label is built from the true week start.
 
-Omitting the prop leaves the `week` scale grouping by month, exactly as before. On every other scale the prop does nothing at all, silently — a reader who sets it while looking at the month scale sees no change.
+Omitting the prop leaves the `week` scale grouping by month. On every other scale the prop has no effect and the chart gives no feedback. Setting it while on the `month` scale changes nothing on screen.
 
-There is no validation. The value flows straight into a modulo, so `7` behaves as `0` and `-1` behaves as `6`. A non-integer produces garbage offsets and no warning.
+There is no validation. The value goes straight into a modulo, so `7` behaves as `0` and `-1` as `6`. A non-integer produces wrong offsets and no warning.
 
-`firstDayOfWeek` moves week grouping and nothing else. Which days are shaded is a separate rule — `workingWeekdays` and `holidays` — described in [The timeline](timeline).
+`firstDayOfWeek` changes week grouping only. Which days are shaded is set by `workingWeekdays` and `holidays`. See [The timeline](timeline).
 
-The signature and default of every prop named here are in [GanttProps](ref/props).
+Props and defaults: [GanttProps](ref/props).
 
-## A Korean chart
+## Korean chart
 
-Locale, week start and starting scale together:
+Locale, week start and initial scale together:
 
 ```tsx title="ProjectChart.tsx"
 import { ReactGanttChart } from '@jaeungkim/gantt-chart';
@@ -177,11 +183,11 @@ export default function ProjectChart() {
 }
 ```
 
-The task list needs no locale of its own: it shows `task.name`, which is your data, under a header cell that carries no visible caption. Nothing else in the chrome follows `locale`; the list is at the end of this page.
+The task list needs no locale of its own. It shows `task.name`, which is your data, under a header cell with no visible caption. No other UI around the chart follows `locale`. The strings it does not reach are listed under [Limitations](#limitations).
 
-## A quarter header of your own
+## Custom quarter header
 
-A fiscal calendar starting in April needs its own quarter label, and `Intl` cannot produce one.
+A fiscal calendar starting in April needs its own quarter label, which `Intl` cannot produce.
 
 ```tsx title="FiscalChart.tsx"
 import { ReactGanttChart } from '@jaeungkim/gantt-chart';
@@ -223,15 +229,15 @@ export default function FiscalChart() {
 }
 ```
 
-February 2026 lands in `FY2025 Q4`, April 2026 in `FY2026 Q1`. The `header` slot is called with the calendar quarter's start date, so the override always sees January, April, July or October. The `tick` slot is left out and keeps its built-in month name.
+February 2026 falls in `FY2025 Q4` and April 2026 in `FY2026 Q1`. The `header` slot receives the calendar quarter's start date, so the override always sees January, April, July or October. The `tick` slot is omitted and keeps its built-in month name.
 
-## The date strings you pass in
+## Input date strings
 
-`locale` and `formats` change how a date is displayed, never how one is read: `startDate` and `endDate` are parsed as UTC whatever the tag, and the rules for those strings are in [Task data](task-data).
+`locale` and `formats` change how a date is displayed, not how one is parsed. `startDate` and `endDate` are parsed as UTC whatever the tag. The rules for those strings are in [Task data](task-data).
 
-## What the chart does not localize
+## Limitations
 
-The three props reach dates. Every other string in the chart is hardcoded English, and no prop replaces it. The first three rows below are read on screen; the rest are heard.
+The three props reach dates only. Every other string in the chart is hardcoded English, and no prop replaces it. The first three rows below are read on screen and the rest are heard.
 
 | String | Where it appears |
 |---|---|
@@ -240,20 +246,20 @@ The three props reach dates. Every other string in the chart is hardcoded Englis
 | `12h`, `3d` | the duration shorthand in the hover card and the detail panel |
 | `"Gantt chart"`, `"Task name"`, `"Timeline"`, `"Resize task list"`, `"Task details"` | the ARIA names of the treegrid, its two columns, the splitter and the detail panel |
 | `"summary"`, `"to"`, `"% complete"` | the connectives inside every bar's ARIA label |
-| `"<scale> scale"` | the live-region announcement after a Ctrl/Cmd + arrow rescale — the raw scale key, then the English word |
-| `"<name> deleted"`, `"<name> cannot be changed"`, `"<name> moved to 2 of 5 under <parent>"` | the live-region announcements after a keyboard edit |
+| `"<scale> scale"` | the live region announcement after a Ctrl/Cmd + arrow rescale, the raw scale key followed by the English word |
+| `"<name> deleted"`, `"<name> cannot be changed"`, `"<name> moved to 2 of 5 under <parent>"` | the live region announcements after a keyboard edit |
 
-Only the dates inside those sentences go through the localized `tooltip` formatter. One escape hatch exists: `renderDetail` replaces the detail panel's whole body — captions, close button and all — so that text is yours to translate. The panel's own `aria-label` stays English.
+Only the dates inside those strings go through the localized `tooltip` formatter. `renderDetail` replaces the detail panel's whole body, captions and close button included, so your app can translate that text. The panel's own `aria-label` stays English.
 
-The scale picker is not in that table, and that is the point. A picker labelled with the raw keys — `day`, `week`, `month` — would be the loudest English in a chart whose every date label goes through `Intl`, so the chart ships none: you render it, and its option text is yours to translate. The `<select>` recipe is in [Imperative API](imperative-api).
+The scale picker is not in the table. The chart renders no picker, so your app renders it and translates its option text. The `<select>` recipe is in [Imperative API](imperative-api).
 
 Further limits of this area:
 
-- **No number, currency or plural formatting.** `Intl.NumberFormat`, `Intl.RelativeTimeFormat` and `Intl.PluralRules` are never constructed. Progress is announced as the raw number followed by `% complete`, so a task at 45 always reads `45% complete`.
-- **`locale` never reaches dayjs.** No dayjs locale file is registered, so `d.format('MMMM')` inside a `formats` override prints `September` whatever the tag says. An override that needs a localized month name has to build its own `Intl.DateTimeFormat`.
-- **No RTL support.** Nothing sets or reads `dir`, and the stylesheet positions everything with physical properties. A right-to-left host has to mirror the chart itself, or place it in a left-to-right subtree.
-- **No local-time rendering mode.** Positions and labels are UTC, and no prop switches that off. A host that needs local wall-clock labels has to shift its own date strings before passing them in.
-- **No runtime validation** of `locale` or `firstDayOfWeek`. The one-time `console.warn` for a tag `Intl` rejects is the only feedback the whole area emits.
-- **The label logic is not exported.** A host cannot reuse the chart's resolved formatters for its own scale picker or legend, and has to build its own `Intl.DateTimeFormat` for that.
+- Number, currency and plural formatting are absent. `Intl.NumberFormat`, `Intl.RelativeTimeFormat` and `Intl.PluralRules` are never constructed. Progress is announced as the raw number followed by `% complete`, so a task at 45 reads `45% complete`.
+- `locale` never reaches dayjs. No dayjs locale file is registered, so `d.format('MMMM')` inside a `formats` override prints `September` for every tag. An override that needs a localized month name has to build its own `Intl.DateTimeFormat`.
+- RTL is unsupported. Nothing sets or reads `dir`, and the stylesheet positions everything with physical properties. A right-to-left host has to mirror the chart itself or place it in a left-to-right subtree.
+- Local time rendering is unsupported. Positions and labels are UTC, and no prop changes that. A host that needs local time labels has to shift its own date strings before passing them in.
+- `locale` and `firstDayOfWeek` are not validated at runtime. The single `console.warn` for a tag `Intl` rejects is the only feedback in this area.
+- The label logic is not exported. A host cannot reuse the chart's resolved formatters for its own scale picker or legend and has to build its own `Intl.DateTimeFormat`.
 
-Next: [Theming](theming) covers the palette those labels are painted in.
+Next: [Theming](theming).

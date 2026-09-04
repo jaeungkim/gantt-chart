@@ -4,9 +4,9 @@ description: "`Task`, `TaskDependency`, `DependencyType`, `TaskTransformed`"
 ---
 
 `Task` is the shape of one entry in the `tasks` prop. `TaskTransformed` is the measured copy the
-chart hands back: the click and select callbacks, `onDetailChange`, `renderDetail` and
-`GanttRow.tasks` all carry it. Both, along with `TaskDependency` and `DependencyType`, are
-type-only exports of the package root.
+chart passes to the click and select callbacks, `onDetailChange`, `renderDetail` and
+`GanttRow.tasks`. Both, with `TaskDependency` and `DependencyType`, are type-only exports of the
+package root.
 
 ```ts
 import type {
@@ -17,8 +17,8 @@ import type {
 } from '@jaeungkim/gantt-chart';
 ```
 
-Behaviour lives in the guides: [Task data](../task-data) for dates and `sequence`, and
-[Editing tasks](../editing) for the interaction flags.
+The guides cover the behaviour. [Task data](../task-data) has the dates and `sequence`.
+[Editing tasks](../editing) has the interaction flags.
 
 ## `DependencyType`
 
@@ -26,15 +26,15 @@ Behaviour lives in the guides: [Task data](../task-data) for dates and `sequence
 export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 ```
 
-`F` is finish, `S` is start. The first letter is the end of the predecessor the link leaves, the
-second is the end of the successor it arrives at. Each end is one edge of that task's bar.
+`F` is finish and `S` is start. The first letter is the predecessor end the link leaves. The
+second is the successor end it arrives at. Each end is one edge of that task's bar.
 
 | Value | Leaves the predecessor's | Arrives at the successor's |
 |---|---|---|
-| `'FS'` | finish — right edge | start — left edge |
-| `'SS'` | start — left edge | start — left edge |
-| `'FF'` | finish — right edge | finish — right edge |
-| `'SF'` | start — left edge | finish — right edge |
+| `'FS'` | finish (right edge) | start (left edge) |
+| `'SS'` | start (left edge) | start (left edge) |
+| `'FF'` | finish (right edge) | finish (right edge) |
+| `'SF'` | start (left edge) | finish (right edge) |
 
 ## `TaskDependency`
 
@@ -48,10 +48,10 @@ export interface TaskDependency {
 
 | Field | Type | Required | Meaning | Read when |
 |---|---|---|---|---|
-| `targetId` | `string` | yes | Id of the predecessor. An id that is not in `tasks` is dropped silently — no arrow. An id equal to the owner's own is not dropped; there is no self check, so a self-link draws an arrow back onto the same row. | always |
-| `type` | `DependencyType` | yes | Which bar edge of each task the link anchors to. A value outside the four is skipped — no arrow — and logs a `console.warn`, once per distinct value and only in a DEV build. | always |
+| `targetId` | `string` | yes | Id of the predecessor. An id that is not in `tasks` is skipped without an arrow or a warning. Nothing checks for a self link, so a task carrying its own id draws an arrow back onto its row. | always |
+| `type` | `DependencyType` | yes | Which bar edge of each task the link anchors to. A value outside the four draws no arrow. In a DEV build the chart also logs a `console.warn` once per distinct value. | always |
 
-How arrows are drawn, selected and deleted: [Dependencies](../dependencies).
+See [Dependencies](../dependencies) for how arrows are drawn, selected and deleted.
 
 ## `Task`
 
@@ -93,17 +93,17 @@ export interface Task {
 }
 ```
 
-Six fields are required: `id`, `name`, `startDate`, `endDate`, `parentId`, `sequence`. The
-per-field rules — date parsing, `sequence` ordering, `progress` clamping, lane packing, the
-`minDate`/`maxDate` fallback — are owned by [Task data](../task-data) and are not repeated here.
+Six fields are required: `id`, `name`, `startDate`, `endDate`, `parentId` and `sequence`.
+[Task data](../task-data) covers the per-field rules for date parsing, `sequence` ordering,
+`progress` clamping, lane packing and the `minDate`/`maxDate` fallback.
 
-Task-level flags beat `readOnly`, which beats the chart-level equivalents: see
-[GanttInteractionConfig](interaction-config) for the full resolution order, and for the shorter
-chain `allowReorder` runs instead.
+A task's own flag overrides the task's `readOnly`, which overrides the chart-level flag of the
+same name, which overrides the chart's `readOnly`. See [GanttInteractionConfig](interaction-config)
+for the full resolution order, including the shorter one `allowReorder` uses.
 
 ## `TaskTransformed`
 
-Every added field is computed by the chart and read-only. `TaskTransformed` is output-only —
+The chart computes every added field, and each one is read-only. `TaskTransformed` is output only.
 `tasks` is always `Task[]`, and a mutated `TaskTransformed` is never read back.
 
 ```ts
@@ -121,9 +121,9 @@ export interface TaskTransformed extends Task {
 
 | Field | Type | Computed value | Present when |
 |---|---|---|---|
-| every `Task` field | — | copied through unchanged | always |
-| `barLeft` | `number` | px from the timeline origin; `0` when the timeline has no cells | always |
-| `barWidth` | `number` | px, clamped to a minimum of `1`; `0` only when the timeline has no cells | always |
+| every `Task` field | as declared on `Task` | copied through unchanged | always |
+| `barLeft` | `number` | px from the timeline origin. `0` when the timeline has no cells | always |
+| `barWidth` | `number` | px, clamped to a minimum of `1`. `0` only when the timeline has no cells | always |
 | `depth` | `number` | `parentId` chain depth with `hierarchy` on, dot count in `sequence` otherwise | always |
 | `order` | `number` | 1-based row number after lane packing | always |
 | `originalOrder` | `number` | the 1-based index in the sequence-sorted array, before the `order` rewrite | always |
@@ -131,21 +131,21 @@ export interface TaskTransformed extends Task {
 
 ## Notes
 
-`normalizeProgress` is **not exported from the package root**. It exists in the source and is
-re-exported by `src/shared/task.ts`, but `src/index.ts` does not list it, so
+`normalizeProgress` is not exported from the package root. It exists in the source and
+`src/shared/task.ts` re-exports it, but `src/index.ts` does not list it, so
 `import { normalizeProgress } from '@jaeungkim/gantt-chart'` fails. Write
-`Math.min(100, Math.max(0, progress))` in the host app instead.
-`RenderedDependency` is not exported either.
+`Math.min(100, Math.max(0, progress))` in the host app instead. `RenderedDependency` is not
+exported either.
 
-`Task` gets no runtime validation: no required-field check, no date parsing check, no id-uniqueness
-check, no `progress` range check on input. The one runtime diagnostic in the whole model is the
-DEV-only warning for an unrecognized `DependencyType`.
+The chart runs no validation on `Task`. Required fields, date parsing, id uniqueness and the input
+`progress` range all go unchecked. In a DEV build the chart warns once for an unrecognized
+`DependencyType`. That warning is the only runtime check in the model.
 
-`sequence` is the only field whose absence throws. `sequence.split('.')` runs during layout, so a
-hand-built task without it crashes the chart rather than degrading.
+Layout calls `sequence.split('.')`, so a task built by hand without `sequence` throws. No other
+missing field throws.
 
-Dates go in as anything `dayjs.utc()` parses and come back out as
-`Dayjs.toISOString()` — `YYYY-MM-DDTHH:mm:ss.sssZ`. There is no local time-zone mode.
+Dates go in as anything `dayjs.utc()` parses. They come back as `Dayjs.toISOString()`, in the form
+`YYYY-MM-DDTHH:mm:ss.sssZ`. The chart has no local time zone mode.
 
 Related pages: [GanttProps](props), [GanttInteractionConfig](interaction-config),
 [Task data](../task-data).
