@@ -1,18 +1,17 @@
 ---
 title: "Keyboard and screen readers"
-description: "The key map, the ARIA tree, and the gaps"
+description: "The key map, the ARIA tree, the announcements and the gaps in keyboard parity"
 ---
 
-Someone tabs into the chart and lands on a single cell. From there one handler on the
-`role="treegrid"` element reads every key press, decides whether it owns it, and hands back what it
-does not. It owns fourteen keys. Ten of them write task data. The pointer gestures with no key at
-all are listed under Gaps at the end.
+One handler on the `role="treegrid"` element reads every key press inside the chart. It handles
+fourteen keys, ten of which write task data, and lets every other key bubble out. This page covers
+the key map, the capability checks behind the editing keys, the ARIA tree, the announcements, focus
+and the gaps in keyboard parity.
 
-## The key map
+## Key map
 
-The handler runs on the treegrid element only. Every key it claims is `preventDefault`ed before any
-work happens, so `Alt+ArrowLeft` never navigates the browser back. Every key it does not claim
-bubbles out untouched.
+The handler runs on the treegrid element only. Every key it handles is `preventDefault`ed before
+any work happens, so `Alt+ArrowLeft` never navigates the browser back.
 
 | Key | Modifiers | What happens |
 |---|---|---|
@@ -30,76 +29,74 @@ bubbles out untouched.
 | `Home` | `Ctrl` or `Cmd` | First cell of the first row. |
 | `End` | no `Ctrl`/`Cmd` | Last cell of the current row. |
 | `End` | `Ctrl` or `Cmd` | Last cell of the last row. |
-| `Enter` / `Space` | any | An expandable row toggles. Any other row announces its task's label, without the progress, and opens the detail panel on that task when the panel is on. |
-| `Delete` / `Backspace` | any | Delete the focused row's task and every descendant of it. |
+| `Enter` / `Space` | any | An expandable row toggles. Any other row announces its task's label without the progress, and opens the detail panel on that task when the panel is on. |
+| `Delete` / `Backspace` | any | Delete the focused row's task and its whole subtree. |
 | `+` / `=` | any | Progress up 5 points. |
 | `-` / `_` | any | Progress down 5 points. |
-| everything else | — | Returned to the browser. `Tab`, `PageUp`, `PageDown`, `F2` and every letter are not handled here. Neither is `Escape` - a document listener closes the detail panel while it is open, except inside one of the panel's own inputs, where `Escape` reverts that field's draft and leaves the panel open. |
+| everything else | any | Passed to the browser. `Tab`, `PageUp`, `PageDown`, `F2` and every letter are not handled here. `Escape` is not either. While the detail panel is open a document listener closes it, except inside one of the panel's own inputs, where `Escape` reverts that field's draft and leaves the panel open. |
 
-Arrow navigation clamps and never wraps. `Ctrl`+`End` is the only jump to another row that reads
-the column from the row it lands on. `ArrowUp` and `ArrowDown` carry the column they started with,
-clamped against the row they left.
+Arrow navigation clamps and never wraps. `ArrowUp` and `ArrowDown` keep the column they started
+with, clamped against the row they left. Of the keys that jump to another row, only `Ctrl`+`End`
+reads its column from the row it lands on.
 
-The chart below is live, with `hierarchy` on. Tab into it and run the map.
+The chart below has `hierarchy` on. Tab into it and try the map.
 
 <GanttDemo preset="hierarchy" />
 
-### A modifier turns an arrow into an edit
+### Modifier precedence
 
-The handler tests `Alt` and `Shift` on a horizontal arrow before it reads that arrow as navigation.
-So `Shift+ArrowRight` is a resize, not a range selection, and there is no range selection to reach.
-`Ctrl` and `Cmd` on a horizontal arrow indent or outdent the row, so `Ctrl+ArrowRight` is not cell
-navigation. On the vertical arrows they are the zoom binding, and `Alt` there is the row move. Every
-modifier is tested before the arrow is read as navigation.
+The handler tests `Alt` and `Shift` on a horizontal arrow before it reads that arrow as navigation,
+so `Shift+ArrowRight` is a resize. There is no range selection. `Ctrl` and `Cmd` on a horizontal
+arrow indent or outdent the row, so `Ctrl+ArrowRight` is not cell navigation. On the vertical
+arrows `Ctrl` and `Cmd` step the scale, and `Alt` moves the row.
 
-### What one step is
+### Step size
 
-The step is the current scale's drag step, read at the moment of the press. The same step drives a
-pointer drag, and the same snapping rules apply; the per-scale values are in the scale table in
+One step is the current scale's drag step, read when the key is pressed. A pointer drag uses the
+same step and the same snapping rules. The values per scale are in the scale table in
 [The timeline](timeline).
 
-The step is added in calendar units, so a press across a daylight-saving boundary keeps the task's
-wall-clock time of day.
+The step is added in calendar units, so a press across a daylight saving boundary keeps the task's
+time of day.
 
 Zooming changes what every editing key does. One `Alt+ArrowRight` is one hour on the `day` scale
-and 28 days on the `year` scale. A zoom announces the new scale, never the new step.
+and 28 days on the `year` scale. A zoom announces the new scale. The new step is not announced.
 
-### Stepping the scale
+### Scale stepping
 
-`Ctrl`/`Cmd` + `ArrowUp` moves one place finer, `Ctrl`/`Cmd` + `ArrowDown` one place coarser, along
-the fixed ladder `day` → `week` → `month` → `quarter` → `year`. The date at the centre of the
-timeline area stays at the centre, so the view does not jump.
+`Ctrl`/`Cmd` + `ArrowUp` moves one scale finer and `Ctrl`/`Cmd` + `ArrowDown` one scale coarser,
+in the fixed order `day`, `week`, `month`, `quarter`, `year`. The date at the centre of the timeline
+area stays at the centre, so the view does not jump.
 
 The new scale is announced in the live region as `week scale`, and `onScaleChange` fires with the
-same key. The binding does not depend on `zoomOnWheel`: the wheel gesture is opt-in and off by
-default, this is always on.
+same key. The binding does not depend on `zoomOnWheel`. The wheel gesture is off by default and the
+key binding is always on.
 
-It is part of the treegrid handler, so it needs focus inside the chart and at least one row. At
-either end of the ladder the key is still `preventDefault`ed, but nothing changes and nothing is
-announced.
+The binding is part of the treegrid handler, so it needs focus inside the chart and at least one
+row. At either end of the scale order the key is `preventDefault`ed and nothing happens.
 
-### Moving a row
+### Row moves
 
 `Alt` + a vertical arrow moves the focused row one place among its siblings. `Ctrl`/`Cmd` +
-`ArrowRight` makes it the previous sibling's last child, and `Ctrl`/`Cmd` + `ArrowLeft` makes it the
+`ArrowRight` makes it the previous sibling's last child. `Ctrl`/`Cmd` + `ArrowLeft` makes it the
 next sibling of its own parent.
 
-None of the four does anything unless `allowReorder` is on. Reordering is the one gesture that is
-off by default; see [Reordering rows](reordering). Indent and outdent additionally need `hierarchy`, and
-do nothing without it: there is no parent link to rewrite.
+None of the four keys does anything unless `allowReorder` is on. Unlike the other editing gestures,
+reordering is off by default. See [Reordering rows](reordering). Indent and outdent also need
+`hierarchy`. Without it there is no parent link to rewrite, and the keys do nothing.
 
-`Ctrl`/`Cmd` + `ArrowLeft` climbs one level per press: the row lands directly after the parent it
-left, so a row three levels deep takes three presses to reach the root. A drag reaches the root in
-one drop, on the top or bottom band of any root-level row - see [Reordering rows](reordering) - so
-the keyboard is the way to outdent only when there is no pointer.
+`Ctrl`/`Cmd` + `ArrowLeft` moves up one level per press. The row is placed directly after the
+parent it left, so a row three levels deep takes three presses to reach the root. A drag reaches
+the root in one drop, on the top or bottom region of any row at the root, as
+[Reordering rows](reordering) describes.
 
-A move that lands is announced in the live region. The rows the chart refuses to move are listed in
+A committed move is announced in the live region. The rows the chart does not move are listed in
 [Reordering rows](reordering).
 
-## Which keys a read-only chart still answers
+## Capability checks
 
-Every editing key resolves the same per-task capability a drag resolves. The four-rung precedence
-chain from `task.allowX` down to `config.readOnly` is explained in [Editing tasks](editing).
+Every editing key resolves the same capability per task that a drag resolves. The four-level
+precedence from `task.allowX` down to `config.readOnly` is explained in [Editing tasks](editing).
 
 | Keys | Capability consulted |
 |---|---|
@@ -108,19 +105,19 @@ chain from `task.allowX` down to `config.readOnly` is explained in [Editing task
 | `+` `=` `-` `_` | `canChangeProgress` |
 | `Delete` / `Backspace` | `canMove` |
 | `Alt` + a vertical arrow, `Ctrl`/`Cmd` + a horizontal arrow | `canReorder` |
-| arrows, `Home`, `End`, `Enter`, `Space`, the scale steps | none — navigation, expand/collapse and zoom work on a fully frozen chart |
+| arrows, `Home`, `End`, `Enter`, `Space`, the scale steps | none. Navigation, expand and collapse, and zoom work on a fully read-only chart. |
 
 There is no delete capability. A task that may move may be deleted.
 
-`canReorder` is the one capability that does not run that chain. It is `false` until a task or
-the chart sets `allowReorder`, so the reorder keys are inert on a chart that says nothing about
-reordering, read-only or not. See [`GanttInteractionConfig`](ref/interaction-config).
+`canReorder` does not run that precedence. It is `false` until a task or the chart sets
+`allowReorder`, so the reorder keys do nothing on a chart that never set `allowReorder`, read-only
+or not. See [`GanttInteractionConfig`](ref/interaction-config).
 
-A summary row never resizes and never takes a progress step; that structural rule overrides every
-flag and is described in [Editing tasks](editing). A task with no `progress` field is also refused:
-the keyboard steps an existing number, it does not create one.
+A summary row rejects resizes and progress steps. That rule overrides every flag and is described
+in [Editing tasks](editing). A task with no `progress` field is also rejected, because the keyboard
+steps an existing number.
 
-The signature and default of every prop named here are in [GanttProps](ref/props).
+The example below puts one locked task and one editable task on a `readOnly` chart.
 
 ```tsx title="src/App.tsx"
 import { useState } from 'react';
@@ -162,15 +159,18 @@ export default function App() {
 }
 ```
 
-## The chart ships no scale control
+Props and defaults: [GanttProps](ref/props).
 
-The chart renders the timeline, and the task list when there is one. Nothing else, and no scale
+## Scale picker
+
+The chart renders the timeline, and the task list when `showTaskList` is on. It renders no scale
 picker.
 
-So `Ctrl`/`Cmd` + the vertical arrows is the only built-in way to rescale without a pointer. A
-pointer user has nothing to click until you build it.
+Without a pointer, the scale changes only through `Ctrl`/`Cmd` + the vertical arrows. A pointer
+user has no control until you build one.
 
-Build it as a native `<select>`, driven through the ref and kept honest by `onScaleChange`.
+Build it as a native `<select>`. Call `setScale` from its `onChange` and set its value from
+`onScaleChange`.
 
 ```tsx title="src/ScalePicker.tsx"
 import { useRef, useState } from 'react';
@@ -211,18 +211,18 @@ export default function ScalePicker({ tasks }: { tasks: Task[] }) {
 }
 ```
 
-`<select>` brings keyboard, screen reader and touch behaviour from the platform, and you write the
-option text, so the five scale keys can be translated rather than spoken raw inside a chart whose
-every header cell, tick and tooltip already goes through `Intl`.
+`<select>` brings keyboard, screen reader and touch behaviour from the platform. You write the
+option text, so the five scale keys can be translated instead of being spoken raw. Every header
+cell, tick and tooltip in the chart already goes through `Intl`.
 
-Whatever you build instead, its accessibility is yours. The chart exposes `setScale` — see
-[Imperative API](imperative-api) — and `onScaleChange`, and has no opinion about the control on the
-other end.
+Your app is responsible for the accessibility of any other control it builds. The chart exposes
+`setScale`, described in [Imperative API](imperative-api), and `onScaleChange`, and renders no
+control of its own.
 
-## The ARIA tree
+## ARIA tree
 
-The task list and the timeline are one treegrid, not two. The row lives in the task list, and it
-claims its bars in the timeline through `aria-owns`.
+The task list and the timeline form one treegrid. Each row is in the task list and references its
+bars in the timeline through `aria-owns`.
 
 ```text title="Rendered DOM"
 section.gantt-container
@@ -251,55 +251,50 @@ section.gantt-container
    └─ aside.gantt-detail              role=complementary, aria-label="Task details", only while open
 ```
 
-`aria-level` is 1-based. `aria-posinset` and `aria-setsize` count only the rows no collapsed parent
-is hiding, so collapsing a parent renumbers its siblings. `aria-rowcount` is that same row count plus
+`aria-level` starts at 1. `aria-posinset` and `aria-setsize` count only the rows no collapsed
+parent hides, so collapsing a parent renumbers its siblings. `aria-rowcount` is that row count plus
 one for the header row, not the total in your data.
 
-`aria-expanded` is omitted, not set to `false`, on a row that cannot expand. A summary row only
-counts as expandable when `hierarchy` is on; with `hierarchy={false}` the attribute disappears and
-`Enter` announces the row instead of toggling it. See
-[Task list and hierarchy](task-list).
+`aria-expanded` is omitted, not set to `false`, on a row that cannot expand. A summary row counts as
+expandable only when `hierarchy` is on. With `hierarchy={false}` the attribute disappears and
+`Enter` announces the row instead of toggling it. See [Task list and hierarchy](task-list).
 
 `aria-owns` lists one id per task on the row, so a lane row owns several. Every row carries at least
-one task, so the attribute is never omitted; see [Lanes](lanes).
+one task, so the attribute is never omitted. See [Lanes](lanes).
 
-The non-working shading is `aria-hidden`, but a holiday's name is not: it is hidden by `opacity`
-rather than `display`, so it is announced whether or not it is showing — see
-[The timeline](timeline).
+The non-working shading is `aria-hidden`. A holiday's name is hidden by `opacity` rather than
+`display`, so it is announced whether or not it is visible. See [The timeline](timeline).
 
-### Without the task list pane
+### Hidden task list pane
 
-The pane is absent whenever `showTaskList` is not `true`, which is the default. Nothing inside the
-chart flips the pane, so the three changes below happen when you change the prop and at no other
-time.
+`showTaskList` defaults to `false`, so the pane is absent unless you set it. Nothing inside the
+chart toggles the pane, so the three changes below happen only when you change the prop.
 
-- There is no column-header row, so `aria-rowcount` loses its `+1` and the first data row is
+- There is no column header row, so `aria-rowcount` loses its `+1` and the first data row is
   `aria-rowindex={1}`.
-- There is no `role="rowgroup"` anywhere. The rows sit directly inside `role="presentation"`
-  wrappers.
-- Cell column 0 is the first bar rather than the first task-list column.
+- There is no `role="rowgroup"`. The rows sit directly inside `role="presentation"` wrappers.
+- Cell column 0 is the first bar rather than the first task list column.
 
-### What is never emitted
+### Omitted attributes
 
-Nothing in the chart sets `aria-colindex`, `aria-colcount`, `aria-selected`, `aria-current`,
+The chart never sets `aria-colindex`, `aria-colcount`, `aria-selected`, `aria-current`,
 `aria-multiselectable`, `aria-describedby` or `aria-labelledby`, and no element carries
-`role="treeitem"`. A cell therefore never reports its column position, and selection is never
-exposed to assistive technology at all.
+`role="treeitem"`. A cell never reports its column position, and selection is not exposed to
+assistive technology.
 
 The bar's link handles are `role="button"` with `tabIndex={-1}`. Its progress handle is
-`role="slider"` with `aria-valuemin`, `aria-valuemax`, `aria-valuenow` — and `tabIndex={-1}`, so no
-keyboard ever reaches it.
+`role="slider"` with `aria-valuemin`, `aria-valuemax` and `aria-valuenow`, also with
+`tabIndex={-1}`, so the keyboard never reaches it.
 
-## What a screen reader hears
+## Labels and announcements
 
-A bar's `aria-label` is built from four parts in a fixed order: the name, then `summary`, then the
-date range, then the progress. The `summary` part appears only on a summary row, and the progress
-part only when the task has one.
+A bar's `aria-label` has four parts in a fixed order: the name, `summary`, the date range and the
+progress. The `summary` part appears only on a summary row, and the progress part only when the
+task has a progress.
 
-The dates are formatted with the current scale's `tooltip` formatter — the same one the hover card,
-the detail panel and the drag announcements run through. So the label changes with the scale, and
-overriding `formats[scale].tooltip` rewrites what is spoken. See
-[Locale and date formats](i18n).
+The dates use the current scale's `tooltip` formatter, the same one the hover card, the detail
+panel and the drag announcements use. The label changes with the scale, and overriding
+`formats[scale].tooltip` changes what is spoken. See [Locale and date formats](i18n).
 
 | Task | Scale | Emitted `aria-label` |
 |---|---|---|
@@ -307,44 +302,45 @@ overriding `formats[scale].tooltip` rewrites what is spoken. See
 | `Design phase`, 40% | `day` | `Design phase, Mar 3, 2025 00:00 UTC to Mar 14, 2025 00:00 UTC, 40% complete` |
 | `Phase 1`, `isSummary`, Mar to May | `quarter` | `Phase 1, summary, Mar 2025 to May 2025` |
 
-A keyboard edit is announced through a single `role="status" aria-live="polite"` region, the
-container's first child, ahead of the chart body.
+A keyboard edit is announced through one `role="status" aria-live="polite"` region, the container's
+first child, ahead of the chart body.
 
 | Key | Announcement |
 |---|---|
 | `Alt`/`Shift` arrow, accepted | `Design phase, Mar 3, 2025 to Mar 15, 2025` |
-| `Alt`/`Shift` arrow, refused | `Design phase cannot be changed` |
+| `Alt`/`Shift` arrow, rejected | `Design phase cannot be changed` |
 | `+` or `-`, accepted | `Design phase, 45% complete` |
-| `+` or `-`, refused | `Design phase progress cannot be changed` |
+| `+` or `-`, rejected | `Design phase progress cannot be changed` |
 | `Delete`, accepted | `Design phase deleted` |
-| `Delete`, refused | `Design phase cannot be deleted` |
-| a reorder key, accepted | `Design phase moved to 2 of 5 under Phase 1` — or `at the top level` when it has no parent |
-| a reorder key, refused | nothing |
+| `Delete`, rejected | `Design phase cannot be deleted` |
+| a reorder key, accepted | `Design phase moved to 2 of 5 under Phase 1`, or `at the top level` when it has no parent |
+| a reorder key, rejected | nothing |
 | `Enter` on a non-expandable row | the full label, with the progress omitted |
 | `Enter` on an expandable row | nothing |
-| `Ctrl`/`Cmd` + a vertical arrow | `week scale` — the key of the scale it landed on |
-| the same at either end of the ladder | nothing |
+| `Ctrl`/`Cmd` + a vertical arrow | `week scale`, the key of the scale it landed on |
+| the same key at either end of the scale order | nothing |
 
-A pointer drag announces too, through a second `role="status"` line the bar renders for the length
-of the gesture. For a move or a resize it is visually hidden — `Start: Mar 3, 2025`,
-`End: Mar 15, 2025`, or both dates for a whole-bar move — because the visible readout, the dates
-written into the date-axis tick cells, is `aria-hidden`. A progress drag's percentage readout is
-that same status line, visible.
+A pointer drag is announced too, through a second `role="status"` line the bar renders for the
+length of the gesture. For a move or a resize it is visually hidden. The visible readout, the dates
+written into the tick cells of the date axis, is `aria-hidden`. The line reads `Start: Mar 3, 2025`,
+`End: Mar 15, 2025`, or both dates for a move of the whole bar. A progress drag's percentage readout
+is that same status line, visible.
 
 `showTooltip={false}` removes the hover card and these drag status lines together, so a chart with
-tooltips off edits silently under a pointer. The keyboard announcements above are unaffected.
+tooltips off announces nothing during a pointer edit. The keyboard announcements above are
+unaffected.
 
 ## Focus
 
-Inside the treegrid there is exactly one tab stop: the cell whose row and column match the chart's
-focus state. Every other cell is `tabIndex={-1}`. The rendered component contributes up to eight tab
-stops to the page, five of them the open detail panel's; a custom `renderDetail` body replaces those
-five with whatever it renders.
+The treegrid has one tab stop, the cell whose row and column match the chart's focus state. Every
+other cell is `tabIndex={-1}`. The rendered component adds up to eight tab stops to the page, five
+of them in the open detail panel. A custom `renderDetail` body replaces those five with its own
+elements.
 
 | # | Element | Present when |
 |---|---|---|
 | 1 | the roving treegrid cell | a cell matching the focus state is rendered |
-| 2 | the task-list splitter | the task list pane is visible |
+| 2 | the task list splitter | the task list pane is visible |
 | 3 | the **Add task** button | the pane is visible and task creation is on |
 | 4 | the panel's name input | the name is editable |
 | 5 | the panel's **Start** input | the dates are editable |
@@ -352,116 +348,114 @@ five with whatever it renders.
 | 7 | the panel's **Progress** input | the task has a `progress` and it is editable |
 | 8 | the panel's close button | always |
 
-Rows 4 to 8 need the panel open with the built-in body, and each field takes input only when the
-task's own flags leave it editable; [Detail panel](detail-panel) has the mapping. A field that is
-not editable renders as text and is no tab stop.
+Rows 4 to 8 need the panel open with the built-in body. Each field takes input only when the task's
+own flags leave it editable, and [Detail panel](detail-panel) maps the flags to the fields. A field
+that is not editable renders as text and is not a tab stop.
 
-A row's cells are numbered left to right: the task-list's name cell first, then one cell per bar on
-the row.
+A row's cells are numbered left to right, the task list's name cell first, followed by one cell per
+bar on the row.
 
-Clicking a cell syncs the focus state to it. A keyboard move does the opposite: it sets the state,
-then hunts for the matching element three times — once immediately, then on the next two animation
-frames — scrolling the row and the task into view between attempts. If no element matches on the
-third try, it gives up and DOM focus stays where it was.
+Clicking a cell syncs the focus state to it. A keyboard move does the opposite. It sets the state
+and looks for the matching element three times, immediately and on the next two animation frames,
+scrolling the row and the task into view between attempts. If no element matches on the third try,
+DOM focus stays where it was.
 
-Nothing is focused on mount. The first `Tab` that reaches the treegrid lands on cell `0:0`, and if
+Nothing is focused on mount. The first `Tab` that reaches the treegrid lands on cell `0:0`. If
 `tasks` is empty there is no cell to land on.
 
-### The detail panel's tab stops follow the chart's
+### Detail panel tab stops
 
-The panel sits outside the treegrid, so it does not touch the roving tab stop. Its focusables come
-after the chart in DOM order. It is `role="complementary"`, not a dialog:
-there is no focus trap, and nothing has to be escaped before the chart answers keys again. See
+The panel is outside the treegrid, so it does not affect the roving tab stop. Its focusable
+elements come after the chart in DOM order. It is `role="complementary"`, not a dialog. There is no
+focus trap, and nothing has to be closed before the chart handles keys again. See
 [Detail panel](detail-panel).
 
-Closing the panel returns focus to whatever held it when the panel opened - the cell that answered
-`Enter`, or the bar that was clicked. It only does so while focus still sits in the panel, on
-`<body>` or nowhere; a panel closed while you are typing elsewhere on the page steals nothing back.
-Without the return, `Escape` would drop focus on `<body>` and keyboard navigation of the chart would
-be over. Moving the panel from one task to another moves no focus at all, and neither does opening
-it; only closing it moves focus back.
+Closing the panel returns focus to the element that held it when the panel opened, the cell that
+received `Enter` or the bar that was clicked. It does so only while focus is in the panel, on
+`<body>` or nowhere. A panel closed while you are typing elsewhere on the page does not move focus.
+Without the return, `Escape` would leave focus on `<body>` and keyboard navigation of the chart
+would end. Moving the panel from one task to another moves no focus, and neither does opening it.
 
-### Keyboard focus is not selection
+### Focus and selection
 
-Arrowing onto a bar does not select it. `onTaskSelect` never fires, `selectedTaskId` never changes,
-and no `aria-selected` is written. Selection is a pointer-only concept here; see
-[Events](events).
+Arrowing onto a bar does not select it. `onTaskSelect` does not fire, `selectedTaskId` does not
+change, and no `aria-selected` is written. Selection needs a pointer. See [Events](events).
 
-## Keys handled outside the treegrid
+## Keys outside the treegrid
 
 | Keys | Where the listener is | What it does |
 |---|---|---|
 | `ArrowLeft` / `ArrowRight`, `Enter` | the splitter | Resize the task list, or fit it to the widest visible row. The widths and the step are in [Task list and hierarchy](task-list). |
 | `Delete` / `Backspace`, `Escape` | `document`, while a dependency arrow is selected | Delete or deselect the arrow, from anywhere on the page. Skipped inside an `input`, `textarea`, `select` or contenteditable. |
-| `Escape` | `document`, while the detail panel is open | Close the detail panel, from anywhere on the page. The row stays selected; only the panel closes. Inside one of the panel's own inputs the key stops there instead: the field reverts to its stored value and the panel stays open. |
+| `Escape` | `document`, while the detail panel is open | Close the detail panel, from anywhere on the page. The row stays selected. Inside one of the panel's own inputs the key stops there. The field reverts to its stored value and the panel stays open. |
 
-## Gaps
+## Known gaps
 
-This is the part to read before promising keyboard parity to anyone.
-
-**Two pointer gestures have no keyboard equivalent.** Drawing a dependency arrow is unreachable:
-the link handles are `tabIndex={-1}`. Selecting an arrow, and therefore deleting one, needs a click.
+Some pointer gestures have no keyboard equivalent. Drawing a dependency arrow is unreachable. The
+link handles are `tabIndex={-1}`. Selecting an arrow, and therefore deleting one, needs a click.
 See [Dependencies](dependencies).
 
-Drawing a new task below the last row is pointer-only too, but it is no longer the only way to fire
-`onTaskCreate`: the **Add task** button under the task list proposes the same draft, and it is an
-ordinary tab stop. A chart with the pane hidden has neither, so creation is pointer-only again
-there. No key is bound to it — a shortcut of your own calls `addTask()` on the ref, see
+Drawing a new task below the last row needs a pointer too, but `onTaskCreate` has a second path.
+The **Add task** button under the task list calls `onTaskCreate` with the same draft, and it is an
+ordinary tab stop. A chart with the pane hidden has neither, so creation needs a pointer there. No
+key is bound to it. A shortcut of your own calls `addTask()` on the ref. See
 [Creating tasks](task-creation).
 
 > [!WARNING]
-> `Delete` removes every descendant, whether or not `hierarchy` is on, and it fires from any cell in
-> the row — including the Name cell — with no confirmation step. The chart keeps no snapshot of its
-> own to restore from.
+> `Delete` removes the whole subtree, whether or not `hierarchy` is on, and it fires from any cell
+> in the row, the name cell included, with no confirmation step. The chart keeps no snapshot to
+> restore from.
 
-**Not every refused key is announced.** A refusal from a capability check is announced. A refused
-row move is not. `Alt` + a vertical arrow at either end of the sibling list, an indent with no
-previous sibling, an outdent from the root, a chart that never set `allowReorder`, and an
-`onTaskMove` that returns `false` all `preventDefault` the key and then return in silence.
+Not every rejected key is announced. A rejection from a capability check is announced. A rejected
+row move is not. Each of these cases `preventDefault`s the key and returns without an announcement:
 
-**A cell reference can point at nothing.** The focus column is not clamped when the row changes.
-Moving down from a two-bar row onto a one-bar row keeps a column index that row does not have, no
-element matches, and the chart loses its only tab stop until someone clicks a cell. `Home` and `End`
-recover it while focus is still inside the treegrid. The same failure appears when a bar is scrolled
-out horizontally: bars outside the viewport are not rendered, but the row's `aria-owns` still lists
-their ids.
+- `Alt` + a vertical arrow at either end of the sibling list
+- an indent with no previous sibling
+- an outdent from the root
+- a chart that never set `allowReorder`
+- an `onTaskMove` that returns `false`
 
-**An out-of-range column edits the wrong bar.** Resolving a task from a cell falls back to the row's
-first task. On a multi-lane row a stale column silently acts on lane 0 instead of doing nothing. The
-same fallback is why `Delete` on a task-list cell deletes that row's task.
+A cell reference can point at nothing. The focus column is not clamped when the row changes.
+Moving down from a row with two bars onto a row with one keeps a column index that row does not
+have. No element matches, and the chart loses its only tab stop until a cell is clicked. `Home` and
+`End` recover it while focus is inside the treegrid. The same failure appears when a bar is
+scrolled out horizontally. Bars outside the viewport are not rendered, but the row's `aria-owns`
+lists their ids anyway.
 
-**A toggle is not announced.** `Enter` on an expandable row changes `aria-expanded` on the row while
-focus sits on a cell, and writes nothing to the live region.
+An out-of-range column edits the wrong bar. Resolving a task from a cell falls back to the row's
+first task. On a row with several lanes a stale column acts on lane 0 instead of doing nothing. The
+same fallback is why `Delete` on a task list cell deletes that row's task.
 
-**The hover tooltip is half of SC 1.4.13.** It is *dismissible*: `Escape` closes it without moving
-the pointer. It is not *hoverable* — the card is `pointer-events: none`, so moving toward it leaves
-the bar and destroys it. It opens after a 450ms dwell. Nothing in the card is reachable anyway; it
-holds no links or controls, and the same dates and progress are already in the bar's `aria-label`.
-The card is also not reachable by keyboard focus at all, for the same reason.
+A toggle is not announced. `Enter` on an expandable row changes `aria-expanded` on the row while
+focus is on a cell, and writes nothing to the live region.
 
-**Touch shows no hover tooltip.** The card opens on `pointerenter` only when `pointerType` is
-`"mouse"`. A tap fires a compatibility `mouseenter` and never a `mouseleave`, so on touch the card
-used to open and stay open under the finger with no way to dismiss it. Drag readouts are unaffected —
-they follow the gesture, not hover.
+The hover tooltip is dismissible under SC 1.4.13. `Escape` closes it without moving the pointer.
+It is not hoverable. The card is `pointer-events: none`, so moving toward it leaves the bar and
+closes it. It opens after a 450ms dwell. Nothing in the card is reachable. It holds no links or
+controls, and the same dates and progress are already in the bar's `aria-label`.
 
-## Limits
+Touch shows no hover tooltip. The card opens on `pointerenter` only when `pointerType` is
+`"mouse"`. A tap fires a compatibility `mouseenter` and never a `mouseleave`, so without that check
+the card would open and stay open under the finger. Drag readouts follow the gesture rather than
+hover and are unaffected.
 
-- **No key remapping, no opt-out.** Nothing in the keyboard layer is exported from the package.
-  There is no prop to change a binding, to disable keyboard editing separately from pointer editing,
-  or to render something other than a treegrid.
-- **No `PageUp` / `PageDown`, no type-ahead, no `F2` edit mode, no multi-select, no `Escape` inside
-  the treegrid.**
-- **No focus trap and no skip link.** `Tab` leaves the treegrid on the first press, and a chart with
-  many rows offers no way to jump past it other than the browser's own.
-- **No high-contrast support.** The stylesheet has no `forced-colors` and no `prefers-contrast`
-  block. `prefers-reduced-motion` is honoured: inside the chart, transitions and
-  animations are cut to 0.01ms and `scroll-behavior` becomes `auto`.
-- **Confirmation is yours.** `Delete` removes a subtree immediately. If that needs a dialog, keep
-  your own snapshot in `onTasksChange` and pass it back as `tasks` to put the rows back.
-- **Announcement wording is fixed.** The strings above are hardcoded in English, the drag status
-  lines included. Only the dates inside them follow the `locale` and `formats` props.
-- **Testing is yours.** Nothing here is verified against a real screen reader in this repository;
-  the coverage is unit tests over the key resolver and the ARIA prop builders.
+## Limitations
 
-Next: [Locale and date formats](i18n), which covers the formatter these labels and announcements
-run through.
+- Key remapping and opt-out are not available. Nothing in the keyboard layer is exported from the
+  package. There is no prop to change a binding, to disable keyboard editing separately from
+  pointer editing, or to render something other than a treegrid.
+- `PageUp`, `PageDown`, type-ahead, an `F2` edit mode, multi-select and `Escape` inside the
+  treegrid are not handled.
+- Focus trap and skip link are absent. `Tab` leaves the treegrid on the first press, and a chart
+  with many rows offers no way to jump past it other than the browser's own.
+- High contrast is not supported. The stylesheet carries no `forced-colors` or `prefers-contrast`
+  block. `prefers-reduced-motion` is honoured. Inside the chart, transitions and animations are cut
+  to 0.01ms and `scroll-behavior` becomes `auto`.
+- Confirmation is up to your app. `Delete` removes a subtree immediately. If that needs a dialog,
+  keep your own snapshot in `onTasksChange` and pass it back as `tasks` to restore the rows.
+- Announcement wording is fixed. The strings above are hardcoded in English, the drag status lines
+  included. Only the dates inside them follow the `locale` and `formats` props.
+- Screen reader testing is up to your app. Nothing here is verified against a real screen reader
+  in this repository. The coverage is unit tests over the key resolver and the ARIA prop builders.
+
+Next: [Locale and date formats](i18n).

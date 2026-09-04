@@ -1,11 +1,11 @@
 ---
 title: "근무일 달력 헬퍼"
-description: "달력 API로 내보내는 것들이에요: `createWorkingCalendar`, `CALENDAR_DAYS`, `WorkingCalendar`"
+description: "내보내는 달력 API예요: `createWorkingCalendar`, `CALENDAR_DAYS`, `WorkingCalendar`"
 ---
 
-`WorkingCalendar`는 날짜 계산이 날을 세는 단위예요. 기본값인 `CALENDAR_DAYS`는 7일을 모두 세기
-때문에, 평범한 달력 계산도 아무것도 건너뛰지 않는 달력으로 같은 코드 경로를 타요. 근무일 달력을
-켜면 차트가 어떻게 달라지는지는 [근무일 달력](../working-calendar)에 있어요.
+`WorkingCalendar`는 날짜 계산이 무엇을 하루로 셀지 정하는 객체예요. 기본값인 `CALENDAR_DAYS`는
+7일을 모두 세요. 그래서 이 달력을 거친 계산은 평범한 달력 계산과 같아요. 근무일 달력을 켜면
+차트가 어떻게 달라지는지는 [근무일 달력](../working-calendar)에서 다뤄요.
 
 ```ts
 import {
@@ -16,8 +16,9 @@ import {
 } from '@jaeungkim/gantt-chart';
 ```
 
-이 메서드들이 받고 돌려주는 `Dayjs` 값은 패키지의 런타임 의존성인 `dayjs`에서 와요. `dayjs`는
-`@jaeungkim/gantt-chart`에서 다시 내보내지 **않아요**. `dayjs`에서 직접, UTC 모드로 가져와요.
+이 메서드들이 주고받는 `Dayjs` 값은 패키지의 런타임 의존성인 `dayjs`에서 와요.
+`@jaeungkim/gantt-chart`는 `dayjs`를 다시 내보내지 않아요. `dayjs`에서 직접 가져와 UTC 모드로
+넘기세요.
 
 ## `createWorkingCalendar`
 
@@ -30,13 +31,13 @@ export function createWorkingCalendar(
 
 | 매개변수 | 타입 | 필수 | 의미 |
 |---|---|---|---|
-| `options` | `WorkingCalendarOptions` | 아니요 | 기본값은 `{}`이고, 휴일 없는 월–금 주간이에요 |
+| `options` | `WorkingCalendarOptions` | 아니요 | 기본값은 `{}`예요. 휴일이 없고 월요일부터 금요일까지가 근무일이에요 |
 
-차트가 비근무일을 음영 처리할 때 쓰는 정의와 같되, 한 단계 더 평평해요. 차트의 `holidays` prop은
-객체와 날짜 범위도 받고, 그걸 이 함수가 받는 평범한 `YYYY-MM-DD` 문자열로 펼쳐서 넘겨요.
+이 함수는 차트가 비근무일을 음영 처리할 때 쓰는 정의를 그대로 받아요. 차트의 `holidays` prop은
+객체와 날짜 범위도 받아서 이 함수가 받는 `YYYY-MM-DD` 문자열로 펼쳐요.
 
-돌려받은 달력은 언제나 `skipsNonWorkingDays: true`예요. 결과적으로 모든 날이 근무일로 남는
-설정이어도 마찬가지예요.
+반환된 달력은 언제나 `skipsNonWorkingDays: true`예요. 모든 날이 근무일로 남는 설정이어도
+마찬가지예요.
 
 ## `WorkingCalendarOptions`
 
@@ -51,8 +52,8 @@ export interface WorkingCalendarOptions {
 
 | 옵션 | 타입 | 기본값 | 의미 |
 |---|---|---|---|
-| `workingWeekdays` | `number[]` | `[1, 2, 3, 4, 5]` (월–금) | UTC 요일 번호예요. `0`은 일요일이고, 배열에 없는 날은 비근무일이에요 |
-| `holidays` | `string[]` | `[]` | UTC `YYYY-MM-DD` 문자열이에요. `date.format('YYYY-MM-DD')` 결과와 문자열이 정확히 같아야 걸려요 |
+| `workingWeekdays` | `number[]` | `[1, 2, 3, 4, 5]` (월요일부터 금요일까지) | UTC 요일 번호예요. `0`은 일요일이고 배열에 없는 날은 비근무일이에요 |
+| `holidays` | `string[]` | `[]` | UTC `YYYY-MM-DD` 문자열이에요. `date.format('YYYY-MM-DD')` 결과와 문자열이 정확히 같을 때만 걸려요 |
 
 ## `CALENDAR_DAYS`
 
@@ -61,9 +62,8 @@ export interface WorkingCalendarOptions {
 export const CALENDAR_DAYS: WorkingCalendar
 ```
 
-팩토리가 아니라 공유되는 인스턴스 하나예요. `workingCalendar`가 꺼져 있는 동안 차트가 쓰는 달력이
-이거예요. 직접 만든 코드가 달력 인자를 요구하는데 호출부는 평범한 달력 날짜를 쓰고 싶을 때
-넘겨요.
+`CALENDAR_DAYS`는 공유되는 인스턴스 하나예요. `workingCalendar`가 꺼져 있는 동안 차트가 쓰는
+달력이 이거예요. 직접 만든 코드가 달력 인자를 받고 호출부가 평범한 달력 날짜를 원할 때 넘기세요.
 
 ## `WorkingCalendar`
 
@@ -86,36 +86,37 @@ export interface WorkingCalendar {
 }
 ```
 
-엔진에서 "하루"의 정의는 하나뿐이고, 이 객체가 말하는 것이 곧 그 정의예요. 근무일 달력을 켜면 이
-객체만 바뀌고 나머지는 그대로예요. `skipsNonWorkingDays`는 호출부가 하루씩 물어보는 대신 빠른
-경로를 타라고 있는 값이에요.
+코어에서 하루의 단위는 이 객체 하나가 정해요. 근무일 달력을 켜면 이 객체만 바뀌고 나머지는
+그대로예요. `skipsNonWorkingDays`를 보면 하루씩 확인하지 않고 평범한 달력 계산 경로를 쓸 수
+있어요.
 
 ### 멤버
 
 | 멤버 | 시그니처 | `CALENDAR_DAYS` | 근무일 달력 |
 |---|---|---|---|
 | `skipsNonWorkingDays` | `readonly boolean` | `false` | `true` |
-| `isWorkingDay` | `(date: Dayjs) => boolean` | 항상 `true` | 요일·휴일 검사를 통과하면 `true` |
+| `isWorkingDay` | `(date: Dayjs) => boolean` | 항상 `true` | 요일과 휴일 검사를 통과하면 `true` |
 | `addDays` | `(date: Dayjs, days: number) => Dayjs` | `date.add(days, 'day')` | 달력 하루씩 옮기면서 근무일에서만 남은 일수를 줄여요. 시각은 유지돼요 |
-| `daysBetween` | `(from: Dayjs, to: Dayjs) => number` | `to.startOf('day').diff(from.startOf('day'), 'day')` | 하루씩 걸으며 밟은 근무일만 세요. 출발한 날은 절대 세지 않아요 |
-| `daysUntil` | `(from: Dayjs, target: Dayjs) => number` | `addDays(from, d) >= target`인 가장 작은 `d` | 같아요, 단위만 근무일이에요 |
-| `daysUpTo` | `(from: Dayjs, target: Dayjs) => number` | `addDays(from, d) <= target`인 가장 큰 `d` | 같아요, 단위만 근무일이에요 |
-| `snapForward` | `(date: Dayjs) => Dayjs` | `date`를 그대로 돌려줘요 | `date` 당일이나 그 뒤의 첫 근무일이고, 시각은 유지돼요 |
+| `daysBetween` | `(from: Dayjs, to: Dayjs) => number` | `to.startOf('day').diff(from.startOf('day'), 'day')` | 하루씩 걸으며 지나간 근무일 수만 세어요. 출발한 날은 세지 않아요 |
+| `daysUntil` | `(from: Dayjs, target: Dayjs) => number` | `addDays(from, d) >= target`인 가장 작은 `d` | 같은 계산이고 단위만 근무일이에요 |
+| `daysUpTo` | `(from: Dayjs, target: Dayjs) => number` | `addDays(from, d) <= target`인 가장 큰 `d` | 같은 계산이고 단위만 근무일이에요 |
+| `snapForward` | `(date: Dayjs) => Dayjs` | `date`를 그대로 반환해요 | `date` 당일이나 그 뒤의 첫 근무일이고 시각은 유지돼요 |
 
 `daysBetween`은 날짜 단위로 비교해요. 양끝에 `startOf('day')`를 부르니 같은 날짜의 두 시각은
-`0`만큼 떨어져 있어요. `daysUntil`과 `daysUpTo`는 시각까지 따져요. `daysBetween`의 답을 최대 두
-걸음까지 보정하는 방식이에요.
+`0`만큼 떨어져 있어요. `daysUntil`과 `daysUpTo`는 시각까지 반영해요. `daysBetween`의 결과를
+최대 두 걸음까지 보정하거든요.
 
-근무일에서 출발하면 `addDays`와 `daysBetween`은 정확히 서로의 역이에요.
-`daysBetween(from, addDays(from, n))`은 `n`이에요. `from`은 근무일이어야 해요. 비근무일에서
-출발하면 왕복하는 동안 첫 걸음을 잃어요. 이 항등식에는 걷기 한계 안의 구간과 근무일이 하나
-이상인 달력도 필요해요. 두 한계 모두 아래 제약 절에 있어요.
+근무일에서 출발하면 `addDays`와 `daysBetween`은 정확히 서로의 역이라
+`daysBetween(from, addDays(from, n))`이 `n`이에요. 비근무일에서 뒤로 움직이면 왕복하는 동안 한
+걸음을 잃어요. `daysBetween`이 출발한 날을 세지 않기 때문이에요. 이 항등식에는 걷기 한계 안의
+구간과 근무일이 하나 이상인 달력도 필요해요. 두 한계는 아래 제약에 있어요.
 
-## 계산 예시
+## 계산 결과표
 
-2025년 6월이에요. 2일이 월요일, 6일이 금요일, 7일과 8일이 주말, 9일이 그다음 월요일이에요.
-`workweek`은 `createWorkingCalendar()`이고, `withHoliday`는
-`createWorkingCalendar({ holidays: ['2025-06-09'] })`예요.
+2025년 6월 기준이에요. 2일은 월요일, 6일은 금요일, 7일과 8일은 주말, 9일은 그다음
+월요일이에요. `workweek`은 `createWorkingCalendar()`이고 `withHoliday`는
+`createWorkingCalendar({ holidays: ['2025-06-09'] })`예요. 날짜는 짧게 문자열로 적었어요.
+각각 `dayjs.utc(...)`를 뜻해요.
 
 | 호출 | 결과 |
 |---|---|
@@ -152,46 +153,46 @@ calendar.isWorkingDay(dayjs.utc('2025-06-09')); // false
 calendar.skipsNonWorkingDays; // true
 ```
 
-패키지에는 달력 인자를 받는 것이 하나도 없어요. 차트는 `workingCalendar`, `workingWeekdays`,
+패키지에서 달력 인자를 받는 것은 하나도 없어요. 차트는 `workingCalendar`, `workingWeekdays`,
 `holidays` prop으로 자기 달력을 직접 만들어요. 그래서 직접 만든 달력은 호스트 앱의 날짜 계산에
-쓰는 용도예요 — [근무일 달력](../working-calendar) 참고.
+쓰세요. [근무일 달력](../working-calendar)을 참고하세요.
 
 ## 제약
 
-`src/core/calendar.ts`는 `Dayjs` 타입만 가져오고 dayjs 자체는 절대 가져오지 않아요. 요일은
-`date.day()`에서 나오고, 휴일은 `date.format('YYYY-MM-DD')`와 맞춰 봐요. 그래서 둘 다 넘긴
+`src/core/calendar.ts`는 `Dayjs` 타입만 가져오고 dayjs 자체는 가져오지 않아요. 요일은
+`date.day()`로 읽고 휴일은 `date.format('YYYY-MM-DD')` 결과와 비교해요. 그래서 둘 다 넘긴
 `Dayjs` 인스턴스의 모드를 그대로 따라요.
 
-차트 안에서는 항상 UTC예요. 코어가 달력에 건네는 날짜는 모두 `src/core/dates.ts`에서 오고, 이
-파일은 `dayjs.utc`예요. 로컬 모드 `Dayjs`로 달력을 직접 호출하면 로컬 요일과 로컬
-`YYYY-MM-DD`를 읽어요. 그러니 위 예제처럼 UTC 모드 인스턴스를 넘겨요.
+차트 안에서는 항상 UTC예요. 코어가 달력에 건네는 날짜는 모두 `src/core/dates.ts`가 `dayjs.utc`로
+만들어요. 로컬 모드 `Dayjs`는 로컬 요일과 로컬 `YYYY-MM-DD`를 읽어요. 그러니 위 예제처럼 UTC
+모드 인스턴스를 넘기세요.
 
-근무일이 하나도 없는 달력은 실패하지도 멈추지도 않아요. `addDays`는 요청한 하루마다 367걸음의
-예산을 받고, 예산이 떨어지면 평범한 달력 날짜로 물러나요. `snapForward`는 366번 시도한 뒤 입력을
-그대로 돌려줘요. `workingWeekdays`를 빈 배열로 준 달력은 오류가 아니라 틀린 숫자를 내요.
+근무일이 하나도 없는 달력도 결과를 반환해요. `addDays`는 요청한 하루마다 367걸음의
+예산을 받고 예산이 떨어지면 평범한 달력 날짜로 물러나요. `snapForward`는 366번 시도한 뒤 입력을
+그대로 반환해요. `workingWeekdays`를 빈 배열로 주면 오류가 아니라 틀린 숫자가 나와요.
 
-`daysBetween`이 하루씩 걷는 범위는 18,263일(약 50년)까지예요. 그 너머로는 평범한 달력 일수 차이를
-돌려줘요. 그래서 그만큼 긴 구간에서는 근무일 달력의 단위가 조용히 바뀌어요.
+`daysBetween`이 하루씩 걷는 범위는 18,263일(약 50년)까지예요. 그보다 긴 구간에서는 평범한 달력
+일수 차이를 반환해요. 그래서 그만큼 긴 구간에서는 근무일 달력의 단위가 조용히 바뀌어요.
 
-근무일이 하나도 없는 역방향 구간에서 `daysBetween`은 `-0`이 아니라 언제나 `0`을 돌려줘요.
+근무일이 하나도 없는 역방향 구간에서 `daysBetween`은 `-0`이 아니라 언제나 `0`을 반환해요.
 
-`daysUntil`과 `daysUpTo`는 `daysBetween`의 답을 방향마다 최대 두 걸음까지만 보정해요. 하루 길이
-구간에서는 정확하지만, 임의의 하루 미만 계산에서는 그렇지 않아요.
+`daysUntil`과 `daysUpTo`는 `daysBetween`의 결과를 방향마다 최대 두 걸음까지만 보정해요. 하루 길이
+구간에서만 정확해요. 하루 미만 계산은 한 걸음 어긋날 수 있어요.
 
 달력에는 시간 개념이 없어요. 같은 날짜에서 `09:00`부터 `17:00`까지인 작업은 `daysBetween`이
-`0`으로 나와요.
+`0`이에요.
 
 건너뛰기 한계(366)와 걷기 한계(18,263)는 `src/core/calendar.ts`의 내부 상수예요.
 `@jaeungkim/gantt-chart`에서 내보내지 않고 설정할 수도 없어요. `CALENDAR_DAYS`와
-`createWorkingCalendar`가 둘 다 결과를 받아 오는 내부 팩토리 `build`도 내보내지 않아요.
+`createWorkingCalendar`가 모두 거쳐 가는 내부 팩토리 `build`도 내보내지 않아요.
 
-`WorkingCalendar`는 평범한 인터페이스예요. 호스트 앱은 `createWorkingCalendar` 대신 직접 구현해도
-돼요. 다만 `addDays`와 `daysBetween`이 서로의 역으로 남아야 해요. `daysUntil`과 `daysUpTo`가 한
-쪽으로 다른 쪽을 보정하거든요.
+`WorkingCalendar`는 그냥 인터페이스예요. 호스트 앱이 `createWorkingCalendar` 대신 직접
+구현해도 돼요. `daysUntil`과 `daysUpTo`가 한쪽으로 다른 쪽을 보정하니 `addDays`와
+`daysBetween`은 서로의 역으로 남아야 해요.
 
-달력은 날짜를 바꿀 뿐, 도형은 바꾸지 않아요. 막대 도형, 타임라인 눈금, 비근무일 음영은 달력 인자를
-받지 않아요. 그래서 막대는 자기가 걸친 주말과 휴일 위를 그대로 지나가요. 음영은 별개인
-`showNonWorkingDays` prop이고, [타임라인](../timeline)에서 설명해요.
+달력은 날짜만 바꿔요. 막대 도형과 타임라인 눈금은 달력 인자를 받지 않아요. 그래서 막대는 걸쳐
+있는 주말과 휴일을 그대로 덮어요. 음영은 별개인 `showNonWorkingDays` prop이고
+[타임라인](../timeline)에서 설명해요.
 
-차트가 달력을 읽는 곳은 막대 드래그 하나뿐이고, 거기서 `snapForward`가 끌던 끝을 비근무일 밖으로
-옮겨요 — [근무일 달력](../working-calendar) 참고.
+`workingCalendar` prop이 고르는 달력은 막대 드래그에서 읽어요. 거기서 `snapForward`가 끌던 끝을
+비근무일 밖으로 옮겨요. [근무일 달력](../working-calendar)을 참고하세요.

@@ -1,45 +1,46 @@
 ---
 title: "Documentation"
-description: "Every guide and reference page for @jaeungkim/gantt-chart, in reading order."
+description: "Every guide and reference page for @jaeungkim/gantt-chart, in reading order"
 ---
 
-Read in order if you are new. Jump straight to a guide if you are not.
+Read the guides from the top, or open the page you need. The reference table below covers
+the exported types and helpers.
 
 ## Guides
 
 | Page | What it covers |
 |---|---|
-| [Introduction](introduction) | What the library is, and what it deliberately leaves to you |
-| [Concepts and vocabulary](concepts) | Every term the rest of the docs use, defined once |
-| [Quick start](quick-start) | Install to a working, editable chart |
-| [Task data](task-data) | The `Task` shape, date handling, and how the `tasks` prop is compared |
-| [Task list and hierarchy](task-list) | The left pane and the `parentId` tree |
-| [Lanes](lanes) | The `lane` task field, which packs tasks that never overlap onto one row |
-| [The timeline](timeline) | Scales, range, zoom, the today line, and non-working days |
-| [Editing tasks](editing) | Move, resize, progress, permissions, drag bounds, touch, and auto-scrolling |
-| [Creating tasks](task-creation) | The three ways a new task is proposed, the draft they all hand to `onTaskCreate`, and why the chart never adds the row itself |
-| [Reordering rows](reordering) | Dragging a task-list row to a new position or a new parent, what the move rewrites, and how to reject one |
-| [Dependencies](dependencies) | The four link types, and drawing arrows |
-| [Working calendar](working-calendar) | Keeping a drop off weekends and holidays |
-| [Detail panel](detail-panel) | The docked side panel: what opens it, editing in place, `renderDetail`, and controlling it |
-| [Events](events) | Every callback a click, a drag and a keyboard edit fire |
+| [Introduction](introduction) | What the package includes, and what it leaves to the host app |
+| [Concepts and vocabulary](concepts) | The terms the rest of the docs use, each defined once |
+| [Quick start](quick-start) | Install the package and render an editable chart |
+| [Task data](task-data) | The `Task` shape, date parsing, and how the `tasks` prop is compared |
+| [Task list and hierarchy](task-list) | The left pane, the splitter and the `parentId` tree |
+| [Lanes](lanes) | The `lane` task field, which puts tasks that share a string on one row |
+| [The timeline](timeline) | Scales, range, zoom, the today line and non-working days |
+| [Editing tasks](editing) | Move, resize and progress gestures, permission flags, drag bounds, touch and auto-scrolling |
+| [Creating tasks](task-creation) | The three entry points that create a task draft, and the draft they pass to `onTaskCreate` |
+| [Reordering rows](reordering) | Dragging a row to a new position or a new parent, and rejecting a move |
+| [Dependencies](dependencies) | The four link types, and drawing and deleting arrows |
+| [Working calendar](working-calendar) | Snapping a bar drag forward off weekends and holidays |
+| [Detail panel](detail-panel) | Turning the docked panel on, editing in place, `renderDetail` and controlled mode |
+| [Events](events) | The callbacks a click, a drag and a keyboard edit fire |
 | [Styling](styling) | Per-task color and class names |
-| [Imperative API](imperative-api) | The `ref` handle: scrolling, zoom, the detail panel and task creation |
-| [Keyboard and screen readers](accessibility) | The key map, the ARIA tree, and the gaps |
-| [Locale and date formats](i18n) | `locale`, per-scale overrides, week start |
-| [Theming](theming) | The theme prop and the CSS custom properties |
+| [Imperative API](imperative-api) | The `ref` handle for scrolling, the scale, zoom to fit, the detail panel and task creation |
+| [Keyboard and screen readers](accessibility) | The key map, the ARIA tree, the announcements and the gaps |
+| [Locale and date formats](i18n) | `locale`, `formats` and `firstDayOfWeek` |
+| [Theming](theming) | The stylesheet, the `theme` prop and the CSS custom properties |
 | [Headless core](headless-core) | Tree and calendar math without React or a DOM |
 
 ## Reference
 
 | Page | What it covers |
 |---|---|
-| [GanttProps](ref/props) | every prop the component accepts |
+| [GanttProps](ref/props) | Every prop `ReactGanttChart` accepts, with its type and default |
 | [Task and task types](ref/task) | `Task`, `TaskDependency`, `DependencyType`, `TaskTransformed` |
-| [GanttInteractionConfig](ref/interaction-config) | `GanttInteractionConfig` and the capability order |
-| [GanttRow](ref/rows) | The row model the chart builds from your tasks |
+| [GanttInteractionConfig](ref/interaction-config) | The chart-wide interaction flags, the capability precedence order and the summary row mask |
+| [GanttRow](ref/rows) | The row model the chart builds from the tasks it renders |
 | [Detail renderer](ref/renderers) | `GanttDetailRenderer` and `GanttDetailRenderProps`, the types behind `renderDetail` |
 | [GanttHandle](ref/handle) | `GanttHandle`, `GanttScrollApi`, `GanttDetailApi`, `GanttTaskCreateApi`, `GanttScrollOptions`, `GanttZoomAnchor` |
 | [Scale and theme types](ref/scales) | `GanttScaleKey`, `GanttScaleFormat`, `GanttFormatOverrides`, `GanttTheme`, `Holiday` |
 | [Tree helpers](ref/core-tree) | `buildTaskTree`, `collectSubtreeIds`, `rollUpTasks`, `moveTask`, `validateMove`, `sortTasksBySequence` |
-| [Working calendar helpers](ref/core-calendar) | The exported calendar API: `createWorkingCalendar`, `CALENDAR_DAYS`, `WorkingCalendar` |
+| [Working calendar helpers](ref/core-calendar) | `createWorkingCalendar`, `CALENDAR_DAYS` and `WorkingCalendar`, the exported calendar API |

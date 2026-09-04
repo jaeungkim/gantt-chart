@@ -1,52 +1,49 @@
 ---
 title: "헤드리스 코어"
-description: "React와 DOM 없이 트리와 달력 계산하기"
+description: "React와 DOM 없이 쓰는 트리와 달력 계산"
 ---
 
-한 주치 타임시트가 들어오면 야간 배치가 부모 행을 다시 집계해요. 어떤 테스트는 손자 작업의 이동이
-할아버지 작업까지 올라가는지 검증해요. 어떤 API 엔드포인트는 누가 브라우저를 열기도 전에 단계(phase)의
-종료일을 돌려줘요. 셋 다 React 트리도, 스타일시트도, DOM도 필요 없어요. 차트가 돌리는 트리 계산과
-달력 계산은 평범한 함수 묶음이고, 그 함수들은 밖으로 export돼 있어요.
+헤드리스 코어는 차트가 쓰는 트리 계산과 달력 계산을 순수 함수로 묶어 패키지 루트에서 내보낸
+부분이에요. React 트리나 스타일시트나 DOM 없이 Node 스크립트, 워커, 테스트에서 그대로 실행돼요. 이
+페이지는 코어 경계와 내보내는 항목, 예제 스크립트, 제한 사항을 다뤄요.
 
-## 코어는 React를 import하지 않고 DOM을 건드리지 않아요
+## 코어 경계
 
 `src/core/` 아래는 전부 데이터와 순수 함수예요. 런타임 의존성은 `dayjs`와 `utc` 플러그인뿐이에요. 이
 디렉터리에서 `react`, `window`, `document`, `localStorage`, `navigator`, `requestAnimationFrame`을
-grep하면 import도 전역도 하나도 안 나와요. 산문 주석 하나가 전부예요.
+`grep`으로 찾으면 주석 한 줄만 나오고 `import`나 전역 참조는 없어요.
 
-이 경계는 관례가 아니에요. `src/core/**/*.{ts,tsx}`에 걸린 eslint 블록이 `react`, `react-dom`,
-`zustand`, `@tanstack/*`, 그리고 렌더 쪽 도메인 폴더 전부 - `shared/`, `timeline/`, `bars/`,
-`dependencies/`, `rows/`, `task-list/`, `interaction/`, `detail/` - 의 import를 막아요. 두 번째
-규칙은 `window`, `document`, `navigator`, `localStorage`, `sessionStorage`,
-`requestAnimationFrame` 전역을 금지해요. 규칙에 달린 메시지는 "src/core must stay free of React,
-the DOM and pixel math - keep render-side code in the domain folder it belongs to"예요.
+이 경계는 eslint 규칙으로 강제돼요. `src/core/**/*.{ts,tsx}`에 걸린 블록이 `react`, `react-dom`,
+`zustand`, `@tanstack/*`와 렌더 쪽 도메인 폴더(`shared/`, `timeline/`, `bars/`, `dependencies/`,
+`rows/`, `task-list/`, `interaction/`, `detail/`)에서 가져오지 못하게 막아요. 두 번째 규칙은 `window`,
+`document`, `navigator`, `localStorage`, `sessionStorage`, `requestAnimationFrame` 전역을 금지해요.
+규칙 메시지에는 코어에 React와 DOM, 픽셀 계산이 들어가면 안 된다고 적혀 있어요.
 
-호스트 앱은 이 함수들을 패키지 루트에서 가져와요. 컴포넌트를 가져올 때와 같은 지정자예요.
+함수도 컴포넌트와 같은 패키지 루트에서 가져오세요.
 
 ```ts
 import { rollUpTasks, createWorkingCalendar, type Task } from '@jaeungkim/gantt-chart';
 ```
 
 > [!IMPORTANT]
-> `@jaeungkim/gantt-chart/core` 같은 서브패스는 없어요. `package.json`이 선언하는 건 `.`,
-> `./style.css`, `./package.json` 셋뿐이에요. 번들 하나는 `src/index.ts`에서 빌드되고, 거기에
-> React 컴포넌트가 딸려 들어와요. `react`, `react-dom`, `react/jsx-runtime`은 빌드 시점에
-> external로 표시돼요. 그래서 `rollUpTasks`만 import하는 Node 스크립트도 peer dependency
-> (`react`와 `react-dom`, `^18.0.0 || ^19.0.0`)가 설치돼 있고 해석돼야 해요. 소스는 헤드리스예요.
-> 배포되는 산출물은 파일 하나고요.
+> `@jaeungkim/gantt-chart/core` 같은 서브패스는 없어요. `package.json`은 `.`, `./style.css`,
+> `./package.json`만 선언해요. 배포되는 패키지는 React 컴포넌트를 포함한 `src/index.ts`에서 번들
+> 하나로 빌드돼요. `react`, `react-dom`, `react/jsx-runtime`은 빌드 시점에 external로 표시돼요.
+> 그래서 `rollUpTasks`만 가져오는 Node 스크립트에도 peer dependency인 `react`와
+> `react-dom`(`^18.0.0 || ^19.0.0`)이 설치돼 있고 모듈 해석까지 돼야 해요.
 
-## 역할별 export 목록
+## 내보내는 항목
 
-코어에서 런타임 값 8개와 타입 7개가 나와요. 함수는 세 그룹으로 나뉘어요. 모두가 다루는 작업 모델은
-[작업 데이터](task-data)에서 설명해요.
+코어는 런타임 값 8개와 타입 7개를 내보내요. 함수는 세 그룹으로 나뉘어요. 이 함수들이 다루는 작업
+모델은 [작업 데이터](task-data)에서 설명해요.
 
 ### 트리 순회하기
 
 `buildTaskTree`와 `collectSubtreeIds`는 `parentId`만 읽어요. `rollUpTasks`는 자식의 날짜와
-`progress`까지 읽고요. 부모와 자식, 깊이를 한 번에 정규화하고 싶으면 `buildTaskTree`를 쓰세요. 한 행
-아래 전부를 포함해야 하는 일괄 작업에는 `collectSubtreeIds`를 쓰고요. 차트가 그리는 요약 행 날짜를
-리포트에도 그대로 써야 하면 `rollUpTasks`예요. 셋 다 순수 함수라, 서버도 브라우저가 보여 줄 구간을
-그대로 만들어 낼 수 있어요.
+`progress`도 읽어요. 부모와 자식, 깊이를 한 번에 정규화하려면 `buildTaskTree`를 쓰세요. 한 행 아래
+전부를 대상으로 하는 일괄 작업에는 `collectSubtreeIds`를 쓰세요. 차트가 그리는 요약 행 날짜를
+리포트에도 똑같이 쓰려면 `rollUpTasks`를 호출하세요. 셋 다 순수 함수라서 서버에서도 브라우저와 같은
+구간이 나와요.
 
 ```ts
 type TaskNode = Pick<Task, 'id' | 'parentId'>;
@@ -56,18 +53,18 @@ function collectSubtreeIds(tasks: TaskNode[], rootId: string, tree?: TaskTree): 
 function rollUpTasks(tasks: Task[], tree?: TaskTree): Task[];
 ```
 
-`TaskNode`는 구조적 타입이고 그 자체로는 export되지 않아요. 위의 `Pick`을 직접 쓰거나 진짜 `Task`
-객체를 넘기세요. 뒤의 두 함수에 있는 선택 인자 `tree`는 기본값이 새 `buildTaskTree(tasks)`예요.
-반복문 안에서는 호출마다 다시 만들지 말고 미리 만든 트리를 넘기세요. 요약 행이 무엇을 덮어쓰는지는
+`TaskNode`는 구조적 타입이고 내보내지 않아요. 위의 `Pick`을 그대로 쓰거나 `Task` 객체를 넘기세요. 뒤의
+두 함수가 받는 선택 인자 `tree`의 기본값은 새로 만든 `buildTaskTree(tasks)`예요. 반복문 안에서는
+미리 만든 트리를 넘겨서 호출마다 다시 만드는 비용을 피하세요. 요약 행이 무엇을 덮어쓰는지는
 [작업 목록과 계층](task-list)에, 전체 시그니처는 [트리 헬퍼](ref/core-tree)에 있어요.
 
 ### 행 옮기기
 
-`sortTasksBySequence`, `validateMove`, `moveTask`는 행 순서를 담당하는 절반이에요. 차트가 행을 새
-자리로 드래그할 때 돌리는 함수와 똑같아서, 서버가 적용한 이동은 차트가 놓았을 자리에 정확히 떨어져요.
-행 순서는 `sequence`에 들어 있어요. `"2.1"`이 `"2"`의 첫 자식인 점(.) 경로라서,
-`sortTasksBySequence`는 각 구간을 숫자로 비교하고(`"1.10"`은 `"1.9"` 뒤로 정렬돼요), `moveTask`는
-배열에 끼워 넣는 대신 자리가 바뀐 모든 작업의 번호를 다시 매겨요.
+`sortTasksBySequence`, `validateMove`, `moveTask`는 행 순서를 담당해요. 행을 새 자리로 끌 때 차트가
+실행하는 함수와 같아서 서버에서 적용한 이동도 차트와 같은 순서가 돼요. 행 순서는 `sequence`에 들어
+있어요. `"2.1"`이 `"2"`의 첫 자식인 점 구분 경로예요. `sortTasksBySequence`는 각 구간을 숫자로
+비교해서 `"1.10"`이 `"1.9"` 뒤에 와요. `moveTask`는 배열에 끼워 넣는 대신 자리가 바뀐 모든 작업의
+번호를 다시 매겨요.
 
 ```ts
 function sortTasksBySequence<T extends Pick<Task, 'sequence'>>(tasks: T[]): T[];
@@ -83,19 +80,19 @@ function moveTask(
 ): { tasks: Task[]; change: GanttTaskMoveChange } | null;
 ```
 
-`validateMove`는 거부 사유를 돌려주고, 이동이 허용되면 `null`을 돌려줘요. `moveTask`는 이동을
-적용해서 새 배열과, 이전 자리와 새 자리를 담은 `GanttTaskMoveChange`를 돌려줘요. `validateMove`가
-거부하는 이동에는 `null`을 돌려주니, 이유가 필요하면 그쪽을 먼저 부르세요. 차트 안에서 이 함수들로
-굴러가는 행 드래그는 [행 순서 바꾸기](reordering)에서 다뤄요. 필드와 옵션, 거부 사유 전부는
+`validateMove`는 거부 사유를 반환하고 이동이 허용되면 `null`을 반환해요. `moveTask`는 이동을 적용해서
+새 배열과 함께 이전 자리와 새 자리를 담은 `GanttTaskMoveChange`를 반환해요. `validateMove`가
+거부하는 이동에는 `null`을 반환하니 이유가 필요하면 `validateMove`를 먼저 호출하세요. 차트 안의 행
+드래그는 [행 순서 바꾸기](reordering)에서 다뤄요. 필드와 옵션, 거부 사유 전체는
 [트리 헬퍼](ref/core-tree)에 있어요.
 
 ### 달력 만들기
 
-코어의 나머지 함수는 `WorkingCalendar`를 받지 않아요. 트리 헬퍼와 이동 헬퍼는 날짜를 아예 세지 않고요. 달력은
-호스트 앱이 직접 호출하는 객체예요. 차트가 `workingWeekdays`와 `holidays` prop으로
-만드는 객체와 같은 것이라, 리포트가 세는 날과 차트가 음영으로 칠하는 날이 어긋날 수 없어요.
-`CALENDAR_DAYS`는 이레를 모두 세기 때문에 평범한 달력 계산이 돼요. `createWorkingCalendar`는 주말과
-휴일을 건너뛰는 달력을 만들어요. 주말을 낀 닷새 구간이 사흘로 세지는 건 이 덕분이에요.
+달력은 호스트 앱이 직접 호출하는 객체예요. 차트가 `workingWeekdays`와 `holidays` prop으로 만드는
+객체와 같아서 리포트가 세는 날과 차트가 음영으로 칠하는 날이 어긋나지 않아요. 코어의 다른 함수는
+`WorkingCalendar`를 받지 않아요. 트리 헬퍼와 이동 헬퍼는 날짜를 세지 않아요. `CALENDAR_DAYS`는 7일을
+모두 세는 달력이라 평범한 달력 계산이 그대로 나와요. `createWorkingCalendar`는 주말과 휴일을
+건너뛰는 달력을 만들어요. 주말을 낀 5일 구간이 3일로 세지는 이유예요.
 
 ```ts
 const CALENDAR_DAYS: WorkingCalendar;
@@ -103,17 +100,16 @@ function createWorkingCalendar(options?: WorkingCalendarOptions): WorkingCalenda
 ```
 
 반환되는 객체는 공개 API예요. `isWorkingDay`, `addDays`, `daysBetween`, `daysUntil`, `daysUpTo`,
-`snapForward`와 `skipsNonWorkingDays` 플래그를 각각 따로 호출할 수 있어요. 호스트 앱이 자체 날짜
-계산에 필요한 건 대개 이게 전부예요. 이 두 prop이 무엇을 음영으로 칠하는지는
-[타임라인](timeline)에 있어요. 달력이 차트에서 무엇을 바꾸고 무엇을 그대로 두는지는
-[근무일 달력](working-calendar)에서 다뤄요. 옵션과 우선순위는
-[근무일 달력 헬퍼](ref/core-calendar)에 있고요. 여기 나온 prop의 시그니처와 기본값은
-[GanttProps](ref/props)에 있어요.
+`snapForward`와 `skipsNonWorkingDays` 플래그를 각각 따로 호출할 수 있어요. 호스트 앱의 날짜
+계산에는 보통 이것으로 충분해요. 두 prop이 무엇을 음영으로 칠하는지는 [타임라인](timeline)을
+참고하세요. 달력이 차트에서 무엇을 바꾸고 무엇을 그대로 두는지는 [근무일 달력](working-calendar)에
+있어요. 옵션과 우선순위는 [근무일 달력 헬퍼](ref/core-calendar)를 참고하세요. 여기 나온 prop의
+시그니처와 기본값은 [GanttProps](ref/props)에 있어요.
 
-## 전체 스크립트
+## 예제 스크립트
 
-단계 하나와 자식 셋을 넣는데, 단계에 적힌 날짜는 그 아래 내용과 맞지 않아요. 스크립트는 단계를 자식에서
-다시 만들고, 각 행의 구간을 근무일 수로 출력해요.
+아래 스크립트는 단계(phase) 하나와 자식 셋을 받아요. 단계에 적힌 날짜는 자식과 맞지 않아요. 스크립트는
+단계를 자식에서 다시 계산하고 각 행의 구간을 근무일 수로 출력해요.
 
 ```ts title="report.ts"
 import dayjs from 'dayjs';
@@ -188,7 +184,7 @@ for (const task of rolled) {
 }
 ```
 
-출력은 이래요.
+출력은 다음과 같아요.
 
 ```text title="rollUpTasks 출력"
 subtree: P, A, B, C
@@ -198,58 +194,54 @@ P  2025-06-02  2025-06-13  8wd  33%
   C  2025-06-06  2025-06-13  5wd  -
 ```
 
-`P`는 `2025-06-03`에 끝난다고 적혀 있었지만 `2025-06-13`에 끝나는 것으로, 적어 준 적 없는 33%까지
-달고 돌아와요. 두 숫자를 만든 집계 규칙은 [트리 헬퍼](ref/core-tree)에 있어요. `B`는 달력으로
-닷새지만 근무일로는 이틀이에요. `2025-06-06`이 `holidays`에 들어 있고, 그 뒤 주말도 근무일이
-아니니까요. 반복문의 `.slice(0, 10)`은 빈말이 아니라 실제로 일을 해요.
-`A`, `B`, `C`는 손대지 않아서 넘긴 객체 그대로고 짧은 문자열을 그대로 갖고 있어요.
-반면 `P`는 다시 쓰여서 완전한 ISO 문자열로 돌아와요.
+`P`는 `2025-06-03`에 끝난다고 적혀 있었지만 `2025-06-13`에 끝나는 값으로 바뀌어요. 입력에 없던
+`progress` 33%도 함께 나와요. 두 숫자를 만든 롤업 규칙은 [트리 헬퍼](ref/core-tree)에 있어요. `B`는
+달력으로 5일이지만 근무일로는 2일이에요. `2025-06-06`이 `holidays`에 있고 그 뒤 주말도 비근무일이기
+때문이에요. 반복문의 `.slice(0, 10)`은 두 가지 문자열 형태를 맞춰요. `A`, `B`, `C`는 손대지 않은
+객체 그대로라서 짧은 문자열을 유지해요. `P`는 다시 만들어져서 완전한 ISO 문자열로
+돌아와요.
 
-## 코어가 하지 않는 일
+## 제한 사항
 
-**렌더링하지 않아요.** 막대 좌표도, 화살표 경로도, 눈금도, 음영도, 색도 없어요. 막대 위치는 렌더
-레이어가 원본 날짜에서 계산하고, 그 코드는 여기에 하나도 없어요.
+렌더링은 코어의 일이 아니에요. 막대 좌표와 화살표 경로, 눈금, 음영, 색은 렌더 레이어가 원본 날짜에서
+계산해요.
 
-**메모이제이션하지 않아요.** `collectSubtreeIds`와 `rollUpTasks`의 `tree` 인자는 기본값이 새
-`buildTaskTree(tasks)`예요. 그래서 반복문 안에서 부르면 호출할 때마다 트리를 다시 지어요. 위
-스크립트처럼 트리를 한 번 만들어서 넘기세요. `validateMove`와 `moveTask`는 그런 인자가 아예 없어서
-호출마다 작업을 다시 정렬하고 형제 목록을 다시 지어요. 캐싱은 전부 호스트 앱의 몫이에요.
+메모이제이션도 코어의 일이 아니에요. `collectSubtreeIds`와 `rollUpTasks`의 `tree` 인자는 기본값이 새
+`buildTaskTree(tasks)`라서 반복문 안에서 호출하면 매번 트리를 다시 만들어요. 위 스크립트처럼 트리를
+한 번 만들어서 넘기세요. `validateMove`와 `moveTask`는 그런 인자가 없어서 호출마다 작업을 다시
+정렬하고 형제 목록을 다시 만들어요. 캐싱은 호스트 앱의 몫이에요.
 
-**의존성을 읽지 않아요.** `Task.dependencies`는 데이터로 그냥 실려 갈 뿐이고, 코어의
-어떤 함수도 이걸 들여다보지 않아요. 화살표를 그리는 건 렌더 레이어의 일이에요.
-[의존성](dependencies)을 보세요.
+의존성은 읽지 않아요. `Task.dependencies`는 데이터로 그대로 지나가고 코어의 어떤 함수도 읽지 않아요.
+화살표는 렌더 레이어가 그려요. [의존성](dependencies)을 참고하세요.
 
-**포맷하지 않아요.** 로케일도 없고 `Intl`도 없어요. 날짜는 문자열로 들어가서 문자열로 나와요. 읽는
-사람이 보는 건 전부 차트가 만들거나 호스트 앱이 직접 만들어요. [로케일과 날짜 형식](i18n)을
-보세요.
+형식 지정도 코어의 일이 아니에요. 로케일도 `Intl`도 없어요. 작업 날짜는 문자열로 들어가서 문자열로
+나와요. 화면에 보이는 문자열은 차트나 호스트 앱이 만들어요. [로케일과 날짜 형식](i18n)을 참고하세요.
 
-**날짜를 검증하지 않아요.** `startDate`보다 앞선 `endDate`, 파싱되지 않는 날짜 문자열. 어느 것도
-검사하거나 거부하지 않아요. `rollUpTasks`는 읽을 수 없는 자식 날짜를 건너뛰고, 유한한 날짜를 내놓는
-자식이 하나도 없으면 부모를 그대로 둬요. 그래서 잘못된 입력은 오류가 아니라 낡은 요약 행으로 나타나요.
-넘기기 전에 데이터를 확인하세요.
+날짜는 검증하지 않아요. `startDate`보다 앞선 `endDate`나 파싱할 수 없는 날짜 문자열도 검사하거나
+거부하지 않아요. `rollUpTasks`는 파싱할 수 없는 자식 날짜를 건너뛰어요. 유한한 날짜를 내는 자식이
+하나도 없으면 부모를 그대로 두기 때문에 잘못된 입력은 오류 대신 낡은 요약 행으로 나타나요. 넘기기
+전에 데이터를 확인하세요.
 
-**이동을 스케줄링하지 않아요.** `validateMove`가 검사하는 건 구조뿐이에요. 모르는 id, 순환,
-`hierarchy`가 꺼진 상태의 부모 변경. 날짜나 의존성은 절대 보지 않아요. `moveTask`는 `sequence`와
-`parentId`만 다시 쓰고 그 외에는 손대지 않아서, 행은 예전 날짜를 그대로 든 채 새 자리에 놓여요.
+이동은 날짜를 그대로 둬요. `validateMove`는 모르는 id나 순환, `hierarchy`가 꺼진 상태의 부모 변경
+같은 구조만 검사해요. 날짜나 의존성은 보지 않아요. `moveTask`는 `sequence`와 `parentId`만 다시 쓰기
+때문에 행은 예전 날짜를 그대로 가진 채 새 자리로 옮겨져요.
 
-**부모 링크가 망가지면 실패 대신 끊어 버려요.** 데이터에 없는 작업을 가리키는 `parentId`, 자기 자신을
-부모로 둔 작업, 순환하는 부모 사슬은 모두 링크가 끊기고 루트가 돼요. 그래서 `parentOf`와 `childIds`는
-언제나 비순환이고, 위아래로 걸어도 무한 루프에 빠지지 않아요. 그런 일이 있었다고 알려 주지는 않아요.
+부모 링크가 망가지면 오류를 내지 않고 링크를 끊어요. 데이터에 없는 작업을 가리키는 `parentId`, 자기
+자신을 부모로 둔 작업, 순환하는 부모 체인은 모두 링크가 끊기고 루트가 돼요. 그래서 `parentOf`와 `childIds`는 항상
+비순환이고 위아래로 순회해도 무한 루프에 빠지지 않아요. 경고는 남기지 않아요.
 
-**달력이 망가져도 실패하는 대신 슬그머니 어긋나요.** `workingWeekdays`를 빈 배열로 주면 모든 날이
-비근무일이 되고, `addDays`는 평범한 달력 날짜로 되돌아가고 `snapForward`는 입력을 그대로 돌려줘요. 숫자는 틀리게 나오지만 아무것도 던지지 않아요.
+망가진 달력도 오류 대신 어긋난 값을 내요. `workingWeekdays`를 빈 배열로 주면 모든 날이 비근무일이
+돼요. 그러면 `addDays`는 평범한 달력 날짜로 되돌아가고 `snapForward`는 입력을 그대로 반환해서 숫자가
+틀려요.
 
-**일부 헬퍼는 내부용이에요.** `getVisibleTasks`, `normalizeProgress`, 드롭 위치 헬퍼인
-`buildTaskOrder`와 `moveForDrop`, 그리고 UTC `dayjs` 인스턴스는
-`src/core`에 있지만 패키지 밖으로 다시 export되지 않아요. 이것들을 import하는 걸 전제로 설계하지
-마세요. 달력 메서드에 `Dayjs`를 넘겨야 하는 호스트 앱은 위 스크립트처럼 자기 `dayjs`를 직접
-가져와요.
+일부 헬퍼는 내부용이에요. `getVisibleTasks`, `normalizeProgress`, 드롭 위치 헬퍼인 `buildTaskOrder`와
+`moveForDrop`, UTC `dayjs` 인스턴스는 `src/core`에 있지만 패키지 루트에서 다시 내보내지 않아요. 이
+함수들을 가져다 쓸 수 있다고 보고 설계하지 마세요. 달력 메서드에 `Dayjs`를 넘겨야 하는 호스트 앱은
+위 스크립트처럼 자기 `dayjs`를 직접 가져와요.
 
-**모든 날짜는 UTC예요.** 코어는 `dayjs.utc`로 파싱해요. 그래서 타임존이 없는 문자열(`'2025-06-02'`,
-`'2025-06-02T09:00'`)은 서버의 로컬 시간이 아니라 UTC 벽시계예요. Asia/Seoul에서
-오프셋 없이 로컬 타임스탬프를 쓰는 프로세스는 의도한 자리에서 아홉 시간 어긋나요.
-`holidays` 항목이 UTC `YYYY-MM-DD`와 대조되는 것도 같은 이유예요.
-날짜 계약 전체는 [작업 데이터](task-data)에 있어요.
+모든 날짜는 UTC예요. 코어는 `dayjs.utc`로 파싱하기 때문에 타임존이 없는 문자열(`'2025-06-02'`,
+`'2025-06-02T09:00'`)은 서버의 로컬 시각이 아니라 UTC 시각으로 읽혀요. Asia/Seoul에서 오프셋 없이
+로컬 타임스탬프를 쓰는 프로세스는 9시간 어긋나요. 같은 이유로 `holidays` 항목도 UTC `YYYY-MM-DD`와 대조해요. 날짜 계약 전체는
+[작업 데이터](task-data)에 있어요.
 
-다음: [트리 헬퍼](ref/core-tree). `TaskTree`의 필드, 거부 사유, 그리고 트리 함수와 이동 함수의 예외
-상황이 하나도 빠짐없이 정리돼 있어요.
+다음: [트리 헬퍼](ref/core-tree).

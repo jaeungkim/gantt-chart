@@ -3,10 +3,10 @@ title: "Working calendar helpers"
 description: "The exported calendar API: `createWorkingCalendar`, `CALENDAR_DAYS`, `WorkingCalendar`"
 ---
 
-A `WorkingCalendar` is the day unit date arithmetic counts in. `CALENDAR_DAYS` — the default —
-counts all seven days, so plain calendar arithmetic is the same code path with a calendar that
-skips nothing. What turning the working-day calendar on changes in the chart is in
-[Working calendar](../working-calendar).
+A `WorkingCalendar` is the day unit date arithmetic counts in. The default, `CALENDAR_DAYS`,
+counts all seven days, so arithmetic through it is plain calendar arithmetic.
+[Working calendar](../working-calendar) describes what the `workingCalendar` prop changes in
+the chart.
 
 ```ts
 import {
@@ -17,9 +17,9 @@ import {
 } from '@jaeungkim/gantt-chart';
 ```
 
-The `Dayjs` values these methods take and return come from `dayjs`, a runtime dependency of the
-package. `dayjs` is **not** re-exported from `@jaeungkim/gantt-chart` — import it from `dayjs`
-itself, in UTC mode.
+These methods take and return `Dayjs` values from `dayjs`, a runtime dependency of the package.
+`@jaeungkim/gantt-chart` does not re-export `dayjs`, so pass instances from `dayjs` itself, in
+UTC mode.
 
 ## `createWorkingCalendar`
 
@@ -32,14 +32,14 @@ export function createWorkingCalendar(
 
 | Parameter | Type | Required | Meaning |
 |---|---|---|---|
-| `options` | `WorkingCalendarOptions` | no | Defaults to `{}`, which is a Monday–Friday week with no holidays |
+| `options` | `WorkingCalendarOptions` | no | Defaults to `{}`, which is a Monday to Friday week with no holidays |
 
-This is the same non-working-day definition the chart shades with, one level flatter: the chart's
-`holidays` prop also accepts objects and date ranges, and it expands them to the plain
+`createWorkingCalendar` takes the same non-working day definition the chart shades with. The
+chart's `holidays` prop also accepts objects and date ranges, and expands them into the plain
 `YYYY-MM-DD` strings this function takes.
 
-The returned calendar always has `skipsNonWorkingDays: true`, including for a configuration that
-happens to leave every day working.
+The returned calendar always has `skipsNonWorkingDays: true`, even when the configuration leaves
+every day working.
 
 ## `WorkingCalendarOptions`
 
@@ -54,7 +54,7 @@ export interface WorkingCalendarOptions {
 
 | Option | Type | Default | Meaning |
 |---|---|---|---|
-| `workingWeekdays` | `number[]` | `[1, 2, 3, 4, 5]` (Mon–Fri) | UTC day numbers, `0` = Sunday. A day not in the array is non-working |
+| `workingWeekdays` | `number[]` | `[1, 2, 3, 4, 5]` (Mon to Fri) | UTC day numbers, `0` = Sunday. A day not in the array is non-working |
 | `holidays` | `string[]` | `[]` | UTC `YYYY-MM-DD` strings, matched by exact string equality against `date.format('YYYY-MM-DD')` |
 
 ## `CALENDAR_DAYS`
@@ -64,8 +64,9 @@ export interface WorkingCalendarOptions {
 export const CALENDAR_DAYS: WorkingCalendar
 ```
 
-A single shared instance, not a factory. It is what the chart uses while `workingCalendar` is off.
-Use it when your own code takes a calendar argument and the caller wants plain calendar days.
+`CALENDAR_DAYS` is one shared instance rather than a factory. The chart uses it while
+`workingCalendar` is off. Pass it when your own code takes a calendar argument and the caller
+wants plain calendar days.
 
 ## `WorkingCalendar`
 
@@ -88,9 +89,9 @@ export interface WorkingCalendar {
 }
 ```
 
-There is exactly one notion of "a day" in the engine: whatever this object says. Turning the
-working-day calendar on swaps the object, and nothing else changes. `skipsNonWorkingDays` is there
-so a caller can take the cheap path instead of asking the calendar day by day.
+The core has one day unit, defined by this object. Turning the working calendar on
+replaces the object and changes nothing else. `skipsNonWorkingDays` lets a caller take the plain
+arithmetic path instead of testing the calendar day by day.
 
 ### Members
 
@@ -104,20 +105,22 @@ so a caller can take the cheap path instead of asking the calendar day by day.
 | `daysUpTo` | `(from: Dayjs, target: Dayjs) => number` | Largest `d` with `addDays(from, d) <= target` | Same, in working days |
 | `snapForward` | `(date: Dayjs) => Dayjs` | Returns `date` unchanged | The next working day at or after `date`, time of day preserved |
 
-`daysBetween` compares at day granularity: it calls `startOf('day')` on both ends, so two times on
-the same date are `0` apart. `daysUntil` and `daysUpTo` take the time of day into account, by
+`daysBetween` compares at day granularity. It calls `startOf('day')` on both ends, so two times
+on the same date are `0` apart. `daysUntil` and `daysUpTo` take the time of day into account,
 correcting the `daysBetween` answer by at most two whole steps.
 
-`addDays` and `daysBetween` are exact inverses from a working day:
-`daysBetween(from, addDays(from, n))` is `n`. `from` must be a working day — from a non-working
-day the round trip loses the first step. The identity also needs a span inside the walk limit and
-a calendar with at least one working day; both limits are under Constraints below.
+`addDays` and `daysBetween` are exact inverses from a working day, so
+`daysBetween(from, addDays(from, n))` is `n`. Moving backwards from a non-working day the round
+trip loses a step, because `daysBetween` never counts the day it starts from. The identity also
+needs a span inside the walk limit and a calendar with at least one working day. Both limits are
+under Constraints below.
 
 ## Worked values
 
-June 2025: the 2nd is a Monday, the 6th a Friday, the 7th and 8th the weekend, the 9th the next
-Monday. `workweek` is `createWorkingCalendar()`; `withHoliday` is
-`createWorkingCalendar({ holidays: ['2025-06-09'] })`.
+In June 2025 the 2nd is a Monday, the 6th a Friday, the 7th and 8th the weekend, and the 9th the
+next Monday. `workweek` is `createWorkingCalendar()`. `withHoliday` is
+`createWorkingCalendar({ holidays: ['2025-06-09'] })`. Dates are written as strings for brevity.
+Each one stands for `dayjs.utc(...)`.
 
 | Call | Result |
 |---|---|
@@ -154,50 +157,48 @@ calendar.isWorkingDay(dayjs.utc('2025-06-09')); // false
 calendar.skipsNonWorkingDays; // true
 ```
 
-Nothing in the package takes a calendar argument. The chart builds its own from `workingCalendar`,
-`workingWeekdays` and `holidays`, so a calendar you construct is for your own date
-math — see [Working calendar](../working-calendar).
+Nothing in the package takes a calendar argument. The chart builds its own from
+`workingCalendar`, `workingWeekdays` and `holidays`, so a calendar you construct is for your own
+date math. See [Working calendar](../working-calendar).
 
 ## Constraints
 
-`src/core/calendar.ts` imports only the `Dayjs` type, never dayjs itself. The weekday comes from
-`date.day()` and a holiday is matched against `date.format('YYYY-MM-DD')`, so both are read in
+`src/core/calendar.ts` imports only the `Dayjs` type, never dayjs itself. The weekday is
+`date.day()` and a holiday is matched against `date.format('YYYY-MM-DD')`, so both read in
 whatever mode the `Dayjs` instance you pass is in.
 
-Inside the chart that is always UTC: every date the core hands the calendar comes from
-`src/core/dates.ts`, which is `dayjs.utc`. Calling the calendar yourself with a local-mode `Dayjs`
-reads a local weekday and a local `YYYY-MM-DD`, so pass UTC-mode instances, as the example above
-does.
+Inside the chart the mode is always UTC. Every date the core hands the calendar is built by
+`src/core/dates.ts`, which uses `dayjs.utc`. A local-mode `Dayjs` reads a local weekday and a
+local `YYYY-MM-DD`, so pass UTC-mode instances, as the example above does.
 
-A calendar where nothing is a working day does not fail and does not hang. `addDays` gets a budget
-of 367 steps per requested day and falls back to plain calendar days when it runs out, and
-`snapForward` returns its input unchanged after 366 attempts. An empty `workingWeekdays` produces
-wrong numbers, not an error.
+A calendar where nothing is a working day still returns. `addDays` has a budget of 367
+steps per requested day and falls back to plain calendar days when it runs out. `snapForward`
+returns its input unchanged after 366 attempts. An empty `workingWeekdays` produces wrong
+numbers rather than an error.
 
-`daysBetween` walks one day at a time only up to 18,263 days (about 50 years). Past that it returns
-the plain calendar-day difference, so the unit changes silently on a working calendar for spans
-that long.
+`daysBetween` walks one day at a time only up to 18,263 days (about 50 years). Past that it
+returns the plain calendar day difference, so on a working calendar the unit silently changes
+for spans that long.
 
 `daysBetween` returns `0`, never `-0`, for a backwards span that contains no working day.
 
-`daysUntil` and `daysUpTo` correct the `daysBetween` answer by at most two steps in each direction.
-They are exact for day-length spans, not for arbitrary sub-day arithmetic.
+`daysUntil` and `daysUpTo` correct the `daysBetween` answer by at most two steps in each
+direction. They are exact for day-length spans only. Sub-day arithmetic can be off by a step.
 
-The calendar carries no notion of hours. A task from `09:00` to `17:00` on one date measures
+The calendar has no notion of hours. A task from `09:00` to `17:00` on one date measures
 `daysBetween` of `0`.
 
-The skip limit (366) and the walk limit (18,263) are internal constants of `src/core/calendar.ts`.
-They are not exported from `@jaeungkim/gantt-chart` and cannot be configured. `build` — the
-internal factory both `CALENDAR_DAYS` and `createWorkingCalendar` return from — is not exported
-either.
+The skip limit (366) and the walk limit (18,263) are internal constants of
+`src/core/calendar.ts`. `@jaeungkim/gantt-chart` exports neither, and neither can be configured.
+The internal factory behind both, `build`, is not exported either.
 
 `WorkingCalendar` is a plain interface. A host may implement it directly instead of calling
-`createWorkingCalendar`, as long as `addDays` and `daysBetween` stay inverse — `daysUntil` and
-`daysUpTo` correct one against the other.
+`createWorkingCalendar`. `daysUntil` and `daysUpTo` correct one against the other, so `addDays`
+and `daysBetween` must stay inverse.
 
-A calendar changes dates, not geometry. Bar geometry, timeline ticks and non-working-day shading
-take no calendar argument, so a bar still spans every weekend and holiday it covers. Shading is
-the separate `showNonWorkingDays` prop, described in [The timeline](../timeline).
+A calendar changes dates only. Bar geometry and timeline ticks take no calendar argument, so a
+bar still spans every weekend and holiday it covers. Shading is the separate
+`showNonWorkingDays` prop, described in [The timeline](../timeline).
 
-The chart reads a calendar in one place, the bar drag, where `snapForward` moves the dragged edge
-off a non-working day — see [Working calendar](../working-calendar).
+The calendar the `workingCalendar` prop selects is read during the bar drag, where `snapForward`
+moves the dragged edge off a non-working day. See [Working calendar](../working-calendar).

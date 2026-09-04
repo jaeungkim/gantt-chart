@@ -1,13 +1,13 @@
 ---
 title: "Task data"
-description: "The `Task` shape, date handling, and how the `tasks` prop is compared"
+description: "The `Task` shape, date parsing, and how the `tasks` prop is compared"
 ---
 
-Your rows come out of a database, and every field name is different from the one the chart wants. Before you map anything you need to know which fields are mandatory, which are inert until you turn a prop on, and what happens when a value arrives malformed. The chart runs no validation at all, so a wrong field does not raise an error — it draws something wrong instead. This page is the contract for the array you hand to `tasks`.
+`Task` is the object shape the `tasks` prop accepts. This page covers fields, date parsing, `sequence` and `parentId`, `progress`, and how a new `tasks` array is compared with the current one. The chart does not validate, so a malformed field renders wrong and throws no error.
 
-## The minimum that renders
+## Required fields
 
-Six fields are required on every task. Everything else is optional.
+Six fields are required on every task. The rest are optional.
 
 ```tsx title="src/TaskDataExample.tsx"
 import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
@@ -45,129 +45,138 @@ export function TaskDataExample() {
 
 | Field | Type | Required | Default | Meaning |
 |---|---|---|---|---|
-| `id` | `string` | yes | — | Identity. Dependencies and roll-up resolve through it. Uniqueness is never checked. |
-| `name` | `string` | yes | — | Label on the bar, in the task list cell, and in the ARIA label. Rendered as text. |
-| `startDate` | `string` | yes | — | Left edge of the bar. Any string dayjs can parse; see [Dates and time zones](#dates-and-time-zones). |
-| `endDate` | `string` | yes | — | Right edge of the bar. |
-| `parentId` | `string \| null` | yes | — | Id of the parent task, or `null` for a root. Only read when `hierarchy` is on. |
-| `sequence` | `string` | yes | — | Dot-separated numbers, `'1'`, `'2.1'`, `'2.10'`. Decides row order. |
-| `progress` | `number` | no | none | Percentage 0–100. Omitted means no progress fill. |
-| `color` | `string` | no | theme tokens | Any CSS color. The progress fill, the hover shade and the label text color are derived from it. |
-| `className` | `string` | no | none | Extra class on the bar element and on the task list row. |
-| `lane` | `string` | no | own row | Tasks sharing a lane are drawn side by side on one row. An empty string counts as absent. |
+| `id` | `string` | yes | `none` | Identifier. Dependencies and roll-up resolve through it. Uniqueness is not checked. |
+| `name` | `string` | yes | `none` | Label on the bar, in the task list cell and in the ARIA label. Rendered as text. |
+| `startDate` | `string` | yes | `none` | Left edge of the bar. Any string dayjs can parse. See [Dates and time zones](#dates-and-time-zones). |
+| `endDate` | `string` | yes | `none` | Right edge of the bar. |
+| `parentId` | `string \| null` | yes | `none` | Id of the parent task, or `null` for a root. Read only when `hierarchy` is on. |
+| `sequence` | `string` | yes | `none` | Numbers separated by dots, such as `'1'`, `'2.1'` or `'2.10'`. Decides row order. |
+| `progress` | `number` | no | `none` | Percentage from 0 to 100. If omitted, no progress fill is drawn. |
+| `color` | `string` | no | `none` | Any CSS color. The progress fill, hover shade and label text color derive from it. If omitted, the theme tokens apply. |
+| `className` | `string` | no | `none` | Extra class on the bar element and on the task list row. |
+| `lane` | `string` | no | `none` | Tasks sharing a lane are drawn side by side on one row. If omitted, the task has its own row. An empty string counts as absent. |
 | `dependencies` | `TaskDependency[]` | no | `[]` | The predecessors this task waits on. |
-| `readOnly` | `boolean` | no | none | Blocks every gesture on this task. |
-| `allowMove` | `boolean` | no | none | Allows or blocks dragging the bar sideways. |
-| `allowResize` | `boolean` | no | none | Allows or blocks dragging either edge. |
-| `allowProgressChange` | `boolean` | no | none | Allows or blocks the progress handle. |
-| `allowLinkCreate` | `boolean` | no | none | Allows or blocks starting a dependency drag from this task. |
-| `allowLinkDelete` | `boolean` | no | none | Allows or blocks deleting a dependency this task owns. |
-| `allowReorder` | `boolean` | no | none | Allows or blocks dragging this row to a new position or a new parent. |
-| `minDate` | `string` | no | the chart's `minDate` | Earliest date a drag may land on. |
-| `maxDate` | `string` | no | the chart's `maxDate` | Latest date a drag may land on. |
+| `readOnly` | `boolean` | no | `none` | Blocks every gesture on this task. |
+| `allowMove` | `boolean` | no | `none` | Allows or blocks dragging the bar sideways. |
+| `allowResize` | `boolean` | no | `none` | Allows or blocks dragging either edge. |
+| `allowProgressChange` | `boolean` | no | `none` | Allows or blocks the progress handle. |
+| `allowLinkCreate` | `boolean` | no | `none` | Allows or blocks starting a dependency drag from this task. |
+| `allowLinkDelete` | `boolean` | no | `none` | Allows or blocks deleting a dependency this task owns. |
+| `allowReorder` | `boolean` | no | `none` | Allows or blocks dragging this row to a new position or a new parent. |
+| `minDate` | `string` | no | `none` | Earliest date a drag may land on. If omitted, the chart's `minDate` applies. |
+| `maxDate` | `string` | no | `none` | Latest date a drag may land on. If omitted, the chart's `maxDate` applies. |
 
-The six `allowX` flags and `readOnly` resolve most-specific-first, the task's value before the chart's; the full ladder is in [GanttInteractionConfig](ref/interaction-config). `allowReorder` alone defaults to off rather than on; see [Reordering rows](reordering). `minDate` and `maxDate` do not use that chain — the task's value replaces the chart's when present. `color` and `className` and the four CSS variables a colored bar sets are covered in [Styling](styling). `lane` is covered in [Lanes](lanes). The signature and default of every prop named here are in [GanttProps](ref/props).
+The six `allowX` flags and `readOnly` resolve most specific first, so the task's value takes precedence over the chart's. [GanttInteractionConfig](ref/interaction-config) lists the full order. `allowReorder` defaults to off. See [Reordering rows](reordering).
 
-### Fields that do nothing on their own
+`minDate` and `maxDate` skip that order. The task's value replaces the chart's when present.
 
-One field is read only under a prop. `lane` needs no prop at all.
+`parentId` is read only when `hierarchy` is on. Without it no tree is built, depth comes from `sequence` and no row is a summary row. See [Task list and hierarchy](task-list).
 
-| Field | What it needs |
-|---|---|
-| `parentId` | `hierarchy` — without it no tree is built, depth comes from `sequence`, and nothing is a summary row. See [Task list and hierarchy](task-list). |
-| `lane` | nothing. The tasks that share a lane are packed onto as few rows as their dates allow, across the whole list. See [Lanes](lanes). |
+`lane` needs no prop. Tasks that share a lane are packed onto as few rows as their dates allow, across the whole list. See [Lanes](lanes).
+
+`color`, `className` and the four CSS variables a colored bar sets are covered in [Styling](styling). The signature and default of every prop named here are in [GanttProps](ref/props).
 
 ### TaskDependency fields
 
 | Field | Type | Required | Default | Meaning |
 |---|---|---|---|---|
-| `targetId` | `string` | yes | — | The predecessor's `id`. |
-| `type` | `'FS' \| 'SS' \| 'FF' \| 'SF'` | yes | — | First letter is the predecessor's end, second is the successor's end. |
+| `targetId` | `string` | yes | `none` | The predecessor's `id`. |
+| `type` | `'FS' \| 'SS' \| 'FF' \| 'SF'` | yes | `none` | First letter is the predecessor's end, second is the successor's end. |
 
-What the four types mean, and how arrows are drawn and deleted, is in [Dependencies](dependencies).
+[Dependencies](dependencies) explains the four types and how arrows are drawn and deleted.
 
-An entry whose `targetId` is not in `tasks` is dropped without a warning. An entry that names its own task is not — there is no self check, so it draws an arrow looping back onto its own row. An unrecognized `type` skips its arrow; that degradation and the four letters are in [Task and task types](ref/task).
+An entry whose `targetId` is not in `tasks` is dropped without a warning. An entry that names its own task is kept. There is no self check, so it draws an arrow looping back onto its own row.
+
+An unrecognized `type` skips its arrow. [Task and task types](ref/task) covers that degradation and the four letters.
 
 ## Dates and time zones
 
-The chart parses every date through a dayjs instance locked to UTC mode. The `timezone` plugin is not loaded, so there is no per-viewer local mode to opt into.
+The chart parses every date through a dayjs instance locked to UTC mode. The `timezone` plugin is not loaded, so there is no per-viewer local mode.
 
-| Input | What is displayed |
+| Input | Displayed as |
 |---|---|
-| `'2025-06-01T09:00:00Z'` | that instant at UTC clock time, 09:00 |
-| `'2025-06-01T18:00:00+09:00'` | the same instant, also 09:00 |
-| `'2025-06-01T09:00'` | read as a UTC wall clock, so 09:00 in every viewer's time zone |
+| `'2025-06-01T09:00:00Z'` | 09:00, the instant in UTC |
+| `'2025-06-01T18:00:00+09:00'` | 09:00, the same instant |
+| `'2025-06-01T09:00'` | 09:00 for every viewer, read as UTC |
 | `'2025-06-01'` | `2025-06-01T00:00:00.000Z`, UTC midnight |
 
-A bare `YYYY-MM-DD` is therefore safe. It lands on the day it names for every viewer, in Seoul and in Los Angeles alike.
+A bare `YYYY-MM-DD` is safe. It falls on the named day for every viewer, whatever their time zone.
 
-A UTC ISO string is the shape the chart emits, but it is not a requirement on input. Any string dayjs can parse works, and a string without a zone is read as a UTC wall clock rather than rejected or shifted. Because the grid is UTC, every hour cell is 60 minutes wide and every day cell is the same width, even across a local 23- or 25-hour daylight-saving day.
+The chart emits UTC ISO strings, but input accepts any string dayjs can parse. A string without a zone is read as UTC.
 
-There is no date validation on tasks. An unparseable `startDate` does not hide the row and does not throw. Its bar starts at the left edge of the timeline and spans the whole width.
+The grid is UTC, so every hour cell is 60 minutes wide and every day cell has the same width. That holds on a daylight saving day of 23 or 25 local hours.
 
-An `endDate` equal to its `startDate` is legal. The computed bar width is clamped to a minimum of 1px, so a zero-length task draws as a sliver rather than being rejected or hidden.
+There is no date validation on tasks. An unparseable `startDate` does not hide the row and does not throw. Its bar starts at the left edge of the timeline and runs to its `endDate`.
 
-Every value the chart writes back is serialized with `toISOString()`. A task you passed as `'2025-06-01'` comes back as `'2025-06-01T00:00:00.000Z'` after the first drag. That matters for the diff rule below.
+An `endDate` equal to its `startDate` is legal. The bar width is clamped to a minimum of 1px, so a zero-length task draws 1px wide rather than being rejected or hidden.
+
+Every value the chart writes back is serialized with `toISOString()`. A task passed as `'2025-06-01'` comes back as `'2025-06-01T00:00:00.000Z'` after the first drag. This matters for the comparison rule below.
 
 ## sequence and parentId
 
-`sequence` decides row order, always. `parentId` decides nesting, and only when `hierarchy` is on. Nothing reconciles the two.
+`sequence` decides row order in every mode. `parentId` decides nesting, and only when `hierarchy` is on. The chart does not reconcile the two.
 
-Segments are compared numerically, left to right. `'1.10'` sorts after `'1.2'`, not before it. A missing segment counts as `0`, so `'1'` and `'1.0'` compare equal, and ties keep the order the array was in. The input array is copied before sorting, never mutated.
+Segments are compared numerically, left to right. `'1.10'` sorts after `'1.2'`. A missing segment counts as `0`, so `'1'` and `'1.0'` compare equal, and ties keep the array order. The input array is copied before sorting and never mutated.
 
-A segment that is not a number becomes `0`. `'abc'`, `'1a'` and `''` all sort as if they were `'0'`, ahead of `'1'`, with no warning. A duplicated `sequence` is not an error either — the two rows tie, and the array order breaks the tie.
+A segment that is not a number becomes `0`. `'abc'`, `'1a'` and `''` all sort as `'0'`, ahead of `'1'`, with no warning. A duplicated `sequence` is not an error. The two rows tie and the array order breaks the tie.
 
 > [!WARNING]
-> A missing `sequence` throws. `sequence.split('.')` runs on `undefined` inside the layout effect that builds the timeline, and the whole chart fails to render. TypeScript marks the field required, so this only bites hand-built JSON and data mapped without types.
+> A missing `sequence` throws. `sequence.split('.')` runs on `undefined` inside the layout effect that builds the timeline, and the whole chart fails to render. TypeScript marks the field required, so this only affects hand-built JSON and data mapped without types.
 
-With `hierarchy` off, indentation depth is the number of dots in `sequence`, so `'2.1.1'` renders two levels in. With `hierarchy` on, depth comes from the `parentId` chain and `sequence` only orders. Incoherent input renders incoherently: a child whose `sequence` sorts above its parent is drawn above its parent.
+With `hierarchy` off, indentation depth is the number of dots in `sequence`, so `'2.1.1'` renders two levels in. With `hierarchy` on, depth comes from the `parentId` chain and `sequence` only orders.
 
-One gesture rewrites both fields. A committed row reorder renumbers every `sequence` from the new row order, and with `hierarchy` on it also rewrites the moved task's `parentId`. The result leaves through `onTasksChange` like any other edit; turning the gesture on is covered in [Reordering rows](reordering).
+A child whose `sequence` sorts above its parent is drawn above its parent.
+
+One gesture rewrites both fields. A committed row reorder renumbers every `sequence` from the new row order, and with `hierarchy` on it also rewrites the moved task's `parentId`.
+
+The result leaves through `onTasksChange` like any other edit. [Reordering rows](reordering) covers turning the gesture on.
 
 ## progress
 
-`progress` is a number from 0 to 100. Out-of-range values are clamped rather than rejected.
+`progress` is a number from 0 to 100. A value outside that range is clamped to the nearest bound.
 
 | Value passed | Value used |
 |---|---|
 | `42` | `42` |
-| `33.7` | `33.7` — no rounding |
+| `33.7` | `33.7`, not rounded |
 | `-10` | `0` |
 | `150` | `100` |
 | `Infinity` | `100` |
 | `-Infinity` | `0` |
-| `undefined` | none — no fill drawn |
+| `undefined` | none, no fill drawn |
 | `NaN` | none |
-| `'50'` | none — a string is dropped, not coerced |
+| `'50'` | none, a string is dropped rather than coerced |
 
-The last row is the one that catches people. A percentage that arrived from an API as a string is not parsed. The bar renders with no fill and nothing reports a problem.
+A percentage that arrives from an API as a string is not parsed. The bar renders with no fill and nothing reports a problem.
 
-Rounding happens only where the chart *produces* a value. Dragging the progress handle emits a whole number, and a summary row's rolled-up percentage is rounded. A fractional value you pass in stays fractional.
+Rounding happens only where the chart produces a value. Dragging the progress handle emits a whole number, and a summary row's rolled up percentage is rounded. A fractional value passed in stays fractional.
 
-A parent's own `progress` always wins over the value rolled up from its children; the roll-up formula is in [Task list and hierarchy](task-list).
+A parent's own `progress` takes precedence over the value rolled up from its children. [Task list and hierarchy](task-list) gives the roll-up formula.
 
 ## Updating the tasks prop
 
-You drag a bar, your `onTasksChange` handler writes to state, state flows back down into `tasks`, and the bar snaps back to where it was. One mechanism decides whether that happens.
+A controlled host passes the array from `onTasksChange` back into `tasks`. One comparison decides whether that array replaces the chart's data.
 
-The chart compares the incoming `tasks` array against the last one it accepted using `JSON.stringify` on both sides. There is no structural diff and no field-wise comparison. If the two strings match, the update is discarded and the chart keeps its own state, which is what stops your echo from reverting the drag you just made. If they differ, the chart replaces its data, because a different string means the host replaced it.
+The chart compares the incoming `tasks` array against the last one it accepted with `JSON.stringify` on both sides. There is no structural diff and no field by field comparison.
 
-String equality has two consequences that a structural diff would not have.
+If the two strings match, the update is discarded and the chart keeps its own state. This is what stops a round-tripped array from reverting a drag. If they differ, the chart replaces its data.
 
-**Key order matters.** These two objects describe the same task and produce different strings.
+String equality has two consequences a structural diff would not have.
+
+Key order matters. These two objects describe the same task and produce different strings.
 
 ```ts
 JSON.stringify({ id: 'a', name: 'Design' }); // '{"id":"a","name":"Design"}'
 JSON.stringify({ name: 'Design', id: 'a' }); // '{"name":"Design","id":"a"}'
 ```
 
-**`undefined`-valued keys are invisible.** `{ id: 'a', progress: undefined }` and `{ id: 'a' }` serialize identically, so switching between them is not a change at all.
+Keys whose value is `undefined` are invisible. `{ id: 'a', progress: undefined }` and `{ id: 'a' }` serialize identically, so switching between them is not a change.
 
-Two more follow from the same code. Extra properties of your own count toward the comparison, and mutating a task in place while keeping the same array identity is invisible — the comparison never runs.
+Two more follow from the same code. Extra properties of your own count toward the comparison. Mutating a task in place while keeping the same array identity is invisible, because the comparison never runs.
 
-### A wrong update and a right one
+### onTasksChange handlers
 
-This handler rebuilds every task with a different key order, re-formats the dates and keeps only the six required fields. Every string differs from what the chart emitted, so the chart takes it as a replacement, and the progress, dependencies and colors it dropped are gone.
+This handler rebuilds every task with a different key order, reformats the dates and keeps only the six required fields.
 
 ```tsx
 // wrong
@@ -197,7 +206,9 @@ function Wrong({ tasks, setTasks }: {
 }
 ```
 
-Hand back exactly what you were given. The array is already a new array, and every object in it is already in the shape the chart emitted.
+Every string differs from what the chart emitted, so the chart takes the array as a replacement. The progress, dependencies and colors it dropped are gone.
+
+Hand back the array you were given. It is already a new array, and every object in it is already in the shape the chart emitted.
 
 ```tsx
 // right
@@ -216,21 +227,24 @@ function Right({ tasks, setTasks }: {
 }
 ```
 
-Reshape for your API inside the save call, not on the way back into the prop. When you do need to change the data yourself — inserting a task, deleting one — build the new array from the one the chart last emitted. Which gesture fires which callback is in [Events](events).
+Reshape for your API inside the save call, not on the way back into the prop. When your app changes the data itself, for example by inserting or deleting a task, build the new array from the one the chart last emitted.
 
-## Limits
+[Events](events) lists which gesture fires which callback.
 
-The chart reads your array. It does not police it.
+## Limitations
 
-- **No validation of any kind.** No required-field check, no date parsing check, no id-uniqueness check, no range check on `progress`, no membership check on `DependencyType`.
-- **Duplicate ids are never detected.** Every array entry still gets a row, but every lookup keyed by id keeps the last occurrence. Dependencies and roll-up resolve to the wrong task. Deduplicate before you pass the array in.
-- **No normalization on input.** Dates are not re-serialized, `sequence` is not renumbered, and `parentId` is not rewritten. An orphan or a cycle is *treated* as a root when the tree is built, but the field itself is left exactly as you wrote it.
-- **No local time zone mode.** UTC is hardcoded. Convert to and from local wall-clock time in the host app if your users need it.
-- **The chart never adds a task itself.** The **Add task** button, `addTask()` and a drawn range each propose a draft through `onTaskCreate`. The draft carries only dates — the host supplies `id`, `name`, `parentId` and `sequence`. Deleting is real, though: `Delete` on a focused row removes the task and its whole subtree, documented in [Keyboard and screen readers](accessibility).
-- **There is no metadata field.** Extra properties survive because the type is structural, but they are untyped and they count toward the `tasks` diff.
-- **`TaskTransformed` is output only.** The chart hands it to your renderers; `tasks` only ever accepts `Task`. Its fields are listed in [Task and task types](ref/task).
-- **Nothing reconciles `sequence` with `parentId`.** A child whose `sequence` sorts above its parent stays drawn above it.
+The chart reads the array and does not validate it.
 
-Nothing is written back into the objects you passed. Every change — a drag, a keyboard nudge, a field edited in the [Detail panel](detail-panel) — leaves through `onTasksChange` as a new array, and your own copy is untouched until you replace it.
+- There is no required field check, date parsing check, id uniqueness check, range check on `progress` or membership check on `DependencyType`.
+- Duplicate ids are not detected. Every array entry still gets a row, but lookups keyed by id, including dependencies and roll-up, resolve to the last occurrence. Deduplicate before passing the array in.
+- Input is not normalized. Dates are not re-serialized, `sequence` is not renumbered and `parentId` is not rewritten. An orphan or a cycle is treated as a root when the tree is built, but the field itself stays as written.
+- Local time zone mode does not exist. UTC is hardcoded. Convert to and from local time in the host app if your users need it.
+- Task creation is left to the host. The **Add task** button, `addTask()` and a drawn range each pass a draft to `onTaskCreate`. The draft carries only dates, and the host supplies `id`, `name`, `parentId` and `sequence`.
+- Deletion is applied by the chart. `Delete` on a focused row removes the task and its whole subtree. See [Keyboard and screen readers](accessibility).
+- A metadata field does not exist. The type is structural, so extra properties survive. They are untyped and count toward the `tasks` comparison.
+- `TaskTransformed` is output only. The chart passes it to your renderers, and `tasks` accepts only `Task`. [Task and task types](ref/task) lists its fields.
+- `sequence` and `parentId` are not reconciled. A child whose `sequence` sorts above its parent stays drawn above it.
 
-Next: [Task list and hierarchy](task-list) — turning `parentId` into summary rows, and the name pane beside them.
+The chart writes nothing back into the objects you passed, so your copy is untouched until you replace it. A drag, a keyboard nudge or a field edited in the [Detail panel](detail-panel) all leave through `onTasksChange` as a new array.
+
+Next: [Task list and hierarchy](task-list).

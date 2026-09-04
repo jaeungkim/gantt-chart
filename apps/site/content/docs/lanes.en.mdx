@@ -3,13 +3,12 @@ title: "Lanes"
 description: "The `lane` task field, which packs tasks that never overlap onto one row"
 ---
 
-A support team's twelve one-day jobs each take a full row. Every one of them is blank most of the
-way across, and the chart scrolls for something that would fit on a single line. The task field
-`lane` puts tasks that share a string on the same row, side by side.
+The task field `lane` puts tasks that share a string on one row, side by side. This page covers
+how a lane is packed, what a lane row changes elsewhere, and what it leaves to the host app.
 
 ## Sharing a row
 
-`lane` is a field on the task, not a chart prop. There is nothing to switch on.
+`lane` is a field on the task. No prop turns it on.
 
 ```tsx title="src/SupportLanes.tsx"
 import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
@@ -27,62 +26,65 @@ export function SupportLanes() {
 }
 ```
 
-A falsy `lane` is no lane. `lane: ""` gets the task a row of its own, exactly like omitting the
-field.
+A falsy `lane` counts as no lane. `lane: ""` gives the task a row of its own, the same as omitting
+the field.
 
-Lane strings are matched exactly, with no trimming and no case folding. `"ana"`, `"Ana"` and
-`"ana "` are three lanes.
+Lane strings are compared exactly. Whitespace and case are kept, so `"ana"`, `"Ana"` and `"ana "`
+are three lanes.
 
-## How packing works
+## Packing rules
 
-Lane members are packed greedily, first fit, in start-date order.
+Lane members are sorted by start date, and each one goes into the first row that fits.
 
 | Rule | Effect |
 |---|---|
-| ordering | by `startDate`, not by `sequence`; equal starts keep `sequence` order |
-| fit | a task joins the **first** row whose last bar has ended, not the tightest one |
+| ordering | by `startDate` rather than `sequence`. Equal starts keep `sequence` order |
+| fit | a task joins the first row whose last bar has ended, rather than the closest fit |
 | touching | a task starting exactly when the previous one ends shares the row |
 | overlap | an overlapping task opens one extra row |
 | reuse | a row is reused as soon as it is free |
 
-Packing ignores `parentId`. A parent and a child that carry the same lane string are packed
-together like any other pair, and the row takes the depth of its earliest-starting task.
+Packing ignores `parentId`. A parent and a child with the same lane string pack together like any
+other pair. The row takes the depth of the task that starts first.
 
-The packed rows are inserted where the lane's first member sits. First means lowest `sequence` —
-the field that orders every row, see [Task data](task-data). Later members contribute nothing at
-their own positions.
+The packed rows are inserted where the lane's first member appears. First means the lowest
+`sequence`, the field that orders every row. See [Task data](task-data). Later members add no row
+at their own positions.
 
-A lane row's id is the ids of its tasks joined with `"+"`, as in `spec+wires`, because the row
-names no single task. In the task list it shows the name of `tasks[0]` — the earliest-starting task
-on that row, not the one with the lowest `sequence` — followed by a `+N` badge counting the others.
+A lane row's id is the ids of its tasks joined with `"+"`, such as `spec+wires`, because the row
+names no single task. The task list shows the name of `tasks[0]`, the task that starts first on the
+row rather than the one with the lowest `sequence`. A `+N` badge after the name counts the other
+members.
 
-## What a lane row costs
+An `endDate` that does not parse leaves the row it lands on unusable. The fit test is
+`rowEnd <= start`, and every comparison against `NaN` is false, so no later task joins that row.
+The remaining lane members move to the next free row, and open a new row when none is free.
 
-Every task on a lane row reports the same `order`. `order` is what positions dependency arrows
-vertically, so a link drawn between two lane-mates renders as one horizontal line. A link dropped
-anywhere on a lane row lands on the horizontally nearest bar — see [Dependencies](dependencies).
+## Effects on other features
 
-A lane row can neither be dragged to a new position nor be dropped onto. It names no single task to
-move, and no single slot to move one into — see [Task list and hierarchy](task-list).
+Every task on a lane row carries the same `order`. `order` is the value that positions dependency
+arrows vertically, so a link between two tasks in one lane renders as a horizontal line. A link
+dropped anywhere on a lane row attaches to the nearest bar horizontally. See
+[Dependencies](dependencies).
 
-Drawing a new task is unaffected. It only happens in the blank region below the last row, so no row
-is ever a target, lane or not — see [Creating tasks](task-creation).
+Row reordering skips a lane row. Dragging it to a new position and dropping another row onto it are
+both blocked. A lane row stands for several tasks, so the drag has no one task to move. See
+[Task list and hierarchy](task-list).
 
-An unparseable `endDate` poisons the row that task opened. The fit test is `rowEnd <= start`, and
-every comparison against `NaN` is false, so that row is never offered to a later task again. Later
-lane members fall through to the next free row, and open a new one when there is none.
+Lanes do not change how a new task is drawn. The gesture runs only in the blank region below the
+last row, so no row is a target. See [Creating tasks](task-creation).
 
 ### Styling the badge
 
 | Selector | What it is |
 |---|---|
-| `.gantt-grid-lane-count` | the `+N` badge on a row that packs several lane-mates |
+| `.gantt-grid-lane-count` | the `+N` badge on a row that packs several tasks |
 
-The colors come from the `--gantt-*` custom properties in [Theming](theming).
+The colors are set by the `--gantt-*` custom properties in [Theming](theming).
 
 ## A worked example
 
-Four tasks, three of them sharing the lane `ana`.
+This example has four tasks, three of them in the lane `ana`.
 
 ```tsx title="src/LaneExample.tsx"
 import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
@@ -104,7 +106,7 @@ export function LaneExample() {
 }
 ```
 
-Three rows come out of four tasks:
+Four tasks produce three rows.
 
 | Row | `id` | Task list shows | `order` on its tasks |
 |---|---|---|---|
@@ -112,38 +114,31 @@ Three rows come out of four tasks:
 | 2 | `review` | `Review` | `2` |
 | 3 | `api` | `API` | `3` |
 
-`spec` ends on Mar 6 and `wires` starts on Mar 9, so the two share row 1. `review` overlaps `spec`,
-so it opens row 2. `api` is second by `sequence` and carries no lane, but the whole lane is placed
-where its first member sits, which pushes `api` to the last row.
+`spec` ends on Mar 6 and `wires` starts on Mar 9, so the two share row 1. `review` overlaps `spec`
+and opens row 2. `api` is second by `sequence` and carries no lane. The whole lane takes the
+position of its first member, so `api` moves to the last row.
 
-## Limits
+## Limitations
 
-Lane packing rewrites `order` and nothing else. It does not touch dates, bar geometry, or
-`originalOrder`.
+Lane packing rewrites `order` only. Dates, bar geometry and `originalOrder` are unchanged.
 
-What this area does not do:
+- A lane exists as soon as a task carries the string. No prop declares a lane, orders lanes, or
+  keeps an empty one open.
+- The lane string itself is never rendered. The row takes its name from the task that starts first.
+- In the task list a lane row names `tasks[0]` only. The row's click, double-click, list-cell focus
+  and `showRowNumbers` number all use that task.
+- The other members are reachable through their bars. Clicking a bar acts on that member, and each
+  bar is its own keyboard cell. See [Keyboard and screen readers](accessibility).
+- A task whose row number moved is passed on as a shallow copy, so a chart with lanes replaces
+  references it gives to renderers and callbacks. Without lanes it passes back the same objects.
+- The row builder and the lane packer are internal. Only the [`GanttRow`](ref/rows) type is
+  exported.
 
-- **No lane declaration.** A lane exists because a task carries the string. Nothing declares a
-  lane, orders lanes, or holds an empty one open.
-- **No lane label.** The lane string itself is never rendered. The row is named after its
-  earliest-starting task.
-- **One task per lane row in the task list.** The name cell — and the row's click, double-click and
-  list-cell focus — act on `tasks[0]`. With `showRowNumbers` the printed number is `tasks[0]`'s
-  `sequence` too. The other members are reachable only through their bars: clicking one acts on
-  that member, and each bar is its own keyboard cell — see
-  [Keyboard and screen readers](accessibility).
-- **No stable object identity.** A task whose row number moved is handed on as a shallow copy, so
-  packing a lane replaces the references the chart passes to renderers and callbacks. A lane-free
-  chart hands back the objects it was given.
-- **No exported helpers.** The row builder and the lane packer are internal. Only the
-  [`GanttRow`](ref/rows) type is exported.
+Lane packing leaves two things to your app. Decide which tasks share a lane by writing the same
+string on each of them. To reach the other members of a lane row, look them up in your own data.
 
-What the host app does itself:
+A callback fired from the task list passes the row's first task.
 
-- Decide which tasks share a lane, by writing the same string on each of them.
-- Look up the other members of a lane row, if it needs them. A callback fired from the task list
-  hands over the row's first task.
+Props and defaults: [GanttProps](ref/props).
 
-The signature and default of every prop named here are in [GanttProps](ref/props).
-
-Next: [The timeline](timeline) covers scales, the visible range, and zooming.
+Next: [The timeline](timeline).

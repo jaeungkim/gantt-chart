@@ -3,9 +3,9 @@ title: "상세 렌더러"
 description: "`renderDetail`의 타입인 `GanttDetailRenderer`와 `GanttDetailRenderProps`예요"
 ---
 
-`renderDetail`은 차트에 하나 남은 render prop이에요. 상세 패널의 본문을 대체하고, 타입은
-`@jaeungkim/gantt-chart`에서 가져와요. 동작과 실제 예제는 [상세 패널](../detail-panel)에
-있어요.
+`renderDetail`은 상세 패널의 본문을 대체하는 render prop이에요. 타입은
+`@jaeungkim/gantt-chart`에서 가져와요. 동작과 실제 예제는 [상세 패널](../detail-panel)을
+참고하세요.
 
 ```ts
 import type {
@@ -16,7 +16,7 @@ import type {
 ```
 
 `Task`와 `TaskTransformed`는 [Task와 작업 타입](task)에, `GanttScaleKey`는
-[배율과 테마 타입](scales)에 정리돼 있어요. `ReactNode`는 `react`에서 와요.
+[배율과 테마 타입](scales)에 정리돼 있어요. `ReactNode`는 `react`의 타입이에요.
 
 ## GanttDetailRenderer
 
@@ -42,10 +42,10 @@ export type GanttDetailRenderer = (props: GanttDetailRenderProps) => ReactNode;
 
 | 필드 | 타입 | 값 |
 |---|---|---|
-| `task` | `TaskTransformed` | 열려 있는 작업이에요. 차트가 변환한 형태 그대로예요 |
-| `close` | `() => void` | 패널을 닫아요 — 내장 닫기 버튼이 호출하는 것과 같은 함수예요 |
-| `scale` | `GanttScaleKey` | 현재 선택된 배율 |
-| `update` | `(patch: Partial<Omit<Task, 'id'>>) => void` | 차트의 커밋 경로로 열린 작업을 패치해요 |
+| `task` | `TaskTransformed` | 지금 열린 작업이에요. 차트가 변환한 형태 그대로예요 |
+| `close` | `() => void` | 패널을 닫아요. 내장 닫기 버튼이 호출하는 함수와 같아요 |
+| `scale` | `GanttScaleKey` | 현재 선택된 배율이에요 |
+| `update` | `(patch: Partial<Omit<Task, 'id'>>) => void` | 차트가 편집을 확정하는 경로로 열린 작업을 패치해요 |
 
 ### 예제
 
@@ -68,27 +68,28 @@ const renderDetail: GanttDetailRenderer = ({ task, close, scale, update }) => (
 
 ### 제약
 
-렌더러의 몫은 패널의 자식뿐이에요. 그래서 spread 할 props 묶음이 없어요.
+렌더러가 채우는 것은 패널의 자식 노드예요. 펼쳐 넘길 props 묶음은 따로 없어요. 렌더러를 받는
+prop은 이것 하나예요.
 
-- `<aside class="gantt-detail" role="complementary" aria-label="Task details">`는 차트의 것으로
-  남아요. 너비도 마찬가지예요. 너비는 렌더러가 아니라 `--gantt-detail-width` 커스텀 속성(`320px`)이
-  정해요.
-- 닫기 버튼은 딸려오지 않아요. `close`는 내장 버튼이 호출하는 것과 같은 함수예요. 대체 노드가 닫기
-  컨트롤을 직접 그리든 안 그리든 `Escape`는 어디서나 패널을 닫아요.
-- `null`이나 `undefined`를 반환하면 기본 본문이 아니라 **빈** 패널이 렌더링돼요.
-- `showDetail`을 생략했다면 이 렌더러를 넘기는 것이 패널을 켜는 스위치예요. `showTaskList`가 작업
-  목록을 켜는 것과 같아요. 명시한 `showDetail={false}`가 항상 이겨요.
-- 렌더러가 작업 없이 호출되는 일은 없어요. 다만 닫는다고 바로 언마운트되지는 않아요. 패널은 200ms
-  닫기 트랜지션이 끝날 때까지 마지막 작업을 그대로 들고 있고, `transitionend`가 오지 않으면 400ms
-  타이머가 놓아줘요. 그래서 마운트 사이드 이펙트가 있는 본문은 패널이 닫히는 동안 렌더가 몇 번 더
-  돌아요. `<aside>`는 그 트랜지션이 끝나야 DOM에서 사라져요.
-- `update`는 내장 본문의 입력이 쓰는 것과 같은 커밋 경로예요 — 스토어, 그다음 `onTasksChange`.
-  그래서 비제어 모드에서도 `tasks`를 직접 되돌려 넣지 않고 편집이 반영돼요.
-- `update`는 자체 검사를 **전혀** 하지 않아요. 상호작용 플래그, 날짜 클램프, 진행률 정규화는 내장
-  본문에만 적용돼요. 여기로 넘긴 패치는 그대로 스토어와 `onTasksChange`에 도달하니, 규칙은 커스텀
-  본문이 직접 지켜야 해요.
-- 패치로 작업의 `id`는 바꿀 수 없어요 — 타입이 `id`를 제외하고, 패치는 항상 열린 작업에만 적용돼요.
-- 작업의 나머지 필드를 패널에 넣는 방법은 렌더러뿐이에요. 기본 본문은 이름, 날짜, 기간을 보여주고,
-  진행률과 선행 작업은 값이 있을 때만 나타나요. 거기에 줄을 더하거나 캡션을 번역하는 prop은 없어요.
+- `<aside class="gantt-detail" role="complementary" aria-label="Task details">` 요소는 차트가 직접
+  렌더링해요. 너비는 `--gantt-detail-width` 커스텀 속성(`320px`)이 정해요. 렌더러는 너비를 바꾸지
+  않아요.
+- 커스텀 본문을 넘기면 내장 닫기 버튼도 함께 사라져요. `close`는 그 버튼이 호출하던 함수와
+  같아요. `Escape`는 본문에 닫기 컨트롤이 없어도 페이지 어디에서나 패널을 닫아요.
+- `null`이나 `undefined`를 반환하면 기본 본문이 아니라 빈 패널이 렌더링돼요.
+- `showDetail`을 생략하면 렌더러를 넘기는 것만으로 패널이 켜져요. `showDetail={false}`를 직접
+  지정하면 그대로 꺼진 채로 남아요.
+- 렌더러는 항상 작업을 하나 받아요. 패널을 닫아도 바로 언마운트되지는 않아요. 패널은 200ms 닫기
+  트랜지션 동안 마지막 작업을 유지해요. `transitionend`가 발생하지 않으면 400ms 타이머가 그 작업을
+  놓아줘요. 그래서 마운트 사이드 이펙트가 있는 본문은 패널이 닫히는 동안 렌더를 몇 번 더 거쳐요.
+  `<aside>`는 그 트랜지션이 끝난 뒤에 DOM에서 사라져요.
+- `update`는 내장 본문의 입력란과 같은 경로로 편집을 확정해요. 스토어에 먼저 반영하고
+  `onTasksChange`를 호출해요. 비제어 모드에서도 앱이 `tasks`를 다시 넘길 필요가 없어요.
+- `update`는 자체 검사를 하지 않아요. 상호작용 플래그와 날짜 범위 제한, 진행률 정규화는 내장
+  본문에만 적용돼요. 여기로 넘긴 패치는 스토어와 `onTasksChange`에 그대로 도달하니 필요한 규칙은
+  커스텀 본문에서 직접 검사하세요.
+- 타입에 `id`가 없어서 패치로 작업의 `id`는 바꿀 수 없어요. 패치는 항상 열린 작업에 적용돼요.
+- 기본 본문은 이름과 날짜, 기간을 보여줘요. 진행률과 선행 작업은 값이 있을 때만 나타나요. 행을
+  더하거나 캡션을 번역하는 prop은 없어요. 나머지 필드는 렌더러로만 패널에 넣을 수 있어요.
 
 여기 나온 모든 prop은 [GanttProps](props)에 정리돼 있어요.
