@@ -25,7 +25,7 @@
     "README.md",
     "LICENSE"
   ],
-  "description": "React Gantt chart with editable bars, dependency arrows, and headless date utilities",
+  "description": "A controlled React Gantt chart. Every drag returns the complete next tasks array. Virtualized rows, dependency arrows, working calendar, keyboard editing.",
   "keywords": [
     "gantt",
     "gantt-chart",

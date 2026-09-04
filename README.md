@@ -6,7 +6,7 @@
 [![CI](https://github.com/jaeungkim/gantt-chart/actions/workflows/ci.yml/badge.svg)](https://github.com/jaeungkim/gantt-chart/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/@jaeungkim/gantt-chart)](LICENSE)
 
-An editable Gantt chart for React.
+A Gantt chart for React that behaves like a controlled input.
 
 [Quick start](https://gantt.jaeungkim.com/docs/quick-start) |
 [Playground](https://gantt.jaeungkim.com/playground) |
@@ -15,7 +15,8 @@ An editable Gantt chart for React.
 
 ## Features
 
-- Bar drags that move a task, resize it from either edge and set its progress.
+- One controlled `tasks` prop. Bar drags move a task, resize it from either edge and set its
+  progress, and every commit returns the complete next array through `onTasksChange`.
 - Dependency arrows for `FS`, `SS`, `FF` and `SF`, drawn between bars and removed with Delete or Backspace.
 - A task list pane with the `parentId` tree, summary roll-up and row reordering.
 - A docked detail panel that narrows the timeline and edits the task in place.
@@ -88,8 +89,8 @@ export default function ProjectChart() {
 }
 ```
 
-That chart is editable. Every committed gesture ends in one `onTasksChange` call with the complete
-next array. The chart persists nothing, including the scale.
+Your app holds the `tasks` array. Every committed gesture ends in one `onTasksChange` call with the
+complete next array, and the chart persists nothing, including the scale.
 
 ## Documentation
 
