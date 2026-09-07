@@ -3,6 +3,9 @@ import type { VirtualAxis } from 'shared/virtual/axis';
 // Below this count the axis reports itself unvirtualized and returns its whole range.
 export const MIN_VIRTUAL_COUNT = 24;
 
+// Rows kept beyond each edge so a scroll lands on already-mounted content.
+export const OVERSCAN = 5;
+
 export interface VirtualWindow {
   /** First index to render */
   start: number;
@@ -40,7 +43,7 @@ export function windowOf(
   axis: VirtualAxis,
   scroll: number,
   viewport: number,
-  overscan = 5,
+  overscan = OVERSCAN,
   direction: ScrollDirection = 0,
 ): VirtualWindow {
   if (

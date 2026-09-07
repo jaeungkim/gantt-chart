@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'core/dates';
 import type { Task } from 'shared/task';
-import { mergeHeaderGroups } from './header';
 import {
   calculateDateOffsetPx,
-  calculateDateOffsets,
   computeNonWorkingRanges,
   computeTimelineData,
   createTopHeaderGroups,
@@ -13,7 +11,6 @@ import {
   originShiftPx,
   snapDrawnRange,
 } from './geometry';
-import { transformTasks } from './transform';
 
 // week scale: every tick is one day, 72px; coarser-scale tests reuse it as a uniform width.
 // Bare dates parse as local midnight on both sides, so assertions are timezone-independent.
@@ -26,53 +23,6 @@ const task = (
   startDate = '2025-01-02',
   endDate = '2025-01-03',
 ): Task => ({ id, name: id, startDate, endDate, parentId: null, sequence });
-
-const group = (label: string, widthPx: number) => ({
-  label,
-  widthPx,
-  startDate: dayjs('2025-01-01'),
-});
-
-describe('transformTasks', () => {
-  it('sorts by numeric sequence (1.10 after 1.2) and derives depth/order', () => {
-    const out = transformTasks(
-      [task('b', '1.10'), task('a', '1.2'), task('c', '2')],
-      ticks('2025-01-01', '2025-01-02', '2025-01-03'),
-      'week',
-    );
-    expect(out.map((t) => t.id)).toEqual(['a', 'b', 'c']);
-    expect(out.map((t) => t.depth)).toEqual([1, 1, 0]);
-    expect(out.map((t) => t.order)).toEqual([1, 2, 3]);
-  });
-});
-
-describe('calculateDateOffsets', () => {
-  const t = ticks('2025-01-01', '2025-01-02', '2025-01-03');
-
-  it('skips ticks before the task and spans whole ticks', () => {
-    expect(calculateDateOffsets(dayjs('2025-01-02'), dayjs('2025-01-03'), t, 'week')).toEqual({
-      barMarginLeftAmount: TICK,
-      barWidthSize: TICK,
-    });
-  });
-
-  it('handles a task starting mid-tick', () => {
-    expect(
-      calculateDateOffsets(dayjs('2025-01-02T12:00'), dayjs('2025-01-03'), t, 'week'),
-    ).toEqual({ barMarginLeftAmount: TICK * 1.5, barWidthSize: TICK / 2 });
-  });
-
-  it('clamps zero-duration to 1px and returns zeros for no ticks', () => {
-    expect(calculateDateOffsets(dayjs('2025-01-02'), dayjs('2025-01-02'), t, 'week')).toEqual({
-      barMarginLeftAmount: TICK,
-      barWidthSize: 1,
-    });
-    expect(calculateDateOffsets(dayjs(), dayjs(), [], 'week')).toEqual({
-      barMarginLeftAmount: 0,
-      barWidthSize: 0,
-    });
-  });
-});
 
 describe('calculateDateOffsetPx', () => {
   const t = ticks('2025-01-01', '2025-01-02', '2025-01-03');
@@ -194,14 +144,56 @@ describe('createTopHeaderGroups', () => {
   });
 });
 
-describe('mergeHeaderGroups', () => {
-  it('merges adjacent equal labels without mutating input', () => {
-    const input = [group('Jan', 10), group('Jan', 20), group('Feb', 5)];
-    expect(mergeHeaderGroups(input)).toMatchObject([
-      { label: 'Jan', widthPx: 30 },
-      { label: 'Feb', widthPx: 5 },
+describe('createTopHeaderGroups with locale options', () => {
+  it('labels the groups in the given locale', () => {
+    expect(
+      createTopHeaderGroups(ticks('2025-01-30', '2025-01-31', '2025-02-01'), 'month', {
+        locale: 'ko-KR',
+      }),
+    ).toMatchObject([
+      { label: '2025년 1월', widthPx: 144 },
+      { label: '2025년 2월', widthPx: 72 },
     ]);
-    expect(input[0].widthPx).toBe(10);
+  });
+
+  it('groups the week scale by week, starting on the configured day', () => {
+    const week = ticks(
+      '2025-08-31', // Sunday
+      '2025-09-01',
+      '2025-09-02',
+      '2025-09-03',
+      '2025-09-04',
+      '2025-09-05',
+      '2025-09-06',
+      '2025-09-07',
+    );
+
+    // Weeks starting Monday: 8/31 stands alone, then 9/1..9/7
+    expect(createTopHeaderGroups(week, 'week', { firstDayOfWeek: 1 })).toMatchObject([
+      { label: 'Aug 25, 2025', widthPx: 72 },
+      { label: 'Sep 1, 2025', widthPx: 504 },
+    ]);
+
+    // Weeks starting Sunday: 8/31..9/6, then 9/7
+    expect(createTopHeaderGroups(week, 'week', { firstDayOfWeek: 0 })).toMatchObject([
+      { label: 'Aug 31, 2025', widthPx: 504 },
+      { label: 'Sep 7, 2025', widthPx: 72 },
+    ]);
+
+    // Without the setting the week scale still groups by month
+    expect(createTopHeaderGroups(week, 'week')).toMatchObject([
+      { label: 'Aug 2025', widthPx: 72 },
+      { label: 'Sep 2025', widthPx: 504 },
+    ]);
+  });
+
+  it('labels week groups in the locale too', () => {
+    expect(
+      createTopHeaderGroups(ticks('2025-09-01', '2025-09-02'), 'week', {
+        locale: 'ko-KR',
+        firstDayOfWeek: 1,
+      }),
+    ).toMatchObject([{ label: '2025년 9월 1일', widthPx: 144 }]);
   });
 });
 

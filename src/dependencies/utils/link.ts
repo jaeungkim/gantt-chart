@@ -1,10 +1,5 @@
 import { DependencyType, Task, TaskDependency, TaskTransformed } from "shared/task";
-
-// Which end of a bar a link gesture grabbed
-export type LinkAnchor = "start" | "end";
-
-// Why a proposed link cannot be created
-export type LinkRejection = "self" | "duplicate" | "cycle";
+import { LinkAnchor, LinkRejection } from "shared/types";
 
 // The minimum a task needs for the dependency math - TaskTransformed fits as-is
 type DependencyNode = Pick<Task, "id"> & { dependencies?: TaskDependency[] };

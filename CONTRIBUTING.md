@@ -64,7 +64,7 @@ edited together. A feature can be read or deleted in one place instead of four p
 | Folder | Owns |
 |---|---|
 | `src/core/` | the headless core: tree, calendar, reorder, dates. Plain data and pure functions, no React and no DOM. |
-| `src/shared/` | what more than one feature needs: constants, the shared types, the zustand store and its context, i18n formatters, pointer-gesture helpers. |
+| `src/shared/` | what more than one feature needs: constants, the shared types, the zustand store and its context, i18n formatters, pointer-gesture helpers. It sits below the domains and never imports one. |
 | `src/timeline/` | the time axis: date and pixel geometry, the tick/header model, viewport and zoom, virtualization, the header, today line and non-working shading. |
 | `src/bars/` | the bars themselves and every bar-level gesture: move, resize, progress, draw-to-create. |
 | `src/dependencies/` | dependency links: validation, arrow geometry, the arrow layer, link dragging. |
@@ -72,7 +72,7 @@ edited together. A feature can be read or deleted in one place instead of four p
 | `src/task-list/` | the left pane: the grid, its columns and its splitter, plus row reordering. |
 | `src/interaction/` | selection, the keyboard map and the aria labels. |
 | `src/detail/` | the task detail panel. |
-| `src/` (root) | `Gantt.tsx` composes the features, `props.ts` is the public prop surface, `index.ts` is the package barrel. |
+| `src/` (root) | `Gantt.tsx` composes the features, `useGanttSelectors.ts` is the store subscription it renders from, `props.ts` is the public prop surface, `index.ts` is the package barrel, `styles.css` is the published stylesheet. |
 
 Inside a domain, files are split again by what they are: `components/`, `hooks/` and `utils/`.
 A domain has only the ones it needs. `interaction/` has no components and `bars/` has no utils.
@@ -89,30 +89,42 @@ src/timeline/
 cross-cutting modules (`constants.ts`, `types.ts`, `task.ts`, `store.ts`, `context.ts`) at its
 root, with `hooks/`, `utils/` and `virtual/` beneath.
 
-Three rules apply:
+Four rules apply:
 
 - `src/core/` may not import from any of the other folders. It has to stay runnable in Node, so an
-  eslint block scoped to `src/core/**` forbids React, zustand, the DOM globals and every domain
-  folder. Adding a new domain folder means adding it to that list in `eslint.config.js`. The
-  patterns there are `<domain>/**` rather than `<domain>/*`, because of the nesting above.
+  eslint block scoped to `src/core/**` forbids React, zustand, the DOM globals, the root modules
+  and every domain folder. Both lists are read off `src/` at lint time rather than typed out, so
+  a new folder or root module is covered the day it appears. The domain patterns are `<domain>/**`
+  rather than `<domain>/*`, because of the nesting above, and a root module is restricted in both
+  its bare and its relative spelling.
 - Do not add directory barrels. Import the file (`shared/constants`, `timeline/utils/geometry`)
   rather than the directory. A bare barrel specifier survives verbatim into the emitted `.d.ts` and
   breaks every consumer's `tsc`. CI greps `dist/` for it.
 - A file goes in the domain it belongs to, rather than the one that happens to use it.
   `interaction/` owns the aria labels even though `bars/` renders them. Cross-domain imports are
-  normal. Do not duplicate a helper to avoid one.
+  normal. Do not duplicate a helper to avoid one, and do not promote a helper to `src/shared/`
+  just because a second domain reached for it - a helper with a clear owner keeps that owner.
+  What does move to `src/shared/` is vocabulary with no owning feature: a type or constant that
+  several domains and the store all speak. `LinkAnchor` lives there for that reason, even though
+  only `dependencies/` produces one, because `shared/store.ts` holds the drag draft and `shared/`
+  may not import a domain.
+- Imports run one way. `core/` imports nothing of ours, `shared/` imports only `core/`, and
+  domains import `core/`, `shared/` and each other. Within a domain, keep the module graph
+  acyclic - two files that need each other are usually one file.
 
 Imports are bare and resolved by `baseUrl: "src"` in `tsconfig.json`, so a module's specifier is
 its path under `src/`: `bars/hooks/useGanttBarDrag`, `rows/utils/rows`, `interaction/utils/a11y`.
 
-Tests are next to what they test, one suite per module.
+Tests sit in the folder of the code they cover, named after the module they cover. A module
+large enough to test along separate axes may carry more than one suite, with the axis after the
+module name: `geometry.test.ts`, `geometry.drag.test.ts`, `geometry.timezone.test.ts`.
 
 ## Before you open a PR
 
 ```bash
 pnpm lint
 pnpm type-check
-pnpm test        # vitest, one suite per module across src/core and the domain folders (pure functions only)
+pnpm test        # vitest, across src/core and the domain folders (pure functions only)
 pnpm build
 ```
 

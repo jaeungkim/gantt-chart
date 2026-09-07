@@ -41,8 +41,7 @@ interface UseGanttDetailParams {
   // Controlled open task; `undefined` leaves the hook holding its own state
   detailTaskId?: string | null;
   onDetailChange?: (task: TaskTransformed | null) => void;
-  // The chart's own click handler - chained, not replaced
-  onTaskClick?: TaskMouseHandler;
+  onTaskActivate?: TaskMouseHandler;
 }
 
 interface GanttDetail {
@@ -51,7 +50,7 @@ interface GanttDetail {
   // Opens the panel on a task id; an unknown id is ignored
   open: (taskId: string) => void;
   close: () => void;
-  onTaskClick: TaskMouseHandler;
+  onTaskActivate: TaskMouseHandler;
 }
 
 /** Controlled by `detailTaskId`, uncontrolled without it; `onDetailChange` fires in both modes */
@@ -62,7 +61,7 @@ export function useGanttDetail({
   tasks,
   detailTaskId,
   onDetailChange,
-  onTaskClick,
+  onTaskActivate,
 }: UseGanttDetailParams): GanttDetail {
   const [uncontrolled, setUncontrolled] = useState<string | null>(null);
   const controlled = detailTaskId !== undefined;
@@ -97,13 +96,13 @@ export function useGanttDetail({
 
   const handleClick = useCallback<TaskMouseHandler>(
     (clicked, event) => {
-      onTaskClick?.(clicked, event);
+      onTaskActivate?.(clicked, event);
       commit(clicked.id);
     },
-    [onTaskClick, commit]
+    [onTaskActivate, commit]
   );
 
-  return { task, open, close, onTaskClick: handleClick };
+  return { task, open, close, onTaskActivate: handleClick };
 }
 
 // Headroom over the 200ms flex-basis transition in styles.css, for a transitionend

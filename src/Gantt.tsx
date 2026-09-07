@@ -55,7 +55,7 @@ import { createGanttStore } from "shared/store";
 import { BAR_HEIGHT, NODE_HEIGHT } from "shared/constants";
 import { canCreateTasks, Task } from "shared/task";
 import dayjs from "core/dates";
-import { CALENDAR_DAYS, createWorkingCalendar } from "./core";
+import { CALENDAR_DAYS, createWorkingCalendar } from "./core/calendar";
 import type { Dayjs } from "dayjs";
 import {
   calculateDateOffsetPx,
@@ -260,7 +260,7 @@ function GanttChart({
     tasks: transformedTasks,
     detailTaskId,
     onDetailChange,
-    onTaskClick: selection.onTaskClick,
+    onTaskActivate: selection.onTaskActivate,
   });
 
   // Retains the last task so the body stays rendered while the panel slides shut
@@ -269,11 +269,11 @@ function GanttChart({
   const barOptions = useMemo(
     () => ({
       onTasksChange,
-      onTaskClick: detail.onTaskClick,
+      onTaskActivate: detail.onTaskActivate,
       onTaskDoubleClick,
       showTooltip,
     }),
-    [onTasksChange, detail.onTaskClick, onTaskDoubleClick, showTooltip]
+    [onTasksChange, detail.onTaskActivate, onTaskDoubleClick, showTooltip]
   );
 
   const { rows, tasks: rowTasks } = useGanttRowModel({
@@ -474,7 +474,7 @@ function GanttChart({
                   onToggleCollapse={collapse.toggle}
                   focus={keyboard.focus}
                   selectedTaskId={selectedTaskId}
-                  onRowClick={detail.onTaskClick}
+                  onRowClick={detail.onTaskActivate}
                   onRowDoubleClick={onTaskDoubleClick}
                   reorderEnabled={reorderEnabled}
                   interaction={interaction}

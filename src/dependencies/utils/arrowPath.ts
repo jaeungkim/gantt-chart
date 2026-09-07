@@ -3,7 +3,7 @@ import {
   RenderedDependency,
   TaskTransformed,
 } from "shared/task";
-import { LinkAnchor } from "dependencies/utils/link";
+import { LinkAnchor } from "shared/types";
 
 // Live offset of the task being dragged (0 when it is not being dragged)
 interface DragOffset {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { tickBoundaries, tickCellAt } from './header';
+import dayjs from 'core/dates';
+import { mergeHeaderGroups, tickBoundaries, tickCellAt } from './header';
 
 // The drag readout masks the tick numerals it stands in for. A numeral is centred in its cell, so
 // a mask edge landing anywhere inside a cell would clip that numeral mid-glyph - these are what
@@ -54,5 +55,22 @@ describe('the cell a value falls in', () => {
 
   it('has no cell to return on an empty ruler, which is what an empty chart gives it', () => {
     expect(tickCellAt([0], 500)).toBeNull();
+  });
+});
+
+const group = (label: string, widthPx: number) => ({
+  label,
+  widthPx,
+  startDate: dayjs('2025-01-01'),
+});
+
+describe('mergeHeaderGroups', () => {
+  it('merges adjacent equal labels without mutating input', () => {
+    const input = [group('Jan', 10), group('Jan', 20), group('Feb', 5)];
+    expect(mergeHeaderGroups(input)).toMatchObject([
+      { label: 'Jan', widthPx: 30 },
+      { label: 'Feb', widthPx: 5 },
+    ]);
+    expect(input[0].widthPx).toBe(10);
   });
 });

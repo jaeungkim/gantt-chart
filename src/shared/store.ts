@@ -4,10 +4,11 @@ import {
   GanttDragOffset,
   GanttLocaleOptions,
   GanttScaleKey,
+  LinkAnchor,
+  LinkRejection,
 } from "shared/types";
 import { Task, TaskTransformed } from "shared/task";
 import { GanttDropMode, GanttMoveRejection, GanttTaskMove } from "core/reorder";
-import { LinkAnchor, LinkRejection } from "dependencies/utils/link";
 import { createStore } from "zustand";
 
 // Live state of a dependency drag - pointer px is in the timeline content's space

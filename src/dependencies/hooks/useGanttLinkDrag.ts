@@ -14,12 +14,11 @@ import {
 } from "shared/task";
 import {
   addDependency,
-  LinkAnchor,
-  LinkRejection,
   linkTypeFromAnchors,
   resolveLinkTarget,
   validateDependency,
 } from "dependencies/utils/link";
+import { LinkAnchor, LinkRejection } from "shared/types";
 import { edgeScrollVelocity } from "timeline/utils/viewport";
 
 /** The link the user drew, handed to `onDependencyCreate` before anything is committed */

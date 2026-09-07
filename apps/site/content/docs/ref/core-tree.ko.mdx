@@ -389,9 +389,8 @@ moved!.change.beforeId;                           // 'p' - c2가 그 위로 들�
 
 ## 참고
 
-- `getVisibleTasks`는 접힌 조상이 있는 작업을 걸러내는 접기 필터예요. 같은 코어 모듈과 내부
-  `src/core` 배럴에는 있지만 패키지 루트에서는 내보내지 않아서 `@jaeungkim/gantt-chart`에서 가져올
-  수 없어요. 차트가 내부에서 호출하고 호스트 앱은 `collapsedIds`와 `defaultCollapsedIds` prop으로
+- `getVisibleTasks`는 접힌 조상이 있는 작업을 걸러내는 접기 필터예요. 같은 코어 모듈에 있지만
+  패키지 루트에서는 내보내지 않아서 `@jaeungkim/gantt-chart`에서 가져올 수 없어요. 차트가 내부에서 호출하고 호스트 앱은 `collapsedIds`와 `defaultCollapsedIds` prop으로
   같은 동작을 제어해요. 두 prop은 [작업 목록과 계층](../task-list)에 설명돼 있어요.
 - `TaskNode`와 `rollUpProgress`는 내부용이라 패키지 루트에서 내보내지 않아요. 이 페이지는 위
   시그니처를 설명하려고 이름만 썼어요.

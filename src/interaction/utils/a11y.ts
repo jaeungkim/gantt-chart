@@ -9,7 +9,12 @@ import {
 } from "shared/task";
 import dayjs from "core/dates";
 import { GanttRow } from "rows/utils/rows";
-import { clampDragDates, clampMoveDelta, shiftByDragSteps } from "timeline/utils/geometry";
+import {
+  clampDragDates,
+  clampMoveDelta,
+  shiftByDragSteps,
+  toDragBounds,
+} from "timeline/utils/geometry";
 import { collectSubtreeIds } from "core/tree";
 
 // One `+`/`-` press moves the progress by this many percentage points
@@ -75,11 +80,8 @@ export function resolveKeyboardAction(
 
   // Editing first: a modifier turns the horizontal arrows into an edit, not navigation
   if (horizontal && (event.altKey || event.shiftKey)) {
-    const mode: GanttDragMode = event.altKey
-      ? event.shiftKey
-        ? "left"
-        : "bar"
-      : "right";
+    let mode: GanttDragMode = "right";
+    if (event.altKey) mode = event.shiftKey ? "left" : "bar";
     return { kind: "nudge", row: focus.row, col, mode, steps: step };
   }
 
@@ -248,15 +250,6 @@ export function rowAriaProps(
       ? { "aria-owns": options.ownedIds.join(" ") }
       : null),
   };
-}
-
-// Parses the bound props into dayjs, or null when neither end is set
-function toDragBounds(
-  min: string | undefined,
-  max: string | undefined
-): GanttDragBounds | null {
-  if (!min && !max) return null;
-  return { min: min ? dayjs(min) : undefined, max: max ? dayjs(max) : undefined };
 }
 
 // Moves or resizes a task by whole drag steps under drag rules; null when nothing may or did change.

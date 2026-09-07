@@ -39,18 +39,20 @@ export type { GanttRow } from './rows/utils/rows';
 
 // Headless core - no React, no DOM. Usable on a server or in a worker.
 export {
-  buildTaskTree,
   CALENDAR_DAYS,
-  collectSubtreeIds,
   createWorkingCalendar,
-  moveTask,
+  type WorkingCalendar,
+  type WorkingCalendarOptions,
+} from './core/calendar';
+export {
+  buildTaskTree,
+  collectSubtreeIds,
   rollUpTasks,
+  type TaskTree,
+} from './core/tree';
+export {
+  moveTask,
   sortTasksBySequence,
   validateMove,
-} from './core';
-export type {
-  GanttMoveOptions,
-  TaskTree,
-  WorkingCalendar,
-  WorkingCalendarOptions,
-} from './core';
+  type GanttMoveOptions,
+} from './core/reorder';

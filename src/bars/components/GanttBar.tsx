@@ -31,9 +31,9 @@ import {
   TaskTransformed,
 } from "shared/task";
 import dayjs from "core/dates";
-import type { WorkingCalendar } from "../../core";
+import type { WorkingCalendar } from "../../core/calendar";
 import { formatTaskAriaLabel } from "interaction/utils/a11y";
-import { LinkAnchor } from "dependencies/utils/link";
+import { LinkAnchor } from "shared/types";
 import { formatDuration, resolveFormatters } from "shared/utils/i18n";
 
 interface GanttBarProps {
@@ -63,13 +63,13 @@ export default function GanttBar({
 }: GanttBarProps) {
   const {
     onTasksChange,
-    onTaskClick,
+    onTaskActivate,
     onTaskDoubleClick,
     showTooltip = true,
   } = options;
 
   const barRef = useRef<HTMLDivElement>(null);
-  const { onPointerDown, dragMode, consumeDragClick } = useGanttBarDrag(
+  const { onPointerDown, consumeDragClick } = useGanttBarDrag(
     currentTask,
     { onTasksChange, autoScroll: autoScrollOnDrag },
     interaction,
@@ -144,6 +144,7 @@ export default function GanttBar({
 
   const liveOffset = useGanttStore((store) => store.dragOffsets[currentTask.id]);
   const isDragging = useGanttStore((store) => store.currentTask?.id === currentTask.id);
+  const dragMode = useGanttStore((store) => store.dragMode);
   const selectedScale = useGanttStore((store) => store.selectedScale);
   const localeOptions = useGanttStore((store) => store.localeOptions);
   const isSelected = useGanttStore(
@@ -189,7 +190,7 @@ export default function GanttBar({
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // The click that closes a drag is the end of that gesture, not a selection
     if (consumeDragClick()) return;
-    onTaskClick?.(currentTask, e);
+    onTaskActivate?.(currentTask, e);
   };
 
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -198,13 +199,11 @@ export default function GanttBar({
 
   // A gesture that is not allowed shows no affordance at all
   const restCursor = canMove ? "grab" : "default";
-  const barCursor = isDragging
-    ? canMove || canResize
-      ? "grabbing"
-      : restCursor
-    : onResizeEdge && canResize
-      ? "ew-resize"
-      : restCursor;
+  const barCursor = (() => {
+    if (isDragging) return canMove || canResize ? "grabbing" : restCursor;
+    if (onResizeEdge && canResize) return "ew-resize";
+    return restCursor;
+  })();
 
   const { tooltip } = useMemo(
     () => resolveFormatters(selectedScale, localeOptions),
@@ -235,17 +234,13 @@ export default function GanttBar({
   };
 
   // What the tooltip is for, most specific first - a gesture in progress beats a hover
-  const tooltipReason: "hover" | "move" | "resize" | "progress" | null = !showTooltip
-    ? null
-    : isDraggingProgress
-      ? "progress"
-      : isDragging && liveOffset
-        ? dragMode === "left" || dragMode === "right"
-          ? "resize"
-          : "move"
-        : hovered
-          ? "hover"
-          : null;
+  const tooltipReason = (() => {
+    if (!showTooltip) return null;
+    if (isDraggingProgress) return "progress";
+    if (isDragging && liveOffset)
+      return dragMode === "left" || dragMode === "right" ? "resize" : "move";
+    return hovered ? "hover" : null;
+  })();
 
   // WCAG 2.1 SC 1.4.13: hover content must be dismissible without moving the pointer
   useEffect(() => {

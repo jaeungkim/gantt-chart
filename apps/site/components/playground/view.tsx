@@ -158,13 +158,9 @@ export function PlaygroundView() {
     .filter((task) => tasks.some((child) => child.parentId === task.id))
     .map((task) => task.id);
 
-  // A fresh array every render would make the chart recompute its non-working days each time.
-  const holidays = useMemo(
-    () => (settings.holidays ? demoHolidays : undefined),
-    [settings.holidays]
-  );
+  const holidays = settings.holidays ? demoHolidays : undefined;
 
-  // Same reason as the holidays memo: a fresh array each render recomputes the non-working days.
+  // A fresh array every render would make the chart recompute its non-working days each time.
   const workingWeekdays = useMemo(
     () => (settings.sixDayWeek ? [1, 2, 3, 4, 5, 6] : undefined),
     [settings.sixDayWeek]
@@ -557,13 +553,11 @@ export function PlaygroundView() {
             // Seeded from the console, so a remount lands on the scale the console is showing
             // instead of snapping back to the default.
             defaultScale={settings.scale}
-            initialScrollTo={
-              settings.initialScrollTo === 'none'
-                ? undefined
-                : settings.initialScrollTo === 'today'
-                  ? 'today'
-                  : DEMO_ANCHOR
-            }
+            initialScrollTo={(() => {
+              if (settings.initialScrollTo === 'none') return undefined;
+              if (settings.initialScrollTo === 'today') return 'today';
+              return DEMO_ANCHOR;
+            })()}
             // Keeps the console's `scale` row honest when ctrl+wheel or zoomToFit moves the scale.
             onScaleChange={(scale) => update('scale', scale)}
             // 'host' means "no prop" - the chart then inherits the site's color-scheme.

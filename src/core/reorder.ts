@@ -2,7 +2,7 @@
 // first child of "2") that cannot be split, so a move renumbers instead of inserting a key.
 // Structural validation only; whether a task may move at all arrives as `canReorder`.
 import { Task } from "./types";
-import { collectSubtreeIds } from "./tree";
+import { buildTaskTree, collectSubtreeIds, TaskTree } from "./tree";
 
 /** Where a task is going: a parent, and a slot among that parent's children */
 export interface GanttTaskMove {
@@ -82,34 +82,21 @@ interface Forest {
 
 const ROOT = "";
 
-// The ordered forest a move rearranges. `hierarchy` on, the parent link is `parentId` normalized
-// like `buildTaskTree` does it; off, it is the sequence path ("2.1" hangs off whoever holds "2").
-function buildForest(sorted: Task[], hierarchy: boolean): Forest {
+// The ordered forest a move rearranges. `hierarchy` on, the parent link is the one `buildTaskTree`
+// normalized; off, it is the sequence path ("2.1" hangs off whoever holds "2"), which no tree models.
+// Pass `tree` in to reuse a build the caller already paid for.
+function buildForest(
+  sorted: Task[],
+  hierarchy: boolean,
+  tree?: TaskTree
+): Forest {
   const parentOf = new Map<string, string | null>();
   const children = new Map<string, string[]>();
 
   if (hierarchy) {
-    const byId = new Map(sorted.map((task) => [task.id, task]));
-    for (const task of sorted) {
-      const parentId = task.parentId;
-      let resolved: string | null = null;
-
-      if (parentId && parentId !== task.id && byId.has(parentId)) {
-        // Walking up records every node, so a cycle is caught within n steps
-        const seen = new Set([task.id]);
-        let cursor: Task | undefined = byId.get(parentId);
-        resolved = parentId;
-        while (cursor) {
-          if (seen.has(cursor.id)) {
-            resolved = null;
-            break;
-          }
-          seen.add(cursor.id);
-          if (!cursor.parentId) break;
-          cursor = byId.get(cursor.parentId);
-        }
-      }
-      parentOf.set(task.id, resolved);
+    // Copied, not aliased - a caller's forest is handed out and rearranged, the tree is not
+    for (const [id, parent] of (tree ?? buildTaskTree(sorted)).parentOf) {
+      parentOf.set(id, parent);
     }
   } else {
     const idBySequence = new Map<string, string>();
@@ -197,7 +184,8 @@ export function validateMove(
   if (options.canReorder && !options.canReorder(task)) return "read-only";
 
   const sorted = sortTasksBySequence(tasks);
-  const { children, parentOf } = buildForest(sorted, options.hierarchy);
+  const tree = options.hierarchy ? buildTaskTree(sorted) : undefined;
+  const { children, parentOf } = buildForest(sorted, options.hierarchy, tree);
   const fromParentId = parentOf.get(task.id) ?? null;
 
   if (!options.hierarchy && move.toParentId !== fromParentId) {
@@ -206,7 +194,7 @@ export function validateMove(
 
   // A node cannot become its own descendant - the subtree is where it would land
   if (move.toParentId) {
-    const subtree = new Set(collectSubtreeIds(sorted, task.id));
+    const subtree = new Set(collectSubtreeIds(sorted, task.id, tree));
     if (subtree.has(move.toParentId)) return "cycle";
   }
 

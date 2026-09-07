@@ -2,14 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { GanttScaleKey } from 'shared/types';
 import dayjs, { quarterOfYear, startOfQuarter, startOfWeek } from 'core/dates';
 import { resolveFormatters, resolveLabelUnit } from './i18n';
-import { createTopHeaderGroups } from 'timeline/utils/geometry';
 
 // 2025-09-01 is a Monday, 15:00 UTC
 const afternoon = dayjs('2025-09-01T15:00');
 const SCALES: GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
-
-// week scale cells: one day each (see geometry.test.ts)
-const ticks = (...days: string[]) => days.map((d) => ({ startDate: dayjs(d), widthPx: 32 }));
 
 const labelsFor = (scale: GanttScaleKey, options?: Parameters<typeof resolveFormatters>[1]) => {
   const { tick, header, tooltip } = resolveFormatters(scale, options);
@@ -137,59 +133,6 @@ describe('resolveFormatters with format overrides', () => {
     const options = { formats: { week: { tick: () => 'X' } } };
     expect(resolveFormatters('week', options).tick(afternoon)).toBe('X');
     expect(resolveFormatters('day', options).tick(afternoon)).toBe('15');
-  });
-});
-
-describe('createTopHeaderGroups with locale options', () => {
-  it('labels the groups in the given locale', () => {
-    expect(
-      createTopHeaderGroups(ticks('2025-01-30', '2025-01-31', '2025-02-01'), 'month', {
-        locale: 'ko-KR',
-      }),
-    ).toMatchObject([
-      { label: '2025년 1월', widthPx: 64 },
-      { label: '2025년 2월', widthPx: 32 },
-    ]);
-  });
-
-  it('groups the week scale by week, starting on the configured day', () => {
-    const week = ticks(
-      '2025-08-31', // Sunday
-      '2025-09-01',
-      '2025-09-02',
-      '2025-09-03',
-      '2025-09-04',
-      '2025-09-05',
-      '2025-09-06',
-      '2025-09-07',
-    );
-
-    // Weeks starting Monday: 8/31 stands alone, then 9/1..9/7
-    expect(createTopHeaderGroups(week, 'week', { firstDayOfWeek: 1 })).toMatchObject([
-      { label: 'Aug 25, 2025', widthPx: 32 },
-      { label: 'Sep 1, 2025', widthPx: 224 },
-    ]);
-
-    // Weeks starting Sunday: 8/31..9/6, then 9/7
-    expect(createTopHeaderGroups(week, 'week', { firstDayOfWeek: 0 })).toMatchObject([
-      { label: 'Aug 31, 2025', widthPx: 224 },
-      { label: 'Sep 7, 2025', widthPx: 32 },
-    ]);
-
-    // Without the setting the week scale still groups by month
-    expect(createTopHeaderGroups(week, 'week')).toMatchObject([
-      { label: 'Aug 2025', widthPx: 32 },
-      { label: 'Sep 2025', widthPx: 224 },
-    ]);
-  });
-
-  it('labels week groups in the locale too', () => {
-    expect(
-      createTopHeaderGroups(ticks('2025-09-01', '2025-09-02'), 'week', {
-        locale: 'ko-KR',
-        firstDayOfWeek: 1,
-      }),
-    ).toMatchObject([{ label: '2025년 9월 1일', widthPx: 64 }]);
   });
 });
 

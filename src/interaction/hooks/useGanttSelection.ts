@@ -12,7 +12,7 @@ interface UseGanttSelectionParams {
 interface GanttSelection {
   // Selects a row, or clears the selection with null
   select: (task: TaskTransformed | null) => void;
-  onTaskClick: (task: TaskTransformed, event: React.MouseEvent) => void;
+  onTaskActivate: (task: TaskTransformed, event: React.MouseEvent) => void;
 }
 
 // Both panes go through the one `select`, so a bar and its grid row cannot disagree
@@ -47,6 +47,6 @@ export function useGanttSelection({
 
   return {
     select,
-    onTaskClick: handleClick,
+    onTaskActivate: handleClick,
   };
 }
