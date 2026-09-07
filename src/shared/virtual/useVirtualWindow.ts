@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { RefObject } from 'react';
 import type { VirtualAxis } from 'shared/virtual/axis';
 import type { ScrollDirection, VirtualWindow } from 'shared/virtual/window';
-import { fullWindow, sameWindow, windowOf } from 'shared/virtual/window';
+import { fullWindow, OVERSCAN, sameWindow, windowOf } from 'shared/virtual/window';
 
 export type ScrollAlign = 'start' | 'center' | 'end' | 'auto';
 
@@ -42,8 +42,8 @@ export function useVirtualWindow({
     lastScroll.current = { top: scrollTop, left: scrollLeft };
 
     const next = {
-      row: windowOf(row, scrollTop, clientHeight, 5, rowDirection),
-      col: windowOf(col, scrollLeft, clientWidth, 5, colDirection),
+      row: windowOf(row, scrollTop, clientHeight, OVERSCAN, rowDirection),
+      col: windowOf(col, scrollLeft, clientWidth, OVERSCAN, colDirection),
     };
 
     setWindows((prev) =>

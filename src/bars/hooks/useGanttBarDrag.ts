@@ -21,13 +21,14 @@ import {
   TaskTransformed,
 } from "shared/task";
 import dayjs from "core/dates";
-import type { WorkingCalendar } from "../../core";
+import type { WorkingCalendar } from "../../core/calendar";
 import { armPointerGesture, suppressTouchScroll } from "shared/utils/pointerGesture";
 import {
   clampDragDates,
   clampMoveDelta,
   pxBetweenDates,
   shiftByDragSteps,
+  toDragBounds,
 } from "timeline/utils/geometry";
 import { collectSubtreeIds } from "core/tree";
 import { edgeScrollVelocity } from "timeline/utils/viewport";
@@ -72,18 +73,6 @@ interface DragContext {
   clamped: { startDate: Dayjs; endDate: Dayjs } | null;
 }
 
-/** Parses the bound props into dayjs, or null when neither end is set */
-function toDragBounds(
-  min: string | undefined,
-  max: string | undefined
-): GanttDragBounds | null {
-  if (!min && !max) return null;
-  return {
-    min: min ? dayjs(min) : undefined,
-    max: max ? dayjs(max) : undefined,
-  };
-}
-
 /** Gantt bar drag behavior; `autoScroll` (default true) scrolls the timeline at a viewport edge. */
 export function useGanttBarDrag(
   task: TaskTransformed,
@@ -93,7 +82,6 @@ export function useGanttBarDrag(
 ) {
   const storeApi = useGanttStoreApi();
   const dragContextRef = useRef<DragContext | null>(null);
-  const dragModeRef = useRef<DragMode | null>(null);
   // The pointerup that ends a drag is followed by a click - this tells the two apart
   const movedRef = useRef(false);
   /** Aborts a touch long press that has not lifted the bar yet */
@@ -162,7 +150,6 @@ export function useGanttBarDrag(
     initialClientX: number,
     element: HTMLDivElement
   ) => {
-    dragModeRef.current = mode;
     movedRef.current = false;
 
     const scrollEl = element.closest<HTMLElement>(
@@ -480,7 +467,6 @@ export function useGanttBarDrag(
     const endDrag = (ctx: DragContext) => {
       undoAutoScroll(ctx);
       dragContextRef.current = null;
-      dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);
       storeApi.getState().setDragMode(null);
       storeApi.getState().clearDragOffsets(ctx.taskIds);
@@ -553,7 +539,6 @@ export function useGanttBarDrag(
 
       // Clearing dragOffset here flicks the bar back a frame; Gantt's recompute effect clears it
       dragContextRef.current = null;
-      dragModeRef.current = null;
       storeApi.getState().setCurrentTask(null);
       storeApi.getState().setDragMode(null);
 
@@ -582,7 +567,6 @@ export function useGanttBarDrag(
 
   return {
     onPointerDown,
-    dragMode: dragModeRef.current,
     consumeDragClick,
   };
 }

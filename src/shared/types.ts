@@ -16,6 +16,12 @@ export type GanttLabelUnit =
   | 'quarter'
   | 'year';
 
+// Which end of a bar a link gesture grabbed
+export type LinkAnchor = 'start' | 'end';
+
+// Why a proposed link cannot be created
+export type LinkRejection = 'self' | 'duplicate' | 'cycle';
+
 // What a bar drag is doing - moving the whole bar, or resizing one edge
 export type GanttDragMode = 'bar' | 'left' | 'right';
 
@@ -136,7 +142,7 @@ export interface GanttDragOffset {
 // Everything a bar needs from the chart's props - one object rather than eight
 export interface GanttBarOptions {
   onTasksChange?: (updatedTasks: Task[]) => void;
-  onTaskClick?: (task: TaskTransformed, event: ReactMouseEvent) => void;
+  onTaskActivate?: (task: TaskTransformed, event: ReactMouseEvent) => void;
   onTaskDoubleClick?: (task: TaskTransformed, event: ReactMouseEvent) => void;
   // Hover and drag tooltips, on unless explicitly turned off
   showTooltip?: boolean;

@@ -88,12 +88,11 @@ export function useGanttRowDrag({
       if (!row || !target || row.tasks.length > 1) return null;
 
       const offset = (y - item.start) / item.size;
-      const mode: GanttDropMode =
-        offset < EDGE_BAND
-          ? "before"
-          : offset > 1 - EDGE_BAND
-            ? "after"
-            : "child";
+      const mode = ((): GanttDropMode => {
+        if (offset < EDGE_BAND) return "before";
+        if (offset > 1 - EDGE_BAND) return "after";
+        return "child";
+      })();
       const candidate = moveForDrop(order, taskId, target.id, mode);
 
       return {

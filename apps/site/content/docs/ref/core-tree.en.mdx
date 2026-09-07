@@ -392,8 +392,8 @@ moved!.change.beforeId;                           // 'p' - c2 landed above it
 ## Notes
 
 - `getVisibleTasks` is the collapse filter that drops any task with a collapsed ancestor. It is in
-  the same core module and the internal `src/core` barrel, but not exported from the package root,
-  so it cannot be imported from `@jaeungkim/gantt-chart`. The chart calls it internally. A host
+  the same core module, but not exported from the package root, so it cannot be imported from
+  `@jaeungkim/gantt-chart`. The chart calls it internally. A host
   drives the same behaviour through the `collapsedIds` and `defaultCollapsedIds` props, described
   in [Task list and hierarchy](../task-list).
 - `TaskNode` and `rollUpProgress` are internal and not exported from the package root. This page

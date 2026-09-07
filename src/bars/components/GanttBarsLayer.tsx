@@ -2,7 +2,7 @@ import type { VirtualItem } from "shared/virtual/window";
 import GanttBar from "bars/components/GanttBar";
 import { GanttDependencyChange } from "dependencies/hooks/useGanttLinkDrag";
 import { GanttBarOptions } from "shared/types";
-import type { WorkingCalendar } from "../../core";
+import type { WorkingCalendar } from "../../core/calendar";
 import { GanttInteractionConfig } from "shared/task";
 import { GanttFocus } from "interaction/utils/a11y";
 import { GanttRow } from "rows/utils/rows";

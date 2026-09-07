@@ -42,22 +42,23 @@ export default function GanttDragGuides() {
 
   // Two edges in one cell are one label, and `range` is what knows how to write it - merging
   // what the ends share under a locale, or collapsing them when they read alike.
-  const cells =
-    dragMode === "left"
-      ? [{ cell: startCell, label: edge(offset.offsetStartDate) }]
-      : dragMode === "right"
-        ? [{ cell: endCell, label: edge(offset.offsetEndDate) }]
-        : startCell.index === endCell.index
-          ? [
-              {
-                cell: startCell,
-                label: range(offset.offsetStartDate, offset.offsetEndDate),
-              },
-            ]
-          : [
-              { cell: startCell, label: edge(offset.offsetStartDate) },
-              { cell: endCell, label: edge(offset.offsetEndDate) },
-            ];
+  const cells = (() => {
+    if (dragMode === "left")
+      return [{ cell: startCell, label: edge(offset.offsetStartDate) }];
+    if (dragMode === "right")
+      return [{ cell: endCell, label: edge(offset.offsetEndDate) }];
+    if (startCell.index === endCell.index)
+      return [
+        {
+          cell: startCell,
+          label: range(offset.offsetStartDate, offset.offsetEndDate),
+        },
+      ];
+    return [
+      { cell: startCell, label: edge(offset.offsetStartDate) },
+      { cell: endCell, label: edge(offset.offsetEndDate) },
+    ];
+  })();
 
   return (
     <div className="gantt-drag-guides" aria-hidden="true">

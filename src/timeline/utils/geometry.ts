@@ -127,6 +127,15 @@ export function pxBetweenDates(
   return (to.diff(from, dragStepUnit, true) / dragStepAmount) * basePxPerDragStep;
 }
 
+// Parses the bound props into dayjs, or null when neither end is set
+export function toDragBounds(
+  min: string | undefined,
+  max: string | undefined
+): GanttDragBounds | null {
+  if (!min && !max) return null;
+  return { min: min ? dayjs(min) : undefined, max: max ? dayjs(max) : undefined };
+}
+
 // Clamps a dragged bar into its window; "bar" keeps its length (min wins), an edge stays >= 1 step.
 export function clampDragDates(
   mode: GanttDragMode,
@@ -203,66 +212,6 @@ export function clampMoveDelta(
   }
 
   return delta;
-}
-
-export function calculateDateOffsets(
-  startDate: Dayjs,
-  endDate: Dayjs,
-  timelineTicks: GanttBottomRowCell[],
-  scaleKey: GanttScaleKey
-): { barMarginLeftAmount: number; barWidthSize: number } {
-  if (!timelineTicks.length) {
-    return { barMarginLeftAmount: 0, barWidthSize: 0 };
-  }
-
-  const config = GANTT_SCALE_CONFIG[scaleKey];
-  const { tickUnit, unitPerTick } = config;
-
-  let leftMargin = 0;
-  let barWidth = 0;
-  let hasStarted = false;
-
-  const startTime = startDate.valueOf();
-  const endTime = endDate.valueOf();
-
-  for (const tick of timelineTicks) {
-    const tickStart = tick.startDate;
-    const tickEnd = tickStart.add(unitPerTick, tickUnit);
-    const tickWidth = tick.widthPx;
-
-    const tickStartTime = tickStart.valueOf();
-    const tickEndTime = tickEnd.valueOf();
-
-    if (tickEndTime <= startTime) {
-      leftMargin += tickWidth;
-      continue;
-    }
-
-    if (tickStartTime >= endTime) {
-      break;
-    }
-
-    const overlapStart = startTime > tickStartTime ? startDate : tickStart;
-    const overlapEnd = endTime < tickEndTime ? endDate : tickEnd;
-
-    const tickDuration = tickEndTime - tickStartTime;
-    const overlapDuration = overlapEnd.valueOf() - overlapStart.valueOf();
-    const overlapRatio = overlapDuration / tickDuration;
-
-    if (!hasStarted && overlapStart.valueOf() > tickStartTime) {
-      const beforeStartRatio =
-        (overlapStart.valueOf() - tickStartTime) / tickDuration;
-      leftMargin += beforeStartRatio * tickWidth;
-    }
-
-    barWidth += overlapRatio * tickWidth;
-    hasStarted = true;
-  }
-
-  return {
-    barMarginLeftAmount: leftMargin,
-    barWidthSize: Math.max(barWidth, 1),
-  };
 }
 
 // Px offset of a date along the timeline; null when the date is outside the range.
