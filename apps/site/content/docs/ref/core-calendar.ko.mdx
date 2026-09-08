@@ -43,7 +43,7 @@ export function createWorkingCalendar(
 
 ```ts title="src/core/calendar.ts"
 export interface WorkingCalendarOptions {
-  /** 근무 요일을 UTC 요일 번호로. 0은 일요일이에요 (기본값 월–금) */
+  /** 근무 요일을 UTC 요일 번호로. 0은 일요일이에요 (기본값 월~금) */
   workingWeekdays?: number[];
   /** 비근무일을 UTC `YYYY-MM-DD` 문자열로 */
   holidays?: string[];
@@ -68,7 +68,7 @@ export const CALENDAR_DAYS: WorkingCalendar
 ## `WorkingCalendar`
 
 ```ts title="src/core/calendar.ts"
-/** 코어의 모든 날짜 계산이 거쳐 가는 달력이에요. */
+/** 비근무일을 건너뛸 수 있는 날짜 계산이에요. */
 export interface WorkingCalendar {
   /** 기본 달력에서는 false예요 (모든 날을 세요) */
   readonly skipsNonWorkingDays: boolean;
@@ -77,10 +77,6 @@ export interface WorkingCalendar {
   addDays(date: Dayjs, days: number): Dayjs;
   /** `from`에서 `to`까지의 일수예요. `addDays`가 움직이는 방식대로 세고, 부호가 있어요 */
   daysBetween(from: Dayjs, to: Dayjs): number;
-  /** `addDays(from, d) >= target`인 가장 작은 d - 작업이 어떤 날짜를 넘기려면 얼마나 움직여야 하는지 */
-  daysUntil(from: Dayjs, target: Dayjs): number;
-  /** `addDays(from, d) <= target`인 가장 큰 d - 작업이 날짜를 어기기 전까지 얼마나 밀릴 수 있는지 */
-  daysUpTo(from: Dayjs, target: Dayjs): number;
   /** 근무일이면 그 날짜 그대로, 아니면 다음 근무일이에요 (시각은 유지) */
   snapForward(date: Dayjs): Dayjs;
 }
@@ -98,13 +94,10 @@ export interface WorkingCalendar {
 | `isWorkingDay` | `(date: Dayjs) => boolean` | 항상 `true` | 요일과 휴일 검사를 통과하면 `true` |
 | `addDays` | `(date: Dayjs, days: number) => Dayjs` | `date.add(days, 'day')` | 달력 하루씩 옮기면서 근무일에서만 남은 일수를 줄여요. 시각은 유지돼요 |
 | `daysBetween` | `(from: Dayjs, to: Dayjs) => number` | `to.startOf('day').diff(from.startOf('day'), 'day')` | 하루씩 걸으며 지나간 근무일 수만 세어요. 출발한 날은 세지 않아요 |
-| `daysUntil` | `(from: Dayjs, target: Dayjs) => number` | `addDays(from, d) >= target`인 가장 작은 `d` | 같은 계산이고 단위만 근무일이에요 |
-| `daysUpTo` | `(from: Dayjs, target: Dayjs) => number` | `addDays(from, d) <= target`인 가장 큰 `d` | 같은 계산이고 단위만 근무일이에요 |
 | `snapForward` | `(date: Dayjs) => Dayjs` | `date`를 그대로 반환해요 | `date` 당일이나 그 뒤의 첫 근무일이고 시각은 유지돼요 |
 
 `daysBetween`은 날짜 단위로 비교해요. 양끝에 `startOf('day')`를 부르니 같은 날짜의 두 시각은
-`0`만큼 떨어져 있어요. `daysUntil`과 `daysUpTo`는 시각까지 반영해요. `daysBetween`의 결과를
-최대 두 걸음까지 보정하거든요.
+`0`만큼 떨어져 있어요.
 
 근무일에서 출발하면 `addDays`와 `daysBetween`은 정확히 서로의 역이라
 `daysBetween(from, addDays(from, n))`이 `n`이에요. 비근무일에서 뒤로 움직이면 왕복하는 동안 한
@@ -128,8 +121,6 @@ export interface WorkingCalendar {
 | `workweek.daysBetween('2025-06-06', '2025-06-08')` | `0` (금요일에서 일요일) |
 | `workweek.daysBetween('2025-06-07', '2025-06-09')` | `1` (토요일에서 출발) |
 | `workweek.daysBetween('2025-06-09', '2025-06-02')` | `-5` |
-| `workweek.daysUntil('2025-06-06T09:00', '2025-06-09T17:00')` | `2` |
-| `workweek.daysUpTo('2025-06-06T09:00', '2025-06-09T08:00')` | `0` |
 | `workweek.snapForward('2025-06-07T09:00')` | `2025-06-09T09:00` |
 | `withHoliday.addDays('2025-06-06', 1)` | `2025-06-10` |
 | `withHoliday.daysBetween('2025-06-06', '2025-06-13')` | `4` |
@@ -176,9 +167,6 @@ calendar.skipsNonWorkingDays; // true
 
 근무일이 하나도 없는 역방향 구간에서 `daysBetween`은 `-0`이 아니라 언제나 `0`을 반환해요.
 
-`daysUntil`과 `daysUpTo`는 `daysBetween`의 결과를 방향마다 최대 두 걸음까지만 보정해요. 하루 길이
-구간에서만 정확해요. 하루 미만 계산은 한 걸음 어긋날 수 있어요.
-
 달력에는 시간 개념이 없어요. 같은 날짜에서 `09:00`부터 `17:00`까지인 작업은 `daysBetween`이
 `0`이에요.
 
@@ -187,8 +175,7 @@ calendar.skipsNonWorkingDays; // true
 `createWorkingCalendar`가 모두 거쳐 가는 내부 팩토리 `build`도 내보내지 않아요.
 
 `WorkingCalendar`는 그냥 인터페이스예요. 호스트 앱이 `createWorkingCalendar` 대신 직접
-구현해도 돼요. `daysUntil`과 `daysUpTo`가 한쪽으로 다른 쪽을 보정하니 `addDays`와
-`daysBetween`은 서로의 역으로 남아야 해요.
+구현해도 돼요.
 
 달력은 날짜만 바꿔요. 막대 도형과 타임라인 눈금은 달력 인자를 받지 않아요. 그래서 막대는 걸쳐
 있는 주말과 휴일을 그대로 덮어요. 음영은 별개인 `showNonWorkingDays` prop이고

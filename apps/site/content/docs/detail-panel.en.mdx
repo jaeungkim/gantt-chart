@@ -79,12 +79,6 @@ A single click on a bar or a task list row opens the panel, and so does `Enter` 
 focused row. On an expandable row those keys toggle the row instead. There is no double click mode
 and no prop that picks another trigger.
 
-The panel opens on a single click because a double click is the convention of modal task editors,
-which open a form that must be finished or cancelled. Bryntum's TaskEdit defaults to
-`triggerEvent: 'eventdblclick'` and DHTMLX opens its lightbox on `dblclick`. A docked panel opens
-on the click that already selects the row and closes with `Escape`, and frappe-gantt's
-`popup_trigger` offers only `'click'` and `'hover'`.
-
 `onTaskClick` fires first for that click, and the panel opens after it. Clicking the row that is
 already open changes nothing. To let only your own code open the panel, hold `detailTaskId`
 yourself as in the controlled mode below. A click only reports through `onDetailChange`, and your

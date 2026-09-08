@@ -71,7 +71,7 @@ wants plain calendar days.
 ## `WorkingCalendar`
 
 ```ts title="src/core/calendar.ts"
-/** The calendar every piece of date arithmetic in the core routes through. */
+/** Day arithmetic that can skip non-working days. */
 export interface WorkingCalendar {
   /** False for the default calendar (every day counts) */
   readonly skipsNonWorkingDays: boolean;
@@ -80,10 +80,6 @@ export interface WorkingCalendar {
   addDays(date: Dayjs, days: number): Dayjs;
   /** Days from `from` to `to`, counted the same way `addDays` moves. Signed. */
   daysBetween(from: Dayjs, to: Dayjs): number;
-  /** Smallest d where `addDays(from, d) >= target` - how far a task must move to clear a date */
-  daysUntil(from: Dayjs, target: Dayjs): number;
-  /** Largest d where `addDays(from, d) <= target` - how far a task may slip before it breaks one */
-  daysUpTo(from: Dayjs, target: Dayjs): number;
   /** The date itself when it is a working day, otherwise the next one (time of day kept) */
   snapForward(date: Dayjs): Dayjs;
 }
@@ -101,13 +97,10 @@ arithmetic path instead of testing the calendar day by day.
 | `isWorkingDay` | `(date: Dayjs) => boolean` | Always `true` | `true` when the day passes the weekday and holiday check |
 | `addDays` | `(date: Dayjs, days: number) => Dayjs` | `date.add(days, 'day')` | Steps one calendar day at a time and counts down only on working days. The time of day is kept |
 | `daysBetween` | `(from: Dayjs, to: Dayjs) => number` | `to.startOf('day').diff(from.startOf('day'), 'day')` | Walks day by day and counts only the working days it lands on. The starting day is never counted |
-| `daysUntil` | `(from: Dayjs, target: Dayjs) => number` | Smallest `d` with `addDays(from, d) >= target` | Same, in working days |
-| `daysUpTo` | `(from: Dayjs, target: Dayjs) => number` | Largest `d` with `addDays(from, d) <= target` | Same, in working days |
 | `snapForward` | `(date: Dayjs) => Dayjs` | Returns `date` unchanged | The next working day at or after `date`, time of day preserved |
 
 `daysBetween` compares at day granularity. It calls `startOf('day')` on both ends, so two times
-on the same date are `0` apart. `daysUntil` and `daysUpTo` take the time of day into account,
-correcting the `daysBetween` answer by at most two whole steps.
+on the same date are `0` apart.
 
 `addDays` and `daysBetween` are exact inverses from a working day, so
 `daysBetween(from, addDays(from, n))` is `n`. Moving backwards from a non-working day the round
@@ -132,8 +125,6 @@ Each one stands for `dayjs.utc(...)`.
 | `workweek.daysBetween('2025-06-06', '2025-06-08')` | `0` (Fri to Sun) |
 | `workweek.daysBetween('2025-06-07', '2025-06-09')` | `1` (from Sat) |
 | `workweek.daysBetween('2025-06-09', '2025-06-02')` | `-5` |
-| `workweek.daysUntil('2025-06-06T09:00', '2025-06-09T17:00')` | `2` |
-| `workweek.daysUpTo('2025-06-06T09:00', '2025-06-09T08:00')` | `0` |
 | `workweek.snapForward('2025-06-07T09:00')` | `2025-06-09T09:00` |
 | `withHoliday.addDays('2025-06-06', 1)` | `2025-06-10` |
 | `withHoliday.daysBetween('2025-06-06', '2025-06-13')` | `4` |
@@ -182,9 +173,6 @@ for spans that long.
 
 `daysBetween` returns `0`, never `-0`, for a backwards span that contains no working day.
 
-`daysUntil` and `daysUpTo` correct the `daysBetween` answer by at most two steps in each
-direction. They are exact for day-length spans only. Sub-day arithmetic can be off by a step.
-
 The calendar has no notion of hours. A task from `09:00` to `17:00` on one date measures
 `daysBetween` of `0`.
 
@@ -193,8 +181,7 @@ The skip limit (366) and the walk limit (18,263) are internal constants of
 The internal factory behind both, `build`, is not exported either.
 
 `WorkingCalendar` is a plain interface. A host may implement it directly instead of calling
-`createWorkingCalendar`. `daysUntil` and `daysUpTo` correct one against the other, so `addDays`
-and `daysBetween` must stay inverse.
+`createWorkingCalendar`.
 
 A calendar changes dates only. Bar geometry and timeline ticks take no calendar argument, so a
 bar still spans every weekend and holiday it covers. Shading is the separate

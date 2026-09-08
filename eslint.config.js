@@ -6,7 +6,6 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import globals from "globals";
 import tseslint from "typescript-eslint";
-import react from "eslint-plugin-react";
 
 // Everything under src/ that src/core may not reach for, read off disk so a new folder or root
 // module is covered the day it appears. DOMAINS uses `<domain>/**` rather than `<domain>/*`
@@ -44,29 +43,19 @@ export default tseslint.config(
       },
     },
     plugins: {
-      react,
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
-      "@typescript-eslint": tseslint,
-    },
-    settings: {
-      react: {
-        version: "detect",
-      },
+      "@typescript-eslint": tseslint.plugin,
     },
     rules: {
       ...js.configs.recommended.rules,
-      ...tseslint.configs.recommended.rules,
+      ...tseslint.plugin.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },
       ],
 
-      "react/react-in-jsx-scope": "off", // Not needed with React 17+
-      "react/prop-types": "off", // Using TypeScript instead
-      "react/display-name": "off", // React.memo, React.forwardRef
-      "react-hooks/exhaustive-deps": "warn",
       // v7 flags pre-existing latest-ref patterns in the drag hooks; warn until refactored.
       "react-hooks/refs": "warn",
 

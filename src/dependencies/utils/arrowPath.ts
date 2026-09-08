@@ -47,79 +47,45 @@ export function getSmartGanttPath(
   const halfVerticalDistance = Math.abs(deltaY / 2);
 
   function getFSPath(): string {
-    function getFSDirection(): string {
-      if ((movingRight || movingLeft) && movingDown && !thresholdExceeded) {
-        return "downSmallHorizontal";
-      }
-      if ((movingRight || movingLeft) && movingUp && !thresholdExceeded) {
-        return "upSmallHorizontal";
-      }
-      if (movingDown && movingLeft) {
-        return "downLeft";
-      }
-      if (movingDown && movingRight) {
-        return "downRight";
-      }
-      if (movingUp && movingLeft) {
-        return "upLeft";
-      }
-      if (movingUp && movingRight) {
-        return "upRight";
-      }
-      return "";
-    }
-
     let path = initialPath;
-    const direction = getFSDirection();
 
-    switch (direction) {
-      case "downRight": {
-        path += ` h ${halfHorizontalDistance - cornerRadius}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} ${cornerRadius}`;
-        path += ` v ${deltaY - cornerRadius * 2}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} ${cornerRadius}`;
-        path += ` h ${halfHorizontalDistance - cornerRadius}`;
-        break;
-      }
-      case "upRight": {
-        path += ` h ${halfHorizontalDistance - cornerRadius}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} -${cornerRadius}`;
-        path += ` v -${absDeltaY - cornerRadius * 2}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} -${cornerRadius}`;
-        path += ` h ${halfHorizontalDistance - cornerRadius}`;
-        break;
-      }
-      case "downLeft":
-      case "downSmallHorizontal": {
-        const halfwayY = startY + deltaY / 2;
-        path += ` h ${stepOffset}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} ${cornerRadius}`;
-        path += ` v ${halfwayY - startY - cornerRadius * 2}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} ${cornerRadius}`;
-        path += ` h ${deltaX - 2 * stepOffset}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} ${cornerRadius}`;
-        path += ` v ${halfwayY - startY - cornerRadius * 2}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} ${cornerRadius}`;
-        path += ` h ${stepOffset}`;
-        break;
-      }
-      case "upLeft":
-      case "upSmallHorizontal": {
-        const halfwayY = startY + deltaY / 2;
-        path += ` h ${stepOffset}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} -${cornerRadius}`;
-        path += ` v -${startY - halfwayY - cornerRadius * 2}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} -${cornerRadius}`;
-        path += ` h ${deltaX - 2 * stepOffset}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} -${cornerRadius}`;
-        path += ` v -${startY - halfwayY - cornerRadius * 2}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} -${cornerRadius}`;
-        path += ` h ${stepOffset}`;
-        break;
-      }
-      default: {
-        return path;
-      }
+    // Room to the right for a single S-bend; anything tighter steps out, across and back
+    const direct = thresholdExceeded && movingRight;
+
+    if (direct && movingDown) {
+      path += ` h ${halfHorizontalDistance - cornerRadius}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} ${cornerRadius}`;
+      path += ` v ${deltaY - cornerRadius * 2}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} ${cornerRadius}`;
+      path += ` h ${halfHorizontalDistance - cornerRadius}`;
+    } else if (direct) {
+      path += ` h ${halfHorizontalDistance - cornerRadius}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} -${cornerRadius}`;
+      path += ` v -${absDeltaY - cornerRadius * 2}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} -${cornerRadius}`;
+      path += ` h ${halfHorizontalDistance - cornerRadius}`;
+    } else if (movingDown) {
+      const halfwayY = startY + deltaY / 2;
+      path += ` h ${stepOffset}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} ${cornerRadius}`;
+      path += ` v ${halfwayY - startY - cornerRadius * 2}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} ${cornerRadius}`;
+      path += ` h ${deltaX - 2 * stepOffset}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} ${cornerRadius}`;
+      path += ` v ${halfwayY - startY - cornerRadius * 2}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} ${cornerRadius}`;
+      path += ` h ${stepOffset}`;
+    } else {
+      const halfwayY = startY + deltaY / 2;
+      path += ` h ${stepOffset}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} -${cornerRadius}`;
+      path += ` v -${startY - halfwayY - cornerRadius * 2}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} -${cornerRadius}`;
+      path += ` h ${deltaX - 2 * stepOffset}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} -${cornerRadius}`;
+      path += ` v -${startY - halfwayY - cornerRadius * 2}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} -${cornerRadius}`;
+      path += ` h ${stepOffset}`;
     }
 
     return path;
@@ -158,76 +124,43 @@ export function getSmartGanttPath(
   }
 
   function getSFPath(): string {
-    function getSFDirection(): string {
-      if ((movingRight || movingLeft) && movingDown && !thresholdExceeded) {
-        return "downSmallHorizontal";
-      }
-      if ((movingRight || movingLeft) && movingUp && !thresholdExceeded) {
-        return "upSmallHorizontal";
-      }
-      if (movingDown && movingLeft) {
-        return "downLeft";
-      }
-      if (movingDown && movingRight) {
-        return "downRight";
-      }
-      if (movingUp && movingLeft) {
-        return "upLeft";
-      }
-      if (movingUp && movingRight) {
-        return "upRight";
-      }
-      return "";
-    }
-
     let path = initialPath;
-    const direction = getSFDirection();
 
-    switch (direction) {
-      case "downRight":
-      case "downSmallHorizontal": {
-        path += ` h ${-stepOffset}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} ${cornerRadius}`;
-        path += ` v ${halfVerticalDistance - cornerRadius * 2}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} ${cornerRadius}`;
-        path += ` h ${stepOffset * 2 + deltaX}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} ${cornerRadius}`;
-        path += ` v ${halfVerticalDistance - cornerRadius * 2}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} ${cornerRadius}`;
-        path += ` h ${-stepOffset}`;
-        break;
-      }
-      case "upRight":
-      case "upSmallHorizontal": {
-        path += ` h ${-stepOffset}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} -${cornerRadius}`;
-        path += ` v ${-(halfVerticalDistance - cornerRadius * 2)}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} -${cornerRadius}`;
-        path += ` h ${stepOffset * 2 + deltaX}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} -${cornerRadius}`;
-        path += ` v ${-(halfVerticalDistance - cornerRadius * 2)}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} -${cornerRadius}`;
-        path += ` h ${-stepOffset}`;
-        break;
-      }
-      case "downLeft": {
-        path += ` h ${-halfHorizontalDistance + cornerRadius}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} ${cornerRadius}`;
-        path += ` v ${absDeltaY - cornerRadius * 2}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} ${cornerRadius}`;
-        path += ` h ${-halfHorizontalDistance + cornerRadius}`;
-        break;
-      }
-      case "upLeft": {
-        path += ` h ${-(halfHorizontalDistance - cornerRadius)}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} -${cornerRadius}`;
-        path += ` v ${-(absDeltaY - cornerRadius * 2)}`;
-        path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} -${cornerRadius}`;
-        path += ` h ${-halfHorizontalDistance + cornerRadius}`;
-        break;
-      }
-      default:
-        return path;
+    // SF runs right to left, so the single S-bend needs the room on the left
+    const direct = thresholdExceeded && movingLeft;
+
+    if (direct && movingDown) {
+      path += ` h ${-halfHorizontalDistance + cornerRadius}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} ${cornerRadius}`;
+      path += ` v ${absDeltaY - cornerRadius * 2}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} ${cornerRadius}`;
+      path += ` h ${-halfHorizontalDistance + cornerRadius}`;
+    } else if (direct) {
+      path += ` h ${-(halfHorizontalDistance - cornerRadius)}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} -${cornerRadius}`;
+      path += ` v ${-(absDeltaY - cornerRadius * 2)}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} -${cornerRadius}`;
+      path += ` h ${-halfHorizontalDistance + cornerRadius}`;
+    } else if (movingDown) {
+      path += ` h ${-stepOffset}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} ${cornerRadius}`;
+      path += ` v ${halfVerticalDistance - cornerRadius * 2}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} ${cornerRadius}`;
+      path += ` h ${stepOffset * 2 + deltaX}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} ${cornerRadius}`;
+      path += ` v ${halfVerticalDistance - cornerRadius * 2}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} ${cornerRadius}`;
+      path += ` h ${-stepOffset}`;
+    } else {
+      path += ` h ${-stepOffset}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 -${cornerRadius} -${cornerRadius}`;
+      path += ` v ${-(halfVerticalDistance - cornerRadius * 2)}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 1 ${cornerRadius} -${cornerRadius}`;
+      path += ` h ${stepOffset * 2 + deltaX}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 ${cornerRadius} -${cornerRadius}`;
+      path += ` v ${-(halfVerticalDistance - cornerRadius * 2)}`;
+      path += ` a ${cornerRadius} ${cornerRadius} 0 0 0 -${cornerRadius} -${cornerRadius}`;
+      path += ` h ${-stepOffset}`;
     }
 
     return path;

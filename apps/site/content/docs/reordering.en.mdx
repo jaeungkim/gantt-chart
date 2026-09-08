@@ -1,11 +1,12 @@
 ---
 title: "Reordering rows"
-description: "Dragging a row in the task list to a new position or a new parent, the fields a move rewrites, and how to reject one"
+description: "Dragging a row in the task list to a new position or a new parent"
 ---
 
-Row reordering lets a user drag a row in the task list to a new position or a new parent. Unlike
-the bar gestures in [Editing tasks](editing), it is off by default. Set `allowReorder` on the chart
-to turn it on for every row.
+Row reordering lets a user drag a row in the task list to a new position or a new parent. This
+page covers the fields a move rewrites and how to reject one. Unlike the bar gestures in
+[Editing tasks](editing), it is off by default. Set `allowReorder` on the chart to turn it on for
+every row.
 
 ```tsx
 <ReactGanttChart tasks={tasks} onTasksChange={setTasks} allowReorder hierarchy />

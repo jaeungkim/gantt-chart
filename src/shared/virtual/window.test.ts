@@ -111,7 +111,6 @@ describe('virtualItemsOf', () => {
     for (const item of items) {
       expect(item.start).toBe(axis.offsetAt(item.index));
       expect(item.size).toBe(axis.sizeAt(item.index));
-      expect(item.end).toBe(item.start + item.size);
     }
   });
 

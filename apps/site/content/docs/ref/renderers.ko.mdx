@@ -28,8 +28,8 @@ export interface GanttDetailRenderProps {
   close: () => void;
   scale: GanttScaleKey;
   /**
-   * 차트의 일반 커밋 경로(스토어, 그다음 `onTasksChange`)로 열린 작업을 패치해요.
-   * 그래서 커스텀 본문이 비제어 모드에서 편집을 커밋할 수 있어요. 권한 검사는 전혀
+   * 차트의 일반 확정 경로(스토어, 그다음 `onTasksChange`)로 열린 작업을 패치해요.
+   * 그래서 커스텀 본문이 비제어 모드에서 편집을 확정할 수 있어요. 권한 검사는 전혀
    * 하지 않아요 - 규칙은 커스텀 본문이 직접 지켜야 해요.
    */
   update: (patch: Partial<Omit<Task, 'id'>>) => void;

@@ -31,28 +31,21 @@ export default function GanttRowsLayer({
           transform: `translateY(${virtualRow.start}px)`,
         };
 
-        if (ownedByTaskList) {
-          return (
-            <div
-              key={`row-${row.id}`}
-              className="gantt-task-row"
-              style={style}
-              aria-hidden="true"
-            />
-          );
-        }
+        const aria = ownedByTaskList
+          ? ({ "aria-hidden": "true" } as const)
+          : rowAriaProps(row, virtualRow.index, {
+              headerOffset: 0,
+              expandable: isRowExpandable(row, hierarchy),
+              expanded: !collapsedIds.has(row.id),
+              ownedIds: row.tasks.map((task) => `task-${task.id}`),
+            });
 
         return (
           <div
             key={`row-${row.id}`}
             className="gantt-task-row"
             style={style}
-            {...rowAriaProps(row, virtualRow.index, {
-              headerOffset: 0,
-              expandable: isRowExpandable(row, hierarchy),
-              expanded: !collapsedIds.has(row.id),
-              ownedIds: row.tasks.map((task) => `task-${task.id}`),
-            })}
+            {...aria}
           />
         );
       })}

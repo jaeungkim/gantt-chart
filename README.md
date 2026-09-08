@@ -15,15 +15,18 @@ A Gantt chart for React that behaves like a controlled input.
 
 ## Features
 
-- One controlled `tasks` prop. Bar drags move a task, resize it from either edge and set its
-  progress, and every commit returns the complete next array through `onTasksChange`.
-- Dependency arrows for `FS`, `SS`, `FF` and `SF`, drawn between bars and removed with Delete or Backspace.
-- A task list pane with the `parentId` tree, summary roll-up and row reordering.
-- A docked detail panel that narrows the timeline and edits the task in place.
-- Five scales from `day` to `year`, rows and time cells virtualized together, and tasks packed onto shared rows by `lane`.
-- A working calendar from `workingWeekdays` and `holidays`, which also shades the timeline.
-- Keyboard editing and screen reader announcements on one ARIA treegrid.
-- `locale` date labels through `Intl.DateTimeFormat`, and a light, dark or system theme.
+- One controlled `tasks` prop. Every committed gesture returns the complete next array through
+  `onTasksChange`, and the chart persists nothing.
+- One ARIA treegrid. Move, resize and reorder from the keyboard, announced in a live region.
+  Drawing a dependency arrow has no keyboard path.
+- Rows and time cells both virtualized against one scroll window, so a 4,000-row plan mounts what
+  fits on screen.
+- A headless core with no React and no DOM, enforced by an eslint `no-restricted-imports` block
+  scoped to `src/core`.
+- Dependency arrows for `FS`, `SS`, `FF` and `SF`, drawn between bars.
+- A working calendar from `workingWeekdays` and `holidays` that both shades the timeline and snaps
+  a drop forward.
+- Five scales from `day` to `year`, a task list pane with the `parentId` tree, and lanes.
 
 ## Install
 
@@ -33,8 +36,9 @@ pnpm add @jaeungkim/gantt-chart
 # yarn add @jaeungkim/gantt-chart
 ```
 
-`react` and `react-dom` (`^18` or `^19`) are peer dependencies. The runtime dependencies are
-`dayjs` and `zustand`.
+`react` and `react-dom` (`^18` or `^19`) are peer dependencies, and React is the only module the
+built bundle imports. The ESM build is under 40 kB gzipped and the stylesheet is 4.1 kB. `dayjs` is a
+declared dependency because `Dayjs` is in the public types.
 
 ## Quick example
 
@@ -98,9 +102,6 @@ complete next array, and the chart persists nothing, including the scale.
 can edit. [GanttProps](https://gantt.jaeungkim.com/docs/ref/props) lists every prop, callback and
 default. The chart renders no toolbar, so your app renders the scale control and drives it
 through the `ref` in [Imperative API](https://gantt.jaeungkim.com/docs/imperative-api).
-
-The tree and calendar helpers are exported as plain functions that run without React or a DOM. See
-[Headless core](https://gantt.jaeungkim.com/docs/headless-core).
 
 Release notes are on [GitHub Releases](https://github.com/jaeungkim/gantt-chart/releases).
 

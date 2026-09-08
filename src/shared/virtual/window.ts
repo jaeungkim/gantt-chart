@@ -21,9 +21,7 @@ export interface VirtualWindow {
 
 export interface VirtualItem {
   index: number;
-  key: number;
   start: number;
-  end: number;
   size: number;
 }
 
@@ -80,7 +78,7 @@ export function virtualItemsOf(
   for (let index = window.start; index <= window.end; index += 1) {
     const start = axis.offsetAt(index);
     const size = axis.sizeAt(index);
-    items.push({ index, key: index, start, end: start + size, size });
+    items.push({ index, start, size });
   }
   return items;
 }

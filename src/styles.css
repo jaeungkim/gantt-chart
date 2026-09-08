@@ -973,6 +973,14 @@
   z-index: 5;
 }
 
+.gantt-bar-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+}
+
 /* The wrapper's transform sorts in .gantt-content, so these lift the bar and its tooltip as one
    subtree. Keyed off `has-tooltip`, not :hover - a progress drag keeps the readout up off the bar. */
 .gantt-bar-wrap:has(> .gantt-task-bar.has-tooltip) {
@@ -993,7 +1001,6 @@
   background: var(--gantt-bar-color, var(--gantt-bar-bg));
   border-radius: 6px;
   user-select: none;
-  cursor: grab;
   box-shadow: var(--gantt-bar-shadow);
   /* transform is excluded - it is driven by inline style while dragging */
   transition: background var(--gantt-transition-fast),
@@ -1034,7 +1041,6 @@
 
 .gantt-task-bar:active,
 .gantt-task-bar.dragging {
-  cursor: grabbing;
   box-shadow: var(--gantt-bar-shadow-drag);
 }
 
@@ -1062,16 +1068,8 @@
 /* No resize grips where resizing is unavailable, or where the bar is too narrow to offer them */
 .gantt-task-bar.compact::before,
 .gantt-task-bar.compact::after,
-.gantt-task-bar.compact:hover::before,
-.gantt-task-bar.compact:hover::after,
-.gantt-task-bar.compact.dragging::before,
-.gantt-task-bar.compact.dragging::after,
 .gantt-task-bar.no-resize::before,
-.gantt-task-bar.no-resize::after,
-.gantt-task-bar.no-resize:hover::before,
-.gantt-task-bar.no-resize:hover::after,
-.gantt-task-bar.no-resize.dragging::before,
-.gantt-task-bar.no-resize.dragging::after {
+.gantt-task-bar.no-resize::after {
   opacity: 0;
 }
 

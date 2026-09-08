@@ -11,9 +11,7 @@ limitations.
 ## Core boundary
 
 Everything under `src/core/` is data and pure functions. Its only runtime dependency is `dayjs`
-with the `utc` plugin. A grep over the directory for `react`, `window`, `document`,
-`localStorage`, `navigator` and `requestAnimationFrame` finds one prose comment and no import or
-global.
+with the `utc` plugin.
 
 An eslint block scoped to `src/core/**/*.{ts,tsx}` enforces the boundary. It forbids importing
 `react`, `react-dom`, `zustand`, `@tanstack/*` and every domain folder on the render side:
@@ -103,9 +101,9 @@ const CALENDAR_DAYS: WorkingCalendar;
 function createWorkingCalendar(options?: WorkingCalendarOptions): WorkingCalendar;
 ```
 
-The returned object is public API. `isWorkingDay`, `addDays`, `daysBetween`, `daysUntil`,
-`daysUpTo`, `snapForward` and the `skipsNonWorkingDays` flag are callable on their own. They often
-cover a host app's own date arithmetic. Read [The timeline](timeline) for what the two props
+The returned object is public API. `isWorkingDay`, `addDays`, `daysBetween`, `snapForward` and
+the `skipsNonWorkingDays` flag are callable on their own. They often cover a host app's own date
+arithmetic. Read [The timeline](timeline) for what the two props
 shade, and [Working calendar](working-calendar) for what a calendar changes in the chart and what
 it leaves alone. The options and their precedence are in
 [Working calendar helpers](ref/core-calendar). Props and defaults: [GanttProps](ref/props).
@@ -252,4 +250,4 @@ writes local timestamps without an offset is nine hours off. `holidays` entries 
 against the UTC `YYYY-MM-DD` for the same reason. [Task data](task-data) has the full date
 contract.
 
-Next: [Tree helpers](ref/core-tree).
+Next: [GanttProps](ref/props).

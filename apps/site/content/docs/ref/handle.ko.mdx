@@ -5,7 +5,7 @@ description: "`ref` 핸들이 제공하는 메서드와 메서드가 받는 옵�
 
 `GanttHandle`은 차트에 건 `ref`로 받는 객체예요. `GanttScrollApi`와 `GanttDetailApi`,
 `GanttTaskCreateApi`를 합친 타입이에요. 그래서 스크롤과 줌 메서드, 상세 패널 메서드 둘과
-`addTask`를 담고 있어요. 이 페이지의 여섯 타입은 모두 패키지가 타입으로만 내보내요.
+`addTask`를 담고 있어요. 이 페이지의 다섯 타입은 모두 패키지가 타입으로만 내보내요.
 
 ```ts
 import type {
@@ -14,7 +14,6 @@ import type {
   GanttScrollApi,
   GanttScrollOptions,
   GanttTaskCreateApi,
-  GanttZoomAnchor,
 } from '@jaeungkim/gantt-chart';
 ```
 
@@ -50,26 +49,17 @@ export interface GanttHandle
 ## `GanttScrollApi`
 
 ```ts
-/** 명령형 스크롤·줌 API */
+/** 명령형 스크롤과 줌 API */
 export interface GanttScrollApi {
   /** 지정한 날짜로 가로 스크롤 */
   scrollToDate: (date: string | Date | Dayjs, options?: GanttScrollOptions) => void;
   /** 오늘로 가로 스크롤 */
   scrollToToday: (options?: GanttScrollOptions) => void;
-  /** 지정한 작업으로 가로·세로 스크롤 */
+  /** 지정한 작업으로 가로와 세로로 스크롤 */
   scrollToTask: (taskId: string, options?: GanttScrollOptions) => void;
-  /**
-   * 타임라인 배율 전환
-   *
-   * 타임라인 한가운데의 날짜가 그대로 한가운데에 남아서, 배율만 갈아 끼울 때처럼 화면이
-   * 튀지 않아요. 모르는 키는 모르는 작업 id와 마찬가지로 무시해요.
-   */
+  /** 가운데 날짜를 그대로 두고 배율 전환. 모르는 키는 무시 */
   setScale: (scale: GanttScaleKey) => void;
-  /**
-   * 프로젝트 전체가 뷰포트 너비에 들어가는 가장 촘촘한 배율로 전환
-   *
-   * 프로젝트가 보이도록 스크롤도 해요. 작업이 없는 동안에는 아무 일도 하지 않아요.
-   */
+  /** 프로젝트 전체가 들어가는 가장 촘촘한 배율로 전환하고 화면에 보이도록 스크롤 (작업이 없으면 아무 일도 하지 않음) */
   zoomToFit: () => void;
   /** 스크롤 컨테이너 DOM 노드 (없으면 null) */
   getScrollElement: () => HTMLDivElement | null;
@@ -87,12 +77,7 @@ export interface GanttScrollApi {
 ```ts
 /** 차트 밖에서 상세 패널을 열고 닫기 */
 export interface GanttDetailApi {
-  /**
-   * 작업 하나로 상세 패널 열기
-   *
-   * 모르는 id는 `scrollToTask`가 그러듯 무시해요. 패널이 꺼져 있는 동안 — 즉 `showDetail`이
-   * false이거나, `showDetail` 없이 `renderDetail`도 주지 않은 동안 — 에는 아무 일도 하지 않아요.
-   */
+  /** 작업 하나로 상세 패널 열기. 모르는 id와 패널이 없는 차트(`renderDetail`, `showDetail` 없음)는 무시 */
   openDetail: (taskId: string) => void;
   /** 상세 패널 닫기 */
   closeDetail: () => void;
@@ -109,13 +94,7 @@ export interface GanttDetailApi {
 ```ts
 /** 차트 밖에서 새 작업 제안하기 */
 export interface GanttTaskCreateApi {
-  /**
-   * 작업 목록 아래 "Add task" 버튼과 똑같이 새 작업을 제안해요
-   *
-   * 초안은 현재 배율에 맞춘, 오늘이 놓인 눈금 하나예요. 그대로 `onTaskCreate`로 가고 —
-   * 차트는 여전히 아무것도 추가하지 않아요. 작업 생성이 꺼져 있으면, 즉 `onTaskCreate`가
-   * 없거나 상호작용 prop이 생성을 막고 있으면 아무 일도 하지 않아요.
-   */
+  /** "Add task" 버튼처럼 오늘 눈금 하나 길이의 초안을 `onTaskCreate`로 전달. `onTaskCreate`가 없거나 `allowTaskCreate`가 false면 아무 일도 하지 않음 */
   addTask: () => void;
 }
 ```
@@ -147,20 +126,6 @@ export interface GanttScrollOptions {
 `0`으로 스크롤해요.
 
 `align`은 가로 축에만 적용돼요. `scrollToTask`가 세로로 움직일 때는 언제나 행을 가운데에 맞춰요.
-
-## `GanttZoomAnchor`
-
-```ts
-/** 타임라인의 보이는 왼쪽 가장자리에서 일정한 거리에 고정되는 날짜 */
-export interface GanttZoomAnchor {
-  date: Dayjs;
-  /** 타임라인 영역 왼쪽 가장자리로부터의 px (작업 목록 패널 제외) */
-  viewportX: number;
-}
-```
-
-패키지가 내보내는 타입이지만 `GanttHandle`의 어떤 멤버도 받지 않아요. 배율이 바뀌는 동안 차트가
-화면에 고정해 두는 날짜를 나타내요. `setScale`과 `zoomToFit`, 휠 줌이 각자 앵커를 만들어 써요.
 
 ## ref 연결하기
 
@@ -230,7 +195,7 @@ export function TimelinePane() {
 - 마운트 뒤에 배율을 정하는 prop은 없어요. 코드에서 배율을 정하려면 `setScale`을 호출하세요.
   `defaultScale`은 스토어를 만들 때 한 번만 읽는 초기값이라 나중에 바꿔도 무시돼요.
 - 차트는 배율 선택기를 그리지 않아요. 앱에서 만든 선택기에서 `setScale`을 호출하세요.
-  [GanttProps](props)의 `onScaleChange` prop은 키보드나 휠이 배율을 바꿨을 때 알려요.
+  [GanttProps](props)의 `onScaleChange` prop은 어디에서 바꿨든 바뀐 배율을 알려줘요.
 - `zoomToFit`은 `GanttScrollOptions`를 받지 않아요. 스크롤은 애니메이션 없이 즉시 일어나요.
 - `zoomToFit`은 다섯 배율을 `day`, `week`, `month`, `quarter`, `year` 순으로 시도해요. 프로젝트가
   어느 배율에도 들어가지 않으면 `year`로 정해요. [타임라인](../timeline)을 참고하세요.

@@ -16,7 +16,7 @@ and applies the array the chart passes to `onTasksChange`. See [Events](events).
 
 ## Parts of the chart
 
-<ChartSketch preset="anatomy" />
+<ChartSketch />
 
 | Term | Meaning |
 |---|---|
@@ -196,20 +196,11 @@ The signature and default of every prop named here are in [GanttProps](ref/props
 
 ## Limitations
 
-The terms above cover more than the chart enforces. The following work stays with the host app.
+The terms above cover more than the chart enforces. Two of them are fixed for the whole chart.
 
-- `Task` has no schema or runtime type check. The chart does not check id uniqueness, date parsing
-  or progress range. Bad data degrades with no warning, and a missing `sequence` throws during
-  render. Two tasks with the same `id` both draw a row, but every lookup keyed by id (the tree, the
-  dependency graph, the roll-up) keeps only the last one. [Task data](task-data) lists what each
-  malformed field does.
-- Persistence is the host app's work. The chart renders the `tasks` prop, passes every edit to
-  `onTasksChange` and stores nothing itself. Optimistic updates and server round trips are the host
-  app's work too. Drawing a new task produces a draft only. See [Creating tasks](task-creation).
-- Resources, cost and effort have no model. A task has no assignee, owner or budget field. Custom
-  properties on a task object are allowed, but they are untyped and they count toward the `tasks`
-  diff. [Task data](task-data) explains that diff.
 - The working calendar and the time zone apply to the whole chart, not per task. All dates are UTC.
 - Row height is fixed, and every row comes from a task, so an empty row cannot be created.
+
+What the chart does not check, store or model is listed in [Introduction](introduction).
 
 Next: [Quick start](quick-start).

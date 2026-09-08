@@ -150,8 +150,6 @@ select는 자기 상태를 직접 바꾸지 않아요. 고른 값이 차트로 �
 
 핸들에는 `zoomIn`과 `zoomOut`이 없어요. 다섯 키를 담은 배열을 직접 만들어 `setScale`로 한 단계씩 옮기거나 `Ctrl`/`Cmd` + 휠과 `Ctrl`/`Cmd` + `ArrowUp`/`ArrowDown`에 맡기세요. 둘 다 [타임라인](timeline)에서 설명해요.
 
-`GanttZoomAnchor`는 패키지에서 내보내는 타입이지만 핸들의 어떤 메서드도 받지 않아요. `setScale`과 `zoomToFit`은 각자 앵커를 만들어요.
-
 ## 상세 패널
 
 메서드 두 개가 차트 밖에서 상세 패널을 움직여요. `openDetail(taskId)`는 옆에 붙은 상세 패널을 그 작업으로 열고 `closeDetail()`은 닫아요.
@@ -181,7 +179,7 @@ import '@jaeungkim/gantt-chart/style.css';
 export function ChartWithDetail({ tasks }: { tasks: Task[] }) {
   const ganttRef = useRef<GanttHandle>(null);
 
-  // 스크롤 먼저, 그다음 열기 — 패널은 차트가 스크롤할 수 없는 id도 해석해요
+  // 스크롤 먼저, 그다음 열기. 패널은 차트가 스크롤할 수 없는 id도 해석해요
   const inspect = (taskId: string) => {
     ganttRef.current?.scrollToTask(taskId);
     ganttRef.current?.openDetail(taskId);

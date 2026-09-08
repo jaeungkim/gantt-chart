@@ -9,7 +9,6 @@ export type {
   GanttTaskCreateApi,
   GanttScrollApi,
   GanttScrollOptions,
-  GanttZoomAnchor,
 } from './timeline/hooks/useGanttScrollApi';
 export type {
   Task,

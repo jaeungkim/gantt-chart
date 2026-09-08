@@ -55,8 +55,8 @@ export interface GanttScaleConfig {
 
   basePxPerDragStep: number;
 
-  formatTickLabel?: (date: Dayjs) => string;
-  formatHeaderLabel?: (date: Dayjs) => string;
+  formatTickLabel: (date: Dayjs) => string;
+  formatHeaderLabel: (date: Dayjs) => string;
 }
 ```
 

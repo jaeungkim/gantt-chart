@@ -12,10 +12,16 @@ import {
   GanttTopHeaderGroup,
   GanttVisibleRange,
 } from "shared/types";
-import { Task, TaskTransformed } from "shared/task";
+import {
+  GanttInteractionConfig,
+  resolveTaskInteraction,
+  Task,
+  TaskTransformed,
+} from "shared/task";
 import dayjs, { startOfQuarter, startOfWeek } from "core/dates";
 import { resolveFormatters, resolveLabelUnit } from "shared/utils/i18n";
 import { NO_RANGE_EXTENSION } from "timeline/utils/viewport";
+import { tickAxis, tickCellAt } from "./header";
 import { transformTasks } from "./transform";
 import { buildTaskTree, rollUpTasks } from "core/tree";
 
@@ -186,6 +192,38 @@ export function clampDragDates(
   return { startDate, endDate: end };
 }
 
+// The moving tasks that have a window of their own, with the dates they started at. Each one
+// resolves its own bounds, so a descendant constrains a subtree move too - keyboard and pointer
+// both clamp against this list.
+export function collectMoveMembers(
+  rawTasks: Task[],
+  movingIds: Set<string>,
+  target: TaskTransformed,
+  bounds: GanttDragBounds | null,
+  interaction?: GanttInteractionConfig
+): { start: Dayjs; end: Dayjs; bounds: GanttDragBounds }[] {
+  const members: { start: Dayjs; end: Dayjs; bounds: GanttDragBounds }[] = [];
+
+  for (const task of rawTasks) {
+    if (!movingIds.has(task.id)) continue;
+
+    // The target's own bounds are resolved by the caller; it also uses the dates on screen,
+    // which for a summary are the ones rolled up from its children
+    const isTarget = task.id === target.id;
+    const member = resolveTaskInteraction(task, interaction);
+    const own = isTarget ? bounds : toDragBounds(member.minDate, member.maxDate);
+    if (!own) continue;
+
+    members.push({
+      start: dayjs(isTarget ? target.startDate : task.startDate),
+      end: dayjs(isTarget ? target.endDate : task.endDate),
+      bounds: own,
+    });
+  }
+
+  return members;
+}
+
 // Largest shared move keeping every member inside its own window; stays between 0 and requestedMs.
 export function clampMoveDelta(
   members: { start: Dayjs; end: Dayjs; bounds: GanttDragBounds }[],
@@ -281,22 +319,6 @@ export function timelineRange(
   };
 }
 
-// Index of the tick a px offset falls in, clamped to the timeline.
-function tickIndexAt(
-  px: number,
-  timelineTicks: GanttBottomRowCell[]
-): number {
-  if (px <= 0) return 0;
-
-  let offset = 0;
-  for (let index = 0; index < timelineTicks.length; index++) {
-    offset += timelineTicks[index].widthPx;
-    if (px < offset) return index;
-  }
-
-  return timelineTicks.length - 1;
-}
-
 interface DrawnRange {
   startDate: Dayjs;
   endDate: Dayjs;
@@ -315,28 +337,21 @@ export function snapDrawnRange(
   if (!timelineTicks.length) return null;
 
   const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];
-  const firstTick = tickIndexAt(Math.min(startPx, endPx), timelineTicks);
-  const lastTick = tickIndexAt(Math.max(startPx, endPx), timelineTicks);
-
-  let leftPx = 0;
-  for (let index = 0; index < firstTick; index++) {
-    leftPx += timelineTicks[index].widthPx;
-  }
-
-  let widthPx = 0;
-  for (let index = firstTick; index <= lastTick; index++) {
-    widthPx += timelineTicks[index].widthPx;
-  }
+  const axis = tickAxis(timelineTicks);
+  const first = tickCellAt(axis, Math.min(startPx, endPx));
+  const last = tickCellAt(axis, Math.max(startPx, endPx));
+  if (!first || !last) return null;
 
   return {
-    startDate: timelineTicks[firstTick].startDate,
-    endDate: timelineTicks[lastTick].startDate.add(unitPerTick, tickUnit),
-    leftPx,
-    widthPx,
+    startDate: timelineTicks[first.index].startDate,
+    endDate: timelineTicks[last.index].startDate.add(unitPerTick, tickUnit),
+    leftPx: first.left,
+    widthPx: last.left + last.width - first.left,
   };
 }
 
-function findDateRangeFromTasks(
+// Earliest start and latest end across the tasks; both are invalid when no task carries a date.
+export function findDateRangeFromTasks(
   tasks: Task[]
 ): { minDate: Dayjs; maxDate: Dayjs } {
   let minTime = Infinity;

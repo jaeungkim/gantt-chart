@@ -1,8 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 
-// Module scope, so no new array is created per render
-const EMPTY_IDS: string[] = [];
-
 interface UseGanttCollapseParams {
   /** Controlled list - given, this is what the chart shows */
   collapsedIds?: string[];
@@ -27,7 +24,7 @@ export function useGanttCollapse({
   onCollapsedChange,
 }: UseGanttCollapseParams): GanttCollapseState {
   const [uncontrolled, setUncontrolled] = useState<string[]>(
-    () => defaultCollapsedIds ?? EMPTY_IDS
+    () => defaultCollapsedIds ?? []
   );
   const collapsed = collapsedIds ?? uncontrolled;
   const collapsedSet = useMemo(() => new Set(collapsed), [collapsed]);

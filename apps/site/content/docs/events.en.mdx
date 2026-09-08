@@ -196,16 +196,6 @@ so the ordinary controlled loop does not overwrite the drag result on screen.
 
 ## Edit paths
 
-| Path | Callback | Cancellable |
-|---|---|---|
-| Move, resize or progress drag | `onTasksChange` | no |
-| Keyboard nudge, progress step or delete | `onTasksChange` | no |
-| A field edited in the detail panel, or `update()` from `renderDetail` | `onTasksChange` | no |
-| Dragging a row to a new slot or parent, or its keyboard equivalent | `onTaskMove`, then `onTasksChange` | yes, sync |
-| The **Add task** button, `addTask()` on the ref, or a range drawn below the last row | `onTaskCreate` | n/a, the chart adds nothing itself |
-| Drawing a dependency arrow | `onDependencyCreate`, return `false` to cancel | yes, sync |
-| Deleting a dependency arrow | `onDependencyDelete`, return `false` to cancel | yes, sync |
-
 The same edits are available from the keyboard. `Alt` with a horizontal arrow moves a bar, `Shift` resizes
 it, `+` and `-` step its progress, and `Delete` removes it. Each of those commits straight to the
 tasks and fires `onTasksChange`, like the gesture it replaces. To stop an edit before it happens,

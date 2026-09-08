@@ -107,28 +107,22 @@ export function useGanttDrawCreate({
     const releaseTouchScroll =
       pointerType === "mouse" ? null : suppressTouchScroll();
 
-    const rangeAt = (clientX: number) => {
+    const rangeAt = (x: number) => {
       const { bottomRowCells, selectedScale } = storeApi.getState();
-      // Re-read the rect every frame - the container may have been scrolled mid-drag
-      const rect = content.getBoundingClientRect();
-      return snapDrawnRange(
-        originX,
-        clientX - rect.left,
-        bottomRowCells,
-        selectedScale
-      );
+      return snapDrawnRange(originX, x, bottomRowCells, selectedScale);
     };
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== pointerId) return;
 
-      const rect = content.getBoundingClientRect();
-      if (Math.abs(moveEvent.clientX - rect.left - originX) < MIN_DRAW_PX) {
+      // Re-read the rect every frame - the container may have been scrolled mid-drag
+      const x = moveEvent.clientX - content.getBoundingClientRect().left;
+      if (Math.abs(x - originX) < MIN_DRAW_PX) {
         setGhost(null);
         return;
       }
 
-      const range = rangeAt(moveEvent.clientX);
+      const range = rangeAt(x);
       setGhost(
         range && {
           leftPx: range.leftPx,
@@ -164,10 +158,8 @@ export function useGanttDrawCreate({
     const handlePointerUp = (upEvent: PointerEvent) => {
       if (upEvent.pointerId !== pointerId) return;
 
-      const rect = content.getBoundingClientRect();
-      const drawn =
-        Math.abs(upEvent.clientX - rect.left - originX) >= MIN_DRAW_PX;
-      const range = drawn ? rangeAt(upEvent.clientX) : null;
+      const x = upEvent.clientX - content.getBoundingClientRect().left;
+      const range = Math.abs(x - originX) >= MIN_DRAW_PX ? rangeAt(x) : null;
       endDraw();
 
       if (!range) return;

@@ -2,20 +2,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GanttDemo } from '@/components/demo/gantt-demo';
 
-export const metadata: Metadata = {
-  title: 'A Gantt chart that behaves like a controlled input',
-  description:
-    'A controlled React Gantt chart. Every drag returns the complete next tasks array. Virtualized rows, five timeline scales, four dependency types, a working calendar, and keyboard and screen reader support.',
-};
-
 // The card order. Each href is also the key its copy is filed under, so a card can never
 // end up pointing at a page other than the one its text describes.
 const FEATURES = [
   '/docs/editing',
-  '/docs/working-calendar',
-  '/docs/headless-core',
-  '/docs/introduction',
   '/docs/accessibility',
+  '/docs/introduction',
+  '/docs/headless-core',
+  '/docs/working-calendar',
   '/docs/theming',
 ] as const;
 
@@ -38,7 +32,7 @@ interface Copy {
 // The landing page is a translation pair like every docs page: en and ko move together.
 const COPY: Record<'en' | 'ko', Copy> = {
   en: {
-    heroTitle: 'A Gantt chart that behaves like a controlled input',
+    heroTitle: 'A Gantt chart for React that behaves like a controlled input',
     heroBody:
       'Drag a bar and the complete next tasks array comes back through onTasksChange. Your app holds that array, and the chart persists nothing.',
     getStarted: 'Get started',
@@ -55,21 +49,21 @@ const COPY: Record<'en' | 'ko', Copy> = {
         title: 'Controlled editing',
         body: 'Drag to move, pull an edge to resize, drag the handle to set progress, draw an arrow to link two rows. Every gesture calls onTasksChange with the complete next array.',
       },
-      '/docs/working-calendar': {
-        title: 'Working calendar',
-        body: 'Set the working weekdays, and give each holiday a name and a colour. Turn on workingCalendar and a drop on a non-working day moves forward to the next working day.',
-      },
-      '/docs/headless-core': {
-        title: 'Headless core',
-        body: 'createWorkingCalendar and the task tree helpers import no React. They use no DOM, so a server or a worker can run them.',
+      '/docs/accessibility': {
+        title: 'Keyboard and screen readers',
+        body: 'An ARIA treegrid with a roving tabindex, arrow key navigation and keyboard edits announced in a status region. The accessibility page lists the gaps.',
       },
       '/docs/introduction': {
         title: 'Virtualized',
         body: 'Rows and timeline ticks are both windowed, so the chart renders what is on screen plus a small overscan.',
       },
-      '/docs/accessibility': {
-        title: 'Keyboard and screen readers',
-        body: 'An ARIA treegrid with a roving tabindex, arrow key navigation and keyboard edits announced in a status region. The accessibility page lists the gaps.',
+      '/docs/headless-core': {
+        title: 'Headless core',
+        body: 'createWorkingCalendar and the task tree helpers import no React. They use no DOM, so a server or a worker can run them.',
+      },
+      '/docs/working-calendar': {
+        title: 'Working calendar',
+        body: 'Set the working weekdays, and give each holiday a name and a colour. Turn on workingCalendar and a drop on a non-working day moves forward to the next working day.',
       },
       '/docs/theming': {
         title: 'CSS custom properties',
@@ -95,21 +89,21 @@ const COPY: Record<'en' | 'ko', Copy> = {
         title: '제어되는 편집',
         body: '막대를 끌어 옮기고 가장자리를 당겨 크기를 조절해요. 핸들을 끌면 진행률이 정해지고 화살표를 그으면 두 행이 연결돼요. 모든 제스처가 다음 tasks 배열 전체로 onTasksChange를 호출해요.',
       },
-      '/docs/working-calendar': {
-        title: '근무일 달력',
-        body: '근무 요일을 정하고 휴일마다 이름과 색을 지정하세요. workingCalendar를 켜면 비근무일에 놓은 막대가 다음 근무일에 놓여요.',
-      },
-      '/docs/headless-core': {
-        title: '헤드리스 코어',
-        body: 'createWorkingCalendar와 작업 트리 헬퍼는 React를 가져오지 않아요. DOM도 쓰지 않아서 서버나 워커에서도 실행할 수 있어요.',
+      '/docs/accessibility': {
+        title: '키보드와 스크린 리더',
+        body: '로빙 tabindex와 방향키 이동을 지원하는 ARIA treegrid예요. 키보드로 만든 편집은 role="status" 요소로 알려요. 남은 한계는 접근성 문서에 정리해 뒀어요.',
       },
       '/docs/introduction': {
         title: '가상화',
         body: '행과 타임라인 눈금을 모두 가상화해요. 화면에 보이는 범위와 오버스캔만큼만 렌더링해요.',
       },
-      '/docs/accessibility': {
-        title: '키보드와 스크린 리더',
-        body: '로빙 tabindex와 방향키 이동을 지원하는 ARIA treegrid예요. 키보드로 만든 편집은 role="status" 요소로 알려요. 남은 한계는 접근성 문서에 정리해 뒀어요.',
+      '/docs/headless-core': {
+        title: '헤드리스 코어',
+        body: 'createWorkingCalendar와 작업 트리 헬퍼는 React를 가져오지 않아요. DOM도 쓰지 않아서 서버나 워커에서도 실행할 수 있어요.',
+      },
+      '/docs/working-calendar': {
+        title: '근무일 달력',
+        body: '근무 요일을 정하고 휴일마다 이름과 색을 지정하세요. workingCalendar를 켜면 비근무일에 놓은 막대가 다음 근무일에 놓여요.',
       },
       '/docs/theming': {
         title: 'CSS 커스텀 속성',
@@ -118,6 +112,16 @@ const COPY: Record<'en' | 'ko', Copy> = {
     },
   },
 };
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ lang: string }>;
+}): Promise<Metadata> {
+  const { lang } = await params;
+  const copy = COPY[lang === 'ko' ? 'ko' : 'en'];
+  return { title: copy.heroTitle, description: copy.heroBody };
+}
 
 export default async function HomePage({
   params,

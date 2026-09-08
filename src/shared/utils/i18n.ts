@@ -83,8 +83,10 @@ function formatterFor(
 // readout uses it. It throws on a range that runs backwards - reachable by resizing an end
 // past its own start - so that case falls back to printing both ends.
 function rangeFormatterFor(
-  intl: Intl.DateTimeFormat
+  locale: string,
+  options: Intl.DateTimeFormatOptions
 ): (start: Dayjs, end: Dayjs) => string {
+  const intl = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options });
   return (start, end) => {
     try {
       return intl.formatRange(start.toDate(), end.toDate());
@@ -154,14 +156,8 @@ export function resolveFormatters(
   return {
     edge,
     range,
-    tick:
-      override?.tick ??
-      intl?.tick ??
-      ((date) => config.formatTickLabel?.(date) ?? ''),
-    header:
-      override?.header ??
-      intl?.header ??
-      ((date) => headerConfig.formatHeaderLabel?.(date) ?? date.format()),
+    tick: override?.tick ?? intl?.tick ?? config.formatTickLabel,
+    header: override?.header ?? intl?.header ?? headerConfig.formatHeaderLabel,
     tooltip:
       override?.tooltip ??
       intl?.tooltip ??
@@ -185,12 +181,7 @@ function localeFormatters(
           : formatterFor(locale, HEADER_OPTIONS[headerScale]),
       tooltip: formatterFor(locale, TOOLTIP_OPTIONS[scale]),
       edge: formatterFor(locale, RANGE_OPTIONS[scale]),
-      range: rangeFormatterFor(
-        new Intl.DateTimeFormat(locale, {
-          timeZone: 'UTC',
-          ...RANGE_OPTIONS[scale],
-        })
-      ),
+      range: rangeFormatterFor(locale, RANGE_OPTIONS[scale]),
     };
   } catch {
     if (!warnedLocales.has(locale)) {

@@ -53,15 +53,6 @@ export function variableAxis(
   };
 }
 
-export function axisOf(
-  count: number,
-  size: number | ArrayLike<number>,
-  fallback = 0,
-): VirtualAxis {
-  if (typeof size === 'number') return fixedAxis(count, size);
-  return variableAxis(count, (index) => size[index] ?? fallback);
-}
-
 function clamp(value: number, min: number, max: number): number {
   return value < min ? min : value > max ? max : value;
 }

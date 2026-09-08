@@ -188,16 +188,6 @@ export function ServerBackedGantt({ initial }: { initial: Task[] }) {
 
 ## 편집 경로
 
-| 경로 | 콜백 | 취소 가능 |
-|---|---|---|
-| 이동, 크기 조절, 진행률 드래그 | `onTasksChange` | 아니오 |
-| 키보드 이동, 진행률 단계, 삭제 | `onTasksChange` | 아니오 |
-| 상세 패널 필드 편집 또는 `renderDetail`의 `update()` | `onTasksChange` | 아니오 |
-| 행을 새 자리나 새 부모로 드래그, 또는 그 키보드 동작 | `onTaskMove`, 그다음 `onTasksChange` | 예, 동기 |
-| **Add task** 버튼, ref의 `addTask()`, 마지막 행 아래에 그린 범위 | `onTaskCreate` | 취소할 것 없음, 차트는 스스로 추가하지 않아요 |
-| 의존성 화살표 그리기 | `onDependencyCreate`, `false`를 반환하면 취소 | 예, 동기 |
-| 의존성 화살표 삭제 | `onDependencyDelete`, `false`를 반환하면 취소 | 예, 동기 |
-
 키보드로도 포인터 없이 편집할 수 있어요. `Alt`와 좌우 방향키는 막대를 옮기고 `Shift`는 크기를
 조절해요. `+`와 `-`는 진행률을 한 단계씩 바꾸고 `Delete`는 막대를 지워요. 모두 곧바로 작업에
 확정되고 같은 일을 하는 제스처와 똑같이 `onTasksChange`를 호출해요. 편집이 일어나기 전에 막으려면

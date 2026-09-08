@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { axisOf, fixedAxis, variableAxis } from './axis';
+import { fixedAxis, variableAxis } from './axis';
 
 describe('fixedAxis', () => {
   const axis = fixedAxis(1000, 38);
@@ -61,20 +61,5 @@ describe('variableAxis', () => {
     const axis = variableAxis(3, () => -5);
     expect(axis.total).toBe(0);
     expect(axis.offsetAt(2)).toBe(0);
-  });
-});
-
-describe('axisOf', () => {
-  it('takes a number as a uniform axis', () => {
-    expect(axisOf(4, 25).total).toBe(100);
-  });
-
-  it('takes a list as the sizes themselves', () => {
-    expect(axisOf(4, [10, 20, 30, 40]).total).toBe(100);
-  });
-
-  it('falls back for entries the list does not carry', () => {
-    // a time cell that reported no width still occupies a column
-    expect(axisOf(4, [10, 20], 32).total).toBe(94);
   });
 });

@@ -3,7 +3,11 @@ import { RefObject, useCallback, useMemo } from "react";
 import { GanttBottomRowCell, GanttScaleKey } from "shared/types";
 import { TaskTransformed } from "shared/task";
 import dayjs from "core/dates";
-import { calculateDateOffsetPx, dateAtOffsetPx } from "timeline/utils/geometry";
+import {
+  calculateDateOffsetPx,
+  dateAtOffsetPx,
+  findDateRangeFromTasks,
+} from "timeline/utils/geometry";
 import { fitScale } from "timeline/utils/viewport";
 import { GANTT_SCALE_CONFIG } from "shared/constants";
 
@@ -30,7 +34,7 @@ export interface GanttScrollApi {
   scrollToToday: (options?: GanttScrollOptions) => void;
   /** Scroll horizontally and vertically to a given task */
   scrollToTask: (taskId: string, options?: GanttScrollOptions) => void;
-  /** Switches the scale, keeping the centre date centred; an unknown key is ignored */
+  /** Switches the scale, keeping the center date centered; an unknown key is ignored */
   setScale: (scale: GanttScaleKey) => void;
   /** Switches to the finest scale the whole project fits at and scrolls it into view (no-op with no tasks) */
   zoomToFit: () => void;
@@ -186,17 +190,12 @@ export function useGanttScrollApi({
     const el = scrollRef.current;
     if (!el || !transformedTasks.length) return;
 
-    let minTime = Infinity;
-    let maxTime = -Infinity;
-    for (const task of transformedTasks) {
-      minTime = Math.min(minTime, dayjs(task.startDate).valueOf());
-      maxTime = Math.max(maxTime, dayjs(task.endDate).valueOf());
-    }
-    if (!Number.isFinite(minTime) || !Number.isFinite(maxTime)) return;
+    const { minDate, maxDate } = findDateRangeFromTasks(transformedTasks);
+    if (!minDate.isValid() || !maxDate.isValid()) return;
 
     // First moment pinned to the left edge, at the scale the whole span fits that width
-    zoomTo(fitScale(maxTime - minTime, el.clientWidth - viewportInsetPx), {
-      date: dayjs(minTime),
+    zoomTo(fitScale(maxDate.diff(minDate), el.clientWidth - viewportInsetPx), {
+      date: minDate,
       viewportX: 0,
     });
   }, [transformedTasks, scrollRef, viewportInsetPx, zoomTo]);

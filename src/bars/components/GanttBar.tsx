@@ -2,13 +2,12 @@ import {
   BAR_HEIGHT,
   EDGE_THRESHOLD,
   HOVER_CARD_DELAY_MS,
-  MIN_BAR_WIDTH,
   MIN_LABEL_INSIDE_WIDTH,
   MIN_RESIZABLE_WIDTH,
   PROGRESS_HANDLE_INSET,
   SUMMARY_BAR_HEIGHT,
 } from "shared/constants";
-import { useGanttBarDrag, DragMode } from "bars/hooks/useGanttBarDrag";
+import { useGanttBarDrag } from "bars/hooks/useGanttBarDrag";
 import {
   GanttDependencyChange,
   useGanttLinkDrag,
@@ -20,10 +19,9 @@ import {
   useState,
   useCallback,
   useEffect,
-  useMemo,
 } from "react";
 import { useGanttStore, useGanttStoreApi } from "shared/context";
-import { GanttBarOptions } from "shared/types";
+import { GanttBarOptions, GanttDragMode } from "shared/types";
 import {
   GanttInteractionConfig,
   resolveTaskColors,
@@ -34,7 +32,7 @@ import dayjs from "core/dates";
 import type { WorkingCalendar } from "../../core/calendar";
 import { formatTaskAriaLabel } from "interaction/utils/a11y";
 import { LinkAnchor } from "shared/types";
-import { formatDuration, resolveFormatters } from "shared/utils/i18n";
+import { formatDuration } from "shared/utils/i18n";
 
 interface GanttBarProps {
   currentTask: TaskTransformed;
@@ -66,6 +64,7 @@ export default function GanttBar({
     onTaskActivate,
     onTaskDoubleClick,
     showTooltip = true,
+    tooltip,
   } = options;
 
   const barRef = useRef<HTMLDivElement>(null);
@@ -145,8 +144,6 @@ export default function GanttBar({
   const liveOffset = useGanttStore((store) => store.dragOffsets[currentTask.id]);
   const isDragging = useGanttStore((store) => store.currentTask?.id === currentTask.id);
   const dragMode = useGanttStore((store) => store.dragMode);
-  const selectedScale = useGanttStore((store) => store.selectedScale);
-  const localeOptions = useGanttStore((store) => store.localeOptions);
   const isSelected = useGanttStore(
     (store) => store.selectedTaskId === currentTask.id
   );
@@ -157,7 +154,7 @@ export default function GanttBar({
   // A minimum width keeps short tasks grabbable; the label moves outside when narrow
   const finalLeft = currentTask.barLeft + offsetX;
   const trueWidth = currentTask.barWidth + offsetWidth;
-  const finalWidth = Math.max(trueWidth, MIN_BAR_WIDTH);
+  const finalWidth = Math.max(trueWidth, MIN_RESIZABLE_WIDTH);
   const labelOutside = finalWidth < MIN_LABEL_INSIDE_WIDTH;
 
   const { onProgressPointerDown, progress, isDraggingProgress } =
@@ -205,18 +202,10 @@ export default function GanttBar({
     return restCursor;
   })();
 
-  const { tooltip } = useMemo(
-    () => resolveFormatters(selectedScale, localeOptions),
-    [selectedScale, localeOptions]
-  );
   // The dates ride the bar itself - a screen reader user never sees the date header above it
-  const ariaLabel = formatTaskAriaLabel(
-    currentTask,
-    tooltip,
-    showProgress ? progress : null
-  );
+  const ariaLabel = formatTaskAriaLabel(currentTask, tooltip, progress);
 
-  const getTooltipText = (mode: DragMode | null) => {
+  const getTooltipText = (mode: GanttDragMode | null) => {
     if (!liveOffset) return "";
 
     const startText = tooltip(liveOffset.offsetStartDate);
@@ -256,14 +245,8 @@ export default function GanttBar({
     if (!tooltipReason) return null;
 
     const isGesture = tooltipReason !== "hover";
-    const startDate =
-      isGesture && liveOffset
-        ? liveOffset.offsetStartDate
-        : dayjs(currentTask.startDate);
-    const endDate =
-      isGesture && liveOffset
-        ? liveOffset.offsetEndDate
-        : dayjs(currentTask.endDate);
+    const startDate = dayjs(currentTask.startDate);
+    const endDate = dayjs(currentTask.endDate);
 
     // Gesture tooltips are a single live line; the hover one is the task's summary
     if (tooltipReason === "progress") {

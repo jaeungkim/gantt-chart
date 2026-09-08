@@ -12,11 +12,20 @@ import { ReactGanttChart, createWorkingCalendar, type Task } from '@jaeungkim/ga
 import '@jaeungkim/gantt-chart/style.css';
 ```
 
-런타임 의존성은 `dayjs`와 `zustand` 둘뿐이에요. `react`와 `react-dom`은 peer dependency예요.
-`^18`과 `^19`를 지원해요. 모든 prop은 선택이고 `tasks`의 기본값은 빈 배열이에요. 설치 명령과 처음
-동작하는 차트는 [빠른 시작](quick-start)에 있어요.
+번들에 의존성이 함께 들어가서 실행할 때 불러오는 패키지는 `react`와 `react-dom`뿐이에요. 둘 다
+peer dependency이고 `^18`과 `^19`를 지원해요. `dayjs`는 공개 타입에 `Dayjs`가 있어서 의존성으로
+남아 있어요. 예를 들어 `formats` 콜백은 `Dayjs` 값을 받아요. 모든 prop은 선택이고 `tasks`의
+기본값은 빈 배열이에요. 설치 명령과 처음 동작하는 차트는 [빠른 시작](quick-start)에 있어요.
 
 ## 패키지에 들어 있는 것
+
+### 접근성
+
+- 차트 전체가 하나의 ARIA `treegrid`예요. 각 행은 `aria-level`과 `aria-posinset`/`aria-setsize`, `aria-rowindex`를 가져요.
+- 그리드 본문은 로빙 탭 스톱 하나이고 나머지 탭 스톱은 패널 스플리터 하나예요. 방향키로 행 사이와 한 행의 셀 사이를 오가요.
+- 막대는 키보드로 옮기고 크기를 조절하고 진행률을 단계별로 바꿔요. [키보드와 스크린 리더](accessibility) 참고
+- Ctrl/Cmd + ArrowUp과 ArrowDown은 타임라인 배율을 더 촘촘하게 또는 더 성기게 바꾸고 새 배율을 알려요.
+- 막대의 접근성 이름은 작업 이름과 날짜, 진행률로 만들어요.
 
 ### 렌더링
 
@@ -40,14 +49,6 @@ import '@jaeungkim/gantt-chart/style.css';
 - 의존성 화살표는 그리거나 편집할 수 있어요. 다만 차트가 날짜를 강제하지는 않아요. 끌어 옮긴 막대만 움직여요.
 - 트리와 달력 연산은 일반 함수로 내보내서 렌더링 없이 호출할 수 있어요. [헤드리스 코어](headless-core) 참고
 
-### 접근성
-
-- 차트 전체가 하나의 ARIA `treegrid`예요. 각 행은 `aria-level`과 `aria-posinset`/`aria-setsize`, `aria-rowindex`를 가져요.
-- 그리드 본문은 로빙 탭 스톱 하나이고 나머지 탭 스톱은 패널 스플리터 하나예요. 방향키로 행 사이와 한 행의 셀 사이를 오가요.
-- 막대는 키보드로 옮기고 크기를 조절하고 진행률을 단계별로 바꿔요. [키보드와 스크린 리더](accessibility) 참고
-- Ctrl/Cmd + ArrowUp과 ArrowDown은 타임라인 배율을 더 촘촘하게 또는 더 성기게 바꾸고 새 배율을 알려요.
-- 막대의 접근성 이름은 작업 이름과 날짜, 진행률로 만들어요.
-
 ### 테마
 
 - `theme`은 `'light'`와 `'dark'`, `'system'`을 받아요. 생략하면 호스트 페이지의 `color-scheme`을 따라가요. 앱의 테마 토글이 이미 설정하는 값이에요. [테마](theming) 참고
@@ -56,13 +57,13 @@ import '@jaeungkim/gantt-chart/style.css';
 - `renderDetail`은 상세 패널 본문을 대체해요. 커스텀 렌더러를 받는 자리는 여기 말고는 없어요. [상세 패널](detail-panel) 참고
 - `locale`은 모든 날짜 라벨을 `Intl.DateTimeFormat`으로 그려요. `formats`는 배율마다 눈금과 헤더, 툴팁 라벨을 덮어써요. [로케일과 날짜 형식](i18n) 참고
 
-## 제한 사항
+## 한계
 
 네트워크 코드는 실행하지 않아요. 소스에 `fetch`나 `XMLHttpRequest`, `WebSocket` 호출이 없고 작업은
 prop으로 들어와요. 렌더링된 타임라인 범위가 바뀌면 `onRangeChange`가 발생하니 여기에서 더 불러오세요.
 
-차트는 타임라인을 그리고 호스트 앱이 요청하면 작업 목록 패널을 그려요. 자체 컨트롤은 그리지 않으니
-툴바나 배율 컨트롤은 직접 만드세요. 배율은 ref의 `setScale`이나 Ctrl/Cmd + ArrowUp / ArrowDown으로
+차트는 타임라인을 그리고 호스트 앱이 요청하면 작업 목록 패널을 그려요. 툴바는 그리지 않으니
+배율 컨트롤은 직접 만드세요. 배율은 ref의 `setScale`이나 Ctrl/Cmd + ArrowUp / ArrowDown으로
 바꿔요. `zoomOnWheel`을 켜면 Ctrl/Cmd + 휠도 쓸 수 있어요. `onScaleChange`가 모든 변경을 알려 주니 그
 컨트롤이 차트를 따라갈 수 있어요. 여기에 맞물리는 `<select>`는 [명령형 API](imperative-api)에 있어요.
 

@@ -103,14 +103,14 @@ Four rules apply:
 - A file goes in the domain it belongs to, rather than the one that happens to use it.
   `interaction/` owns the aria labels even though `bars/` renders them. Cross-domain imports are
   normal. Do not duplicate a helper to avoid one, and do not promote a helper to `src/shared/`
-  just because a second domain reached for it - a helper with a clear owner keeps that owner.
+  just because a second domain reached for it. A helper with a clear owner keeps that owner.
   What does move to `src/shared/` is vocabulary with no owning feature: a type or constant that
   several domains and the store all speak. `LinkAnchor` lives there for that reason, even though
   only `dependencies/` produces one, because `shared/store.ts` holds the drag draft and `shared/`
   may not import a domain.
 - Imports run one way. `core/` imports nothing of ours, `shared/` imports only `core/`, and
   domains import `core/`, `shared/` and each other. Within a domain, keep the module graph
-  acyclic - two files that need each other are usually one file.
+  acyclic. Two files that need each other are usually one file.
 
 Imports are bare and resolved by `baseUrl: "src"` in `tsconfig.json`, so a module's specifier is
 its path under `src/`: `bars/hooks/useGanttBarDrag`, `rows/utils/rows`, `interaction/utils/a11y`.

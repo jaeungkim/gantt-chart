@@ -78,29 +78,6 @@ describe('working-day calendar', () => {
     expect(iso(workweek.snapForward(d('06-06')))).toBe('2025-06-06T00:00');
   });
 
-  describe('daysUntil / daysUpTo', () => {
-    it('daysUntil is the smallest step that clears the target', () => {
-      // One working day lands on Mon 09:00, so clearing Mon 17:00 takes two.
-      expect(workweek.daysUntil(d('06-06T09:00'), d('06-09T09:00'))).toBe(1);
-      expect(workweek.daysUntil(d('06-06T09:00'), d('06-09T17:00'))).toBe(2);
-      expect(workweek.daysUntil(d('06-09'), d('06-04'))).toBe(-3);
-      expect(workweek.daysUntil(d('06-09'), d('06-09'))).toBe(0);
-    });
-
-    it('daysUpTo is the largest step that stays inside the target', () => {
-      expect(workweek.daysUpTo(d('06-06T09:00'), d('06-09T09:00'))).toBe(1);
-      expect(workweek.daysUpTo(d('06-06T09:00'), d('06-09T08:00'))).toBe(0);
-      expect(workweek.daysUpTo(d('06-02'), d('06-08'))).toBe(4); // Sun -> back to Fri
-      expect(workweek.daysUpTo(d('06-09'), d('06-04'))).toBe(-3);
-    });
-
-    it('agree when the target is exactly reachable', () => {
-      const target = workweek.addDays(d('06-03T11:00'), 6);
-      expect(workweek.daysUntil(d('06-03T11:00'), target)).toBe(6);
-      expect(workweek.daysUpTo(d('06-03T11:00'), target)).toBe(6);
-    });
-  });
-
   it('falls back to plain days rather than hanging on a calendar with no working day', () => {
     const nothing = createWorkingCalendar({ workingWeekdays: [] });
     expect(iso(nothing.addDays(d('06-02'), 3))).toBe('2025-06-05T00:00');

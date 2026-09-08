@@ -210,79 +210,67 @@ function SketchRow({ row }: { row: Row }) {
   );
 }
 
-// Percentages of days off the frame's first day; the spans match each page's own code sample.
+// Percentages of days off the frame's first day; the spans match the code sample on the concepts page.
 const day42 = (d: number) => (d / 42) * 100;
-const day19 = (d: number) => (d / 19) * 100;
 
 type Lang = 'en' | 'ko';
 
-const PRESETS = {
-  anatomy: (lang: Lang): SketchSpec => ({
-    paneLabel: lang === 'ko' ? '작업 목록' : 'task list',
-    caption:
-      lang === 'ko'
-        ? '차트 정지 화면이에요. 왼쪽은 작업 목록 패널, 오른쪽은 타임라인이고, 요약 행 하나와 두 작업이 실린 레인 행 하나, 보통 행 하나가 있어요.'
-        : 'A still of the chart: the task list pane on the left, the timeline on the right, holding a summary row, a lane row carrying two tasks, and an ordinary row.',
-    months: [
-      { label: 'March 2026', width: day42(30), note: 1 },
-      { label: 'April 2026', width: day42(12) },
-    ],
-    ticksNote: 2,
-    ticks: [0, 7, 14, 21, 28, 35].map((d) => ({
-      label: d < 30 ? String(2 + d) : String(d - 29),
-      at: day42(d),
-    })),
-    rows: [
-      {
-        name: 'Phase 1',
-        kind: 'summary',
-        note: 3,
-        bars: [{ from: day42(0), to: day42(19), kind: 'summary' }],
-      },
-      {
-        name: 'Design',
-        depth: 1,
-        chip: '+1',
-        note: 4,
-        bars: [
-          { from: day42(0), to: day42(5), label: 'Design' },
-          { from: day42(7), to: day42(19), label: 'Build', arrow: true },
+const anatomy = (lang: Lang): SketchSpec => ({
+  paneLabel: lang === 'ko' ? '작업 목록' : 'task list',
+  caption:
+    lang === 'ko'
+      ? '차트 정지 화면이에요. 왼쪽은 작업 목록 패널, 오른쪽은 타임라인이고, 요약 행 하나와 두 작업이 실린 레인 행 하나, 보통 행 하나가 있어요.'
+      : 'A still of the chart: the task list pane on the left, the timeline on the right, holding a summary row, a lane row carrying two tasks, and an ordinary row.',
+  months: [
+    { label: 'March 2026', width: day42(30), note: 1 },
+    { label: 'April 2026', width: day42(12) },
+  ],
+  ticksNote: 2,
+  ticks: [0, 7, 14, 21, 28, 35].map((d) => ({
+    label: d < 30 ? String(2 + d) : String(d - 29),
+    at: day42(d),
+  })),
+  rows: [
+    {
+      name: 'Phase 1',
+      kind: 'summary',
+      note: 3,
+      bars: [{ from: day42(0), to: day42(19), kind: 'summary' }],
+    },
+    {
+      name: 'Design',
+      depth: 1,
+      chip: '+1',
+      note: 4,
+      bars: [
+        { from: day42(0), to: day42(5), label: 'Design' },
+        { from: day42(7), to: day42(19), label: 'Build', arrow: true },
+      ],
+    },
+    {
+      name: 'Ship',
+      note: 5,
+      bars: [{ from: day42(21), to: day42(26), label: 'Ship' }],
+    },
+  ],
+  notes:
+    lang === 'ko'
+      ? [
+          '위쪽 헤더 행이에요. 화면에 들어오는 기간을 스케일 한 단위씩 묶어서 보여줘요.',
+          '눈금 행이에요. 눈금 하나가 덮는 기간은 스케일이 정하고, 폭이 모자라면 라벨을 솎아내요.',
+          '요약 행이에요. `hierarchy`가 켜져 있고 `parentId`로 자식이 달린 작업이고, 날짜는 자식에게서 와요.',
+          '레인 행이에요. `lane` 값이 같고 기간이 겹치지 않는 두 작업이 한 행에 실렸어요.',
+          '보통 행이에요. 작업 하나가 막대 하나로 그려져요.',
+        ]
+      : [
+          'Top header row: the visible span, bucketed one unit of the scale at a time.',
+          'Tick row: how much time one tick covers is the scale, and labels thin out when the width runs short.',
+          'Summary row: a task with children under `parentId`, with `hierarchy` on. Its dates come from the children.',
+          'Lane row: two tasks sharing a `lane` and not overlapping in time, packed onto one row.',
+          'Ordinary row: one task, one bar.',
         ],
-      },
-      {
-        name: 'Ship',
-        note: 5,
-        bars: [{ from: day42(21), to: day42(26), label: 'Ship' }],
-      },
-    ],
-    notes:
-      lang === 'ko'
-        ? [
-            '위쪽 헤더 행이에요. 화면에 들어오는 기간을 스케일 한 단위씩 묶어서 보여줘요.',
-            '눈금 행이에요. 눈금 하나가 덮는 기간은 스케일이 정하고, 폭이 모자라면 라벨을 솎아내요.',
-            '요약 행이에요. `hierarchy`가 켜져 있고 `parentId`로 자식이 달린 작업이고, 날짜는 자식에게서 와요.',
-            '레인 행이에요. `lane` 값이 같고 기간이 겹치지 않는 두 작업이 한 행에 실렸어요.',
-            '보통 행이에요. 작업 하나가 막대 하나로 그려져요.',
-          ]
-        : [
-            'Top header row: the visible span, bucketed one unit of the scale at a time.',
-            'Tick row: how much time one tick covers is the scale, and labels thin out when the width runs short.',
-            'Summary row: a task with children under `parentId`, with `hierarchy` on. Its dates come from the children.',
-            'Lane row: two tasks sharing a `lane` and not overlapping in time, packed onto one row.',
-            'Ordinary row: one task, one bar.',
-          ],
-  }),
+});
 
-} satisfies Record<string, (lang: Lang) => SketchSpec>;
-
-type ChartSketchPreset = keyof typeof PRESETS;
-
-export function ChartSketch({
-  preset,
-  lang = 'en',
-}: {
-  preset: ChartSketchPreset;
-  lang?: Lang;
-}) {
-  return <SketchFrame spec={PRESETS[preset](lang)} />;
+export function ChartSketch({ lang = 'en' }: { lang?: Lang }) {
+  return <SketchFrame spec={anatomy(lang)} />;
 }

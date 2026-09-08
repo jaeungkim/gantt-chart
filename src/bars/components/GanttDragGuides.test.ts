@@ -122,9 +122,9 @@ describe("drag readout is the tick row being precise, not a panel on it", () => 
 
 describe("drag readout writes the cell the moving edge lands in", () => {
   it("finds each edge's cell off the cells' own widths", () => {
-    expect(guides).toContain("tickBoundaries(bottomRowCells)");
-    expect(guides).toContain("tickCellAt(boundaries, startX)");
-    expect(guides).toContain("tickCellAt(boundaries, endX)");
+    expect(guides).toContain("tickAxis(bottomRowCells)");
+    expect(guides).toContain("tickCellAt(axis, startX)");
+    expect(guides).toContain("tickCellAt(axis, endX)");
   });
 
   it("labels each end on its own, not one merged string", () => {

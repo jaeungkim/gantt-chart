@@ -50,8 +50,8 @@ export interface GanttScaleConfig {
 
   basePxPerDragStep: number;
 
-  formatTickLabel?: (date: Dayjs) => string;
-  formatHeaderLabel?: (date: Dayjs) => string;
+  formatTickLabel: (date: Dayjs) => string;
+  formatHeaderLabel: (date: Dayjs) => string;
 }
 
 /** Replaces the generated labels of one scale - whatever is left out keeps the built-in (or locale) label. */
@@ -98,13 +98,13 @@ export interface GanttFormatters {
 
 /** A day off beyond the weekend. A bare `YYYY-MM-DD` string is the same thing with no label. */
 export interface Holiday {
-  /** UTC `YYYY-MM-DD` */
+  /** UTC `YYYY-MM-DD`. A string carrying a time or an offset is read as a UTC instant. */
   date: string;
-  /** Inclusive last day - omit for a single day */
+  /** Inclusive last day, read the same way as `date`. Omit for a single day. */
   endDate?: string;
   /** Written in the tick row over the holiday's band, when the band is wide enough to hold it */
   label?: string;
-  /** Any CSS colour. Tinted onto the grid at the weekend shade's weight, never painted over it. */
+  /** Any CSS color. Tinted onto the grid at the weekend shade's weight, never painted over it. */
   color?: string;
 }
 
@@ -139,13 +139,15 @@ export interface GanttDragOffset {
   offsetEndDate: Dayjs;
 }
 
-// Everything a bar needs from the chart's props - one object rather than eight
+// Everything a bar needs from the chart, props and resolved values alike - one object rather than eight
 export interface GanttBarOptions {
   onTasksChange?: (updatedTasks: Task[]) => void;
   onTaskActivate?: (task: TaskTransformed, event: ReactMouseEvent) => void;
   onTaskDoubleClick?: (task: TaskTransformed, event: ReactMouseEvent) => void;
   // Hover and drag tooltips, on unless explicitly turned off
   showTooltip?: boolean;
+  // Resolved once by the chart - a bar formats its own dates with it
+  tooltip: GanttFormatters['tooltip'];
 }
 
 /** Props handed to a `renderDetail` override */

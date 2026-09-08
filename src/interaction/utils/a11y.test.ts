@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Task, TaskTransformed } from 'shared/task';
 import {
+  clampFocus,
   deleteTask,
   formatMovedAnnouncement,
   formatTaskAriaLabel,
@@ -37,7 +38,6 @@ const task = (
 
 const row = (extra: Partial<GanttKeyboardRow> = {}): GanttKeyboardRow => ({
   cells: 4,
-  firstBarCell: 3,
   expandable: false,
   expanded: true,
   ...extra,
@@ -131,6 +131,28 @@ describe('rowAriaProps', () => {
   });
 });
 
+describe('clampFocus', () => {
+  it('pulls the column back onto a row that carries fewer bars', () => {
+    // One list cell, then two bars on row 0 and one on row 1
+    const rows = [row({ cells: 3 }), row({ cells: 2 })];
+
+    // ArrowDown keeps the column, so the stored focus would name a cell row 1 has not got
+    expect(
+      resolveKeyboardAction({ key: 'ArrowDown' }, { row: 0, col: 2 }, rows),
+    ).toEqual({ kind: 'focus', focus: { row: 1, col: 2 } });
+
+    expect(clampFocus({ row: 1, col: 2 }, rows)).toEqual({ row: 1, col: 1 });
+  });
+
+  it('pulls the row back once the rows below it are gone', () => {
+    expect(clampFocus({ row: 5, col: 0 }, [row(), row()])).toEqual({
+      row: 1,
+      col: 0,
+    });
+    expect(clampFocus({ row: 3, col: 2 }, [])).toEqual({ row: 0, col: 0 });
+  });
+});
+
 describe('resolveKeyboardAction', () => {
   const rows = [row(), row(), row()];
 
@@ -169,12 +191,12 @@ describe('resolveKeyboardAction', () => {
     const collapsed = [row({ expandable: true, expanded: false })];
     expect(
       resolveKeyboardAction({ key: 'ArrowRight' }, { row: 0, col: 0 }, collapsed),
-    ).toEqual({ kind: 'toggle', row: 0, col: 0 });
+    ).toEqual({ kind: 'toggle', col: 0 });
 
     const expanded = [row({ expandable: true, expanded: true })];
     expect(
       resolveKeyboardAction({ key: 'ArrowLeft' }, { row: 0, col: 0 }, expanded),
-    ).toEqual({ kind: 'toggle', row: 0, col: 0 });
+    ).toEqual({ kind: 'toggle', col: 0 });
 
     // Already collapsed - Left just moves (and there is nowhere left to go)
     expect(
@@ -205,11 +227,11 @@ describe('resolveKeyboardAction', () => {
       resolveKeyboardAction({ key: 'Enter' }, { row: 0, col: 3 }, [
         row({ expandable: true }),
       ]),
-    ).toEqual({ kind: 'toggle', row: 0, col: 3 });
+    ).toEqual({ kind: 'toggle', col: 3 });
 
     expect(
       resolveKeyboardAction({ key: ' ' }, { row: 0, col: 3 }, rows),
-    ).toEqual({ kind: 'activate', row: 0, col: 3 });
+    ).toEqual({ kind: 'activate', col: 3 });
   });
 
   it('maps the modifiers onto move, end resize and start resize', () => {
@@ -219,7 +241,7 @@ describe('resolveKeyboardAction', () => {
         { row: 0, col: 3 },
         rows,
       ),
-    ).toEqual({ kind: 'nudge', row: 0, col: 3, mode: 'bar', steps: 1 });
+    ).toEqual({ kind: 'nudge', col: 3, mode: 'bar', steps: 1 });
 
     expect(
       resolveKeyboardAction(
@@ -227,7 +249,7 @@ describe('resolveKeyboardAction', () => {
         { row: 0, col: 3 },
         rows,
       ),
-    ).toEqual({ kind: 'nudge', row: 0, col: 3, mode: 'right', steps: -1 });
+    ).toEqual({ kind: 'nudge', col: 3, mode: 'right', steps: -1 });
 
     expect(
       resolveKeyboardAction(
@@ -235,21 +257,21 @@ describe('resolveKeyboardAction', () => {
         { row: 0, col: 3 },
         rows,
       ),
-    ).toEqual({ kind: 'nudge', row: 0, col: 3, mode: 'left', steps: 1 });
+    ).toEqual({ kind: 'nudge', col: 3, mode: 'left', steps: 1 });
   });
 
   it('handles delete and the progress steps', () => {
     expect(
       resolveKeyboardAction({ key: 'Delete' }, { row: 1, col: 3 }, rows),
-    ).toEqual({ kind: 'delete', row: 1, col: 3 });
+    ).toEqual({ kind: 'delete', col: 3 });
 
     expect(
       resolveKeyboardAction({ key: '+' }, { row: 1, col: 3 }, rows),
-    ).toEqual({ kind: 'progress', row: 1, col: 3, delta: 5 });
+    ).toEqual({ kind: 'progress', col: 3, delta: 5 });
 
     expect(
       resolveKeyboardAction({ key: '-' }, { row: 1, col: 3 }, rows),
-    ).toEqual({ kind: 'progress', row: 1, col: 3, delta: -5 });
+    ).toEqual({ kind: 'progress', col: 3, delta: -5 });
   });
 
   // The only pointer-free way to rescale, and the chart ships no scale UI of its own
@@ -282,32 +304,32 @@ describe('resolveKeyboardAction - restructuring', () => {
   it('moves the row among its siblings on alt + the vertical arrows', () => {
     expect(
       resolveKeyboardAction({ key: 'ArrowDown', altKey: true }, { row: 1, col: 0 }, rows),
-    ).toEqual({ kind: 'reorder', row: 1, col: 0, delta: 1 });
+    ).toEqual({ kind: 'reorder', col: 0, delta: 1 });
 
     expect(
       resolveKeyboardAction({ key: 'ArrowUp', altKey: true }, { row: 1, col: 0 }, rows),
-    ).toEqual({ kind: 'reorder', row: 1, col: 0, delta: -1 });
+    ).toEqual({ kind: 'reorder', col: 0, delta: -1 });
   });
 
   it('indents on ctrl/meta + Right and outdents on ctrl/meta + Left', () => {
     expect(
       resolveKeyboardAction({ key: 'ArrowRight', ctrlKey: true }, { row: 1, col: 0 }, rows),
-    ).toEqual({ kind: 'reparent', row: 1, col: 0, direction: 1 });
+    ).toEqual({ kind: 'reparent', col: 0, direction: 1 });
 
     expect(
       resolveKeyboardAction({ key: 'ArrowRight', metaKey: true }, { row: 1, col: 0 }, rows),
-    ).toEqual({ kind: 'reparent', row: 1, col: 0, direction: 1 });
+    ).toEqual({ kind: 'reparent', col: 0, direction: 1 });
 
     expect(
       resolveKeyboardAction({ key: 'ArrowLeft', ctrlKey: true }, { row: 1, col: 0 }, rows),
-    ).toEqual({ kind: 'reparent', row: 1, col: 0, direction: -1 });
+    ).toEqual({ kind: 'reparent', col: 0, direction: -1 });
   });
 
   // The new bindings sit between three that were already taken - none of them moved
   it('leaves the bindings it sits next to alone', () => {
     expect(
       resolveKeyboardAction({ key: 'ArrowRight', altKey: true }, { row: 0, col: 3 }, rows),
-    ).toEqual({ kind: 'nudge', row: 0, col: 3, mode: 'bar', steps: 1 });
+    ).toEqual({ kind: 'nudge', col: 3, mode: 'bar', steps: 1 });
 
     expect(
       resolveKeyboardAction({ key: 'ArrowUp', ctrlKey: true }, { row: 1, col: 0 }, rows),
@@ -337,8 +359,7 @@ describe('keyboard navigation across a collapsed subtree', () => {
   const keyboardRows = (collapsed: string[]): GanttKeyboardRow[] =>
     rowsFor(collapsed).map((r) => ({
       cells: 3 + r.tasks.length,
-      firstBarCell: 3,
-      expandable: !!r.tasks[0]?.isSummary,
+          expandable: !!r.tasks[0]?.isSummary,
       expanded: !collapsed.includes(r.id),
     }));
 
@@ -533,6 +554,38 @@ describe('nudgeTaskDates', () => {
     expect(
       nudgeTaskDates(bounded, boundedTask, 'bar', -1, 'month')?.[0].startDate,
     ).toBe('2025-03-02T00:00:00.000Z');
+  });
+
+  it("stops a summary on a child's bound, not just its own", () => {
+    const tasks: Task[] = [
+      {
+        id: 'p',
+        name: 'p',
+        startDate: '2025-03-03T00:00:00.000Z',
+        endDate: '2025-03-14T00:00:00.000Z',
+        parentId: null,
+        sequence: '1',
+      },
+      {
+        id: 'c',
+        name: 'c',
+        startDate: '2025-03-05T00:00:00.000Z',
+        endDate: '2025-03-06T00:00:00.000Z',
+        parentId: 'p',
+        sequence: '1.1',
+        maxDate: '2025-03-06T00:00:00.000Z',
+      },
+    ];
+    const summary = task(
+      'p',
+      '2025-03-03T00:00:00.000Z',
+      '2025-03-14T00:00:00.000Z',
+      { isSummary: true },
+    );
+
+    // The child already ends on its bound, so the subtree cannot move later
+    expect(nudgeTaskDates(tasks, summary, 'bar', 1, 'month')).toBeNull();
+    expect(nudgeTaskDates(tasks, summary, 'bar', -1, 'month')).not.toBeNull();
   });
 
   it('ignores a zero-step nudge', () => {

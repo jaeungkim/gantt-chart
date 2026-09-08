@@ -108,7 +108,7 @@ The grid is UTC, so every hour cell is 60 minutes wide and every day cell has th
 
 There is no date validation on tasks. An unparseable `startDate` does not hide the row and does not throw. Its bar starts at the left edge of the timeline and runs to its `endDate`.
 
-An `endDate` equal to its `startDate` is legal. The bar width is clamped to a minimum of 1px, so a zero-length task draws 1px wide rather than being rejected or hidden.
+An `endDate` equal to its `startDate` is legal. A zero-length task is not rejected and not hidden. Its bar renders at the minimum width the chart draws, which [Editing tasks](editing) describes.
 
 Every value the chart writes back is serialized with `toISOString()`. A task passed as `'2025-06-01'` comes back as `'2025-06-01T00:00:00.000Z'` after the first drag. This matters for the comparison rule below.
 

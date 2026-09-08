@@ -52,8 +52,8 @@ description: "키 맵, ARIA 트리, 알림 문구, 키보드로 닿지 않는 �
 
 ### 한 단계의 크기
 
-한 단계는 현재 배율의 드래그 단계이고 키를 누르는 순간에 읽어요. 포인터 드래그도 같은 단계와
-같은 스냅 규칙을 써요. 배율별 값은 [타임라인](timeline)의 배율 표에 있어요.
+한 단계는 현재 배율의 드래그 단계이고 키를 누르는 순간에 읽어요. 포인터 드래그도 같은 단계를
+써요. 배율별 값은 [타임라인](timeline)의 배율 표에 있어요.
 
 단계는 달력 단위로 더하니 서머타임 경계를 넘어도 작업의 시각은 그대로예요.
 
@@ -163,53 +163,13 @@ prop과 기본값은 [GanttProps](ref/props)에 있어요.
 포인터 없이 배율을 바꾸는 내장 수단은 `Ctrl`/`Cmd` + 세로 방향키뿐이에요. 포인터 사용자가 누를
 컨트롤은 직접 만들어야 해요.
 
-네이티브 `<select>`로 만드세요. `onChange`에서 `setScale`을 호출하고 `onScaleChange`로 값을
-맞추면 돼요.
-
-```tsx title="src/ScalePicker.tsx"
-import { useRef, useState } from 'react';
-import {
-  ReactGanttChart,
-  type GanttHandle,
-  type GanttScaleKey,
-  type Task,
-} from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
-
-const SCALES: GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
-
-export default function ScalePicker({ tasks }: { tasks: Task[] }) {
-  const chart = useRef<GanttHandle>(null);
-  const [scale, setScale] = useState<GanttScaleKey>('month');
-
-  return (
-    <>
-      <select
-        aria-label="Timeline scale"
-        value={scale}
-        onChange={(e) => chart.current?.setScale(e.target.value as GanttScaleKey)}
-      >
-        {SCALES.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
-      </select>
-
-      <ReactGanttChart
-        ref={chart}
-        tasks={tasks}
-        defaultScale="month"
-        onScaleChange={setScale}
-      />
-    </>
-  );
-}
-```
+네이티브 `<select>`로 만드세요. 완성된 컴포넌트는 [명령형 API](imperative-api)에 있어요.
 
 `<select>`는 키보드, 스크린 리더, 터치 동작을 플랫폼에서 그대로 가져와요. 옵션 텍스트도 직접
 쓰니까 배율 키 5개를 번역할 수 있어요. 차트의 헤더 셀, 눈금, 툴팁은 이미 모두 `Intl`을 거쳐요.
 
 다른 컨트롤을 만들면 그 접근성은 호스트 앱이 책임져요. 차트는 `setScale`과 `onScaleChange`만
-제공하고 컨트롤은 그리지 않아요. `setScale`은 [명령형 API](imperative-api)에 있어요.
+제공하고 컨트롤은 그리지 않아요.
 
 ## ARIA 트리
 
@@ -398,15 +358,12 @@ section.gantt-container
 내어쓰기, `allowReorder`를 설정하지 않은 차트, `false`를 반환하는 `onTaskMove`는 모두 키를
 `preventDefault`한 뒤 알림 없이 끝나요.
 
-셀 참조가 없는 셀을 가리킬 수 있어요. 행이 바뀔 때 포커스 열은 범위를 제한하지 않아요. 막대 두
-개짜리 행에서 한 개짜리 행으로 내려가면 그 행에 없는 열 번호를 그대로 가져가요. 맞는 요소가 없으니
-차트는 하나뿐인 탭 스톱을 잃어요. 셀을 클릭할 때까지 그대로예요. 포커스가 `treegrid` 안에 있으면
-`Home`이나 `End`로 되살릴 수 있어요. 막대가 가로로 화면 밖에 나갔을 때도 같은 문제가 생겨요.
-뷰포트 밖 막대는 렌더링되지 않지만 행의 `aria-owns`에는 그 id가 남아 있어요.
+가로로 화면 밖에 나간 막대는 탭 스톱이 가리킬 요소를 남기지 않아요. 뷰포트 밖 막대는 렌더링되지
+않지만 행의 `aria-owns`에는 그 id가 남아 있어요. 포커스가 `treegrid` 안에 있으면 `Home`이나
+`End`로 되살릴 수 있어요.
 
-범위를 벗어난 열은 다른 막대를 편집해요. 셀에서 작업을 찾지 못하면 행의 첫 작업으로 돌아가요.
-레인이 여러 개인 행에서는 낡은 열이 멈추지 않고 0번 레인을 편집해요. 작업 목록 셀에서 누른
-`Delete`가 그 행의 작업을 지우는 것도 같은 대체 동작이에요.
+셀에서 작업을 찾지 못하면 행의 첫 작업으로 돌아가요. 작업 목록 셀에서 누른 `Delete`가 그 행의
+작업을 지우는 것도 같은 대체 동작이에요.
 
 펼치기와 접기는 알리지 않아요. 확장 가능 행에서 `Enter`를 누르면 포커스가 셀에 있는 채로 행의
 `aria-expanded`만 바뀌고 라이브 영역에는 아무것도 쓰지 않아요.

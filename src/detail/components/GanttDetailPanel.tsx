@@ -43,7 +43,6 @@ interface GanttDetailPanelProps {
   render?: GanttDetailRenderer;
   /** False while the panel slides shut - the slide lives in flex-basis, see .gantt-detail */
   open: boolean;
-  onTransitionEnd: React.TransitionEventHandler<HTMLElement>;
 }
 
 interface DetailInputProps {
@@ -108,11 +107,13 @@ export default function GanttDetailPanel({
   onTasksChange,
   render,
   open,
-  onTransitionEnd,
 }: GanttDetailPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const storeApi = useGanttStoreApi();
   const idBase = useId();
+  // The label and its input build the same id, so they read the same expression
+  const fieldId = (field: "startDate" | "endDate" | "progress") =>
+    `${idBase}-${field}`;
 
   // Restore focus on unmount only, and only while focus is still ours (in the panel, on <body>,
   // or nowhere) - the panel can close while the user is typing elsewhere on the host's page.
@@ -177,7 +178,7 @@ export default function GanttDetailPanel({
 
   const dateInput = (field: "startDate" | "endDate", value: string) => (
     <DetailInput
-      id={`${idBase}-${field}`}
+      id={fieldId(field)}
       type="date"
       value={dayjs(value).format("YYYY-MM-DD")}
       commit={(next) => commitField(field, next)}
@@ -189,14 +190,14 @@ export default function GanttDetailPanel({
     editable.dates
       ? {
           caption: "Start",
-          inputId: `${idBase}-startDate`,
+          inputId: fieldId("startDate"),
           value: dateInput("startDate", task.startDate),
         }
       : { caption: "Start", value: tooltip(start) },
     editable.dates
       ? {
           caption: "End",
-          inputId: `${idBase}-endDate`,
+          inputId: fieldId("endDate"),
           value: dateInput("endDate", task.endDate),
         }
       : { caption: "End", value: tooltip(end) },
@@ -207,10 +208,10 @@ export default function GanttDetailPanel({
       editable.progress
         ? {
             caption: "Progress",
-            inputId: `${idBase}-progress`,
+            inputId: fieldId("progress"),
             value: (
               <DetailInput
-                id={`${idBase}-progress`}
+                id={fieldId("progress")}
                 type="number"
                 min={0}
                 max={100}
@@ -233,7 +234,6 @@ export default function GanttDetailPanel({
       className={open ? "gantt-detail gantt-detail-open" : "gantt-detail"}
       role="complementary"
       aria-label="Task details"
-      onTransitionEnd={onTransitionEnd}
     >
       {render ? (
         render({ task, close: onClose, scale, update })

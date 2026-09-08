@@ -1,4 +1,3 @@
-import { NODE_HEIGHT } from "shared/constants";
 import { GanttDependencyChange } from "dependencies/hooks/useGanttLinkDrag";
 import type { GanttVirtualization } from "timeline/hooks/useGanttVirtualization";
 import { useCallback, useEffect, useId, useMemo } from "react";
@@ -26,8 +25,6 @@ import {
 
 interface Props {
   transformedTasks: TaskTransformed[];
-  // Row count of the chart - a lane row can carry several tasks, so it is not the task count
-  rowCount: number;
   // The chart's window - arrows cull against the same numbers as the bars
   virtual: GanttVirtualization;
   interaction?: GanttInteractionConfig;
@@ -59,7 +56,6 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 export default function GanttDependencyArrows({
   transformedTasks,
-  rowCount,
   virtual,
   interaction,
   onTasksChange,
@@ -68,7 +64,6 @@ export default function GanttDependencyArrows({
   const storeApi = useGanttStoreApi();
   const liveOffsets = useGanttStore((store) => store.dragOffsets);
   const linkDraft = useGanttStore((store) => store.linkDraft);
-  const totalWidth = useGanttStore((store) => store.getTotalWidth());
   const selected = useGanttStore((store) => store.selectedDependency);
   const selectedTaskId = useGanttStore((store) => store.selectedTaskId);
   const hoveredTaskId = useGanttStore((store) => store.hoveredTaskId);
@@ -190,7 +185,7 @@ export default function GanttDependencyArrows({
         : { x: linkDraft.toX, y: linkDraft.toY };
 
     // The SVG clips at its own box, so a label near its top or right edge would be cut off
-    const flip = to.x > totalWidth - LABEL_SAFE_MARGIN;
+    const flip = to.x > virtual.totalWidth - LABEL_SAFE_MARGIN;
     return {
       from,
       d:
@@ -206,7 +201,7 @@ export default function GanttDependencyArrows({
         anchor: flip ? ("end" as const) : ("start" as const),
       },
     };
-  }, [linkDraft, taskById, liveOffsets, totalWidth]);
+  }, [linkDraft, taskById, liveOffsets, virtual.totalWidth]);
 
   // Marker ids are document-global, so several charts on a page would mix them up. useId
   // values contain characters a url(#...) reference rejects, hence the strip.
@@ -217,7 +212,7 @@ export default function GanttDependencyArrows({
     <svg
       className={`gantt-dependency-arrows${linkDraft ? " linking" : ""}`}
       style={{
-        height: `${rowCount * NODE_HEIGHT}px`,
+        height: `${virtual.totalHeight}px`,
       }}
     >
       <defs>

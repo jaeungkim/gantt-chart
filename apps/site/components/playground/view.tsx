@@ -4,6 +4,7 @@ import {
   ReactGanttChart,
   type GanttFormatOverrides,
   type GanttHandle,
+  type GanttScaleKey,
   type Task,
   type TaskTransformed,
 } from '@jaeungkim/gantt-chart';
@@ -16,7 +17,6 @@ import {
   SCALES,
   writeSettings,
   type Settings,
-  type SelectValue,
 } from '@/components/playground/controls';
 
 // The fixture's own span, as dates. Read off `demoTasks` rather than the live `tasks` state, so
@@ -178,7 +178,11 @@ export function PlaygroundView() {
 
   // `readOnly` blocks creation too, so both copies of the button follow both switches.
   const canCreate = settings.allowTaskCreate && !settings.readOnly;
-  const createHint = canCreate ? undefined : 'Turn task creation on first';
+  const createHint = canCreate
+    ? undefined
+    : settings.allowTaskCreate
+      ? 'Turn read only off first'
+      : 'Turn task creation on first';
 
   return (
     // 3.5rem is HomeLayout's `h-14` navbar; z-50 clears Fumadocs' sticky nav, which sits at z-40.
@@ -225,7 +229,7 @@ export function PlaygroundView() {
           aria-label="Timeline scale"
           className={`${SELECT_BASE} ml-auto w-[4.75rem] sm:w-[7.5rem]`}
           value={settings.scale}
-          onChange={(e) => update('scale', e.target.value as SelectValue)}
+          onChange={(e) => update('scale', e.target.value as GanttScaleKey)}
         >
           {SCALES.map((scale) => (
             <option key={scale} value={scale}>
@@ -432,7 +436,7 @@ export function PlaygroundView() {
                             data-testid={control.key}
                             className={SELECT}
                             value={settings[control.key]}
-                            onChange={(e) => update(control.key, e.target.value as SelectValue)}
+                            onChange={(e) => update(control.key, e.target.value)}
                           >
                             {control.options.map((option) => (
                               <option key={option} value={option}>

@@ -70,7 +70,7 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 
 | prop | 타입 | 기본값 | 설명 |
 |---|---|---|---|
-| `readOnly` | `boolean` | `false` | 모든 작업에서 이동과 크기 조절, 진행률 드래그를 막아요. [작업 편집](../editing) 참고. |
+| `readOnly` | `boolean` | `false` | 모든 작업의 모든 제스처를 막아요. [작업 편집](../editing) 참고. |
 | `allowMove` | `boolean` | `!readOnly` | 막대 이동을 허용하고 `readOnly`보다 우선해요. [작업 편집](../editing) 참고. |
 | `allowResize` | `boolean` | `!readOnly` | 막대 크기 조절을 허용하고 `readOnly`보다 우선해요. [작업 편집](../editing) 참고. |
 | `allowProgressChange` | `boolean` | `!readOnly` | 진행률 핸들 드래그를 허용하고 `readOnly`보다 우선해요. [작업 편집](../editing) 참고. |
@@ -170,6 +170,9 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
   나머지는 상세 패널에 넣으세요. [작업 목록과 계층](../task-list) 참고.
 - `GanttTaskMoveChange`는 `onTaskMove`가 받는 값이에요. 패키지 루트에서 내보내고 필드는 이 값을
   만드는 `moveTask`와 함께 [트리 헬퍼](core-tree)에 정리돼 있어요.
+- `GanttDependencyChange`와 `GanttTaskDraft`, `GanttDateRange`도 패키지 루트에서 내보내요. 필드는
+  각 값을 받는 콜백과 함께 [의존성](../dependencies), [작업 생성](../task-creation),
+  [타임라인](../timeline)에 정리돼 있어요.
 - `Dayjs`는 `dayjs` 패키지의 타입이고 `ReactNode`와 `React.MouseEvent`는 `react`의 타입이에요.
   셋 다 이 패키지에서 다시 내보내지 않아요.
 - 차트는 툴바나 배율 선택기를 그리지 않아요. 선택기가 필요하면 호스트가 직접 그리고 ref의

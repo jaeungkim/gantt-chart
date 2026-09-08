@@ -53,8 +53,7 @@ arrows `Ctrl` and `Cmd` step the scale, and `Alt` moves the row.
 ### Step size
 
 One step is the current scale's drag step, read when the key is pressed. A pointer drag uses the
-same step and the same snapping rules. The values per scale are in the scale table in
-[The timeline](timeline).
+same step. The values per scale are in the scale table in [The timeline](timeline).
 
 The step is added in calendar units, so a press across a daylight saving boundary keeps the task's
 time of day.
@@ -169,55 +168,14 @@ picker.
 Without a pointer, the scale changes only through `Ctrl`/`Cmd` + the vertical arrows. A pointer
 user has no control until you build one.
 
-Build it as a native `<select>`. Call `setScale` from its `onChange` and set its value from
-`onScaleChange`.
-
-```tsx title="src/ScalePicker.tsx"
-import { useRef, useState } from 'react';
-import {
-  ReactGanttChart,
-  type GanttHandle,
-  type GanttScaleKey,
-  type Task,
-} from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
-
-const SCALES: GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
-
-export default function ScalePicker({ tasks }: { tasks: Task[] }) {
-  const chart = useRef<GanttHandle>(null);
-  const [scale, setScale] = useState<GanttScaleKey>('month');
-
-  return (
-    <>
-      <select
-        aria-label="Timeline scale"
-        value={scale}
-        onChange={(e) => chart.current?.setScale(e.target.value as GanttScaleKey)}
-      >
-        {SCALES.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
-      </select>
-
-      <ReactGanttChart
-        ref={chart}
-        tasks={tasks}
-        defaultScale="month"
-        onScaleChange={setScale}
-      />
-    </>
-  );
-}
-```
+Build it as a native `<select>`. The complete component is in [Imperative API](imperative-api).
 
 `<select>` brings keyboard, screen reader and touch behaviour from the platform. You write the
 option text, so the five scale keys can be translated instead of being spoken raw. Every header
 cell, tick and tooltip in the chart already goes through `Intl`.
 
 Your app is responsible for the accessibility of any other control it builds. The chart exposes
-`setScale`, described in [Imperative API](imperative-api), and `onScaleChange`, and renders no
-control of its own.
+`setScale` and `onScaleChange`, and renders no control of its own.
 
 ## ARIA tree
 
@@ -415,16 +373,12 @@ row move is not. Each of these cases `preventDefault`s the key and returns witho
 - a chart that never set `allowReorder`
 - an `onTaskMove` that returns `false`
 
-A cell reference can point at nothing. The focus column is not clamped when the row changes.
-Moving down from a row with two bars onto a row with one keeps a column index that row does not
-have. No element matches, and the chart loses its only tab stop until a cell is clicked. `Home` and
-`End` recover it while focus is inside the treegrid. The same failure appears when a bar is
-scrolled out horizontally. Bars outside the viewport are not rendered, but the row's `aria-owns`
-lists their ids anyway.
+A bar scrolled out of view horizontally leaves the tab stop with no element. Bars outside the
+viewport are not rendered, and the row's `aria-owns` lists their ids anyway. `Home` and `End`
+recover the tab stop while focus is inside the treegrid.
 
-An out-of-range column edits the wrong bar. Resolving a task from a cell falls back to the row's
-first task. On a row with several lanes a stale column acts on lane 0 instead of doing nothing. The
-same fallback is why `Delete` on a task list cell deletes that row's task.
+Resolving a task from a cell falls back to the row's first task. A task list cell resolves to that
+row's task, which is why `Delete` there removes it.
 
 A toggle is not announced. `Enter` on an expandable row changes `aria-expanded` on the row while
 focus is on a cell, and writes nothing to the live region.

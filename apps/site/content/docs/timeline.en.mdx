@@ -189,7 +189,7 @@ Plain wheel scrolls vertically and Shift and wheel scrolls horizontally, with `z
 
 Ctrl or Cmd with ArrowUp steps one scale finer, and with ArrowDown one scale coarser. The binding is part of the chart's keyboard map. It needs focus inside the chart but no pointer, and it works with `zoomOnWheel` on or off.
 
-It clamps at the same two ends, anchors on the centre of the timeline rather than a cursor, and announces the new scale through the chart's live region. See [Keyboard and screen readers](accessibility).
+It clamps at the same two ends, anchors on the center of the timeline rather than a cursor, and announces the new scale through the chart's live region. See [Keyboard and screen readers](accessibility).
 
 To fit every visible bar into the viewport in one call, use `zoomToFit()` on the chart ref, described in [Imperative API](imperative-api).
 
@@ -245,7 +245,7 @@ A new array on every render rebuilds the calendar on every render. Keep both in 
 
 ### Naming a holiday
 
-A bare string is a day off with no name. The object form adds a name, a colour and an end date:
+A bare string is a day off with no name. The object form adds a name, a color and an end date:
 
 ```tsx
 holidays={[
@@ -259,7 +259,7 @@ holidays={[
 | `date` | `string` | UTC `YYYY-MM-DD`. Required. |
 | `endDate` | `string` | Inclusive last day. Omitted, the holiday is one day. |
 | `label` | `string` | Written in the tick row over the holiday's band. |
-| `color` | `string` | Any CSS colour, tinted onto that band. |
+| `color` | `string` | Any CSS color, tinted onto that band. |
 
 The `Holiday` type is in [Scale and theme types](ref/scales).
 
@@ -275,10 +275,10 @@ Two named holidays whose bands begin in the same tick cell would print on top of
 Hover works in the timeline header only. The shading in the chart body is under the surface that draws new tasks, and a hover target there would take those gestures.
 The name is hidden with `opacity` rather than `display` in both cases, so a screen reader announces it either way.
 
-`color` is tinted at the weekend shade's weight. A holiday looks like a Saturday in a different colour, and the grid stays visible beneath it.
+`color` is tinted at the weekend shade's weight. A holiday looks like a Saturday in a different color, and the grid stays visible beneath it.
 Its band is kept separate from an adjacent weekend, so the two do not merge and the holiday keeps its tint and name.
 
-A holiday on a day the weekly rule already has off keeps its name and colour. Where two entries cover the same day, the earlier one in the array supplies that day's label and colour.
+A holiday on a day the weekly rule already has off keeps its name and color. Where two entries cover the same day, the earlier one in the array supplies that day's label and color.
 A day is assigned once and not rewritten, so array order decides an overlap.
 
 Ranges expand to at most 366 days. An `endDate` before its `date`, or one that does not parse, collapses that entry to its single start day instead of throwing. A `date` that does not parse drops the entry.
@@ -320,7 +320,7 @@ Props and defaults: [GanttProps](ref/props).
 - Dates are not validated here. Tasks whose dates are all unparseable produce an empty timeline rather than an error.
 - Shading and the drop snap are separate switches. `showNonWorkingDays={false}` hides the shading and the holiday names, and nothing else. With `workingCalendar` on, the same days decide where a drag lands. See [Working calendar](working-calendar).
 - `firstDayOfWeek` moves no shading. It regroups the `week` scale's top header and nothing else, and week columns at the `month` scale always open on Sunday. Which days are off is decided by `workingWeekdays`, and the two are unrelated.
-- A holiday's colour is the only thing it restyles. There is no class or icon per holiday, and the name can only be styled through `.gantt-holiday-cell`.
+- A holiday's color is the only thing it restyles. There is no class or icon per holiday, and the name can only be styled through `.gantt-holiday-cell`.
 - `zoomOnWheel` takes every Ctrl and Cmd wheel event. `preventDefault` runs before the accumulator, so page zoom is blocked inside the chart even on events that produce no scale step.
 - `visibleStart`, `visibleEnd` and `infiniteScroll` are horizontal only. They do not affect rows.
 - Scroll position is not controlled. There is no `scrollLeft` prop and no `onScroll`. `initialScrollTo` sets it once after the first render. After that, `onRangeChange` reports dates rather than pixels, and programmatic scrolling goes through the chart ref.

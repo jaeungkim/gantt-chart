@@ -4,8 +4,6 @@ import type { VirtualAxis } from 'shared/virtual/axis';
 import type { ScrollDirection, VirtualWindow } from 'shared/virtual/window';
 import { fullWindow, OVERSCAN, sameWindow, windowOf } from 'shared/virtual/window';
 
-export type ScrollAlign = 'start' | 'center' | 'end' | 'auto';
-
 interface UseVirtualWindowParams {
   scrollRef: RefObject<HTMLElement | null>;
   row: VirtualAxis;
@@ -15,7 +13,7 @@ interface UseVirtualWindowParams {
 interface VirtualWindows {
   row: VirtualWindow;
   col: VirtualWindow;
-  scrollToRow: (index: number, align?: ScrollAlign) => void;
+  scrollToRow: (index: number) => void;
 }
 
 // Both axes from one subscription, so header and bars can never disagree.
@@ -86,7 +84,7 @@ export function useVirtualWindow({
   );
 
   const scrollToRow = useCallback(
-    (index: number, align: ScrollAlign = 'start') => {
+    (index: number) => {
       const element = scrollRef.current;
       if (!element || index < 0 || index >= row.count) return;
 
@@ -95,13 +93,9 @@ export function useVirtualWindow({
       const size = row.sizeAt(index);
       const current = element.scrollTop;
 
-      let next = start;
-      if (align === 'center') next = start - (viewport - size) / 2;
-      else if (align === 'end') next = start - viewport + size;
-      else if (align === 'auto') {
-        if (start >= current && start + size <= current + viewport) return;
-        next = start < current ? start : start - viewport + size;
-      }
+      // Already in view - the shortest scroll that brings the row to the nearest edge
+      if (start >= current && start + size <= current + viewport) return;
+      const next = start < current ? start : start - viewport + size;
 
       element.scrollTo({ top: Math.max(0, next) });
     },
