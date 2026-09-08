@@ -46,7 +46,7 @@ export interface GanttScaleConfig {
   labelUnit: GanttLabelUnit;
   tickUnit: 'minute' | 'hour' | 'day' | 'week' | 'month';
   unitPerTick: number;
-  /** Boundary the first cell snaps to, when a cell holds more than one tickUnit */
+  /** 칸 하나가 `tickUnit` 여러 개를 담을 때 첫 칸을 맞추는 경계예요 */
   tickAlign?: GanttLabelUnit;
 
   dragStepUnit: 'minute' | 'hour' | 'day' | 'week';
@@ -54,8 +54,8 @@ export interface GanttScaleConfig {
 
   basePxPerDragStep: number;
 
-  formatTickLabel?: (date: Dayjs) => string;
-  formatHeaderLabel?: (date: Dayjs) => string;
+  formatTickLabel: (date: Dayjs) => string;
+  formatHeaderLabel: (date: Dayjs) => string;
 }
 ```
 

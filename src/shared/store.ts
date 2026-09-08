@@ -91,8 +91,6 @@ export interface GanttState {
   setLinkDraft: (draft: GanttLinkDraft | null) => void;
   setReorderDraft: (draft: GanttReorderDraft | null) => void;
   setSelectedDependency: (dependency: GanttDependencyRef | null) => void;
-
-  getTotalWidth: () => number;
 }
 
 export type GanttStoreApi = ReturnType<typeof createGanttStore>;
@@ -196,10 +194,5 @@ export function createGanttStore(initialScale: GanttScaleKey = "month") {
         if (keys.length === 1) return state;
         return { dragOffsets: { [activeId]: state.dragOffsets[activeId] } };
       }),
-
-    getTotalWidth: () => {
-      const state = get();
-      return state.bottomRowCells.reduce((sum, cell) => sum + cell.widthPx, 0);
-    },
   }));
 }

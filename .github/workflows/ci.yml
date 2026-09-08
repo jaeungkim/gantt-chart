@@ -35,11 +35,16 @@ jobs:
       # Every specifier in the emitted .d.ts must resolve for a consumer. The library imports
       # its own modules bare (tsconfig baseUrl), and vite-plugin-dts rewrites those to relative
       # paths - except a directory barrel like `core`, which it used to emit verbatim. A consumer
-      # then got "Cannot find module 'core'". Fail here instead of on their machine.
+      # then got "Cannot find module 'core'". `bundleTypes` normally collapses the tree into one
+      # self-contained index.d.ts, but it skips silently and falls back to the per-file tree if
+      # api-extractor fails to load, and the build still exits 0. Fail here instead of on their
+      # machine. Both quote styles and the inline `import("x")` form, which is most of what
+      # TypeScript actually emits.
       - name: Declarations must not import bare internal modules
         run: |
-          bad=$(grep -rhoE "from '[^.'@][^']*'" $(find dist -name '*.d.ts') | sort -u \
-                | grep -vE "^from '(react|react-dom|dayjs)(/[^']*)?'$" || true)
+          bad=$(grep -rhoE "(from|import\()[[:space:]]*['\"][^.'\"][^'\"]*['\"]" $(find dist -name '*.d.ts') \
+                | grep -oE "['\"][^'\"]+['\"]" | tr -d "\"'" | sort -u \
+                | grep -vE "^(react|react-dom|dayjs)(/.*)?$" || true)
           if [ -n "$bad" ]; then echo "unresolvable specifiers in dist/*.d.ts:"; echo "$bad"; exit 1; fi
           echo "declaration specifiers OK"
       # SSR safety: importing and server-rendering the built package in plain Node

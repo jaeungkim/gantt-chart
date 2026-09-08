@@ -15,18 +15,18 @@ import type { GanttRow } from '@jaeungkim/gantt-chart';
 ## 필드
 
 ```ts
-/** One rendered row: one task, or several sharing a `lane` */
+/** 렌더링되는 행 하나. 작업 하나이거나 `lane`을 공유하는 여러 작업이에요 */
 export interface GanttRow {
-  /** Stable key - the ids on the row, joined with "+" */
+  /** 안정적인 키. 행에 놓인 작업 id를 `"+"`로 이은 값이에요 */
   id: string;
   tasks: TaskTransformed[];
-  /** Indentation level, 0-based */
+  /** 들여쓰기 단계, 0부터 시작 */
   depth: number;
-  /** `aria-level`, 1-based */
+  /** `aria-level`, 1부터 시작 */
   level: number;
-  /** `aria-posinset` among the rows that share a parent */
+  /** 부모가 같은 행들 사이의 `aria-posinset` */
   posinset: number;
-  /** `aria-setsize` for that same set */
+  /** 같은 집합의 `aria-setsize` */
   setsize: number;
 }
 ```

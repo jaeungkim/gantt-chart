@@ -26,14 +26,13 @@ import { armPointerGesture, suppressTouchScroll } from "shared/utils/pointerGest
 import {
   clampDragDates,
   clampMoveDelta,
+  collectMoveMembers,
   pxBetweenDates,
   shiftByDragSteps,
   toDragBounds,
 } from "timeline/utils/geometry";
 import { collectSubtreeIds } from "core/tree";
-import { edgeScrollVelocity } from "timeline/utils/viewport";
-
-export type DragMode = GanttDragMode;
+import { edgeScrollVelocity, timelineEdges } from "timeline/utils/viewport";
 
 interface GanttBarDragOptions {
   onTasksChange?: (updatedTasks: Task[]) => void;
@@ -42,7 +41,7 @@ interface GanttBarDragOptions {
 }
 
 interface DragContext {
-  mode: DragMode;
+  mode: GanttDragMode;
   pointerId: number;
   initialClientX: number;
   initialStartDate: Dayjs;
@@ -103,7 +102,7 @@ export function useGanttBarDrag(
   // null when no gesture is allowed; edge zones need a resizable bar wide enough to spare them
   const detectDragMode = (
     e: React.PointerEvent<HTMLDivElement>
-  ): DragMode | null => {
+  ): GanttDragMode | null => {
     const rect = e.currentTarget.getBoundingClientRect();
     const touch = e.pointerType !== "mouse";
     const edge = touch ? TOUCH_EDGE_THRESHOLD : EDGE_THRESHOLD;
@@ -144,7 +143,7 @@ export function useGanttBarDrag(
   };
 
   const startDrag = (
-    mode: DragMode,
+    mode: GanttDragMode,
     pointerId: number,
     pointerType: string,
     initialClientX: number,
@@ -176,30 +175,14 @@ export function useGanttBarDrag(
       end: dayjs(task.endDate),
     });
 
-    // Each moving task resolves its own bounds, so a descendant constrains a subtree drag too
     const bounds = toDragBounds(minDate, maxDate);
-    const boundedMembers: DragContext["boundedMembers"] = [];
-    for (const t of rawTasks) {
-      if (!movingIds.has(t.id)) continue;
-
-      const initial = initialDates.get(t.id);
-      if (!initial) continue;
-
-      // The dragged bar's own bounds are already resolved above
-      const member = resolveTaskInteraction(t, interaction);
-      const own =
-        t.id === task.id
-          ? bounds
-          : toDragBounds(member.minDate, member.maxDate);
-
-      if (own) {
-        boundedMembers.push({
-          start: initial.start,
-          end: initial.end,
-          bounds: own,
-        });
-      }
-    }
+    const boundedMembers = collectMoveMembers(
+      rawTasks,
+      movingIds,
+      task,
+      bounds,
+      interaction
+    );
 
     dragContextRef.current = {
       mode,
@@ -431,14 +414,8 @@ export function useGanttBarDrag(
     const updateAutoScroll = (clientX: number) => {
       if (optionsRef.current.autoScroll === false || !scrollEl) return;
 
-      // The pinned task list covers the left, so the timeline's left edge is where that pane ends
-      const rect = scrollEl.getBoundingClientRect();
-      const gridEl = scrollEl.querySelector<HTMLElement>(".gantt-grid");
-      velocity = edgeScrollVelocity(
-        clientX,
-        rect.left + (gridEl?.offsetWidth ?? 0),
-        rect.right
-      );
+      const { left, right } = timelineEdges(scrollEl);
+      velocity = edgeScrollVelocity(clientX, left, right);
 
       if (velocity === 0) {
         stopAutoScroll();
@@ -475,29 +452,23 @@ export function useGanttBarDrag(
     // A cancelled gesture (scroll takeover, multi-touch) reverts instead of committing
     const handlePointerCancel = (cancelEvent: PointerEvent) => {
       const ctx = dragContextRef.current;
-      if (ctx && cancelEvent.pointerId !== ctx.pointerId) return;
+      if (!ctx || cancelEvent.pointerId !== ctx.pointerId) return;
 
       detachListeners();
-      if (ctx) endDrag(ctx);
+      endDrag(ctx);
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
-      const pending = dragContextRef.current;
-      if (pending && upEvent.pointerId !== pending.pointerId) return;
+      const ctx = dragContextRef.current;
+      if (!ctx || upEvent.pointerId !== ctx.pointerId) return;
 
       detachListeners();
-
-      const ctx = pending;
-      if (!ctx) {
-        return;
-      }
 
       if (ctx.dragSteps === 0) {
         endDrag(ctx);
         return;
       }
 
-      const currentRawTasks = storeApi.getState().rawTasks;
       // A clamped move commits the shared delta; unclamped, the plain step shift
       const shiftDate = (date: string) =>
         ctx.moveDeltaMs !== null
@@ -512,7 +483,7 @@ export function useGanttBarDrag(
 
       // However many tasks moved, there is one updated array - onTasksChange fires once
       const movedIds = new Set(ctx.taskIds);
-      const draggedTasks = currentRawTasks.map((t) => {
+      const draggedTasks = storeApi.getState().rawTasks.map((t) => {
         if (!movedIds.has(t.id)) return t;
 
         switch (ctx.mode) {
@@ -542,15 +513,8 @@ export function useGanttBarDrag(
       storeApi.getState().setCurrentTask(null);
       storeApi.getState().setDragMode(null);
 
-      const edited = new Map(
-        draggedTasks.filter((t) => movedIds.has(t.id)).map((t) => [t.id, t])
-      );
-      const merged = storeApi
-        .getState()
-        .rawTasks.map((t) => edited.get(t.id) ?? t);
-
-      storeApi.getState().setRawTasks(merged);
-      optionsRef.current.onTasksChange?.(merged);
+      storeApi.getState().setRawTasks(draggedTasks);
+      optionsRef.current.onTasksChange?.(draggedTasks);
     };
 
     document.addEventListener("pointermove", handlePointerMove);

@@ -1,5 +1,5 @@
 import { Dayjs } from "dayjs";
-import { GanttDragBounds, GanttDragMode, GanttScaleKey } from "shared/types";
+import { GanttDragMode, GanttScaleKey } from "shared/types";
 import {
   GanttInteractionConfig,
   normalizeProgress,
@@ -12,6 +12,7 @@ import { GanttRow } from "rows/utils/rows";
 import {
   clampDragDates,
   clampMoveDelta,
+  collectMoveMembers,
   shiftByDragSteps,
   toDragBounds,
 } from "timeline/utils/geometry";
@@ -30,25 +31,23 @@ export interface GanttFocus {
 export interface GanttKeyboardRow {
   // Focusable cells in the row
   cells: number;
-  // Cell index the bars start at (equal to `cells` when the row has none)
-  firstBarCell: number;
   expandable: boolean;
   expanded: boolean;
 }
 
 type GanttKeyAction =
   | { kind: "focus"; focus: GanttFocus }
-  | { kind: "toggle"; row: number; col: number }
+  | { kind: "toggle"; col: number }
   // Enter/Space on a row that cannot be expanded
-  | { kind: "activate"; row: number; col: number }
-  | { kind: "delete"; row: number; col: number }
+  | { kind: "activate"; col: number }
+  | { kind: "delete"; col: number }
   // Move or resize by whole drag steps
-  | { kind: "nudge"; row: number; col: number; mode: GanttDragMode; steps: number }
-  | { kind: "progress"; row: number; col: number; delta: number }
+  | { kind: "nudge"; col: number; mode: GanttDragMode; steps: number }
+  | { kind: "progress"; col: number; delta: number }
   // Move the row among its siblings - negative is up, positive down
-  | { kind: "reorder"; row: number; col: number; delta: -1 | 1 }
+  | { kind: "reorder"; col: number; delta: -1 | 1 }
   // Change the row's parent - negative outdents, positive indents
-  | { kind: "reparent"; row: number; col: number; direction: -1 | 1 }
+  | { kind: "reparent"; col: number; direction: -1 | 1 }
   // Step the timeline scale - negative is finer, positive coarser
   | { kind: "zoom"; direction: number };
 
@@ -63,6 +62,17 @@ interface GanttKeyEvent {
 
 const clamp = (value: number, max: number) =>
   Math.min(Math.max(value, 0), Math.max(max, 0));
+
+// The stored focus, pinned to a cell that exists: rows come and go, and landing on a row with
+// fewer bars than the one you left must still leave the treegrid a tab stop. Same clamp
+// `resolveKeyboardAction` applies on entry, so the two always agree on which cell is focused.
+export function clampFocus(
+  focus: GanttFocus,
+  rows: GanttKeyboardRow[]
+): GanttFocus {
+  const row = clamp(focus.row, rows.length - 1);
+  return { row, col: clamp(focus.col, (rows[row]?.cells ?? 1) - 1) };
+}
 
 // The chart's whole keyboard map; null for a key it does not handle, so the event is left alone.
 export function resolveKeyboardAction(
@@ -82,21 +92,16 @@ export function resolveKeyboardAction(
   if (horizontal && (event.altKey || event.shiftKey)) {
     let mode: GanttDragMode = "right";
     if (event.altKey) mode = event.shiftKey ? "left" : "bar";
-    return { kind: "nudge", row: focus.row, col, mode, steps: step };
+    return { kind: "nudge", col, mode, steps: step };
   }
 
   // Also before navigation: without this, alt+ArrowDown reads as a plain focus move
   if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
-    return {
-      kind: "reorder",
-      row: focus.row,
-      col,
-      delta: event.key === "ArrowDown" ? 1 : -1,
-    };
+    return { kind: "reorder", col, delta: event.key === "ArrowDown" ? 1 : -1 };
   }
 
   if (horizontal && (event.ctrlKey || event.metaKey)) {
-    return { kind: "reparent", row: focus.row, col, direction: step };
+    return { kind: "reparent", col, direction: step };
   }
 
   // Zoom before navigation: the modifier changes what the arrow means
@@ -122,7 +127,7 @@ export function resolveKeyboardAction(
 
     case "ArrowRight":
       if (col === 0 && row.expandable && !row.expanded) {
-        return { kind: "toggle", row: focus.row, col };
+        return { kind: "toggle", col };
       }
       return {
         kind: "focus",
@@ -131,7 +136,7 @@ export function resolveKeyboardAction(
 
     case "ArrowLeft":
       if (col === 0 && row.expandable && row.expanded) {
-        return { kind: "toggle", row: focus.row, col };
+        return { kind: "toggle", col };
       }
       return {
         kind: "focus",
@@ -154,20 +159,20 @@ export function resolveKeyboardAction(
     case "Enter":
     case " ":
       return row.expandable
-        ? { kind: "toggle", row: focus.row, col }
-        : { kind: "activate", row: focus.row, col };
+        ? { kind: "toggle", col }
+        : { kind: "activate", col };
 
     case "Delete":
     case "Backspace":
-      return { kind: "delete", row: focus.row, col };
+      return { kind: "delete", col };
 
     case "+":
     case "=":
-      return { kind: "progress", row: focus.row, col, delta: PROGRESS_STEP };
+      return { kind: "progress", col, delta: PROGRESS_STEP };
 
     case "-":
     case "_":
-      return { kind: "progress", row: focus.row, col, delta: -PROGRESS_STEP };
+      return { kind: "progress", col, delta: -PROGRESS_STEP };
 
     default:
       return null;
@@ -284,23 +289,13 @@ export function nudgeTaskDates(
   let deltaMs: number | null = null;
 
   if (mode === "bar") {
-    const members: { start: Dayjs; end: Dayjs; bounds: GanttDragBounds }[] = [];
-    for (const task of rawTasks) {
-      if (!movingIds.has(task.id)) continue;
-
-      const member = resolveTaskInteraction(task, interaction);
-      const own =
-        task.id === target.id
-          ? bounds
-          : toDragBounds(member.minDate, member.maxDate);
-      if (!own) continue;
-
-      members.push({
-        start: task.id === target.id ? initialStart : dayjs(task.startDate),
-        end: task.id === target.id ? initialEnd : dayjs(task.endDate),
-        bounds: own,
-      });
-    }
+    const members = collectMoveMembers(
+      rawTasks,
+      movingIds,
+      target,
+      bounds,
+      interaction
+    );
 
     if (members.length) {
       deltaMs = clampMoveDelta(

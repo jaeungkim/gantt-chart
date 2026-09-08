@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useGanttStore } from "shared/context";
 import { MIN_HOLIDAY_LABEL_PX } from "shared/constants";
-import { tickBoundaries, tickCellAt } from "timeline/utils/header";
+import { tickAxis, tickCellAt } from "timeline/utils/header";
 import { NonWorkingRange } from "timeline/utils/geometry";
 
 interface GanttHolidayLabelsProps {
@@ -26,10 +26,7 @@ export default function GanttHolidayLabels({
   ranges,
 }: GanttHolidayLabelsProps) {
   const bottomRowCells = useGanttStore((store) => store.bottomRowCells);
-  const boundaries = useMemo(
-    () => tickBoundaries(bottomRowCells),
-    [bottomRowCells]
-  );
+  const axis = useMemo(() => tickAxis(bottomRowCells), [bottomRowCells]);
 
   const holidays = useMemo(() => {
     const shownCells = new Set<number>();
@@ -37,9 +34,9 @@ export default function GanttHolidayLabels({
     return ranges.flatMap((range) => {
       if (!range.label) return [];
 
-      const first = tickCellAt(boundaries, range.left);
+      const first = tickCellAt(axis, range.left);
       // The band's last pixel, so one ending exactly on a boundary does not claim the next cell
-      const last = tickCellAt(boundaries, range.left + range.width - 1);
+      const last = tickCellAt(axis, range.left + range.width - 1);
       if (!first || !last) return [];
 
       // Two names standing in one cell would print on top of each other; the earlier one keeps it.
@@ -60,7 +57,7 @@ export default function GanttHolidayLabels({
         },
       ];
     });
-  }, [ranges, boundaries]);
+  }, [ranges, axis]);
 
   if (!holidays.length) return null;
 

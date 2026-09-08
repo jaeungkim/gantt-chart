@@ -13,11 +13,21 @@ import { ReactGanttChart, createWorkingCalendar, type Task } from '@jaeungkim/ga
 import '@jaeungkim/gantt-chart/style.css';
 ```
 
-The package has two runtime dependencies, `dayjs` and `zustand`. `react` and `react-dom` (`^18`
-or `^19`) are peer dependencies. Every prop is optional, and `tasks` defaults to an empty array.
-The install command and the first working chart are in [Quick start](quick-start).
+The bundle inlines its dependencies, so `react` and `react-dom` are the only packages it loads at
+runtime. Both are peer dependencies, and both accept `^18` or `^19`. `dayjs` is a dependency
+because `Dayjs` is in the public types, such as the date a `formats` callback receives. Every prop
+is optional, and `tasks` defaults to an empty array. The install command and the first working
+chart are in [Quick start](quick-start).
 
 ## What the package includes
+
+### Accessibility
+
+- The chart is one ARIA `treegrid`, and each row carries `aria-level`, `aria-posinset`/`aria-setsize` and `aria-rowindex`.
+- The grid body is a single roving tab stop. The pane splitter is the second tab stop. Arrow keys move between rows, and across the cells of a row.
+- Bars move, resize and step their progress from the keyboard. See [Keyboard and screen readers](accessibility).
+- Ctrl/Cmd + ArrowUp and ArrowDown step the timeline scale finer and coarser, and announce the new one.
+- A bar's accessible name is built from the task name, its dates and its progress.
 
 ### Rendering
 
@@ -41,14 +51,6 @@ The install command and the first working chart are in [Quick start](quick-start
 - Dependency arrows are drawn and edited, and the chart does not enforce them. A drag moves the bar it started on.
 - The tree and calendar math are exported as plain functions, callable without rendering. See [Headless core](headless-core).
 
-### Accessibility
-
-- The chart is one ARIA `treegrid`, and each row carries `aria-level`, `aria-posinset`/`aria-setsize` and `aria-rowindex`.
-- The grid body is a single roving tab stop. The pane splitter is the second tab stop. Arrow keys move between rows, and across the cells of a row.
-- Bars move, resize and step their progress from the keyboard. See [Keyboard and screen readers](accessibility).
-- Ctrl/Cmd + ArrowUp and ArrowDown step the timeline scale finer and coarser, and announce the new one.
-- A bar's accessible name is built from the task name, its dates and its progress.
-
 ### Theming
 
 - `theme` takes `'light'`, `'dark'` or `'system'`. Omitted, the chart follows the host page's `color-scheme`. An app's own theme toggle sets that value. See [Theming](theming).
@@ -64,9 +66,9 @@ and tasks arrive as a prop. `onRangeChange` fires when the rendered timeline ran
 the host app loads more data there.
 
 The chart renders the timeline, and the task list pane when the host app asks for one. It renders
-no controls of its own, so a toolbar or a scale control is something the host app builds. The
-scale changes through `setScale` on the ref, Ctrl/Cmd + ArrowUp / ArrowDown, or Ctrl/Cmd + wheel
-when `zoomOnWheel` is on. `onScaleChange` reports every change, so that control can follow the
+no toolbar, so the scale control is something the host app builds. The scale changes through
+`setScale` on the ref, Ctrl/Cmd + ArrowUp / ArrowDown, or Ctrl/Cmd + wheel when `zoomOnWheel` is
+on. `onScaleChange` reports every change, so that control can follow the
 chart. The `<select>` to pair with them is in [Imperative API](imperative-api).
 
 The chart persists nothing. The task data, the scale, the pane width, the collapsed rows, the

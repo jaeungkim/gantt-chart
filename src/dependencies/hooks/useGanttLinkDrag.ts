@@ -19,7 +19,7 @@ import {
   validateDependency,
 } from "dependencies/utils/link";
 import { LinkAnchor, LinkRejection } from "shared/types";
-import { edgeScrollVelocity } from "timeline/utils/viewport";
+import { edgeScrollVelocity, timelineEdges } from "timeline/utils/viewport";
 
 /** The link the user drew, handed to `onDependencyCreate` before anything is committed */
 export interface GanttDependencyChange {
@@ -182,15 +182,9 @@ export function useGanttLinkDrag({
       const updateAutoScroll = (clientX: number, clientY: number) => {
         if (!scrollEl) return;
 
-        const rect = scrollEl.getBoundingClientRect();
-        // The pinned task list covers the left, so the timeline's edge starts where it ends
-        const gridEl = scrollEl.querySelector<HTMLElement>(".gantt-grid");
-        velocityX = edgeScrollVelocity(
-          clientX,
-          rect.left + (gridEl?.offsetWidth ?? 0),
-          rect.right
-        );
-        velocityY = edgeScrollVelocity(clientY, rect.top, rect.bottom);
+        const edges = timelineEdges(scrollEl);
+        velocityX = edgeScrollVelocity(clientX, edges.left, edges.right);
+        velocityY = edgeScrollVelocity(clientY, edges.top, edges.bottom);
 
         if (velocityX === 0 && velocityY === 0) {
           stopAutoScroll();

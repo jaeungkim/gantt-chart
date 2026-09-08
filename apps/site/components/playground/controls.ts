@@ -45,14 +45,12 @@ type BooleanKey = {
 }[keyof Settings];
 type SelectKey = Exclude<keyof Settings, BooleanKey>;
 
-// Anything a select can hold; narrowed by the row's own `options` list before it is stored.
-export type SelectValue = GanttScaleKey & GanttTheme & string;
-
 // The scale ladder, finest first. The package exports no constant for it, and two controls read
 // it now: the console's own row and the toolbar select above the chart.
 export const SCALES: readonly GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
 
-type ControlGroup = 'Data' | 'Editing' | 'Timeline' | 'Presentation';
+export const GROUPS = ['Data', 'Editing', 'Timeline', 'Presentation'] as const;
+type ControlGroup = (typeof GROUPS)[number];
 
 type Control =
   | { key: BooleanKey; label: string; hint: string; group: ControlGroup; type: 'boolean' }
@@ -325,13 +323,6 @@ export const CONTROLS: readonly Control[] = [
   },
 ];
 
-export const GROUPS: readonly ControlGroup[] = [
-  'Data',
-  'Editing',
-  'Timeline',
-  'Presentation',
-];
-
 // Every feature on, so the page shows the whole chart before a single switch is touched. Two
 // classes stay off: restrictions (`readOnly`, `dateBounds`, `visibleRange`, every `veto*`) and
 // overrides (`customDetail`, `controlledDetail`, `customFormats`), each of
@@ -390,7 +381,9 @@ export function readSettings(): Settings {
     if (control.type === 'boolean') {
       next[control.key] = raw !== '0' && raw !== 'false';
     } else if (control.options.includes(raw)) {
-      next[control.key] = raw as SelectValue;
+      // Writing through a union key wants the intersection of the value types, which is `never`;
+      // the `options` check above is what narrows `raw`.
+      next[control.key] = raw as never;
     }
   }
 

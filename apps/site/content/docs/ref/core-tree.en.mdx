@@ -289,7 +289,7 @@ export type GanttMoveRejection =
 | `'unknown-parent'` | `move.toParentId` is set and not in `tasks`. A `null` parent is always accepted. |
 | `'read-only'` | `options.canReorder` returned `false` for the task. |
 | `'reparent-disabled'` | `options.hierarchy` is `false` and the move changes the parent. |
-| `'cycle'` | `move.toParentId` is inside the moved task's own subtree, the task itself included. |
+| `'cycle'` | `move.toParentId` is inside the moved task's own subtree, the task itself included. Checked only when `hierarchy` is on, because a move never rewrites `parentId` otherwise. |
 | `'no-op'` | The task is already that parent's child at that index. |
 
 ## validateMove

@@ -1,11 +1,11 @@
-import dayjs from "dayjs";
+import dayjs from "core/dates";
 import type { Holiday } from "shared/types";
 
 const FORMAT = "YYYY-MM-DD";
 // A typo'd `endDate` - 2026 written 2099 - must not expand into a decade of strings
 const MAX_HOLIDAY_DAYS = 366;
 
-export interface HolidayIndex {
+interface HolidayIndex {
   /** Every day a holiday covers, `YYYY-MM-DD` -> the holiday covering it */
   byDate: Map<string, Holiday>;
   /** The same days, flat - what `createWorkingCalendar` takes */

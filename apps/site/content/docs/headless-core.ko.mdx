@@ -9,9 +9,7 @@ description: "React와 DOM 없이 쓰는 트리와 달력 계산"
 
 ## 코어 경계
 
-`src/core/` 아래는 전부 데이터와 순수 함수예요. 런타임 의존성은 `dayjs`와 `utc` 플러그인뿐이에요. 이
-디렉터리에서 `react`, `window`, `document`, `localStorage`, `navigator`, `requestAnimationFrame`을
-`grep`으로 찾으면 주석 한 줄만 나오고 `import`나 전역 참조는 없어요.
+`src/core/` 아래는 전부 데이터와 순수 함수예요. 런타임 의존성은 `dayjs`와 `utc` 플러그인뿐이에요.
 
 이 경계는 eslint 규칙으로 강제돼요. `src/core/**/*.{ts,tsx}`에 걸린 블록이 `react`, `react-dom`,
 `zustand`, `@tanstack/*`와 렌더 쪽 도메인 폴더(`shared/`, `timeline/`, `bars/`, `dependencies/`,
@@ -99,8 +97,8 @@ const CALENDAR_DAYS: WorkingCalendar;
 function createWorkingCalendar(options?: WorkingCalendarOptions): WorkingCalendar;
 ```
 
-반환되는 객체는 공개 API예요. `isWorkingDay`, `addDays`, `daysBetween`, `daysUntil`, `daysUpTo`,
-`snapForward`와 `skipsNonWorkingDays` 플래그를 각각 따로 호출할 수 있어요. 호스트 앱의 날짜
+반환되는 객체는 공개 API예요. `isWorkingDay`, `addDays`, `daysBetween`, `snapForward`와
+`skipsNonWorkingDays` 플래그를 각각 따로 호출할 수 있어요. 호스트 앱의 날짜
 계산에는 보통 이것으로 충분해요. 두 prop이 무엇을 음영으로 칠하는지는 [타임라인](timeline)을
 참고하세요. 달력이 차트에서 무엇을 바꾸고 무엇을 그대로 두는지는 [근무일 달력](working-calendar)에
 있어요. 옵션과 우선순위는 [근무일 달력 헬퍼](ref/core-calendar)를 참고하세요. 여기 나온 prop의
@@ -201,7 +199,7 @@ P  2025-06-02  2025-06-13  8wd  33%
 객체 그대로라서 짧은 문자열을 유지해요. `P`는 다시 만들어져서 완전한 ISO 문자열로
 돌아와요.
 
-## 제한 사항
+## 한계
 
 렌더링은 코어의 일이 아니에요. 막대 좌표와 화살표 경로, 눈금, 음영, 색은 렌더 레이어가 원본 날짜에서
 계산해요.
@@ -244,4 +242,4 @@ P  2025-06-02  2025-06-13  8wd  33%
 로컬 타임스탬프를 쓰는 프로세스는 9시간 어긋나요. 같은 이유로 `holidays` 항목도 UTC `YYYY-MM-DD`와 대조해요. 날짜 계약 전체는
 [작업 데이터](task-data)에 있어요.
 
-다음: [트리 헬퍼](ref/core-tree).
+다음: [GanttProps](ref/props).

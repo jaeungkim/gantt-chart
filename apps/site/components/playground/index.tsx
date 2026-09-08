@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 
 // `view.tsx` seeds state from the query string; `ssr: false` is only legal from a client component.
-const PlaygroundView = dynamic(
+export const Playground = dynamic(
   () => import('@/components/playground/view').then((m) => m.PlaygroundView),
   {
     ssr: false,
@@ -14,7 +14,3 @@ const PlaygroundView = dynamic(
     ),
   }
 );
-
-export function Playground() {
-  return <PlaygroundView />;
-}

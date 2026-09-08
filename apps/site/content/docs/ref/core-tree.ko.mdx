@@ -104,7 +104,7 @@ export function buildTaskTree(tasks: TaskNode[]): TaskTree
 
 ```ts
 /**
- * 루트 자신을 포함한 서브트리의 id 목록(너비 우선)
+ * 루트 자신을 포함한 하위 트리의 id 목록(너비 우선)
  * 트리에 없는 id는 빈 배열을 돌려줘요
  */
 export function collectSubtreeIds(
@@ -289,7 +289,7 @@ export type GanttMoveRejection =
 | `'unknown-parent'` | `move.toParentId`가 있는데 `tasks`에 없는 id예요. `null` 부모는 언제나 허용돼요. |
 | `'read-only'` | `options.canReorder`가 그 작업에 `false`를 반환했어요. |
 | `'reparent-disabled'` | `options.hierarchy`가 `false`인데 이동이 부모를 바꿔요. |
-| `'cycle'` | `move.toParentId`가 옮길 작업 자신의 하위 트리 안에 있어요. 작업 자신도 포함돼요. |
+| `'cycle'` | `move.toParentId`가 옮길 작업 자신의 하위 트리 안에 있어요. 작업 자신도 포함돼요. `hierarchy`가 켜져 있을 때만 확인해요. 꺼져 있으면 이동이 `parentId`를 다시 쓰지 않기 때문이에요. |
 | `'no-op'` | 작업이 이미 그 부모의 그 인덱스에 있어요. |
 
 ## validateMove

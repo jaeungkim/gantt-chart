@@ -36,6 +36,7 @@ export function useGanttProgressDrag(
   const { onTasksChange } = options;
 
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
+    if (!e.isPrimary || e.button !== 0) return;
     // Blocked so it does not overlap with the bar move drag
     e.stopPropagation();
     e.preventDefault();
@@ -43,28 +44,30 @@ export function useGanttProgressDrag(
     pendingGestureRef.current?.();
     pendingGestureRef.current = null;
 
-    const { pointerType } = e;
+    const { pointerId, pointerType } = e;
 
     // Same disambiguation as the bar: a touch has to rest on the handle first
     pendingGestureRef.current = armPointerGesture(
       {
         pointerType,
-        pointerId: e.pointerId,
+        pointerId,
         clientX: e.clientX,
         clientY: e.clientY,
       },
       () => {
         pendingGestureRef.current = null;
-        startDrag(pointerType);
+        startDrag(pointerId, pointerType);
       }
     );
   };
 
-  const startDrag = (pointerType: string) => {
+  const startDrag = (pointerId: number, pointerType: string) => {
     const releaseTouchScroll =
       pointerType === "mouse" ? null : suppressTouchScroll();
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+
       const percent = percentFromPointer(moveEvent.clientX);
       if (percent === null) return;
 
@@ -72,7 +75,9 @@ export function useGanttProgressDrag(
       setLive(percent);
     };
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) return;
+
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerup", handlePointerUp);
       document.removeEventListener("pointercancel", handlePointerUp);

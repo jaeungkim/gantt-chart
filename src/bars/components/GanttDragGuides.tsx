@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useGanttStore } from "shared/context";
 import { resolveFormatters } from "shared/utils/i18n";
-import { tickBoundaries, tickCellAt } from "timeline/utils/header";
+import { tickAxis, tickCellAt } from "timeline/utils/header";
 
 // The live readout for a move or resize. It is the tick row being precise for the length of one
 // gesture: the cell each moving edge lands in writes the full date instead of its numeral, in the
@@ -25,10 +25,7 @@ export default function GanttDragGuides() {
     [selectedScale, localeOptions]
   );
 
-  const boundaries = useMemo(
-    () => tickBoundaries(bottomRowCells),
-    [bottomRowCells]
-  );
+  const axis = useMemo(() => tickAxis(bottomRowCells), [bottomRowCells]);
 
   const offset = currentTask ? dragOffsets[currentTask.id] : undefined;
   if (!currentTask || !offset) return null;
@@ -36,8 +33,8 @@ export default function GanttDragGuides() {
   const startX = currentTask.barLeft + offset.offsetX;
   const endX = startX + currentTask.barWidth + offset.offsetWidth;
 
-  const startCell = tickCellAt(boundaries, startX);
-  const endCell = tickCellAt(boundaries, endX);
+  const startCell = tickCellAt(axis, startX);
+  const endCell = tickCellAt(axis, endX);
   if (!startCell || !endCell) return null;
 
   // Two edges in one cell are one label, and `range` is what knows how to write it - merging

@@ -3,9 +3,10 @@ title: "Quick start"
 description: "Install the package and render a chart whose edits come back to your own state"
 ---
 
-`@jaeungkim/gantt-chart` turns an array of tasks into bars a user can drag. This page goes from
-`pnpm add` to a chart whose edits are stored in your own state. The first three code blocks are
-whole files and the later ones are diffs against them.
+`@jaeungkim/gantt-chart` renders the `tasks` array your app holds, and returns the complete next
+array through `onTasksChange` after every committed gesture. This page goes from `pnpm add` to a
+chart whose edits are stored in your own state. The first three code blocks are whole files and the
+later ones are diffs against them.
 
 <GanttDemo preset="basic" />
 

@@ -111,6 +111,25 @@ export function edgeScrollVelocity(
   return 0;
 }
 
+// Where an auto-scrolling gesture's edge zones sit. The pinned task list covers the left, so the
+// timeline's left edge is where that pane ends.
+export function timelineEdges(scrollEl: HTMLElement): {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+} {
+  const rect = scrollEl.getBoundingClientRect();
+  const grid = scrollEl.querySelector<HTMLElement>('.gantt-grid');
+
+  return {
+    left: rect.left + (grid?.offsetWidth ?? 0),
+    right: rect.right,
+    top: rect.top,
+    bottom: rect.bottom,
+  };
+}
+
 export const NO_RANGE_EXTENSION: GanttRangeExtension = { before: 0, after: 0 };
 
 // Cap per side: every task is positioned by walking the tick array, so the walk must stay bounded

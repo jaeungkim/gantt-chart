@@ -1,6 +1,6 @@
 import type { Dayjs } from 'dayjs';
 
-/** The calendar every piece of date arithmetic in the core routes through. */
+/** Day arithmetic that can skip non-working days. */
 export interface WorkingCalendar {
   /** False for the default calendar (every day counts) */
   readonly skipsNonWorkingDays: boolean;
@@ -9,10 +9,6 @@ export interface WorkingCalendar {
   addDays(date: Dayjs, days: number): Dayjs;
   /** Days from `from` to `to`, counted the same way `addDays` moves. Signed. */
   daysBetween(from: Dayjs, to: Dayjs): number;
-  /** Smallest d where `addDays(from, d) >= target` - how far a task must move to clear a date */
-  daysUntil(from: Dayjs, target: Dayjs): number;
-  /** Largest d where `addDays(from, d) <= target` - how far a task may slip before it breaks one */
-  daysUpTo(from: Dayjs, target: Dayjs): number;
   /** The date itself when it is a working day, otherwise the next one (time of day kept) */
   snapForward(date: Dayjs): Dayjs;
 }
@@ -79,23 +75,6 @@ function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
     isWorkingDay,
     addDays,
     daysBetween,
-
-    // daysBetween is day-granular, so correct by whole steps once time of day is counted.
-    daysUntil(from, target) {
-      let days = daysBetween(from, target);
-      const time = target.valueOf();
-      for (let i = 0; i < 2 && addDays(from, days).valueOf() < time; i++) days++;
-      for (let i = 0; i < 2 && addDays(from, days - 1).valueOf() >= time; i++) days--;
-      return days;
-    },
-
-    daysUpTo(from, target) {
-      let days = daysBetween(from, target);
-      const time = target.valueOf();
-      for (let i = 0; i < 2 && addDays(from, days).valueOf() > time; i++) days--;
-      for (let i = 0; i < 2 && addDays(from, days + 1).valueOf() <= time; i++) days++;
-      return days;
-    },
 
     snapForward(date) {
       if (!isOff || isWorkingDay(date)) return date;

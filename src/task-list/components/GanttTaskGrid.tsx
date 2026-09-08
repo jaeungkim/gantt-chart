@@ -3,6 +3,7 @@ import { HEADER_HEIGHT, TREE_INDENT } from "shared/constants";
 import { useGanttRowDrag } from "task-list/hooks/useGanttRowDrag";
 import { GanttTaskMoveApi } from "task-list/hooks/useGanttTaskMove";
 import { useRef } from "react";
+import { useGanttStore } from "shared/context";
 import {
   GanttInteractionConfig,
   resolveTaskInteraction,
@@ -29,7 +30,6 @@ interface GanttTaskGridProps {
   // The same guards the bars use - a row is draggable only where the task can move
   interaction: GanttInteractionConfig;
   move: GanttTaskMoveApi;
-  selectedTaskId?: string | null;
   onRowClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
   onRowDoubleClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
 }
@@ -49,11 +49,11 @@ export default function GanttTaskGrid({
   reorderEnabled,
   interaction,
   move,
-  selectedTaskId,
   onRowClick,
   onRowDoubleClick,
 }: GanttTaskGridProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
+  const selectedTaskId = useGanttStore((store) => store.selectedTaskId);
   const { onGripPointerDown, draft } = useGanttRowDrag({
     rows,
     virtualItems,

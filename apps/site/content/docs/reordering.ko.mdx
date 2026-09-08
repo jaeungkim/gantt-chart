@@ -1,10 +1,11 @@
 ---
 title: "행 순서 바꾸기"
-description: "작업 목록의 행을 새 자리나 새 부모로 옮기는 방법, 이동이 다시 쓰는 필드, 이동을 거부하는 방법"
+description: "작업 목록의 행을 새 자리나 새 부모로 옮기는 방법"
 ---
 
-행 순서 바꾸기는 작업 목록의 행을 새 자리나 새 부모로 끌어다 놓는 기능이에요. [작업 편집](editing)의 막대
-제스처와 달리 기본으로 꺼져 있어요. 차트에 `allowReorder`를 설정하면 모든 행에서 켜져요.
+행 순서 바꾸기는 작업 목록의 행을 새 자리나 새 부모로 끌어다 놓는 기능이에요. 이 페이지는 이동이 다시 쓰는
+필드와 이동을 거부하는 방법을 다뤄요. [작업 편집](editing)의 막대 제스처와 달리 기본으로 꺼져 있어요.
+차트에 `allowReorder`를 설정하면 모든 행에서 켜져요.
 
 ```tsx
 <ReactGanttChart tasks={tasks} onTasksChange={setTasks} allowReorder hierarchy />
@@ -96,7 +97,7 @@ export function PlanBoard({ initial }: { initial: Task[] }) {
     fetch(`/api/tasks/${taskId}/move`, {
       method: 'PATCH',
       body: JSON.stringify({ parentId: toParentId, index: toIndex }),
-    }).catch(() => setTasks(previous)); // 서버가 거절했어요 - 행을 되돌려요
+    }).catch(() => setTasks(previous)); // 서버가 거부했어요 - 행을 되돌려요
   };
 
   return (

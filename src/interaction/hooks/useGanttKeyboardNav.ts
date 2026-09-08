@@ -1,4 +1,3 @@
-import type { ScrollAlign } from "shared/virtual/useVirtualWindow";
 import { RefObject, useCallback, useEffect, useMemo, useState } from "react";
 import { GanttScrollApi } from "timeline/hooks/useGanttScrollApi";
 import { GanttTaskMoveApi } from "task-list/hooks/useGanttTaskMove";
@@ -6,6 +5,7 @@ import { useGanttStoreApi } from "shared/context";
 import { GanttLocaleOptions, GanttScaleKey } from "shared/types";
 import { GanttInteractionConfig, Task, TaskTransformed } from "shared/task";
 import {
+  clampFocus,
   deleteTask,
   formatMovedAnnouncement,
   formatTaskAriaLabel,
@@ -41,7 +41,7 @@ interface UseGanttKeyboardNavParams {
   onTasksChange?: (updatedTasks: Task[]) => void;
   move: GanttTaskMoveApi;
   // Brings a culled row back into view before the focus lands on it
-  scrollToRow: (index: number, align?: ScrollAlign) => void;
+  scrollToRow: (index: number) => void;
   scrollApi: GanttScrollApi;
   // The treegrid element - the focus manager looks its cells up inside it
   bodyRef: RefObject<HTMLDivElement | null>;
@@ -80,23 +80,19 @@ export function useGanttKeyboardNav({
   const [focusNonce, setFocusNonce] = useState(0);
   const [announcement, setAnnouncement] = useState("");
 
-  const safeFocus = useMemo<GanttFocus>(
-    () => ({
-      row: Math.min(focus.row, Math.max(rows.length - 1, 0)),
-      col: focus.col,
-    }),
-    [focus, rows.length]
-  );
-
   const keyboardRows = useMemo<GanttKeyboardRow[]>(
     () =>
       rows.map((row) => ({
         cells: Math.max(gridColumnCount + row.tasks.length, 1),
-        firstBarCell: gridColumnCount,
         expandable: isRowExpandable(row, hierarchy),
         expanded: !collapsedIds.has(row.id),
       })),
     [rows, gridColumnCount, hierarchy, collapsedIds]
+  );
+
+  const safeFocus = useMemo<GanttFocus>(
+    () => clampFocus(focus, keyboardRows),
+    [focus, keyboardRows]
   );
 
   const { tooltip: announceDate } = useMemo(
@@ -152,12 +148,11 @@ export function useGanttKeyboardNav({
         return;
       }
 
-      const row = rows[action.kind === "focus" ? safeFocus.row : action.row];
-      const keyboardRow = keyboardRows[safeFocus.row];
+      const row = rows[safeFocus.row];
       const task =
         action.kind === "focus"
           ? undefined
-          : taskAtFocus(row, action.col, keyboardRow?.firstBarCell ?? 0);
+          : taskAtFocus(row, action.col, gridColumnCount);
 
       switch (action.kind) {
         case "focus":
@@ -301,6 +296,7 @@ export function useGanttKeyboardNav({
       safeFocus,
       keyboardRows,
       rows,
+      gridColumnCount,
       onActivate,
       onToggleCollapse,
       rawTasks,
@@ -348,7 +344,7 @@ export function useGanttKeyboardNav({
       }
       if (--attempts <= 0) return;
 
-      scrollToRow(safeFocus.row, "auto");
+      scrollToRow(safeFocus.row);
       const target = rows[safeFocus.row]?.tasks[0];
       if (target) scrollApi.scrollToTask(target.id, { smooth: false });
       frame = requestAnimationFrame(focusCell);

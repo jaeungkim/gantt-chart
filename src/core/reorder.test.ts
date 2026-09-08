@@ -95,6 +95,19 @@ describe('validateMove', () => {
     ).toBe('reparent-disabled');
   });
 
+  it('allows a same-parent move while hierarchy is off, whatever parentId says', () => {
+    // p's parentId points back at a; hierarchy off, only the sequence path counts
+    const tasks = [
+      task('p', 'a', '1'),
+      task('a', null, '1.1'),
+      task('b', null, '1.2'),
+    ];
+
+    expect(
+      validateMove(tasks, { taskId: 'a', toParentId: 'p', toIndex: 1 }, OFF),
+    ).toBeNull();
+  });
+
   it('refuses a drop that changes nothing', () => {
     expect(
       validateMove(nested(), { taskId: 'a', toParentId: 'p1', toIndex: 0 }, ON),

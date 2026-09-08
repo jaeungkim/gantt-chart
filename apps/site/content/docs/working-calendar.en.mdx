@@ -4,7 +4,7 @@ description: "Snapping a bar drag forward off weekends and holidays"
 ---
 
 `workingCalendar` moves the result of a bar drag forward off weekends and holidays. This page
-covers the prop, the snap it applies to each gesture, what it leaves unchanged, and its limits.
+covers the prop, the snap it applies to each gesture, what it leaves unchanged, and its limitations.
 
 <GanttDemo preset="workingCalendar" />
 
@@ -114,7 +114,7 @@ alone, from Saturday to Monday, so the bar ends two days later than the drag pos
 Add `holidays={['2026-09-07']}` and the four-day move goes one day further, to a start of
 `09-08 09:00` and an end of `09-11 17:00`.
 
-## Limits
+## Limitations
 
 The snap runs on a pointer bar drag only. Loading a new `tasks` array, drawing a link and drawing a
 new task below the last row all keep the dates you passed in. Editing a date field in the

@@ -6,10 +6,9 @@ type TaskMouseHandler = (task: TaskTransformed, event: React.MouseEvent) => void
 interface ResolvedDetailState<T extends { id: string }> {
   // The id the panel is open on, before it is checked against the data
   openId: string | null;
-  // The task to render, or null when the panel is closed or the id is unknown
+  // The task to render, or null when the panel is closed or the id is unknown; an unknown id
+  // closes the panel by derivation, without firing `onDetailChange`
   task: T | null;
-  // An open id naming no task; the panel closes by derivation, without firing `onDetailChange`
-  stale: boolean;
 }
 
 // `openId` cannot use `??`: `detailTaskId={null}` means "controlled, and closed", not "uncontrolled".
@@ -24,13 +23,13 @@ export function resolveDetailState<T extends { id: string }>({
   uncontrolled: string | null;
   tasks: T[];
 }): ResolvedDetailState<T> {
-  if (!enabled) return { openId: null, task: null, stale: false };
+  if (!enabled) return { openId: null, task: null };
 
   const openId = detailTaskId !== undefined ? detailTaskId : uncontrolled;
-  if (openId === null) return { openId: null, task: null, stale: false };
+  if (openId === null) return { openId: null, task: null };
 
   const task = tasks.find((entry) => entry.id === openId) ?? null;
-  return { openId, task, stale: task === null };
+  return { openId, task };
 }
 
 interface UseGanttDetailParams {
@@ -105,16 +104,15 @@ export function useGanttDetail({
   return { task, open, close, onTaskActivate: handleClick };
 }
 
-// Headroom over the 200ms flex-basis transition in styles.css, for a transitionend
-// the browser never fires (a display: none ancestor, an interrupted transition)
-const CLOSE_FALLBACK_MS = 400;
+// Headroom over the 200ms flex-basis transition in styles.css; a transitionend would be
+// tighter, but the browser never fires one for a display: none ancestor or an interrupted slide
+const CLOSE_MS = 400;
 
 interface GanttDetailSlide {
   /** The task to keep rendered - the open one, or the last one while the panel slides shut */
   task: TaskTransformed | null;
   /** Drives .gantt-detail-open - false on the mount frame so opening transitions up from zero */
   open: boolean;
-  onTransitionEnd: React.TransitionEventHandler<HTMLElement>;
 }
 
 /** Holds the panel mounted through the slide-closed transition, then releases it */
@@ -142,19 +140,9 @@ export function useGanttDetailSlide(
 
   useEffect(() => {
     if (opening || retained === null) return;
-    const id = setTimeout(() => setRetained(null), CLOSE_FALLBACK_MS);
+    const id = setTimeout(() => setRetained(null), CLOSE_MS);
     return () => clearTimeout(id);
   }, [opening, retained]);
 
-  const onTransitionEnd = useCallback<React.TransitionEventHandler<HTMLElement>>(
-    (event) => {
-      // The open transition ends on the same property - only the closed panel unmounts
-      if (event.target !== event.currentTarget) return;
-      if (event.propertyName !== "flex-basis") return;
-      if (!opening) setRetained(null);
-    },
-    [opening]
-  );
-
-  return { task: retained, open, onTransitionEnd };
+  return { task: retained, open };
 }

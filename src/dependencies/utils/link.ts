@@ -42,8 +42,8 @@ export function resolveLinkTarget(
     // `order` is the task's row number, rewritten by the row model (1-based)
     if (candidate.order - 1 !== rowIndex) continue;
 
-    const left = candidate.barLeft ?? 0;
-    const right = left + (candidate.barWidth ?? 0);
+    const left = candidate.barLeft;
+    const right = left + candidate.barWidth;
     const distance =
       contentX < left ? left - contentX : Math.max(0, contentX - right);
 
@@ -55,8 +55,8 @@ export function resolveLinkTarget(
 
   if (!task) return null;
 
-  const left = task.barLeft ?? 0;
-  const width = task.barWidth ?? 0;
+  const left = task.barLeft;
+  const width = task.barWidth;
   const edge = Math.min(zone, width / 3);
 
   // Right of the bar is past `right - edge` too, so dropping beyond the finish is a finish

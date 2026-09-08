@@ -71,7 +71,7 @@ off.
 
 | Prop | Type | Default | Description |
 |---|---|---|---|
-| `readOnly` | `boolean` | `false` | Blocks moving, resizing and progress dragging on every task. See [Editing tasks](../editing). |
+| `readOnly` | `boolean` | `false` | Blocks every gesture on every task. See [Editing tasks](../editing). |
 | `allowMove` | `boolean` | `!readOnly` | Allows moving bars, overriding `readOnly`. See [Editing tasks](../editing). |
 | `allowResize` | `boolean` | `!readOnly` | Allows resizing bars, overriding `readOnly`. See [Editing tasks](../editing). |
 | `allowProgressChange` | `boolean` | `!readOnly` | Allows dragging the progress handle, overriding `readOnly`. See [Editing tasks](../editing). |
@@ -175,6 +175,10 @@ off.
 - `GanttTaskMoveChange` is what `onTaskMove` receives. It is exported from the package root and
   its fields are described in [Tree helpers](core-tree), next to the `moveTask` function that
   builds it.
+- `GanttDependencyChange`, `GanttTaskDraft` and `GanttDateRange` are exported from the package
+  root. Their fields are described in [Dependencies](../dependencies),
+  [Creating tasks](../task-creation) and [The timeline](../timeline), next to the callback that
+  receives each.
 - `Dayjs` is a `dayjs` type, and `ReactNode` and `React.MouseEvent` are `react` types. None of the
   three is re-exported from this package.
 - The chart does not render a toolbar or a scale picker. A host that wants one renders it, drives

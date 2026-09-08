@@ -29,8 +29,6 @@ export const TOUCH_EDGE_THRESHOLD = 44;
 export const MIN_RESIZABLE_WIDTH = EDGE_THRESHOLD * 3;
 // Same rule for touch - below this a bar is move-only, so the edges cannot swallow it (px)
 export const MIN_TOUCH_RESIZABLE_WIDTH = TOUCH_EDGE_THRESHOLD * 3;
-// Floor for a rendered bar (px) - tied to MIN_RESIZABLE_WIDTH so a floored bar is still edge-resizable
-export const MIN_BAR_WIDTH = MIN_RESIZABLE_WIDTH;
 
 // How far from a bar's finish a dependency drop still means "finish" (px) - capped at a third of the bar
 export const LINK_ANCHOR_ZONE = 24;
@@ -61,15 +59,15 @@ export const RANGE_FORMATS: Record<GanttScaleKey, string> = {
   year: 'MMM YYYY',
 };
 
-// The zoom ladder, finest first - declaration order is the ladder, each step out 4x the last
-// in px per calendar day (288-72-18-4-1). Zooming out coarsens `unitPerTick` so a header cell
-// stays ~60-130px rather than shrinking.
-// `dragStepUnit` must divide a tick evenly, or createBottomRowCells truncates the cell width.
 // A holiday's name is written over its band, so a band too narrow to hold a word writes nothing
 // and leaves the tint to mark the day. One day is 72px at the week scale and 18px at the month
 // scale, so this is also what decides that names appear on one and not the other.
 export const MIN_HOLIDAY_LABEL_PX = 44;
 
+// The zoom ladder, finest first - declaration order is the ladder, each step out 4x the last
+// in px per calendar day (288-72-18-4-1). Zooming out coarsens `unitPerTick` so a header cell
+// stays ~60-130px rather than shrinking.
+// `dragStepUnit` must divide a tick evenly, or createBottomRowCells truncates the cell width.
 export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
   day: {
     // Quarter-day cells - the only scale that draws a task shorter than a day at its true length

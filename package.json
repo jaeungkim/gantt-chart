@@ -21,11 +21,9 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
+    "dist"
   ],
-  "description": "A controlled React Gantt chart. Every drag returns the complete next tasks array. Virtualized rows, dependency arrows, working calendar, keyboard editing.",
+  "description": "A Gantt chart for React that behaves like a controlled input. Every drag returns the complete next tasks array. An ARIA treegrid with keyboard editing, rows and time cells both virtualized, a headless core with no React or DOM, dependency arrows and a working calendar.",
   "keywords": [
     "gantt",
     "gantt-chart",
@@ -33,7 +31,11 @@
     "project-management",
     "react",
     "timeline",
-    "virtualized"
+    "virtualized",
+    "accessibility",
+    "a11y",
+    "treegrid",
+    "headless"
   ],
   "author": "jaeungkim",
   "license": "MIT",
@@ -59,16 +61,15 @@
     "react-dom": "^18.0.0 || ^19.0.0"
   },
   "dependencies": {
-    "dayjs": "^1.11.23",
-    "zustand": "^5.0.15"
+    "dayjs": "^1.11.23"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@microsoft/api-extractor": "^7.55.2",
     "@types/node": "^22.20.1",
     "@types/react": "^19.2.18",
     "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9.39.5",
-    "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.5",
     "globals": "^15.15.0",
@@ -79,7 +80,8 @@
     "vite": "^6.4.3",
     "vite-plugin-dts": "^5.1.0",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "zustand": "^5.0.15"
   },
   "packageManager": "pnpm@10.30.3",
   "pnpm": {

@@ -1,9 +1,8 @@
 import { RefObject, useCallback, useMemo } from "react";
 import { NODE_HEIGHT } from "shared/constants";
 import { GanttBottomRowCell } from "shared/types";
-import { axisOf, fixedAxis } from "shared/virtual/axis";
+import { fixedAxis, variableAxis } from "shared/virtual/axis";
 import { useVirtualWindow } from "shared/virtual/useVirtualWindow";
-import type { ScrollAlign } from "shared/virtual/useVirtualWindow";
 import { virtualItemsOf, windowBounds } from "shared/virtual/window";
 import type { VirtualItem } from "shared/virtual/window";
 
@@ -21,6 +20,8 @@ export interface GanttVirtualization {
   totalHeight: number;
   /** Time cells to render, already positioned */
   virtualCells: VirtualItem[];
+  /** Width of all cells, culled ones included - the scrollable content width */
+  totalWidth: number;
   /** Width of the cells skipped before the first rendered one (px) */
   leadingCellPx: number;
   /** Vertical bounds of the row window (px) - what the arrows cull against */
@@ -28,7 +29,7 @@ export interface GanttVirtualization {
   rowEndPx: number;
   /** Horizontal culling, shared by the header, the bars and the arrows */
   isBarVisible: (barLeft: number, barWidth: number) => boolean;
-  scrollToRow: (index: number, align?: ScrollAlign) => void;
+  scrollToRow: (index: number) => void;
 }
 
 // Call once at the top and hand the result down: header, rows, bars and arrows must cull
@@ -40,10 +41,10 @@ export function useGanttVirtualization({
 }: UseGanttVirtualizationParams): GanttVirtualization {
   const rowAxis = useMemo(() => fixedAxis(rowCount, NODE_HEIGHT), [rowCount]);
 
-  const colAxis = useMemo(() => {
-    const widths = bottomRowCells.map((cell) => cell.widthPx);
-    return axisOf(widths.length, widths);
-  }, [bottomRowCells]);
+  const colAxis = useMemo(
+    () => variableAxis(bottomRowCells.length, (i) => bottomRowCells[i].widthPx),
+    [bottomRowCells]
+  );
 
   const { row, col, scrollToRow } = useVirtualWindow({
     scrollRef,
@@ -61,6 +62,7 @@ export function useGanttVirtualization({
   );
 
   const { startPx, endPx } = windowBounds(colAxis, col);
+  const { startPx: rowStartPx, endPx: rowEndPx } = windowBounds(rowAxis, row);
   const isBarVisible = useCallback(
     (barLeft: number, barWidth: number) =>
       barLeft + barWidth >= startPx && barLeft <= endPx,
@@ -71,9 +73,10 @@ export function useGanttVirtualization({
     virtualRows,
     totalHeight: rowAxis.total,
     virtualCells,
-    leadingCellPx: virtualCells[0]?.start ?? 0,
-    rowStartPx: row.padStart,
-    rowEndPx: rowAxis.offsetAt(row.end + 1),
+    totalWidth: colAxis.total,
+    leadingCellPx: startPx,
+    rowStartPx,
+    rowEndPx,
     isBarVisible,
     scrollToRow,
   };

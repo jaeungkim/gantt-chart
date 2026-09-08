@@ -11,13 +11,10 @@ export function useGanttSelectors() {
       transformedTasks: state.transformedTasks,
       bottomRowCells: state.bottomRowCells,
       selectedScale: state.selectedScale,
-      selectedTaskId: state.selectedTaskId,
 
       syncTasksFromProps: state.syncTasksFromProps,
       setSelectedScale: state.setSelectedScale,
       setLocaleOptions: state.setLocaleOptions,
-
-      getTotalWidth: state.getTotalWidth,
     }))
   );
 }

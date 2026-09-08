@@ -1,46 +1,20 @@
 ---
 title: "Documentation"
-description: "Every guide and reference page for @jaeungkim/gantt-chart, in reading order"
+description: "What @jaeungkim/gantt-chart is, and where to start reading"
 ---
 
-Read the guides from the top, or open the page you need. The reference table below covers
-the exported types and helpers.
+`@jaeungkim/gantt-chart` is a Gantt chart for React that behaves like a controlled input. Your app
+holds the `tasks` array, and every committed edit returns the complete next array through
+`onTasksChange`.
 
-## Guides
+Three things separate it from other React Gantt components.
 
-| Page | What it covers |
-|---|---|
-| [Introduction](introduction) | What the package includes, and what it leaves to the host app |
-| [Concepts and vocabulary](concepts) | The terms the rest of the docs use, each defined once |
-| [Quick start](quick-start) | Install the package and render a chart whose edits come back to your state |
-| [Task data](task-data) | The `Task` shape, date parsing, and how the `tasks` prop is compared |
-| [Task list and hierarchy](task-list) | The left pane, the splitter and the `parentId` tree |
-| [Lanes](lanes) | The `lane` task field, which puts tasks that share a string on one row |
-| [The timeline](timeline) | Scales, range, zoom, the today line and non-working days |
-| [Editing tasks](editing) | Move, resize and progress gestures, permission flags, drag bounds, touch and auto-scrolling |
-| [Creating tasks](task-creation) | The three entry points that create a task draft, and the draft they pass to `onTaskCreate` |
-| [Reordering rows](reordering) | Dragging a row to a new position or a new parent, and rejecting a move |
-| [Dependencies](dependencies) | The four link types, and drawing and deleting arrows |
-| [Working calendar](working-calendar) | Snapping a bar drag forward off weekends and holidays |
-| [Detail panel](detail-panel) | Turning the docked panel on, editing in place, `renderDetail` and controlled mode |
-| [Events](events) | The callbacks a click, a drag and a keyboard edit fire |
-| [Styling](styling) | Per-task color and class names |
-| [Imperative API](imperative-api) | The `ref` handle for scrolling, the scale, zoom to fit, the detail panel and task creation |
-| [Keyboard and screen readers](accessibility) | The key map, the ARIA tree, the announcements and the gaps |
-| [Locale and date formats](i18n) | `locale`, `formats` and `firstDayOfWeek` |
-| [Theming](theming) | The stylesheet, the `theme` prop and the CSS custom properties |
-| [Headless core](headless-core) | Tree and calendar math without React or a DOM |
+- Move, resize, reorder and delete run from the keyboard inside one ARIA `treegrid`, and each edit
+  is announced in a `role="status"` region. Drawing a dependency arrow has no keyboard path. See
+  [Keyboard and screen readers](accessibility).
+- Rows and time columns are virtualized against one scroll container, and the bars and the arrows
+  cull against the same window. See [Introduction](introduction).
+- The tree and calendar math is a headless core with no React and no DOM, enforced by an eslint
+  `no-restricted-imports` block scoped to `src/core`. See [Headless core](headless-core).
 
-## Reference
-
-| Page | What it covers |
-|---|---|
-| [GanttProps](ref/props) | Every prop `ReactGanttChart` accepts, with its type and default |
-| [Task and task types](ref/task) | `Task`, `TaskDependency`, `DependencyType`, `TaskTransformed` |
-| [GanttInteractionConfig](ref/interaction-config) | The chart-wide interaction flags, the capability precedence order and the summary row mask |
-| [GanttRow](ref/rows) | The row model the chart builds from the tasks it renders |
-| [Detail renderer](ref/renderers) | `GanttDetailRenderer` and `GanttDetailRenderProps`, the types behind `renderDetail` |
-| [GanttHandle](ref/handle) | `GanttHandle`, `GanttScrollApi`, `GanttDetailApi`, `GanttTaskCreateApi`, `GanttScrollOptions`, `GanttZoomAnchor` |
-| [Scale and theme types](ref/scales) | `GanttScaleKey`, `GanttScaleFormat`, `GanttFormatOverrides`, `GanttTheme`, `Holiday` |
-| [Tree helpers](ref/core-tree) | `buildTaskTree`, `collectSubtreeIds`, `rollUpTasks`, `moveTask`, `validateMove`, `sortTasksBySequence` |
-| [Working calendar helpers](ref/core-calendar) | `createWorkingCalendar`, `CALENDAR_DAYS` and `WorkingCalendar`, the exported calendar API |
+Start at [Quick start](quick-start). Every prop is listed in [GanttProps](ref/props).

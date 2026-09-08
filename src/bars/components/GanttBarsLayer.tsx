@@ -52,13 +52,8 @@ export default function GanttBarsLayer({
           key={task.id}
           className="gantt-bar-wrap"
           style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
             height: `${virtualRow.size - 1}px`,
             transform: `translateY(${virtualRow.start}px)`,
-            display: "flex",
-            alignItems: "center",
           }}
         >
           <GanttBar

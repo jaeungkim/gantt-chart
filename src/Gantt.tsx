@@ -38,7 +38,6 @@ import {
   useGanttDetailSlide,
 } from "detail/hooks/useGanttDetail";
 import { GanttHandle, useGanttScrollApi } from "timeline/hooks/useGanttScrollApi";
-import { useGanttTaskListPane } from "task-list/hooks/useGanttTaskListPane";
 import { useGanttTaskMove } from "task-list/hooks/useGanttTaskMove";
 import { useGanttVirtualization } from "timeline/hooks/useGanttVirtualization";
 import {
@@ -52,10 +51,10 @@ import {
 import { useResolvedTheme } from "shared/hooks/useResolvedTheme";
 import { GanttStoreContext, useGanttStore } from "shared/context";
 import { createGanttStore } from "shared/store";
-import { BAR_HEIGHT, NODE_HEIGHT } from "shared/constants";
+import { BAR_HEIGHT, DEFAULT_GRID_WIDTH, NODE_HEIGHT } from "shared/constants";
 import { canCreateTasks, Task } from "shared/task";
 import dayjs from "core/dates";
-import { CALENDAR_DAYS, createWorkingCalendar } from "./core/calendar";
+import { CALENDAR_DAYS, createWorkingCalendar } from "core/calendar";
 import type { Dayjs } from "dayjs";
 import {
   calculateDateOffsetPx,
@@ -63,6 +62,7 @@ import {
   OFF_DAY_KEY,
   type NonWorkingDay,
 } from "timeline/utils/geometry";
+import { resolveFormatters } from "shared/utils/i18n";
 import { indexHolidays } from "shared/utils/holidays";
 import { GanttProps } from './props';
 
@@ -82,69 +82,62 @@ const Gantt = forwardRef<GanttHandle, GanttProps>(function Gantt(props, ref) {
   );
 });
 
-function GanttChart({
-  tasks = EMPTY_TASKS,
-  onTasksChange,
-  height = DEFAULT_HEIGHT,
-  width = DEFAULT_WIDTH,
-  theme,
-  className,
-  showNonWorkingDays = true,
-  workingWeekdays,
-  holidays,
-  initialScrollTo,
-  readOnly,
-  allowMove,
-  allowResize,
-  allowProgressChange,
-  minDate,
-  maxDate,
-  visibleStart,
-  visibleEnd,
-  locale,
-  formats,
-  firstDayOfWeek,
-  showTaskList,
-  showRowNumbers = false,
-  hierarchy = false,
-  collapsedIds,
-  defaultCollapsedIds,
-  onCollapsedChange,
-  workingCalendar = false,
-  allowLinkCreate,
-  allowLinkDelete,
-  allowTaskCreate,
-  allowReorder,
-  onTaskMove,
-  onDependencyCreate,
-  onDependencyDelete,
-  onTaskCreate,
-  onTaskClick,
-  onTaskDoubleClick,
-  onTaskSelect,
-  selectable,
-  renderDetail,
-  showDetail,
-  detailTaskId,
-  onDetailChange,
-  showTooltip,
-  zoomOnWheel = false,
-  infiniteScroll = false,
-  onRangeChange,
-  onScaleChange,
-  autoScrollOnDrag = true,
-  forwardedRef,
-}: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }) {
+function GanttChart(
+  props: GanttProps & { forwardedRef: React.ForwardedRef<GanttHandle> }
+) {
+  const {
+    tasks = EMPTY_TASKS,
+    onTasksChange,
+    height = DEFAULT_HEIGHT,
+    width = DEFAULT_WIDTH,
+    theme,
+    className,
+    showNonWorkingDays = true,
+    workingWeekdays,
+    holidays,
+    initialScrollTo,
+    visibleStart,
+    visibleEnd,
+    locale,
+    formats,
+    firstDayOfWeek,
+    showTaskList,
+    showRowNumbers = false,
+    hierarchy = false,
+    collapsedIds,
+    defaultCollapsedIds,
+    onCollapsedChange,
+    workingCalendar = false,
+    allowReorder,
+    onTaskMove,
+    onDependencyCreate,
+    onDependencyDelete,
+    onTaskCreate,
+    onTaskClick,
+    onTaskDoubleClick,
+    onTaskSelect,
+    selectable,
+    renderDetail,
+    showDetail,
+    detailTaskId,
+    onDetailChange,
+    showTooltip,
+    zoomOnWheel = false,
+    infiniteScroll = false,
+    onRangeChange,
+    onScaleChange,
+    autoScrollOnDrag = true,
+    forwardedRef,
+  } = props;
+
   const {
     rawTasks,
     transformedTasks,
     bottomRowCells,
     selectedScale,
-    selectedTaskId,
     syncTasksFromProps,
     setSelectedScale,
     setLocaleOptions,
-    getTotalWidth,
   } = useGanttSelectors();
 
   // undefined while nothing is set, so built-in labels are used without an Intl formatter
@@ -166,40 +159,49 @@ function GanttChart({
   const scrollRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const interaction = useGanttInteraction({
-    readOnly,
-    allowMove,
-    allowResize,
-    allowProgressChange,
-    allowLinkCreate,
-    allowLinkDelete,
-    allowTaskCreate,
-    allowReorder,
-    minDate,
-    maxDate,
+  const interaction = useGanttInteraction(props);
+
+  const [taskListWidth, setTaskListWidth] = useState(DEFAULT_GRID_WIDTH);
+  const taskListVisible = showTaskList ?? false;
+  // Timeline px the pane covers; scroll and zoom math subtracts it so `scrollToDate` clears it
+  const paneInset = taskListVisible ? taskListWidth : 0;
+  // Cells before the bars on a row - the single name cell, or none while the pane is hidden
+  const gridColumnCount = taskListVisible ? 1 : 0;
+
+  const collapse = useGanttCollapse({
+    collapsedIds,
+    defaultCollapsedIds,
+    onCollapsedChange,
   });
 
-  const taskList = useGanttTaskListPane({ showTaskList });
-  // Cells before the bars on a row - the single name cell, or none while the pane is hidden
-  const gridColumnCount = taskList.visible ? 1 : 0;
+  const { rows, tasks: rowTasks } = useGanttRowModel({
+    rawTasks,
+    tasks: transformedTasks,
+    hierarchy,
+    collapsedIds: collapse.collapsedIds,
+  });
 
-  const totalWidth = getTotalWidth();
+  // The link drag resolves its drop target by arithmetic, so it needs every row, culled ones included
+  const setRowTasks = useGanttStore((store) => store.setRowTasks);
+  useLayoutEffect(() => {
+    setRowTasks(rowTasks);
+  }, [rowTasks, setRowTasks]);
+
+  const virtual = useGanttVirtualization({
+    rowCount: rows.length,
+    bottomRowCells,
+    scrollRef,
+  });
 
   const extension = useGanttRangeExtension({
     enabled: infiniteScroll,
     scrollRef,
     selectedScale,
     bottomRowCells,
-    totalWidth,
-    viewportInsetPx: taskList.inset,
+    totalWidth: virtual.totalWidth,
+    viewportInsetPx: paneInset,
     pinnedStart: !!visibleStart,
     pinnedEnd: !!visibleEnd,
-  });
-
-  const collapse = useGanttCollapse({
-    collapsedIds,
-    defaultCollapsedIds,
-    onCollapsedChange,
   });
 
   const move = useGanttTaskMove({
@@ -272,22 +274,17 @@ function GanttChart({
       onTaskActivate: detail.onTaskActivate,
       onTaskDoubleClick,
       showTooltip,
+      tooltip: resolveFormatters(selectedScale, localeOptions).tooltip,
     }),
-    [onTasksChange, detail.onTaskActivate, onTaskDoubleClick, showTooltip]
+    [
+      onTasksChange,
+      detail.onTaskActivate,
+      onTaskDoubleClick,
+      showTooltip,
+      selectedScale,
+      localeOptions,
+    ]
   );
-
-  const { rows, tasks: rowTasks } = useGanttRowModel({
-    rawTasks,
-    tasks: transformedTasks,
-    hierarchy,
-    collapsedIds: collapse.collapsedIds,
-  });
-
-  // The link drag resolves its drop target by arithmetic, so it needs every row, culled ones included
-  const setRowTasks = useGanttStore((store) => store.setRowTasks);
-  useLayoutEffect(() => {
-    setRowTasks(rowTasks);
-  }, [rowTasks, setRowTasks]);
 
   const canCreateTask = onTaskCreate !== undefined && canCreateTasks(interaction);
   const { onDrawPointerDown, ghost } = useGanttDrawCreate({
@@ -302,12 +299,6 @@ function GanttChart({
     const draft = defaultTaskDraft(dayjs(), bottomRowCells, selectedScale);
     if (draft) onTaskCreate?.(draft);
   }, [canCreateTask, bottomRowCells, selectedScale, onTaskCreate]);
-
-  const virtual = useGanttVirtualization({
-    rowCount: rows.length,
-    bottomRowCells,
-    scrollRef,
-  });
 
   const resolvedTheme = useResolvedTheme(theme);
 
@@ -351,7 +342,7 @@ function GanttChart({
     scrollRef,
     selectedScale,
     bottomRowCells,
-    viewportInsetPx: taskList.inset,
+    viewportInsetPx: paneInset,
     zoomTo,
   });
 
@@ -378,7 +369,7 @@ function GanttChart({
     transformedTasks: rowTasks,
     selectedScale,
     rowHeight: NODE_HEIGHT,
-    viewportInsetPx: taskList.inset,
+    viewportInsetPx: paneInset,
     zoomTo,
     setSelectedScale,
   });
@@ -429,11 +420,11 @@ function GanttChart({
     height: typeof height === "number" ? `${height}px` : height,
     width: typeof width === "number" ? `${width}px` : width,
     // How far the pinned task list reaches in; left-pinned timeline content offsets by this
-    "--gantt-pane-inset": `${taskList.inset}px`,
+    "--gantt-pane-inset": `${paneInset}px`,
     // Row height as a token, so CSS keeps the row pitch without a second copy of the number
     "--gantt-row-height": `${NODE_HEIGHT}px`,
   } as React.CSSProperties;
-  const timelineStyle = { width: `${totalWidth}px` };
+  const timelineStyle = { width: `${virtual.totalWidth}px` };
 
   return (
     <section
@@ -458,22 +449,21 @@ function GanttChart({
               className="gantt-body"
               role="treegrid"
               aria-label="Gantt chart"
-              aria-rowcount={rows.length + (taskList.visible ? 1 : 0)}
+              aria-rowcount={rows.length + (taskListVisible ? 1 : 0)}
               onKeyDown={keyboard.onKeyDown}
               onFocusCapture={keyboard.onFocusCapture}
             >
-              {taskList.visible && (
+              {taskListVisible && (
                 <GanttTaskGrid
                   rows={rows}
                   virtualItems={virtual.virtualRows}
                   totalHeight={virtual.totalHeight}
-                  width={taskList.width}
+                  width={taskListWidth}
                   showRowNumbers={showRowNumbers}
                   hierarchy={hierarchy}
                   collapsedIds={collapse.collapsedIds}
                   onToggleCollapse={collapse.toggle}
                   focus={keyboard.focus}
-                  selectedTaskId={selectedTaskId}
                   onRowClick={detail.onTaskActivate}
                   onRowDoubleClick={onTaskDoubleClick}
                   reorderEnabled={reorderEnabled}
@@ -491,7 +481,7 @@ function GanttChart({
                   <GanttChartHeader
                     bottomRowCells={bottomRowCells}
                     selectedScale={selectedScale}
-                    width={totalWidth}
+                    width={virtual.totalWidth}
                     virtual={virtual}
                   />
 
@@ -506,7 +496,7 @@ function GanttChart({
                   className={`gantt-content${canCreateTask ? " drawable" : ""}`}
                   style={{
                     height: `${virtual.totalHeight}px`,
-                    width: `${totalWidth}px`,
+                    width: `${virtual.totalWidth}px`,
                   }}
                   role="presentation"
                   onPointerDown={onDrawPointerDown}
@@ -517,7 +507,7 @@ function GanttChart({
                   <GanttRowsLayer
                     rows={rows}
                     virtualItems={virtual.virtualRows}
-                    ownedByTaskList={taskList.visible}
+                    ownedByTaskList={taskListVisible}
                     hierarchy={hierarchy}
                     collapsedIds={collapse.collapsedIds}
                   />
@@ -541,7 +531,6 @@ function GanttChart({
 
                   <GanttDependencyArrows
                     transformedTasks={rowTasks}
-                    rowCount={rows.length}
                     virtual={virtual}
                     interaction={interaction}
                     onTasksChange={onTasksChange}
@@ -566,16 +555,16 @@ function GanttChart({
           </div>
 
           {/* Outside the scroll container to stay pinned to the pane edge, outside the treegrid to keep one tab stop */}
-          {taskList.visible && (
+          {taskListVisible && (
             <GanttGridSplitter
-              width={taskList.width}
-              onWidthChange={taskList.setWidth}
+              width={taskListWidth}
+              onWidthChange={setTaskListWidth}
             />
           )}
 
           {/* Out here for the splitter's reasons; also the only keyboard way in, since drawing is pointer-only */}
-          {taskList.visible && canCreateTask && (
-            <GanttTaskAddRow width={taskList.width} onAdd={proposeTask} />
+          {taskListVisible && canCreateTask && (
+            <GanttTaskAddRow width={taskListWidth} onAdd={proposeTask} />
           )}
         </div>
 
@@ -590,7 +579,6 @@ function GanttChart({
             onTasksChange={onTasksChange}
             render={renderDetail}
             open={slide.open}
-            onTransitionEnd={slide.onTransitionEnd}
           />
         )}
       </div>

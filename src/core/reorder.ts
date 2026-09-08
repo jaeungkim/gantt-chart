@@ -192,8 +192,9 @@ export function validateMove(
     return "reparent-disabled";
   }
 
-  // A node cannot become its own descendant - the subtree is where it would land
-  if (move.toParentId) {
+  // A node cannot become its own descendant - the subtree is where it would land.
+  // Hierarchy off, the parent never changes and parentId is not read at all.
+  if (options.hierarchy && move.toParentId) {
     const subtree = new Set(collectSubtreeIds(sorted, task.id, tree));
     if (subtree.has(move.toParentId)) return "cycle";
   }

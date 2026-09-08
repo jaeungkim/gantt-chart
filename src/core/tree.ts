@@ -116,36 +116,6 @@ export function getVisibleTasks<T extends TaskNode>(
   return tasks.filter((task) => !hasCollapsedAncestor(task.id));
 }
 
-/** Duration-weighted average progress of the children - undefined when no child reports one */
-function rollUpProgress(children: Task[]): number | undefined {
-  let weightedSum = 0;
-  let totalWeight = 0;
-  let plainSum = 0;
-  let reported = false;
-
-  for (const child of children) {
-    const progress = normalizeProgress(child.progress);
-    if (progress !== null) reported = true;
-
-    const value = progress ?? 0;
-    const duration = Math.max(
-      0,
-      dayjs(child.endDate).valueOf() - dayjs(child.startDate).valueOf()
-    );
-
-    weightedSum += value * duration;
-    totalWeight += duration;
-    plainSum += value;
-  }
-
-  if (!reported) return undefined;
-
-  // With only zero-duration children there is no weight, so fall back to a plain average
-  const percent =
-    totalWeight > 0 ? weightedSum / totalWeight : plainSum / children.length;
-  return Math.round(percent);
-}
-
 /**
  * The tasks with every parent recomputed as a summary row: start/end always from the children
  * (deepest first, so a move travels all the way up); an explicit progress is left alone.
@@ -176,20 +146,39 @@ export function rollUpTasks(
 
     let minStart = Infinity;
     let maxEnd = -Infinity;
+    // Progress rolls up as a duration-weighted average - undefined when no child reports one
+    let weightedSum = 0;
+    let totalWeight = 0;
+    let plainSum = 0;
+    let reported = false;
+
     for (const child of children) {
       const start = dayjs(child.startDate).valueOf();
       const end = dayjs(child.endDate).valueOf();
 
       if (!Number.isNaN(start)) minStart = Math.min(minStart, start);
       if (!Number.isNaN(end)) maxEnd = Math.max(maxEnd, end);
+
+      const progress = normalizeProgress(child.progress);
+      if (progress !== null) reported = true;
+
+      const value = progress ?? 0;
+      const duration = Math.max(0, end - start);
+      weightedSum += value * duration;
+      totalWeight += duration;
+      plainSum += value;
     }
     if (!Number.isFinite(minStart) || !Number.isFinite(maxEnd)) continue;
+
+    // With only zero-duration children there is no weight, so fall back to a plain average
+    const percent =
+      totalWeight > 0 ? weightedSum / totalWeight : plainSum / children.length;
 
     rolled.set(parentId, {
       ...parent,
       startDate: dayjs(minStart).toISOString(),
       endDate: dayjs(maxEnd).toISOString(),
-      progress: parent.progress ?? rollUpProgress(children),
+      progress: parent.progress ?? (reported ? Math.round(percent) : undefined),
     });
   }
 
