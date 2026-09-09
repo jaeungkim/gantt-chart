@@ -1,85 +1,15 @@
 ---
 title: "Imperative API"
-description: "The `ref` handle for scrolling, the scale, zoom to fit, the detail panel and task creation"
+description: "Drive scrolling, the scale, zoom to fit, the detail panel and task creation from your own controls."
 ---
 
-The chart renders no toolbar. Your app renders the today button, the fit button and the scale picker, and each one calls the chart through a ref rather than a prop. This page covers the handle the ref holds: scrolling, the scale, zoom to fit, the detail panel and task creation.
+The chart draws the timeline, and the task list when it is enabled. It draws no toolbar and no scale picker, so build those in your app and call the chart through a ref.
 
-## The handle
+## Build the toolbar
 
-`ReactGanttChart` is wrapped in `forwardRef`. Attach a `useRef<GanttHandle>` and the ref holds nine members after mount.
+`ReactGanttChart` is wrapped in `forwardRef`. Attach a `useRef<GanttHandle>` and the handle holds nine methods once the chart has mounted.
 
-```tsx title="src/ChartWithControls.tsx"
-import { useRef } from 'react';
-import { ReactGanttChart, type GanttHandle, type Task } from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
-
-export function ChartWithControls({ tasks }: { tasks: Task[] }) {
-  const ganttRef = useRef<GanttHandle>(null);
-
-  return (
-    <>
-      <button onClick={() => ganttRef.current?.scrollToToday()}>Today</button>
-      <ReactGanttChart ref={ganttRef} tasks={tasks} />
-    </>
-  );
-}
-```
-
-`GanttHandle` extends `GanttScrollApi`, `GanttDetailApi` and `GanttTaskCreateApi` and declares no member of its own.
-
-| Member | Signature | Effect |
-|---|---|---|
-| `scrollToDate` | `(date: string \| Date \| Dayjs, options?: GanttScrollOptions) => void` | Scrolls horizontally to a date |
-| `scrollToToday` | `(options?: GanttScrollOptions) => void` | `scrollToDate(dayjs())` |
-| `scrollToTask` | `(taskId: string, options?: GanttScrollOptions) => void` | Scrolls to a task's bar, vertically too if the row is off screen |
-| `setScale` | `(scale: GanttScaleKey) => void` | Switches the scale and keeps the centre date of the timeline in place |
-| `zoomToFit` | `() => void` | Switches to the finest scale that fits every task and pins the project start to the left edge |
-| `getScrollElement` | `() => HTMLDivElement \| null` | Returns the scroll container DOM node |
-| `openDetail` | `(taskId: string) => void` | Opens the detail panel on that task |
-| `closeDetail` | `() => void` | Closes the detail panel |
-| `addTask` | `() => void` | Calls `onTaskCreate` with a new task draft |
-
-`GanttScrollApi`, `GanttDetailApi`, `GanttTaskCreateApi`, `GanttScrollOptions` and `GanttHandle` itself are declared in [GanttHandle](ref/handle).
-
-## Scrolling
-
-Every scroll method takes the same options object.
-
-| Option | Values | Default | Rule |
-|---|---|---|---|
-| `smooth` | `boolean` | animated | Only the literal `false` turns the animation off. `undefined` animates |
-| `align` | `'start' \| 'center'` | `'center'` | Only the literal `'start'` aligns to the start. Any other value centres |
-
-`align: 'start'` puts the target at the left edge of the timeline area. `align: 'center'` centres it in the timeline area, measured with the pinned task list pane's width subtracted from the viewport width.
-
-Both targets are clamped at `0`, so a date near the start of the range scrolls as far left as the chart can go.
-
-```ts
-ganttRef.current?.scrollToDate('2026-09-01', { smooth: false, align: 'start' });
-ganttRef.current?.scrollToToday();
-ganttRef.current?.scrollToTask('task-42');
-```
-
-`scrollToDate` and `scrollToToday` move the horizontal axis only and leave `scrollTop` unchanged.
-
-The first scroll needs no ref. `initialScrollTo="today"` sets the position once after the first render, as described in [The timeline](timeline). Every later scroll goes through the ref.
-
-`scrollToTask` moves both axes. Horizontally it targets the bar's left edge under `align: 'start'` and the bar's midpoint otherwise.
-
-Vertically it scrolls only when the row is outside the viewport, and it centres the row. `align` has no effect on the vertical axis.
-
-Every scroll method fails silently. The call returns early with no throw and no console output for a date outside the rendered range, an unknown task id, or a chart that has not mounted. Calling one while data is still loading is safe.
-
-`scrollToTask` searches the rendered rows only. A task under a collapsed parent is not in that list, so the call does nothing until you expand the row. Collapse state is covered in [Task list and hierarchy](task-list).
-
-## Changing the scale
-
-The chart renders no scale control. `setScale` writes the scale and the `onScaleChange` prop reports it back. The signature is in [GanttHandle](ref/handle), and the other ways the scale changes are in [The timeline](timeline).
-
-Use a native `<select>`. Your app writes the option text, so the labels translate with the rest of the UI. The platform supplies the keyboard, screen reader and touch behaviour.
-
-```tsx title="src/GanttToolbar.tsx"
+```tsx title="GanttToolbar.tsx"
 import { useRef, useState } from 'react';
 import {
   ReactGanttChart,
@@ -91,19 +21,24 @@ import '@jaeungkim/gantt-chart/style.css';
 
 const SCALES: GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
 
-export function GanttToolbar({ tasks }: { tasks: Task[] }) {
+const initialTasks: Task[] = [
+  { id: 'design', name: 'Design', parentId: null, sequence: '1',
+    startDate: '2026-09-01', endDate: '2026-09-08' },
+  { id: 'build', name: 'Build', parentId: null, sequence: '2',
+    startDate: '2026-09-08', endDate: '2026-09-18' },
+];
+
+export function GanttToolbar() {
   const ganttRef = useRef<GanttHandle>(null);
+  const [tasks, setTasks] = useState(initialTasks);
   const [scale, setScale] = useState<GanttScaleKey>('month');
 
   return (
     <>
       <div>
-        {/* the ref is null until the chart mounts, so every call is optional-chained */}
         <button onClick={() => ganttRef.current?.scrollToToday()}>Today</button>
         <button onClick={() => ganttRef.current?.zoomToFit()}>Fit</button>
-        <button onClick={() => ganttRef.current?.openDetail('task-42')}>
-          Details for 42
-        </button>
+        <button onClick={() => ganttRef.current?.openDetail('build')}>Build details</button>
 
         <select
           aria-label="Timeline scale"
@@ -119,119 +54,71 @@ export function GanttToolbar({ tasks }: { tasks: Task[] }) {
       <ReactGanttChart
         ref={ganttRef}
         tasks={tasks}
+        onTasksChange={setTasks}
         defaultScale="month"
         onScaleChange={setScale}
         showDetail
+        height={420}
       />
     </>
   );
 }
 ```
 
-The select never sets its own state. The chosen value goes into the chart and `onScaleChange` reports it back. A change made with the wheel or the keyboard takes the same path, so the select follows it.
+The ref is `null` until the chart mounts, so optional-chain every call. The buttons keep no state of their own, because each method reads the chart's current state when it runs. Type declarations are in [GanttHandle](ref/handle).
 
-`zoomToFit()` picks a scale, and `onScaleChange` reports it the same way, so the **Fit** button updates the select with no extra wiring.
+## Scroll the timeline
 
-The buttons hold no state. Each method reads the chart's current state when it is called. Only the select holds a value, and `onScaleChange` keeps it in sync.
-
-The toolbar above the chart on the [playground](/playground) has this shape. Every method on this page except `setScale` is a button in the console beside it. `setScale` is driven by the toolbar's native `<select>`, as above.
-
-## Zooming
-
-`zoomToFit()` reads the earliest `startDate` and the latest `endDate` across the rendered tasks. It tries the scales from finest to coarsest (`day`, `week`, `month`, `quarter`, `year`) and takes the first one where the whole span fits the timeline's width. When no scale fits, it uses `year`.
-
-The earliest date is pinned to the timeline's left edge. `zoomToFit()` takes no options, and the resulting scroll is always instant. The anchor is applied by assigning `scrollLeft` directly rather than through `scrollTo({ behavior })`.
-
-The fit is measured against each scale's average px per millisecond, not against the ticks that will be built. The figure is exact for scales whose ticks have a fixed duration.
-
-On `quarter` and `year` the ticks follow the calendar (month cells on `quarter`, quarter cells on `year`), so the figure is approximate. When the span is within a few percent of the viewport width, `zoomToFit()` can pick the neighbouring scale.
-
-`zoomToFit()` returns early and throws no error when there are no tasks, no mounted scroll element, or a min or max date that is not a finite number.
-
-There is no `zoomIn` or `zoomOut` on the handle. Step through your own array of the five keys with `setScale`, or leave the stepping to `Ctrl`/`Cmd` + wheel and `Ctrl`/`Cmd` + `ArrowUp`/`ArrowDown`. Both are described in [The timeline](timeline).
-
-## The detail panel
-
-Two methods drive the detail panel from outside the chart. `openDetail(taskId)` opens the docked side panel on a task and `closeDetail()` closes it.
-
-What the panel is, what turns it on and what it renders are described in [Detail panel](detail-panel). This page covers the ref side.
+`scrollToDate` and `scrollToToday` move the horizontal axis only. `scrollToTask` moves both axes, and it centres the row vertically only when that row is off screen.
 
 ```ts
-ganttRef.current?.openDetail('task-42');
-ganttRef.current?.closeDetail();
+ganttRef.current?.scrollToDate('2026-09-01', { smooth: false, align: 'start' });
+ganttRef.current?.scrollToTask('build');
 ```
 
-Both methods do nothing while the panel is off. The panel is off by default and exists only when `renderDetail` or `showDetail` turns it on.
+Every scroll method takes the same options. `smooth` animates unless you pass the literal `false`. `align` centres the target unless you pass the literal `'start'`, which puts it at the left edge of the timeline area.
 
-A button wired to `openDetail` needs no guard of its own. It does nothing until the chart has a panel to open.
+Centring measures the viewport with the pinned task list pane subtracted. Horizontally, `scrollToTask` targets the bar's left edge under `align: 'start'` and the bar's midpoint otherwise. `align` has no vertical effect, and both targets clamp at `0`.
 
-`openDetail` ignores an id that names no task, as `scrollToTask` does. The two differ on one point. `openDetail` resolves the id against every task the chart holds, collapsed rows included, so a task under a collapsed parent still opens its panel.
+Every scroll method returns with no error and no console output. An out-of-range date, an unknown task id or a chart that has not mounted is safe to call while data loads.
 
-`scrollToTask` needs a rendered row. The example below calls both.
+`scrollToTask` searches the rendered rows, so a task under a collapsed parent stays out of reach until you expand it.
 
-`closeDetail()` on a closed panel does nothing and fires no `onDetailChange`.
+The first scroll needs no ref. `initialScrollTo` takes `"today"` or a date string and scrolls there once after the first render, and later data updates leave the scroll alone.
 
-```tsx title="src/ChartWithDetail.tsx"
-import { useRef } from 'react';
-import { ReactGanttChart, type GanttHandle, type Task } from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
+## Keep the picker in sync
 
-export function ChartWithDetail({ tasks }: { tasks: Task[] }) {
-  const ganttRef = useRef<GanttHandle>(null);
+`setScale` writes the scale and keeps the date at the centre of the timeline in place. `onScaleChange` reports every committed change back. Point a native `<select>` at both, as the example above does, and the select needs no state of its own.
 
-  // scroll first, then open: the panel resolves ids the chart cannot scroll to
-  const inspect = (taskId: string) => {
-    ganttRef.current?.scrollToTask(taskId);
-    ganttRef.current?.openDetail(taskId);
-  };
+Wheel zoom, the keyboard shortcuts and `zoomToFit()` all report through `onScaleChange`, so the select follows them with no extra wiring. Your app writes the option text, so those labels translate with the rest of your interface. See [Locale and date formats](i18n).
 
-  return (
-    <>
-      <ul>
-        {tasks.map((task) => (
-          <li key={task.id}>
-            <button onClick={() => inspect(task.id)}>{task.name}</button>
-          </li>
-        ))}
-      </ul>
+## Fit the whole project
 
-      <ReactGanttChart ref={ganttRef} tasks={tasks} showDetail />
-    </>
-  );
-}
-```
+`zoomToFit()` reads the earliest start and the latest end across the rendered tasks. It tries the five
+scales from finest to coarsest and switches to the first one whose span fits the timeline width. When
+none fits it uses `year`, and the earliest date is pinned to the left edge.
 
-With `showDetail` on, the panel also opens on the click that selects a row and on `Enter` on the focused row. Your button adds to the chart's own triggers rather than replacing them.
+The fit is measured against each scale's average pixels per millisecond, which is exact where ticks have a fixed duration. `quarter` and `year` use calendar-length cells, so a span within a few percent of the viewport width can land on the neighbouring scale.
 
-To let only your code open the panel, hold `detailTaskId` in your own state and set it from the button. A chart click is then only reported through `onDetailChange`, and your app decides whether to follow it.
+`zoomToFit()` takes no options and its scroll is always instant. It returns with no error when there are no tasks, no mounted chart, or no usable start and end date.
 
-`Escape` closes the panel from anywhere on the page and leaves the row selected. There is no global opening key. `Enter` needs a focused row, so a keyboard shortcut of your own calls `openDetail`.
+There is no `zoomIn` or `zoomOut`. Step through your own array of the five scale keys with `setScale`, or leave stepping to the wheel and keyboard shortcuts described in [The timeline](timeline).
 
-With `detailTaskId` given, the chart is controlled and neither method moves the panel by itself. Each reports the request through `onDetailChange`, and the panel follows your state. Without the prop the chart holds the open task itself, both methods take effect immediately, and `onDetailChange` fires as well.
+## Open panels and add tasks
 
-## Adding a task
+`openDetail(taskId)` opens the docked side panel on a task, and `closeDetail()` closes it. Both do nothing while the panel is off, so a button wired to either needs no guard of its own.
 
-`addTask()` concerns the data rather than the view. No other member does. It builds the same draft as the **Add task** button under the task list and passes it to `onTaskCreate`. The draft is one tick at today, snapped to the current scale.
+`openDetail` resolves the id against every task the chart holds, collapsed rows included. `closeDetail()` on a closed panel fires no `onDetailChange`. With `detailTaskId` given, the chart is controlled, both methods only report the request, and the panel follows your state. See [Detail panel](detail-panel).
 
-```tsx
-ganttRef.current?.addTask();
-```
+`addTask()` is the only member that concerns data. It builds the same draft as the **Add task** button, one tick long at today, and passes it to `onTaskCreate`. It writes nothing, so the row appears when your handler adds the task to `tasks`.
 
-Like the **Add task** button and a drawn range, it writes nothing. The row appears when your handler adds the task to the `tasks` array.
+Without `onTaskCreate`, or with creation turned off, `addTask()` does nothing and again needs no guard. See [Creating tasks](task-creation).
 
-Without `onTaskCreate`, or with creation off (`allowTaskCreate={false}`, or `readOnly` with `allowTaskCreate` unset), the call does nothing. A button wired to it needs no guard, the same as one wired to `openDetail`.
+## Before you integrate
 
-A keyboard shortcut of your own calls `addTask()` too. The chart binds no key to task creation.
-
-The draft and what turns creation off are described in [Creating tasks](task-creation).
-
-## Limitations
-
-- `addTask()` calls `onTaskCreate` with one draft and writes nothing. No method edits, moves or deletes a task. Every change to the tasks goes through the `tasks` prop and `onTasksChange`.
-- `getScrollElement()` returns the raw DOM node for your app to drive. There is no `scrollToRow` and no scroll position getter.
-- No method reports failure. An out-of-range date, an unknown id, an unknown scale key and a detail call while the panel is off all look like success from outside.
-- `setScale` has no getter beside it. `onScaleChange` reports the scale and nothing on the ref reads it back, so the current scale is in your state or nowhere.
+- `addTask()` passes a draft to `onTaskCreate` and writes nothing. No method edits, moves or deletes a task, so every change still travels through `tasks` and `onTasksChange`.
+- `getScrollElement()` returns the raw scroll node for your app to drive. There is no `scrollToRow`, no scroll position getter and no scroll event callback.
+- No method reports failure. An out-of-range date, an unknown id, an unknown scale key and a detail call on a chart with no panel all look like success from outside.
+- `setScale` has no getter beside it, so the current scale lives in your app's state or nowhere.
 
 Props and defaults: [GanttProps](ref/props).
-
-Next: [Keyboard and screen readers](accessibility).

@@ -136,12 +136,7 @@ import { createWorkingCalendar } from '@jaeungkim/gantt-chart';
 dayjs.extend(utc);
 
 const calendar = createWorkingCalendar({ holidays: ['2025-06-09'] });
-
-// 금요일에서 근무일 하루 뒤로. 주말과 월요일 휴일을 둘 다 건너뛰어요.
 calendar.addDays(dayjs.utc('2025-06-06'), 1).toISOString(); // 2025-06-10T00:00:00.000Z
-calendar.daysBetween(dayjs.utc('2025-06-06'), dayjs.utc('2025-06-13')); // 4
-calendar.isWorkingDay(dayjs.utc('2025-06-09')); // false
-calendar.skipsNonWorkingDays; // true
 ```
 
 패키지에서 달력 인자를 받는 것은 하나도 없어요. 차트는 `workingCalendar`, `workingWeekdays`,

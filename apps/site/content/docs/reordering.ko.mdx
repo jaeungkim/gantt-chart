@@ -1,137 +1,108 @@
 ---
 title: "행 순서 바꾸기"
-description: "작업 목록의 행을 새 자리나 새 부모로 옮기는 방법"
+description: "작업 목록의 행을 새 자리나 새 부모 아래로 끌어다 놓게 해요."
 ---
 
-행 순서 바꾸기는 작업 목록의 행을 새 자리나 새 부모로 끌어다 놓는 기능이에요. 이 페이지는 이동이 다시 쓰는
-필드와 이동을 거부하는 방법을 다뤄요. [작업 편집](editing)의 막대 제스처와 달리 기본으로 꺼져 있어요.
-차트에 `allowReorder`를 설정하면 모든 행에서 켜져요.
+계획은 날짜만큼이나 자주 모양이 바뀌어요. 행 드래그를 켜면 작업 목록의 행을 새 자리로, 또는 새 부모 아래로 옮길 수 있어요.
 
-```tsx
-<ReactGanttChart tasks={tasks} onTasksChange={setTasks} allowReorder hierarchy />
-```
+## 행 드래그 켜기
 
-작업에 설정한 `allowReorder`는 차트 값보다 우선해요. 작업의 `readOnly: true`는 이동을 막아요.
-차트의 `readOnly`는 참조하지 않아요. 순서 바꾸기에는 기본 허용값이 없기 때문이에요. 전체 우선순위는
-[GanttInteractionConfig](ref/interaction-config)를 참고하세요.
+막대 제스처와 달리 행 드래그의 기본값은 `false`예요. 차트에 `allowReorder`를 설정하면 모든 행에서 켜지고, `hierarchy`를 더하면 부모를 바꾸는 이동도 가능해요.
 
-끌 수 있는 행에는 왼쪽 끝에 그립이 있어요. 호버할 때와 키보드 포커스가 있을 때 보여요. 움직일 수
-없는 행은 같은 자리에 빈 여백을 두어 글자가 밀리지 않아요.
-
-드래그는 그립에서만 시작해요. 행의 다른 곳을 누르면 클릭과 선택으로 처리돼요. `Escape`를 누르면
-드래그가 취소되고 행이 제자리로 돌아가요.
-
-터치에서는 막대와 마찬가지로 400ms 동안 그립을 누르고 있어야 해요.
-[작업 편집](editing)을 참고하세요.
-
-같은 이동은 키보드에도 있어요. `Alt` + 세로 방향키는 형제 사이에서 행을 옮겨요. `Ctrl`/`Cmd` + 가로
-방향키는 들여쓰기와 내어쓰기를 해요. [키보드와 스크린 리더](accessibility)를 참고하세요.
-
-## 놓이는 자리
-
-놓이는 자리는 포인터 아래 행의 어느 높이에서 손을 뗐는지에 따라 달라져요.
-
-| 구역 | 끌던 행이 놓이는 곳 |
-|---|---|
-| 위쪽 1/4 | 그 행 앞 형제로 |
-| 가운데 1/2 | 그 행 안 마지막 자식으로 |
-| 아래쪽 1/4 | 그 행 뒤 형제로 |
-
-가운데 구역이 행의 절반을 차지해서 부모를 바꾸는 구역이 넓어요. 형제 구역 둘은 더 정확히 겨눠야
-해요. 최상위 행의 형제 구역에 놓으면 중첩된 행이 최상위로 돌아와요.
-
-잘못된 드롭은 포인터가 눌려 있는 동안 거부돼요. 그래서 손을 떼도 이동이 일어나지 않아요.
-이렇게 거부되어 앱까지 오지 않는 드롭은 세 가지예요. 자기 하위 트리 안에 놓기, `hierarchy`가 꺼진
-상태에서 부모 바꾸기, 아무것도 바꾸지 않는 드롭이에요.
-
-접힌 행 안으로 놓으면 그 행이 펼쳐져서 옮긴 행이 계속 보여요.
-
-## 다시 쓰이는 필드
-
-행 순서는 `sequence` 하나로 정해져요. `sequence`는 경로라서 `"2.1"`은 `"2"`의 첫 자식이에요.
-`"1.1"`과 `"1.2"` 사이로 정렬되는 문자열은 없어요. 그래서 이동은 두 행 사이에 중간 값을 끼우지
-못하고 번호를 다시 매겨요. 새 번호는 이동 뒤 화면에 보이는 행 순서에서 읽어요.
-
-한 번의 이동은 경로가 바뀐 모든 작업의 `sequence`를 다시 써요. `parentId`는 옮긴 작업에만 다시
-써요. 옮긴 행의 자식은 그대로 부모를 가리키며 함께 움직여요. 경로가 그대로인 작업은 객체 동일성을
-유지하므로 배열을 비교하는 앱에는 움직인 작업만 보여요. 결과는 다른 확정된 제스처처럼 배열 전체를
-담은 `onTasksChange` 한 번으로 앱에 전달돼요.
-
-## 그대로인 필드
-
-- 새 부모 아래에서도 `startDate`와 `endDate`는 그대로예요. 새 부모의 구간에 맞춰 늘어나거나
-  잘리지 않아요.
-- 막대의 위치는 요약 행에서만 달라져요. 요약 행의 시작과 끝은 자식에서 다시 계산돼요. 자식 하나가
-  다른 부모로 옮겨 가면 이전 부모와 새 부모의 막대를 다시 그려요.
-  [작업 목록과 계층](task-list)을 참고하세요.
-- 링크는 id로 저장되므로 행이 어디에 놓이든 화살표는 같은 두 작업을 같은 타입과 방향으로 연결해요.
-
-## 이동 거부하기
-
-`onTaskMove`는 이동이 적용되기 전에 실행돼요. `false`를 반환하면 이동이 거부돼요. `sequence`와
-행은 그대로 남고 `onTasksChange`도 발생하지 않아요.
-
-전달되는 `GanttTaskMoveChange`에는 작업 id와 이동의 양 끝이 담겨요. 이전 자리는 `fromParentId`와
-`fromIndex`예요. 새 자리는 `toParentId`와 `toIndex`예요. `afterId`와 `beforeId`는 이동 뒤 행의
-앞뒤에 놓인 형제예요. 인덱스 쌍은 인덱스 기반 API에 맞고 형제 쌍은 위치 기반 API에 맞아요. 둘은
-같은 결과에서 읽으므로 서로 어긋나지 않아요. 전체 형태는 [트리 헬퍼](ref/core-tree)를 참고하세요.
-
-아래 예제는 이동을 서버로 보내고 요청이 실패하면 되돌려요.
-
-```tsx title="src/PlanBoard.tsx"
+```tsx title="PlanBoard.tsx"
 import { useState } from 'react';
-import {
-  ReactGanttChart,
-  type GanttTaskMoveChange,
-  type Task,
-} from '@jaeungkim/gantt-chart';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
 import '@jaeungkim/gantt-chart/style.css';
 
-export function PlanBoard({ initial }: { initial: Task[] }) {
-  const [tasks, setTasks] = useState<Task[]>(initial);
-
-  const handleTaskMove = ({ taskId, toParentId, toIndex }: GanttTaskMoveChange) => {
-    const previous = tasks;
-
-    // 위치 기반 API라면 대신 { parentId: toParentId, after: afterId }를 보내요
-    fetch(`/api/tasks/${taskId}/move`, {
-      method: 'PATCH',
-      body: JSON.stringify({ parentId: toParentId, index: toIndex }),
-    }).catch(() => setTasks(previous)); // 서버가 거부했어요 - 행을 되돌려요
-  };
+export function PlanBoard({ initialTasks }: { initialTasks: Task[] }) {
+  const [tasks, setTasks] = useState(initialTasks);
 
   return (
     <ReactGanttChart
       tasks={tasks}
       onTasksChange={setTasks}
-      onTaskMove={handleTaskMove}
-      allowReorder
+      showTaskList
       hierarchy
+      allowReorder
     />
   );
 }
 ```
 
-차트는 `onTaskMove`의 반환값을 기다리지 않아요. 정확히 `false`만 이동을 거부하므로 `Promise`를
-반환하는 핸들러는 이미 이동을 통과시킨 셈이에요.
+작업에 설정한 `allowReorder`가 차트 설정보다 우선하고, 작업의 `readOnly: true`는 그 작업의 이동을 막아요.
 
-## 이동 되돌리기
+차트의 `readOnly`는 참조하지 않아요. 순서 바꾸기에는 기본 허용값이 없기 때문이에요. 우선순위는 [상호작용 설정](ref/interaction-config)에서 확인해요.
 
-되돌리기에 별도 API는 필요 없어요. 차트는 앱이 넘긴 `tasks` prop을 기준으로 렌더링하므로 이전
-배열을 그대로 다시 넘기면 이동이 되돌아가요.
+끌 수 있는 행에는 왼쪽 끝에 그립이 있어요. 호버할 때와 키보드 포커스가 있을 때 보이고, 움직일 수 없는 행은 그 자리에 빈 여백을 두어 글자가 밀리지 않아요.
 
-이 방법은 앱이 배열을 상태로 들고 있을 때만 동작해요. 리터럴 배열을 넘긴 차트는 자기 사본을
-추적하므로 되돌릴 대상이 없어요. 서버와 연결한 차트는 제어 모드로 쓰세요.
-[작업 데이터](task-data)를 참고하세요.
+드래그는 그립에서만 시작해요. 행의 다른 곳을 누르면 선택으로 처리되고, `Escape`를 누르면 끌던 행이 제자리로 돌아가요.
 
-## 한계
+터치에서는 막대 드래그와 같은 400 ms 동안 그립을 누르고 있어요. [작업 편집](editing)을 참고해요.
 
-- `lane`을 공유해 작업이 여러 개 올라간 행은 끌 수 없어요. 그립이 옮길 작업 하나를 정하지 못하기
-  때문이에요. 이런 행은 드롭 대상도 될 수 없어요. [레인](lanes)을 참고하세요.
-- 행 안으로 놓으면 항상 자식 맨 뒤에 놓여요. 가운데 구역은 덧붙이기만 하고 두 자식 사이를 가리키는
-  구역은 없어요. 옆에 두려는 자식의 형제로 놓거나 `Alt` + 방향키로 마무리하세요.
-- 행 드래그에는 자동 스크롤이 없어요. `autoScrollOnDrag`는 막대 이동과 크기 조절에만 적용돼요.
-  뷰포트 밖의 드롭 대상은 먼저 스크롤해서 화면에 보이게 하세요. [작업 편집](editing)을
-  참고하세요.
+`Alt`와 세로 방향키는 형제 사이에서 행을 옮기고, `Ctrl`/`Cmd`와 가로 방향키는 행을 들여쓰거나 내어써요. [키보드 조작](accessibility)에서 확인해요.
 
-다음: [의존성](dependencies).
+## 행이 놓이는 자리
+
+놓이는 자리는 대상 행의 어느 높이에서 손을 뗐는지에 따라 달라져요.
+
+| 구역 | 행이 놓이는 곳 |
+|---|---|
+| 위쪽 1/4 | 그 행 앞에 형제로 |
+| 가운데 1/2 | 그 행 안에 마지막 자식으로 |
+| 아래쪽 1/4 | 그 행 뒤에 형제로 |
+
+가운데 구역이 가장 넓어서 부모 바꾸기를 겨누기 쉬워요. 최상위 행의 형제 구역에 놓으면 중첩된 행이 최상위로 돌아와요.
+
+접힌 행 안에 놓으면 그 행이 펼쳐져요.
+
+포인터를 누르고 있는 동안 거부되어 앱까지 오지 않는 드롭이 3가지 있어요. 자기 하위 트리 안에는 놓을 수 없고, `hierarchy`가 꺼져 있으면 부모를 바꿀 수 없으며, 아무것도 바꾸지 않는 드롭은 무시해요.
+
+## 이동이 다시 쓰는 필드
+
+행 순서는 `sequence` 하나로 정해지고, `sequence`는 경로라서 `"2.1"`은 `"2"`의 첫 자식이에요. `"1.1"`과 `"1.2"` 사이로 정렬되는 문자열은 없어서 이동은 번호를 다시 매겨요.
+
+한 번의 이동은 경로가 바뀐 모든 작업의 `sequence`를 다시 쓰고, `parentId`는 옮긴 작업에만 다시 써요. 자식은 부모를 그대로 가리키며 함께 움직여요.
+
+경로가 그대로인 작업은 객체 동일성을 유지하므로 배열을 비교하는 앱에는 움직인 작업만 보여요. 결과는 배열 전체를 담은 `onTasksChange` 한 번으로 전달돼요.
+
+날짜는 그대로예요. 새 부모의 구간에 맞춰 늘어나거나 잘리지 않고, 링크는 id로 저장되므로 행이 어디에 놓이든 화살표는 같은 두 작업을 연결해요.
+
+막대 위치도 요약 행을 빼면 그대로예요. 요약 행의 구간은 자식에서 다시 계산해요. [작업 목록과 계층 구조](task-list)에서 확인해요.
+
+## 이동 승인하거나 거부하기
+
+`onTaskMove`는 이동이 적용되기 전에 실행돼요. `false`를 반환하면 이동을 취소해요. 아무것도 쓰지 않고 `onTasksChange`도 건너뛰며 행은 제자리에 남아요.
+
+다음 예제는 같은 부모 안에서는 순서를 바꾸게 하고, 부모를 바꾸는 이동은 거부해요.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  onTaskMove={({ fromParentId, toParentId }) => {
+    if (fromParentId !== toParentId) return false;
+  }}
+  allowReorder
+  hierarchy
+/>
+```
+
+전달되는 값에는 작업 id와 이동의 양 끝이 담겨요. 이전 자리는 `fromParentId`와 `fromIndex`, 새 자리는 `toParentId`와 `toIndex`예요.
+
+`afterId`와 `beforeId`는 이동 뒤 앞뒤에 놓인 형제를 가리켜요. 인덱스 쌍은 인덱스 기반 API에, 형제 쌍은 위치 기반 API에 맞아요.
+
+둘은 같은 결과에서 읽으므로 서로 어긋나지 않아요. 전체 형태는 [트리 헬퍼](ref/core-tree)에서 확인해요.
+
+차트는 `onTaskMove`의 반환값을 기다리지 않아요. 정확히 `false`만 이동을 거부하므로 `Promise`를 반환하는 핸들러는 이미 이동을 통과시킨 셈이에요.
+
+서버가 거부한 이동을 되돌리려면 이전 `tasks` 배열을 그대로 다시 넘겨요. [이벤트](events)에서 확인해요.
+
+이 방법은 앱이 배열을 상태로 들고 있을 때만 동작해요. 리터럴 배열을 넘긴 차트는 자기 사본을 추적하므로 되돌릴 대상이 없어요.
+
+## 적용 전에 확인하기
+
+- 작업이 여러 개 올라간 행은 끌 수도 없고 드롭 대상도 될 수 없어요. [레인](lanes)을 공유한 행은 옮길 작업 하나를 정하지 못하기 때문이에요.
+- 행 안으로 놓으면 항상 자식 맨 뒤에 놓여요. 두 자식 사이를 가리키는 구역은 없으므로 옆에 두려는 자식의 형제로 놓아요.
+- 행 드래그에는 자동 스크롤이 없어요. `autoScrollOnDrag`는 막대 이동과 크기 조절에만 적용되므로 멀리 있는 드롭 대상은 먼저 화면에 보이게 스크롤해요.
+
+prop과 기본값은 [GanttProps](ref/props)에서 확인해요.

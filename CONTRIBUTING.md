@@ -136,9 +136,9 @@ screenshot or GIF from the playground to the PR.
 ## Documentation
 
 Prose is in `apps/site/content/docs/`, written as MDX with a `title` and `description` in the
-frontmatter. `pnpm --filter @gantt-chart/site build` is what catches a page whose MDX no longer
-parses.
+frontmatter. `pnpm docs:build` is what catches a page whose MDX no longer parses.
 
+- The frontmatter `title` renders as the page's `<h1>`. Do not write one in the body.
 - The two languages are a translation pair. Every page exists as both `<name>.en.mdx` and
   `<name>.ko.mdx`. A page that exists in only one language is a bug, and touching one means
   touching its twin in the same PR. Prose is translated. Code, identifiers, type names and CLI
@@ -153,8 +153,8 @@ parses.
   and the build fails. Wrap the keyword in backticks when a sentence starts with it.
 - Internal links carry no extension. Write `[Task data](../task-data)` rather than
   `task-data.md` or `task-data.mdx`.
-- Every guide ends with a `Next:` line pointing at the page that follows it in `meta.en.json`.
-  Moving a page in the sidebar means fixing the tail of the page before it.
+- Do not end a page with a `Next:` line. The site renders its own previous/next footer from the
+  `pages` array, so a manual one duplicates it and goes stale the moment a page moves.
 - Add a live demo with `<GanttDemo preset="..." />`. Presets are in
   `apps/site/components/demo/gantt-demo.tsx` and all share one fixture.
 

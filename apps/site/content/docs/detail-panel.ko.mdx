@@ -1,227 +1,143 @@
 ---
 title: "상세 패널"
-description: "도킹된 사이드 패널을 여는 방법과 패널 안에서 편집하기, `renderDetail`, 제어 모드"
+description: "도킹된 사이드 패널에 작업 하나의 필드를 표시하고 그 자리에서 편집해요."
 ---
 
-상세 패널은 차트 오른쪽에 붙어서 작업 하나를 보여줘요. 타임라인 위를 덮지 않고 옆에 나란히 놓여요.
-그래서 패널이 열리면 타임라인이 좁아져요. 이 페이지는 패널 켜기, 내장 본문과 그 편집,
-`renderDetail`, 제어 모드를 다뤄요.
+막대를 드래그하면 날짜를 빠르게 정할 수 있지만 정확하지는 않아요. 상세 패널을 켜면 타임라인 옆에
+작업 하나의 필드가 표시되고, 값을 읽거나 직접 입력할 수 있어요.
 
 <GanttDemo preset="detail" />
 
-## 패널 켜기
+## 패널 표시하기
 
-패널은 기본으로 꺼져 있어요. `showDetail`이 패널의 스위치예요. [작업 목록과 계층](task-list)에서
-`showTaskList`가 작업 목록의 스위치인 것과 같아요. `showDetail`을 생략하면 `renderDetail`을 넘기는
-것만으로 패널이 켜져요.
-
-| `showDetail` | `renderDetail` | 패널 | 본문 |
-|---|---|---|---|
-| 생략 | 생략 | 숨김 | 없음 |
-| 생략 | 지정 | 표시 | 지정한 렌더러 |
-| `true` | 생략 | 표시 | 내장 본문 |
-| `true` | 지정 | 표시 | 지정한 렌더러 |
-| `false` | 생략 | 숨김 | 없음 |
-| `false` | 지정 | 숨김 | 없음 |
-
-명시적인 `false`가 `renderDetail`보다 우선해요.
-
-패널을 켜면 행 선택도 함께 켜져요. 그래서 상세가 열린 작업의 행이 강조돼요. `selectable={false}`를
-명시하면 그 값이 우선해요. 패널은 평소처럼 열리고 닫히지만 강조되는 행은 없어요. 선택과 그 콜백은
-[이벤트](events)를 참고하세요. prop과 기본값은 [GanttProps](ref/props)를 참고하세요.
-
-## 기본 본문
-
-패널을 켜고 `renderDetail`을 넘기지 않으면 내장 본문이 그려져요. 맨 위에 `task.name`이 오고 그
-아래에 짧은 필드 목록이 이어져요. 작업이나 차트에 `readOnly`가 없으면 이름은 텍스트 입력란이에요.
-
-| 캡션 | 값 | 표시 조건 | 입력란이 되는 조건 |
-|---|---|---|---|
-| Start, End | 현재 배율의 툴팁 포매터를 거친 날짜예요. 호버 툴팁과 마찬가지로 `locale`과 `formats`가 형식을 정해요. | 항상 | `allowResize`로 작업의 크기를 조절할 수 있을 때 |
-| Duration | 두 날짜 사이의 기간이에요. 하루 미만이면 시간 단위, 그 이상이면 일 단위로 호버 툴팁과 같은 값을 표시해요. | 항상 | 없음 (계산된 값) |
-| Progress | `task.progress`를 0에서 100 사이로 제한한 값이에요. | 작업에 진행률이 있을 때 | `allowProgressChange`로 진행률 핸들을 끌 수 있을 때 |
-| Depends on | `dependencies`가 가리키는 작업들의 이름이에요. 가리키는 작업이 없는 id는 id 그대로 표시돼요. | 의존성이 있을 때 | 없음 (계산된 값) |
-
-내장 본문은 작업의 다른 필드를 표시하지 않고 행을 추가하는 prop도 없어요. 위 캡션은 패널과 닫기
-버튼의 접근성 이름처럼 고정된 영어 문자열이고 번역하는 prop도 없어요. 캡션을 현지화하거나 다른
-필드를 보여주려면 아래의 `renderDetail`로 본문을 직접 그리세요.
-
-## 패널 안에서 편집하기
-
-내장 본문은 작업의 상호작용 플래그가 같은 제스처를 허용할 때만 편집할 수 있어요. 패널이 따로 추가하는
-플래그는 없어요.
-
-이름은 `readOnly`가 아닐 때 텍스트 입력란이에요. 작업의 `readOnly`를 먼저 보고 없으면 차트 값을 따라요.
-이름만 따로 막는 플래그는 없어요.
-
-날짜 하나를 바꾸는 것은 곧 크기 조절이라서 Start와 End는 작업의 크기를 조절할 수 있을 때 날짜 입력란이
-돼요. 요약 행의 날짜는 텍스트로 남아요. Progress는 진행률 핸들을 끌 수 있을 때 숫자 입력란이에요.
-
-Duration과 Depends on은 계산된 값이라 항상 텍스트예요. 플래그가 작업과 차트 사이에서 어떻게 해석되는지는
-[작업 편집](editing)을 참고하세요.
-
-필드는 포커스가 빠질 때와 `Enter`를 누를 때 확정돼요. 변경은 드래그와 똑같이 `onTasksChange`로
-전달돼요. 배열도 형태도 같고 별도의 콜백은 없어요. `Escape`는 패널을 닫지 않고 필드만 되돌려요.
-확정할 수 없는 값은 오류 표시 없이 되돌아가요. 빈 이름, 불완전한 날짜, 시작보다 앞서거나 같은 종료
-날짜, 비워진 진행률이 그런 경우예요.
-
-날짜를 편집하면 날짜 부분만 바뀌고 작업의 시각은 유지돼요. 결과는 드래그와 같은 `minDate`와 `maxDate`
-범위로 제한돼요. 진행률은 0에서 100 사이로 제한돼요. 날짜를 편집할 수 있는 동안에는 네이티브 날짜
-입력란이 형식을 거친 텍스트 대신 `YYYY-MM-DD`를 보여줘요. 크기 조절이 꺼진 곳에서는 툴팁 형식이
-적용돼요.
-
-## 패널 열기
-
-막대나 작업 목록 행을 한 번 클릭하면 열려요. 포커스된 행에서 `Enter`나 `Space`를 눌러도 열려요. 다만
-펼칠 수 있는 행에서는 그 키가 행을 접거나 펼쳐요. 더블 클릭 모드는 없고 다른 트리거를 고르는 prop도
-없어요.
-
-그 클릭에서 `onTaskClick`이 먼저 발생하고 패널은 그다음에 열려요. 이미 열린 작업의 행을 다시 클릭하면
-아무 일도 일어나지 않아요. 앱 코드만 패널을 열게 하려면 아래 제어 모드처럼 `detailTaskId`를 직접
-들고 있으세요. 그러면 클릭은 `onDetailChange`로 알리기만 하고 따를지는 앱이 정해요.
-
-패널은 dialog가 아니라 `<aside role="complementary" aria-label="Task details">`예요. 포커스 트랩과
-배경막이 없고 뒤의 차트는 그대로 조작할 수 있어요. `treegrid` 바깥에 놓여 있어서 차트의 탭 스톱은
-하나이고 패널이 그다음 탭 스톱이에요.
-
-`Escape`는 포커스가 페이지 어디에 있어도 패널을 닫아요. 리스너가 document에 있고 키를 막지 않아서
-호스트의 `Escape` 핸들러도 그대로 실행돼요. 닫으면 포커스는 패널이 열릴 때 있던 곳으로 돌아가요.
-그사이 포커스가 다른 곳으로 옮겨갔다면 포커스를 옮기지 않아요.
-
-새로 추가된 키는 없어요. 포커스된 행에서 누르는 `Enter`는 원래대로 행을 알리고 패널도 함께 열어요.
-키 전체는 [키보드와 스크린 리더](accessibility)를 참고하세요.
-
-## 제어 모드와 비제어 모드
-
-열린 작업은 어느 모드에서든 id 하나예요.
-
-| prop | 모드 | 규칙 |
-|---|---|---|
-| `detailTaskId` | 제어 | 넘긴 `string`이나 `null`이 차트가 보여주는 상태예요. 내부 상태는 업데이트를 멈춰요. |
-| `detailTaskId` 생략 | 비제어 | 차트가 열린 작업을 직접 들고 있어요. |
-| `onDetailChange` | 둘 다 | 열고 닫을 때마다 작업이나 `null`과 함께 발생해요. |
-
-모드는 `detailTaskId !== undefined`로 정해져요. 여기서 `null`은 다른 곳처럼 기능을 끄는 값이 아니라
-제어 모드이면서 닫힌 상태를 뜻해요.
-
-> [!WARNING]
-> 제어 모드에서 차트는 스스로 아무것도 열지 않고 새 `detailTaskId`를 기다려요. `onDetailChange`를
-> 처리하지 않고 `detailTaskId`만 넘기면 모든 클릭이 무시되는 것처럼 보여요.
-
-`onDetailChange`는 두 모드에서 똑같이 동작하고 열린 작업이 실제로 바뀔 때만 발생해요. 마운트 시점에는
-발생하지 않아요. 패널 내용이 바뀌었다고 알리는 이벤트도 아니라서 상세가 열린 막대를 옮겨도 발생하지
-않아요.
-
-## 핸들로 열기
-
-`GanttHandle`에는 `openDetail(taskId)`와 `closeDetail()`이 있어요. 모르는 id는 `scrollToTask`처럼
-무시하고 패널이 꺼져 있으면 둘 다 아무 일도 하지 않아요. 제어 모드에서는 클릭과 같은 규칙을 따라요.
-`onDetailChange`로 알리기만 하고 패널은 새로 넘긴 `detailTaskId`가 열어요. 나머지 ref 메서드와 함께
-[GanttHandle](ref/handle)에 정리되어 있어요.
-
-## 본문 교체하기
-
-`renderDetail`은 패널 안쪽을 통째로 교체해요. `<aside>` 자체는 차트가 유지해요. 너비, `role`, 접근성
-이름, 닫을 때의 포커스 처리는 그대로예요. 바뀌는 것은 자식뿐이라 닫기 버튼은 직접 그려야 해요. `close`는
-내장 버튼이 호출하는 함수와 같고 버튼을 그리지 않아도 `Escape`는 계속 동작해요.
-
-렌더러는 `GanttDetailRenderProps`를 받아요. 차트가 변환한 열린 `task`와 `close`, 현재 `scale`,
-`update`가 들어 있어요. `update(patch)`는 모든 제스처와 같은 확정 경로로 열린 작업에 패치를 적용해요.
-스토어에 쓰고 그다음 `onTasksChange`를 호출해요. 그래서 커스텀 폼은 배열을 직접 들고 있지 않아도
-저장할 수 있어요. `update`는 상호작용 플래그를 검사하지 않아요. 위의 편집 조건은 내장 본문의 것이고
-커스텀 본문은 자기 규칙을 직접 적용해요. 타입은 [상세 렌더러](ref/renderers)를 참고하세요.
-
-다음 예제는 커스텀 본문을 그리고 열린 id를 상태로 들고 있어요.
+`showDetail`을 추가해요. 패널은 타임라인 오른쪽에 붙고, 패널이 열리면 타임라인이 좁아져요.
 
 ```tsx title="ProjectChart.tsx"
 import { useState } from 'react';
-import { ReactGanttChart } from '@jaeungkim/gantt-chart';
-import type { GanttDetailRenderProps, Task } from '@jaeungkim/gantt-chart';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
 import '@jaeungkim/gantt-chart/style.css';
 
-const tasks: Task[] = [
-  { id: 'p1', name: 'Phase 1', parentId: null, sequence: '1',
-    startDate: '2025-03-03', endDate: '2025-03-28' },
-  { id: 't1', name: 'Design', parentId: 'p1', sequence: '1.1',
-    startDate: '2025-03-03', endDate: '2025-03-12', progress: 100 },
-  { id: 't2', name: 'Build', parentId: 'p1', sequence: '1.2',
-    startDate: '2025-03-12', endDate: '2025-03-28', progress: 40 },
+const initialTasks: Task[] = [
+  { id: 'design', name: 'Design', parentId: null, sequence: '1',
+    startDate: '2026-09-01', endDate: '2026-09-08', progress: 100 },
+  { id: 'build', name: 'Build', parentId: null, sequence: '2',
+    startDate: '2026-09-08', endDate: '2026-09-18', progress: 40,
+    dependencies: [{ targetId: 'design', type: 'FS' }] },
 ];
 
-function TaskDetail({ task, close }: GanttDetailRenderProps) {
-  return (
-    <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-        <h2 style={{ margin: 0, fontSize: 14 }}>{task.name}</h2>
-        <button type="button" onClick={close} aria-label="Close task details">
-          ✕
-        </button>
-      </div>
-      <p style={{ margin: 0, fontSize: 12 }}>
-        {task.startDate.slice(0, 10)} → {task.endDate.slice(0, 10)}
-      </p>
-      <p style={{ margin: 0, fontSize: 12 }}>{task.progress ?? 0}% done</p>
-    </>
-  );
-}
-
 export function ProjectChart() {
-  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const [tasks, setTasks] = useState(initialTasks);
 
   return (
     <ReactGanttChart
       tasks={tasks}
+      onTasksChange={setTasks}
       showTaskList
-      hierarchy
-      renderDetail={(props) => <TaskDetail {...props} />}
-      detailTaskId={detailTaskId}
-      onDetailChange={(task) => setDetailTaskId(task?.id ?? null)}
+      showDetail
       height={420}
     />
   );
 }
 ```
 
-`renderDetail`은 차트의 유일한 렌더 prop이에요. 차트의 다른 부분은 커스텀 렌더러를 받지 않아요. 막대의
-색과 클래스 이름은 작업의 필드이고 [스타일링](styling)에서 설명해요.
+패널의 기본값은 꺼짐이에요. `showDetail`은 내장 본문을 그리고, `renderDetail`만 넘겨도 패널이 켜져요.
+`showDetail={false}`를 명시하면 어느 쪽이든 계속 숨겨져요.
 
-## 패널 너비
+막대나 작업 목록의 행을 클릭하면 패널이 열려요. 포커스된 행에서 `Enter`나 `Space`를 눌러도 열려요.
+펼칠 수 있는 행에서는 그 키가 행을 접거나 펼쳐요. `Escape`는 페이지 어디에서든 패널을 닫고 키를 막지
+않아서 앱의 핸들러도 그대로 실행돼요. 닫으면 포커스는 패널이 열리기 전 위치로 돌아가요. 그사이 포커스가
+다른 곳으로 옮겨갔다면 옮기지 않아요.
 
-패널 너비는 커스텀 속성 `--gantt-detail-width`예요. 기본값은 [테마](theming)에 다른 토큰과 함께
-정리되어 있어요. 패널은 그 값으로 `flex: 0 0` 배치라 늘지도 줄지도 않고 달라지는 너비는 타임라인이
-전부 가져가요.
+패널을 켜면 행 선택도 함께 켜져서 열린 작업의 행이 강조돼요. `selectable={false}`를 넘기면 강조 없이
+패널만 사용해요. 클릭에서는 `onTaskClick`이 패널보다 먼저 발생해요. [이벤트](events)를 참고해요.
 
-## 예외 상황
+패널은 dialog가 아니에요. 포커스 트랩과 배경막이 없고 뒤에 있는 차트도 그대로 조작할 수 있어요.
+[키보드와 스크린 리더](accessibility)를 참고해요.
 
-- 열린 작업이 `tasks`에서 빠지면 패널이 닫혀요. 이때 `onDetailChange`는 발생하지 않아요.
-- `detailTaskId`가 배열에 없는 작업을 가리키면 패널은 닫힌 채로 있고 오류도 나지 않아요. 찾을 수 있는
-  id가 들어오면 바로 열려요.
-- `Escape`는 패널만 닫아요. 행은 선택된 채로 남고 `onTaskSelect`는 발생하지 않아요.
-- 빈 타임라인 공간을 클릭하면 선택이 해제되고 패널도 닫혀요.
-- 열린 작업의 부모를 접어도 패널은 열린 채로 있어요. id는 차트가 가진 모든 작업에서 찾기 때문에
-  숨겨진 행도 패널을 유지해요.
-- 패널이 열린 상태에서 다른 행을 클릭하면 본문이 그 자리에서 바뀌어요. 포커스 복원은 패널이 언마운트될
-  때만 일어나서 포커스를 도로 가져오지 않아요.
-- 패널은 선택 변화가 아니라 클릭에 반응해요. 선택은 이미 선택된 행의 클릭을 무시하지만 `Escape`로 닫은
-  뒤 같은 행을 클릭하면 패널이 다시 열려요.
+## 기본 패널이 보여주는 정보
 
-## 한계
+본문은 맨 위에 작업 이름을 두고 그 아래에 짧은 필드 목록을 보여줘요.
 
-- 패널 크기는 조절되지 않아요. 드래그 그립도 너비 prop도 없어요. `--gantt-detail-width`가 유일한
-  방법이고 CSS 값이라 스프링 애니메이션으로 움직일 수는 없어요.
-- 위치는 오른쪽으로 고정이에요. 왼쪽, 아래쪽, 떠 있는 형태는 없고 패널을 별도 창으로 떼어내는 prop도
-  없어요.
-- 한 번에 작업 하나만 보여줘요. 탭, 히스토리, 작업 사이의 뒤로 가기 버튼, 다중 선택 패널은 없어요.
-- 편집은 패널이 보여주는 필드까지예요. Duration과 Depends on은 입력란이 되지 않고 행을 추가하는 prop도
-  없어요. 내장 본문에 없는 필드는 거기서 편집할 수 없어요. 더 풍부한 폼이 필요하면 `renderDetail`로
-  그리고 `update`로 확정하세요.
-- 슬라이드는 설정할 수 없어요. 패널은 `flex-basis`를 200ms 동안 전환하며 열리고 닫혀요. 타임라인은 그에
-  맞춰 다시 배치돼요. 시간을 바꾸거나 끄는 prop은 없어요. `prefers-reduced-motion`이 켜져 있으면
-  차트의 다른 전환처럼 즉시 바뀌어요. 패널이 열린 채로 작업을 바꾸면 본문만 그 자리에서 바뀌고
-  슬라이드는 없어요.
+| 필드 | 값 |
+|---|---|
+| Start, End | 현재 배율의 툴팁 형식을 거친 날짜예요. |
+| Duration | 두 날짜 사이의 기간이에요. 하루 미만은 시간, 그 이상은 일 단위로 표시해요. |
+| Progress | `task.progress`를 0에서 100 사이로 제한한 값이에요. |
+| Depends on | `dependencies`가 가리키는 작업의 이름이에요. 가리키는 작업이 없으면 id를 그대로 표시해요. |
 
-호스트 앱은 `showDetail`을 토글하는 컨트롤을 직접 만들어요. 제어 모드를 쓴다면 열린 id를 상태로 들고
-있고 `renderDetail` 폼이 하는 일도 직접 구현해요. 사용자가 패널 너비를 바꿀 수 있다면 그 너비도 직접
-저장하세요.
+Progress와 Depends on은 작업에 값이 있을 때만 나타나요. 다른 필드는 표시하지 않고 행을 추가하는 prop도
+없어요. 캡션은 고정된 영어 문자열이에요. [로케일과 날짜 형식](i18n)을 참고해요.
 
-다음: [이벤트](events).
+## 패널에서 필드 편집하기
+
+패널은 자체 플래그를 추가하지 않아요. 그래서 작업의 플래그가 같은 제스처를 이미 허용할 때만 필드가
+입력란이 돼요. 작업이나 차트에 `readOnly`가 없으면 이름은 텍스트 입력란이에요.
+
+날짜를 바꾸는 것은 크기 조절이에요. 크기를 조절할 수 있는 작업에서만 Start와 End가 날짜 입력란이 돼요.
+요약 행의 날짜는 텍스트로 남아요.
+
+Progress는 진행률 핸들을 끌 수 있을 때 숫자 입력란이 돼요. Duration과 Depends on은 계산된 값이라
+텍스트로 남아요. 우선순위는 [상호작용 설정](ref/interaction-config)에서 확인해요.
+
+필드는 포커스가 빠질 때와 `Enter`를 누를 때 확정돼요. 변경은 드래그와 같은 전체 배열로
+`onTasksChange`에 전달되고, 별도의 콜백은 없어요. `Escape`는 패널을 닫지 않고 필드 값만 되돌려요. 빈
+이름, 불완전한 날짜, 시작보다 뒤가 아닌 종료 날짜, 비워진 진행률은 확정되지 않고 안내 없이 되돌아가요.
+
+날짜를 편집하면 날짜 부분만 바뀌고 작업의 시각은 그대로예요. 결과는 드래그와 같은 `minDate`와
+`maxDate` 범위로 제한돼요. 날짜 입력란은 `locale`과 관계없이 `YYYY-MM-DD`로 표시해요.
+
+## 본문 직접 그리기
+
+`renderDetail`은 패널 안쪽을 통째로 교체해요. 너비와 접근성 이름, 닫을 때의 포커스 처리는 차트가
+유지해요. 닫기 버튼은 직접 그려야 하고 `Escape`는 그대로 패널을 닫아요.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  showTaskList
+  renderDetail={({ task, close, update }) => (
+    <>
+      <h2>{task.name}</h2>
+      <button type="button" onClick={() => update({ progress: 100 })}>
+        Mark done
+      </button>
+      <button type="button" onClick={close}>
+        Close
+      </button>
+    </>
+  )}
+/>
+```
+
+렌더러는 차트가 변환한 열린 `task`와 함께 `close`, 현재 `scale`, `update`를 받아요. `update(patch)`는
+모든 제스처와 같은 경로로 확정하고 상호작용 플래그를 검사하지 않아요. 그래서 커스텀 본문은 자기 규칙을
+직접 적용해요. 차트의 유일한 렌더 prop이에요. [상세 렌더러](ref/renderers)를 참고해요.
+
+## 열린 작업 제어하기
+
+열린 작업을 앱 상태로 들고 있으려면 `detailTaskId`를 넘기고, 열고 닫는 시점은 `onDetailChange`로
+받아요. `detailTaskId`가 `undefined`가 아니면 제어 모드예요. 그래서 `null`은 기능을 끄는 값이 아니라
+제어 모드이면서 닫힌 상태를 뜻해요.
+
+제어 모드에서 차트는 스스로 아무것도 열지 않고 새 `detailTaskId`를 기다려요. `onDetailChange`를
+처리하지 않고 `detailTaskId`만 넘기면 모든 클릭이 무시되는 것처럼 보여요.
+
+`onDetailChange`는 두 모드에서 모두 발생해요. 마운트 시점에는 발생하지 않고, 열린 작업의 데이터가
+바뀌어도 발생하지 않아요. 그 작업의 막대를 옮겨도 마찬가지예요.
+
+차트 ref의 `openDetail(taskId)`와 `closeDetail()`은 같은 규칙을 따라요. 패널이 꺼져 있으면 아무 일도
+하지 않고, 모르는 id는 무시해요. `openDetail`은 접혀 있는 행도 찾아요.
+[명령형 API](imperative-api)를 참고해요.
+
+## 적용 전에 확인하기
+
+- 열린 작업이 `tasks`에서 빠지면 패널이 닫히고 `onDetailChange`는 발생하지 않아요.
+- `detailTaskId`가 없는 작업을 가리키면 오류 없이 닫힌 채로 있다가, 찾을 수 있는 id가 들어오면 열려요.
+- `Escape`는 패널만 닫고 행은 선택된 채로 남아요. 빈 타임라인 공간을 클릭하면 선택도 함께 해제돼요.
+- 너비는 `--gantt-detail-width`로 정하고 달라지는 만큼은 타임라인이 가져가요. 드래그 핸들이나 너비
+  prop은 없어요. [테마](theming)를 참고해요.
+- 패널은 오른쪽에 붙어서 한 번에 작업 하나를 보여주고 클릭 한 번으로 열려요. 더블 클릭 모드, 트리거
+  prop, 탭 목록, 다른 위치는 없어요.
+
+prop과 기본값은 [GanttProps](ref/props)를 참고해요.

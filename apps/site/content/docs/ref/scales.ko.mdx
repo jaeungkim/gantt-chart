@@ -29,7 +29,7 @@ Ctrl/Cmd + ArrowDown은 한 단계 성긴 배율로 옮기고 양쪽 끝에서 �
 Ctrl/Cmd + 휠도 같은 순서를 따라가요. `defaultScale`은 이 값 중 하나를 받고 기본값은 `'month'`예요.
 
 차트는 배율 선택기를 그리지 않아요. 다시 마운트하면 배율도 기억하지 않고요. 선택기가 필요하면
-호스트 앱에서 직접 그리고 ref의 `setScale`로 배율을 바꾸세요. 휠과 키보드를 포함한 모든 변경은 `onScaleChange`로
+앱에서 직접 그리고 ref의 `setScale`로 배율을 바꾸세요. 휠과 키보드를 포함한 모든 변경은 `onScaleChange`로
 전달돼요. [GanttHandle](handle)을 참고하세요.
 
 `formats`는 이 키로 묶이고 `GanttDetailRenderProps.scale`도 이 값을 담아요.
@@ -38,8 +38,8 @@ Ctrl/Cmd + 휠도 같은 순서를 따라가요. `defaultScale`은 이 값 중 �
 ### 배율별 설정
 
 키 하나는 고정된 표의 한 행에 대응해요. 그 행이 헤더 셀의 라벨, 눈금 하나가 덮는 시간, 드래그 한
-단계의 픽셀 수를 정해요. 다섯 행의 값은 [타임라인](../timeline)에 있고 이 페이지는 한 행의 타입만
-다뤄요.
+단계의 픽셀 수를 정해요. 배율마다 무엇을 보여 주는지는 [타임라인](../timeline)에 있고 이 페이지는
+한 행의 타입만 다뤄요.
 
 ```ts
 export interface GanttScaleConfig {
@@ -72,8 +72,8 @@ export type GanttLabelUnit =
 
 `GanttScaleConfig`와 `GanttLabelUnit`, `GANTT_SCALE_CONFIG` 객체는 모듈 내부에만 있고 패키지에서
 내보내지 않아요. 이 표는 가져오거나 확장하거나 교체할 수 없고 여섯 번째 배율을 추가하는 prop도 없어요.
-눈금 너비는 `basePxPerDragStep / dragStepAmount`로 나와요. 계산 과정은 [타임라인](../timeline)에
-있어요. 같은 두 필드가 정하는 드래그 그리드는 [작업 편집](../editing)에 있고요.
+눈금 너비는 `basePxPerDragStep / dragStepAmount`로 나와요. 그렇게 나온 하루당 픽셀 수는
+[타임라인](../timeline)에 있어요. 같은 두 필드가 정하는 드래그 그리드는 [작업 편집](../editing)에 있고요.
 
 ### 기본 라벨
 
@@ -147,10 +147,7 @@ export type GanttFormatOverrides = Partial<
 
 `formats` prop의 타입이에요. 레코드에서 빠진 배율은 결정된 라벨을 그대로 유지해요.
 
-```tsx title="QuarterHeader.tsx"
-import { ReactGanttChart } from '@jaeungkim/gantt-chart';
-import type { GanttFormatOverrides, Task } from '@jaeungkim/gantt-chart';
-
+```tsx
 const formats: GanttFormatOverrides = {
   quarter: {
     header: (d) => `${d.year()} Q${Math.floor(d.month() / 3) + 1}`,
@@ -159,21 +156,6 @@ const formats: GanttFormatOverrides = {
     tooltip: (d) => d.format('YYYY-MM-DD'),
   },
 };
-
-const tasks: Task[] = [
-  {
-    id: 'design',
-    name: 'Design',
-    startDate: '2026-01-05',
-    endDate: '2026-02-20',
-    parentId: null,
-    sequence: '1',
-  },
-];
-
-export default function QuarterHeader() {
-  return <ReactGanttChart tasks={tasks} formats={formats} locale="en-US" />;
-}
 ```
 
 `formats`는 렌더링마다 동일성이 유지되도록 모듈 스코프에 선언했어요. 세 라벨에서 어느 층이

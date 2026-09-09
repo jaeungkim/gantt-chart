@@ -1,50 +1,35 @@
 ---
 title: "Quick start"
-description: "Install the package and render a chart whose edits come back to your own state"
+description: "Add an editable project timeline to your React app with one complete example"
 ---
 
-`@jaeungkim/gantt-chart` renders the `tasks` array your app holds, and returns the complete next
-array through `onTasksChange` after every committed gesture. This page goes from `pnpm add` to a
-chart whose edits are stored in your own state. The first three code blocks are whole files and the
-later ones are diffs against them.
+Start with three tasks and a chart you can edit right away. This example keeps changes in React
+state, so you can try moving tasks before connecting your own data source.
 
 <GanttDemo preset="basic" />
 
-## Installation
+## Install the package
 
-The package ships as ESM and CJS. `react` and `react-dom` (`^18` or `^19`) are peer dependencies.
+Use an existing React 18 or 19 app with `react` and `react-dom` installed.
 
 ```bash
 pnpm add @jaeungkim/gantt-chart
-# npm install @jaeungkim/gantt-chart
-# yarn add @jaeungkim/gantt-chart
 ```
 
-Import the stylesheet once, anywhere in your app.
+Using another package manager? Run `npm install @jaeungkim/gantt-chart` or
+`yarn add @jaeungkim/gantt-chart` instead.
 
-```ts title="src/main.tsx"
+## Add the chart
+
+Create `ProjectChart.tsx` with the example below, then render `<ProjectChart />` in your app.
+The stylesheet import is required for the chart's layout and appearance.
+
+```tsx title="ProjectChart.tsx"
+import { useState } from 'react';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
 import '@jaeungkim/gantt-chart/style.css';
-```
 
-`"./style.css"` is a subpath export in `package.json` that maps to `./dist/gantt-chart.css`, so no
-path into `dist` is needed.
-
-Without the import nothing is laid out. `.gantt-container` has no flex column, the bars keep only
-the inline `translateX` the component writes, and every `--gantt-*` token is undefined. The page
-shows a stack of plain text rather than a broken chart, so the missing stylesheet looks like a
-data problem.
-
-## Rendering three tasks
-
-Every task requires six fields: `id`, `name`, `startDate`, `endDate`, `parentId` and `sequence`.
-`sequence` is a string of numbers separated by dots and decides row order. A bare `YYYY-MM-DD`
-date is read as UTC midnight, so it falls on the named day in every time zone. [Task data](task-data)
-has the full rules.
-
-```ts title="src/tasks.ts"
-import type { Task } from '@jaeungkim/gantt-chart';
-
-export const initialTasks: Task[] = [
+const initialTasks: Task[] = [
   {
     id: 'design',
     name: 'Design',
@@ -65,182 +50,69 @@ export const initialTasks: Task[] = [
     dependencies: [{ targetId: 'design', type: 'FS' }],
   },
   {
-    id: 'ship',
-    name: 'Ship',
+    id: 'review',
+    name: 'Review',
     startDate: '2026-03-23',
-    endDate: '2026-03-23',
+    endDate: '2026-03-27',
     parentId: null,
     sequence: '3',
-    dependencies: [{ targetId: 'build', type: 'FS' }],
+    progress: 0,
   },
 ];
-```
-
-`dependencies` lists the tasks a task waits on, so `build` links back to `design`. `FS` is
-finish-to-start. [Dependencies](dependencies) covers the other three types.
-
-```tsx title="src/ProjectChart.tsx"
-import { ReactGanttChart } from '@jaeungkim/gantt-chart';
-import { initialTasks } from './tasks';
-
-export function ProjectChart() {
-  return <ReactGanttChart tasks={initialTasks} height={420} />;
-}
-```
-
-`height` defaults to `600` and `width` to `"100%"`. Both accept a number of pixels or a CSS length
-string. A percentage height resolves only when the parent element has a height of its own. The
-signature and default of every prop named here are in [GanttProps](ref/props).
-
-This chart is editable with no further props. Drag a bar sideways to move the task, or drag either
-edge to resize it.
-
-`design` and `build` show a progress handle because they have a numeric `progress`. `ship` has
-none, so it shows no handle.
-
-Hovering a bar shows a connector dot at each end, and dragging from a dot onto another bar draws a
-dependency arrow. Clicking an arrow selects it, and Delete or Backspace removes it.
-
-The chart renders no toolbar, scale picker or buttons. Your app renders the clickable controls.
-The `<select>` recipe is in [Imperative API](imperative-api).
-
-`defaultScale` sets the initial scale and defaults to `"month"`. With focus inside the chart,
-Ctrl/Cmd + ArrowUp steps to a finer scale and Ctrl/Cmd + ArrowDown to a coarser one.
-
-None of this survives a reload. The chart keeps edits in a store created per instance, and that
-store exists only while the component is mounted. The scale is not persisted either.
-[The timeline](timeline) covers the consequences.
-
-## Keeping the edits
-
-`onTasksChange` fires with the complete new task array after every committed gesture. Store the
-array in your own state. The chart edits data your app owns.
-
-```tsx title="src/ProjectChart.tsx"
-import { useState } from 'react';
-import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
-import { initialTasks } from './tasks';
 
 export function ProjectChart() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
 
-  const handleTasksChange = (next: Task[]) => {
-    setTasks(next);
-    void fetch('/api/tasks', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(next),
-    });
-  };
-
   return (
     <ReactGanttChart
       tasks={tasks}
-      onTasksChange={handleTasksChange}
+      onTasksChange={setTasks}
+      showTaskList
       height={420}
     />
   );
 }
 ```
 
-The callback returns every task, not a patch, so the array can go straight into state or into a
-request body. Dates come back as full ISO strings such as `2026-03-09T00:00:00.000Z`. The first
-drag therefore changes the string form of a date written as `2026-03-09`.
+The left pane shows the task names. Each bar shows a task's dates, and the arrow connects Design
+to Build. `showTaskList` enables that pane; `height` gives the chart room to render.
 
-The `tasks` prop is compared by content, not by identity. A new array with the same content is
-ignored. [Task data](task-data) explains the comparison and when a replacement is applied.
+The example includes all six required task fields. `parentId: null` makes each task a top-level
+task, and `sequence` sets their order. See [Task data](task-data) when mapping your own data.
 
-## Adding the task list
+Run the app to check the result. Three rows appear, with Design, Build and Review in the left
+pane, their bars on a dated grid, and an arrow from Design to Build. If the chart renders as
+unstyled text, check the stylesheet import first.
 
-The left pane is off by default. Set `showTaskList` to turn it on.
+## Try editing
 
-```diff title="src/ProjectChart.tsx"
-      <ReactGanttChart
-        tasks={tasks}
-        onTasksChange={handleTasksChange}
-        height={420}
-+       showTaskList
-      />
-```
+1. Drag the Build bar sideways to move its dates.
+2. Drag either end of the bar to change its duration.
+3. Drag the progress handle inside Build to change its completion percentage.
+4. Hover over Build, then drag its right connector dot onto Review to add a dependency.
 
-The pane lists task names, one per row. The bars carry the dates, and everything else about a task
-belongs in the [Detail panel](detail-panel). `showRowNumbers` adds one column with each row's
-`sequence` in front of the name.
+These interactions are enabled in the example. See [Editing tasks](editing) for editing controls
+and [Dependencies](dependencies) for connection types and scheduling behavior.
 
-The splitter between the panes is covered in [Task list and hierarchy](task-list). There is no
-collapse button. `showTaskList={false}` hides the pane.
+## Keep the changes
 
-## Hierarchy
+`onTasksChange={setTasks}` puts the complete updated tasks array into React state after an edit
+is committed. Passing that state back as `tasks` keeps the chart and your app in sync.
 
-Row order is always read from `sequence`. Nesting is a separate opt-in. Set `hierarchy` to take
-depth from the `parentId` chain instead.
+This example keeps edits only while the component stays mounted. To retain them across reloads,
+connect your app's storage or API and handle saving errors there. The chart does not save data
+for you. See [Events](events) for the callback flow.
 
-```diff title="src/tasks.ts"
-+ {
-+   id: 'phase-1',
-+   name: 'Phase 1',
-+   startDate: '2026-03-02',
-+   endDate: '2026-03-20',
-+   parentId: null,
-+   sequence: '1',
-+ },
-  {
-    id: 'design',
-    name: 'Design',
-    startDate: '2026-03-02',
-    endDate: '2026-03-06',
--   parentId: null,
--   sequence: '1',
-+   parentId: 'phase-1',
-+   sequence: '1.1',
-    progress: 100,
-  },
-```
+## Build on the example
 
-Make the same change to `build`: `parentId: 'phase-1'` and `sequence: '1.2'`. Leave every other
-field on both tasks as it is.
+Pick the guide for what your project needs next.
 
-```diff title="src/ProjectChart.tsx"
-      <ReactGanttChart
-        tasks={tasks}
-        onTasksChange={handleTasksChange}
-        height={420}
-        showTaskList
-+       hierarchy
-      />
-```
+- **[Task data](task-data):** Load your own tasks and understand how dates are read.
+- **[Task list and hierarchy](task-list):** Group tasks into project phases.
+- **[Creating tasks](task-creation):** Add new tasks.
+- **[Working calendar](working-calendar):** Account for weekends and holidays when dragging.
+- **[Theming](theming):** Match your app's colors.
+- **[Imperative API](imperative-api):** Add a scale picker or a Today button.
+- **[GanttProps](ref/props):** Look up a component option.
 
-With children, `phase-1` becomes a summary row. Its dates are computed from the children rather
-than read from its own fields, and dragging its bar moves the whole subtree.
-[Task list and hierarchy](task-list) explains the roll-up and the collapse state.
-
-## Limitations
-
-- The chart stores nothing. Without `onTasksChange` an edit exists only in the component's store,
-  and a reload discards it. Fetching, saving and conflict resolution are the host app's job.
-- The chart never adds a task on its own. The **Add task** button under the task list, `addTask()`
-  on the ref and a range drawn below the last row exist only when you pass `onTaskCreate`. Each
-  reports a draft rather than committing one. See [Creating tasks](task-creation).
-- Delete or Backspace on a focused row deletes that task and its whole subtree and fires
-  `onTasksChange`, unless the task cannot be moved. The same key press also removes a selected
-  dependency arrow, so both can happen at once.
-- Task data is not validated. A `sequence` of `undefined` throws during render, and an unparseable
-  date produces a bar spanning the whole timeline with no warning. Validate before passing the
-  array in.
-- No fonts are bundled or fetched. `--gantt-font-sans` uses Pretendard when the host page loads it
-  and falls back to system fonts otherwise. The host overrides it like any other token. See
-  [Theming](theming). The only reset is `box-sizing: border-box`, scoped to `.gantt-container`.
-- The React component renders the timeline, and the task list pane when `showTaskList` is set. It
-  renders no UI around the chart and has no unstyled mode. The tree and calendar functions can be
-  imported without React. See [Headless core](headless-core).
-
-## Next steps
-
-- The data does not look as expected: [Task data](task-data).
-- The name pane, indentation or collapsing: [Task list and hierarchy](task-list).
-- Locking down what can be dragged: [Editing tasks](editing).
-- Moving a drop off a weekend or a holiday: [Working calendar](working-calendar).
-- Shading non-working days, changing the work week or naming a holiday: [The timeline](timeline).
-- Every prop in one table: [GanttProps](ref/props).
-
-Next: [Task data](task-data).
+For a live example with more options, open the [playground](/playground).

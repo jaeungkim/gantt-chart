@@ -155,11 +155,9 @@ off.
 - `collapsedIds` and `defaultCollapsedIds` are the controlled and uncontrolled halves of one value.
   Passing `collapsedIds` makes the chart show that list and stop tracking its own.
   `onCollapsedChange` fires in both modes.
-- `theme` left out follows the host page's `color-scheme`, read off `<html>` and watched for
-  changes, so the chart moves with an app's own light and dark toggle. `'system'` ignores the host
-  and reads the OS setting instead. An explicit `'light'` or `'dark'` holds everywhere, server
-  rendering included. The other two resolve to `'light'` on the server and the first hydration
-  render, then to the real setting.
+- `theme` has no default. Omitted, it follows the host page's `color-scheme`; `'system'` reads the
+  OS setting instead; `'light'` and `'dark'` hold everywhere, server rendering included. The
+  resolution table is in [Theming](../theming).
 - `visibleStart` and `visibleEnd` are independent. Pinning one end also stops `infiniteScroll` from
   extending the range on that side, and the other side still extends.
 - `workingCalendar` builds its calendar from `workingWeekdays` and `holidays`, the same two props

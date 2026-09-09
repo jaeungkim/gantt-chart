@@ -1,21 +1,43 @@
 ---
 title: "Documentation"
-description: "What @jaeungkim/gantt-chart is, and where to start reading"
+description: "Build your first chart, add features, and find help."
 ---
 
-Build an editable project schedule inside your React app. `@jaeungkim/gantt-chart` brings task
-dragging, dependency links and nested timelines together in one MIT-licensed component.
+Add an interactive project timeline to your React app with `@jaeungkim/gantt-chart`.
+Start with a working example, then add the features your project needs.
 
-Choose a guide for the experience you want to build.
+## Start here
 
-- Change dates and progress on the timeline: [Editing tasks](editing).
-- Organize phases and move their tasks together: [Task list and hierarchy](task-list).
-- Connect tasks with dependency arrows: [Dependencies](dependencies).
-- Account for workweeks and holidays: [Working calendar](working-calendar).
-- Match your product's appearance: [Theming](theming).
-- Support keyboard editing: [Keyboard and screen readers](accessibility).
+1. **[Quick start](quick-start):** Install the package and render an editable chart.
+2. **[Task data](task-data):** Map your application's data to tasks.
+3. **[Events and saving](events):** Keep edits in state and save them through your API.
 
-Your app receives updated task data through `onTasksChange`.
-See [Events](events) for integration and [Introduction](introduction) for scope and limitations.
+Want to try it first? Open the [playground](/playground).
+Read [Introduction](introduction) for the package's scope and [Concepts](concepts) when a term is unfamiliar.
 
-Start at [Quick start](quick-start). Every prop is listed in [GanttProps](ref/props).
+## Build your workflow
+
+Each guide covers one feature.
+
+- **[Task list and hierarchy](task-list):** Group tasks into project phases.
+- **[Lanes](lanes):** Put multiple tasks on one row.
+- **[Editing tasks](editing):** Change dates and progress.
+- **[Creating tasks](task-creation):** Let users add tasks.
+- **[Reordering rows](reordering):** Change row order or move tasks between phases.
+- **[Dependencies](dependencies):** Connect tasks.
+- **[Working calendar](working-calendar):** Skip weekends and holidays when dragging.
+- **[Detail panel](detail-panel):** Add a task editor beside the chart.
+- **[Chart controls](imperative-api):** Add zoom and navigation controls.
+- **[Theming](theming) and [Styling](styling):** Match your app's design.
+- **[Locale and date formats](i18n):** Format dates for another language.
+
+## Look up an API
+
+Use [GanttProps](ref/props) for component props, [Task](ref/task) for task fields,
+and [GanttHandle](ref/handle) for methods called through a ref.
+
+## Get involved
+
+The project is open source under the MIT license.
+Questions, bug reports, examples and documentation improvements are welcome.
+See [Community and contributing](community) for where to start.

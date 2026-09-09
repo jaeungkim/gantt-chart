@@ -153,10 +153,9 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 - `collapsedIds`와 `defaultCollapsedIds`는 한 값을 제어 모드와 비제어 모드로 나눈 prop이에요.
   `collapsedIds`를 넘기면 차트는 그 목록을 보여주고 자체 추적을 멈춰요. `onCollapsedChange`는
   두 방식 모두에서 호출돼요.
-- `theme`을 생략하면 `<html>`에서 읽은 호스트 페이지의 `color-scheme`을 따라가고 변화도 감지해요.
-  그래서 앱의 라이트/다크 토글에 차트가 함께 움직여요. `'system'`은 호스트를 무시하고 OS 설정을
-  읽어요. 명시한 `'light'`나 `'dark'`는 서버 렌더링을 포함해 어디서든 그대로예요. 나머지 둘은
-  서버와 첫 하이드레이션 렌더에서 `'light'`로 결정됐다가 실제 설정으로 바뀌어요.
+- `theme`에는 기본값이 없어요. 생략하면 호스트 페이지의 `color-scheme`을 따르고, `'system'`은 OS
+  설정을 읽고, `'light'`와 `'dark'`는 서버 렌더링을 포함해 어디서나 그대로 적용돼요. 해결 순서
+  표는 [테마](../theming)에 있어요.
 - `visibleStart`와 `visibleEnd`는 서로 독립이에요. 한쪽 끝을 고정하면 그쪽으로는
   `infiniteScroll`이 범위를 늘리지 못하고 반대쪽은 계속 늘어나요.
 - `workingCalendar`는 `workingWeekdays`와 `holidays`로 달력을 만들어요. 이 두 prop은

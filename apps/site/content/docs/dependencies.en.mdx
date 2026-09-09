@@ -1,193 +1,99 @@
 ---
 title: "Dependencies"
-description: "Dependency entries, the four link types, and drawing and deleting arrows"
+description: "Show which tasks depend on each other, draw new links, and control changes."
 ---
 
-A dependency is an arrow between two bars. The entry is stored on the successor, the task that waits, and its `targetId` holds the predecessor's id. The arrow points at the successor, so `targetId` is not the id at the arrowhead.
+When one task depends on another, connect their bars with an arrow. People can see the relationship and add or remove links directly on the timeline.
 
-This page covers the entry, the four link types, drawing and deleting links, and what the chart does not validate.
+Dependencies describe the plan; they do not reschedule it. Connecting Design to Build does not move Build's start date.
 
 <GanttDemo preset="dependencies" />
 
-## Dependency entries
+## Add a dependency to your data
 
-The entry goes on the task that waits.
+Store the dependency on the task that waits. If Build waits for Design, put the entry on Build and set `targetId` to Design's id.
 
-```tsx title="src/DependencyExample.tsx"
-import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
-
+```tsx
 const tasks: Task[] = [
   {
     id: 'design',
     name: 'Design',
-    startDate: '2025-06-02',
-    endDate: '2025-06-05',
+    startDate: '2026-03-02',
+    endDate: '2026-03-06',
     parentId: null,
     sequence: '1',
   },
   {
     id: 'build',
     name: 'Build',
-    startDate: '2025-06-05',
-    endDate: '2025-06-12',
+    startDate: '2026-03-06',
+    endDate: '2026-03-13',
     parentId: null,
     sequence: '2',
-    // Build waits on Design, so the entry sits on Build
     dependencies: [{ targetId: 'design', type: 'FS' }],
   },
 ];
-
-export function DependencyExample() {
-  return <ReactGanttChart tasks={tasks} height={300} />;
-}
 ```
 
-This draws one arrow from Design to Build. `design` has no `dependencies` field. The field types are described in [Task and task types](ref/task).
+This draws an arrow from Design to Build. Import `Task` from `@jaeungkim/gantt-chart`; see [task types](ref/task) for the complete data shape.
 
-An entry whose `targetId` matches no task in the array is skipped when arrows are built, with no warning. No other check runs on the data. See [Interaction traps](#interaction-traps).
+The name `targetId` can be surprising: it identifies the predecessor, not the task at the arrowhead. Each entry also requires a link `type`.
 
-## Link types
+## Choose the relationship
 
-The two letters name the ends the arrow leaves and enters. The first is the predecessor's end and the second is the successor's. Finish is the right edge of a bar and start is the left edge.
+The first letter names the predecessor's edge; the second names the successor's edge. `S` is start and `F` is finish.
 
-`type` is required on every entry and has no default. The four values are listed in [Task and task types](ref/task).
-
-These are the names scheduling tools use, where `FS` means the successor cannot start before the predecessor finishes. The chart does not apply that rule. A link whose dates contradict its type is drawn the same as one whose dates agree.
-
-Arrows render at 45% opacity. Hovering or selecting a task raises every arrow with that task at either end to full opacity.
-
-## Drawing a link
-
-Each bar has two connector dots, one at each end. They are 12px circles placed 18px outside the bar's edges, with a larger invisible hit area.
-
-With a mouse the dots appear when the bar is hovered or selected. On a device without hover they stay faintly visible and pressable.
-
-The dots render only when the task's `allowLinkCreate` resolves to true. The task's own field overrides the chart prop of the same name, in the order [GanttInteractionConfig](ref/interaction-config) describes. `allowLinkDelete` resolves the same way.
-
-Press a dot and drag. The drag starts after the pointer has moved 4px, so a plain click on a dot creates nothing.
-
-Release anywhere on the target's row. The whole row accepts the drop, including the space beside the bar. On a lane row with several bars, the horizontally nearest bar receives the link.
-
-The target is computed from the row model. The chart ignores the element under the pointer, so an overlay in your app cannot intercept the drop.
-
-The dot you pressed sets the first letter of the type and the release point sets the second.
-
-The finish zone is the last 24px of the target bar, capped at a third of its width, plus everything to its right. The rest of the row counts as the start, so a drop outside the finish zone makes `FS`.
-
-| Drag starts at | Released over | Type |
-|---|---|---|
-| the end dot | the row, outside the finish zone | `FS` |
-| the start dot | the row, outside the finish zone | `SS` |
-| the end dot | the finish zone | `FF` |
-| the start dot | the finish zone | `SF` |
-
-During the drag a dashed line follows the pointer. Over a valid target the line becomes solid and takes the elbow route the committed arrow will use. The two-letter type appears beside it and the receiving dot fills in.
-
-Dragging against a viewport edge scrolls the timeline, so a link can join two bars that do not fit on screen together. `Escape` cancels the drag.
-
-### Rejected targets
-
-While the pointer is over a candidate, the chart validates the pair. On a rejected target the outline and the preview line turn red and the reason appears beside the pointer. Releasing there commits nothing.
-
-| Rejection | Condition | Text shown |
-|---|---|---|
-| self | the two ids are equal | `Cannot link a task to itself` |
-| duplicate | the successor already has an entry whose `targetId` is this predecessor | `These tasks are already linked` |
-| cycle | walking the predecessor's own predecessors reaches the successor | `That would create a circular dependency` |
-
-The checks run in the order the table lists.
-
-The duplicate check compares `targetId` only and ignores `type`. An existing link from `design` to `build` of any type blocks a second link between the same ordered pair. The reverse pair is checked by the cycle rule instead.
-
-The three messages are hardcoded English and do not pass through `locale` or `formats`.
-
-A target whose `allowLinkCreate` resolves to false is not a candidate. The row shows no highlight or reason text. Releasing there does nothing.
-
-### The create callback
-
-Every link the drag did not reject reaches `onDependencyCreate`. That includes links across lanes, links onto a summary row, and links whose dates contradict the type.
-
-```tsx title="src/LinkGuard.tsx"
-import { useState } from 'react';
-import {
-  ReactGanttChart,
-  type GanttDependencyChange,
-  type Task,
-} from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
-
-export function LinkGuard({ initial }: { initial: Task[] }) {
-  const [tasks, setTasks] = useState<Task[]>(initial);
-
-  return (
-    <ReactGanttChart
-      tasks={tasks}
-      onTasksChange={setTasks}
-      onDependencyCreate={(change: GanttDependencyChange) => {
-        // Only an exact false aborts
-        if (change.type === 'SF') return false;
-      }}
-      onDependencyDelete={({ predecessorId, successorId }) =>
-        window.confirm(`Unlink ${predecessorId} -> ${successorId}?`)
-      }
-    />
-  );
-}
-```
-
-The return value is compared with `=== false`. `true`, `undefined`, `null` and `0` all commit. A returned `Promise` also commits, because the two callbacks are synchronous and never await it. An async guard resolves after the link is already in the data.
-
-`GanttDependencyChange` has three fields: `predecessorId`, `successorId` and `type`.
-
-A committed link is written into the task array and `onTasksChange` fires with the new array. To undo it, pass the previous array back.
-
-Props and defaults: [GanttProps](ref/props).
-
-## Deleting a link
-
-Each arrow has an invisible 12px wide hit path along its route, rendered only when the successor's `allowLinkDelete` resolves to true. Hovering the path colours the arrow with the accent colour and shows a pointer cursor. The hover colour marks an arrow as deletable.
-
-Pressing the path selects the arrow. A selected arrow takes the accent colour and shows a round delete button, a cross in a circle, at the midpoint between its two endpoints.
-
-While an arrow is selected, these inputs apply.
-
-| Input | Effect |
+| Type | Relationship to represent |
 |---|---|
-| `Delete` or `Backspace` | delete the selected link |
-| `Escape` | deselect |
-| pointerdown anywhere | deselect |
+| `FS` | Build starts after Design finishes |
+| `SS` | Build starts after Design starts |
+| `FF` | Build finishes after Design finishes |
+| `SF` | Build finishes after Design starts |
 
-Key presses are ignored while focus is in an `input`, `textarea`, `select` or `contentEditable` element.
+These are scheduling meanings, not date constraints enforced by the chart. Your app decides whether the dates satisfy the relationship.
 
-`allowLinkDelete` is read on the successor, the task whose `dependencies` array loses the entry. The same field on the predecessor has no effect. When the flag is false the delete returns without a change or a warning.
+## Draw a link
 
-The removal filters by `targetId` only. If one successor holds two entries with the same predecessor, both arrows select together and one delete removes both.
+1. Hover or select the predecessor bar to reveal its connector dots.
+2. Drag from its start or finish dot to the successor's row.
+3. Release near the successor's start or finish. The preview shows the link type before you release.
 
-When a bar cell has keyboard focus and an arrow is selected, `Delete` reaches both handlers. The link is removed and the focused task is deleted, as two separate changes. The task delete key is described in [Keyboard and screen readers](accessibility).
+The whole destination row accepts the drop. Its finish zone is near the bar's right edge and extends to the right; the rest counts as start. In a lane containing several bars, the nearest bar receives the link.
 
-## Interaction traps
+The timeline scrolls when you drag near its edges. Press `Escape` to cancel. On touch devices without hover, the connector dots remain visible.
 
-`allowLinkCreate: false` on a task blocks links in both directions. The chart reads it on the source when it renders the dots, and again on the target during the drag. The task cannot start a link or receive one.
+Drawing rejects self-links, duplicate links between the same ordered pair, and circular dependencies. A rejected target shows a reason and does not change the data. Those checks apply to drawing only; validate imported dependencies in your app.
 
-The self, duplicate and cycle checks run only during a drag. The chart does not validate the `tasks` array, so a self link or a cycle already in the data is drawn as is, with no warning.
+## Save or reject changes
 
-The drag check works when the data already contains a cycle. The walk skips ids it has visited, so it terminates and catches new cycles.
+Keep `onTasksChange` connected to your state to retain created and deleted links. Add a synchronous guard when your app permits only certain relationships. This example accepts finish-to-start links only:
 
-A link never moves a bar. A new `FS` link leaves an overlapping successor where it is, and dragging either bar afterwards leaves the other in place.
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  onDependencyCreate={({ type }) => {
+    if (type !== 'FS') return false;
+  }}
+/>
+```
 
-## Limitations
+Returning exactly `false` from `onDependencyCreate` cancels the change. `onDependencyDelete` works the same way. These guards do not await promises; perform server validation in your application's save flow.
 
-The chart draws and removes links but does not manage them.
+Use `allowLinkCreate` and `allowLinkDelete` to control whether links can be edited. Disabling creation on a task blocks both incoming and outgoing links. Deletion permission belongs to the successor, which owns the entry.
 
-- Link types cannot be edited in place. Changing `FS` to `SS` means rewriting the entry in your `tasks` array.
-- Links are not enforced. Adding an `FS` link does not move the successor, and no check runs on the dates afterwards.
-- Links have no keyboard path. The connector dots have `tabIndex={-1}` and no key starts a link drag, so an arrow must be selected with a pointer before `Delete` applies to it.
-- Arrows select one at a time. There is no multi-select.
-- Arrows have no hover tooltip, context menu or label. An arrow is controlled through its hit path and, when selected, its delete button. No other control acts on an arrow.
-- Arrow routes are fixed. The elbow is computed from the two endpoints and the type, so an arrow can cross other bars.
-- Arrows to hidden tasks are not drawn. A link whose predecessor is filtered out or hidden under a collapsed parent has no arrow, and the entry stays in your data.
-- Changing an existing link has no callback. `onDependencyCreate` and `onDependencyDelete` cover creation and deletion.
-- Link validation is not exported. A host that wants the same self, duplicate and cycle checks writes them itself.
+See [props](ref/props) for callback signatures and [interaction configuration](ref/interaction-config) for permission precedence.
 
-Next: [Working calendar](working-calendar).
+## Remove or change a link
+
+Click an arrow, then click its delete button. You can also press `Delete` or `Backspace` after selecting it; `Escape` clears the selection.
+
+If a task bar still has keyboard focus, the delete key can also delete that task. Use the arrow's delete button to avoid that overlap. See [keyboard controls](accessibility).
+
+To change a link's type, update its entry in your `tasks` array. There is no built-in type editor. Keep one entry per predecessor and successor pair: deletion removes all entries for that pair, even if their types differ.
+
+## When an arrow is missing
+
+Both tasks must be visible for their arrow to render. Filtering out a task or collapsing its parent hides the arrow without removing the dependency. An entry referring to an unknown task id is also skipped.
+
+Link creation requires a pointer. There is no keyboard flow for creating a link or selecting an arrow, and arrows cannot be selected as a group. Routes are automatic and may cross other bars.
