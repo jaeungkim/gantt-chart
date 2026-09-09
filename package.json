@@ -23,7 +23,7 @@
   "files": [
     "dist"
   ],
-  "description": "A Gantt chart for React that behaves like a controlled input. Every drag returns the complete next tasks array. An ARIA treegrid with keyboard editing, rows and time cells both virtualized, a headless core with no React or DOM, dependency arrows and a working calendar.",
+  "description": "An open-source React Gantt chart for interactive project planning. Drag tasks, connect dependencies, and organize nested timelines with working calendars, keyboard editing, virtualization, and light and dark themes.",
   "keywords": [
     "gantt",
     "gantt-chart",

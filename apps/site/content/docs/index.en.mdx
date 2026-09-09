@@ -3,18 +3,19 @@ title: "Documentation"
 description: "What @jaeungkim/gantt-chart is, and where to start reading"
 ---
 
-`@jaeungkim/gantt-chart` is a Gantt chart for React that behaves like a controlled input. Your app
-holds the `tasks` array, and every committed edit returns the complete next array through
-`onTasksChange`.
+Build an editable project schedule inside your React app. `@jaeungkim/gantt-chart` brings task
+dragging, dependency links and nested timelines together in one MIT-licensed component.
 
-Three things separate it from other React Gantt components.
+Choose a guide for the experience you want to build.
 
-- Move, resize, reorder and delete run from the keyboard inside one ARIA `treegrid`, and each edit
-  is announced in a `role="status"` region. Drawing a dependency arrow has no keyboard path. See
-  [Keyboard and screen readers](accessibility).
-- Rows and time columns are virtualized against one scroll container, and the bars and the arrows
-  cull against the same window. See [Introduction](introduction).
-- The tree and calendar math is a headless core with no React and no DOM, enforced by an eslint
-  `no-restricted-imports` block scoped to `src/core`. See [Headless core](headless-core).
+- Change dates and progress on the timeline: [Editing tasks](editing).
+- Organize phases and move their tasks together: [Task list and hierarchy](task-list).
+- Connect tasks with dependency arrows: [Dependencies](dependencies).
+- Account for workweeks and holidays: [Working calendar](working-calendar).
+- Match your product's appearance: [Theming](theming).
+- Support keyboard editing: [Keyboard and screen readers](accessibility).
+
+Your app receives updated task data through `onTasksChange`.
+See [Events](events) for integration and [Introduction](introduction) for scope and limitations.
 
 Start at [Quick start](quick-start). Every prop is listed in [GanttProps](ref/props).

@@ -3,17 +3,19 @@ title: "문서"
 description: "@jaeungkim/gantt-chart가 어떤 라이브러리이고 어디부터 읽으면 되는지"
 ---
 
-`@jaeungkim/gantt-chart`는 제어 컴포넌트처럼 동작하는 React 간트 차트예요. `tasks` 배열은 앱이
-들고 있고 편집이 확정될 때마다 다음 배열 전체가 `onTasksChange`로 돌아와요.
+React 앱 안에서 직접 편집할 수 있는 프로젝트 일정을 만드세요. `@jaeungkim/gantt-chart`는
+작업 드래그와 의존성 연결, 계층형 타임라인을 하나의 MIT 라이선스 컴포넌트로 제공해요.
 
-다른 React 간트 컴포넌트와 구분되는 점은 세 가지예요.
+만들려는 기능에 맞는 가이드를 골라 보세요.
 
-- 이동과 크기 조절, 순서 바꾸기, 삭제를 하나의 ARIA `treegrid` 안에서 키보드로 할 수 있어요. 편집
-  결과는 `role="status"` 요소로 알려요. 의존성 화살표를 그리는 키보드 경로는 없어요.
-  [키보드와 스크린 리더](accessibility) 참고
-- 행과 시간 열은 하나의 스크롤 컨테이너를 기준으로 가상화되고 막대와 화살표도 같은 범위로
-  걸러져요. [소개](introduction) 참고
-- 트리와 달력 계산은 React와 DOM이 없는 헤드리스 코어예요. `src/core`에만 걸린 eslint
-  `no-restricted-imports` 블록이 이 경계를 강제해요. [헤드리스 코어](headless-core) 참고
+- 타임라인에서 날짜와 진행률 바꾸기: [작업 편집](editing)
+- 프로젝트 단계를 정리하고 하위 작업을 함께 옮기기: [작업 목록과 계층](task-list)
+- 의존성 화살표로 작업 연결하기: [의존성](dependencies)
+- 근무 요일과 휴일 반영하기: [근무일 달력](working-calendar)
+- 제품에 맞게 디자인 조절하기: [테마](theming)
+- 키보드로 편집하기: [키보드와 스크린 리더](accessibility)
+
+앱은 `onTasksChange`로 변경된 작업 데이터를 받아요.
+연동 방식은 [이벤트](events), 지원 범위와 한계는 [소개](introduction)에서 확인하세요.
 
 [빠른 시작](quick-start)부터 시작하세요. 모든 prop은 [GanttProps](ref/props)에 있어요.

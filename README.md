@@ -6,7 +6,12 @@
 [![CI](https://github.com/jaeungkim/gantt-chart/actions/workflows/ci.yml/badge.svg)](https://github.com/jaeungkim/gantt-chart/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/@jaeungkim/gantt-chart)](LICENSE)
 
-A Gantt chart for React that behaves like a controlled input.
+Bring interactive project planning to your React app.
+
+Drag tasks, connect dependencies, and organize projects into nested timelines. Working calendars,
+keyboard editing, and light and dark themes come built in.
+
+Open source · MIT licensed · React 18 & 19 · TypeScript
 
 [Quick start](https://gantt.jaeungkim.com/docs/quick-start) |
 [Playground](https://gantt.jaeungkim.com/playground) |
@@ -15,18 +20,21 @@ A Gantt chart for React that behaves like a controlled input.
 
 ## Features
 
-- One controlled `tasks` prop. Every committed gesture returns the complete next array through
-  `onTasksChange`, and the chart persists nothing.
-- One ARIA treegrid. Move, resize and reorder from the keyboard, announced in a live region.
-  Drawing a dependency arrow has no keyboard path.
-- Rows and time cells both virtualized against one scroll window, so a 4,000-row plan mounts what
-  fits on screen.
-- A headless core with no React and no DOM, enforced by an eslint `no-restricted-imports` block
-  scoped to `src/core`.
-- Dependency arrows for `FS`, `SS`, `FF` and `SF`, drawn between bars.
-- A working calendar from `workingWeekdays` and `holidays` that both shades the timeline and snaps
-  a drop forward.
-- Five scales from `day` to `year`, a task list pane with the `parentId` tree, and lanes.
+- **Edit the plan directly.** Move and resize tasks, adjust progress, and draw dependency arrows.
+- **Move a whole project phase.** Organize tasks into a collapsible hierarchy and move a summary
+  row together with its children.
+- **Connect the work.** Draw finish-to-start, start-to-start, finish-to-finish and start-to-finish
+  dependencies.
+- **Plan around working days.** Define workweeks and holidays, with optional snapping to the next
+  working day.
+- **Explore larger plans.** Rows and time cells are virtualized, with five scales from day to year.
+- **Use the keyboard.** Navigate, move, resize and reorder tasks with edit announcements.
+  See the [accessibility guide](https://gantt.jaeungkim.com/docs/accessibility) for supported
+  actions and remaining gaps.
+- **Match your app.** Light and dark themes, CSS custom properties, localized dates and custom
+  detail panels.
+- **Connect your data.** Receive updated tasks through `onTasksChange` and handle storage in
+  your app.
 
 ## Install
 
@@ -40,7 +48,7 @@ pnpm add @jaeungkim/gantt-chart
 built bundle imports. The ESM build is under 40 kB gzipped and the stylesheet is 4.1 kB. `dayjs` is a
 declared dependency because `Dayjs` is in the public types.
 
-## Quick example
+## Connect it to your app
 
 ```tsx
 import { useState } from 'react';
