@@ -1,328 +1,172 @@
 ---
 title: "The timeline"
-description: "How wide a day is on screen, and the range, zoom, today line and non-working days"
+description: "Pick the scale, control the date range, and shade weekends and holidays."
 ---
 
-The timeline sets the width of a day on screen and the date range the chart renders. This page covers the five scales, the range props, zoom, the today line and non-working days.
-
-## Scales
-
-A scale is one row in a fixed table. The row sets what each header cell says, how much time one tick covers, and how many pixels one drag step is worth. The table is a module constant with five rows.
-
-`GanttScaleKey` is `'day' | 'week' | 'month' | 'quarter' | 'year'`. The chart starts on `month`.
-
-| scale | `labelUnit` | `tickUnit` | `unitPerTick` | `tickAlign` | `dragStepUnit` | `dragStepAmount` | `basePxPerDragStep` |
-|---|---|---|---:|---|---|---:|---:|
-| `day` | `day` | `hour` | 6 | `day` | `hour` | 1 | 12 |
-| `week` | `month` | `day` | 1 | none | `hour` | 6 | 18 |
-| `month` | `month` | `day` | 7 | `week` | `day` | 1 | 18 |
-| `quarter` | `quarter` | `month` | 1 | none | `day` | 7 | 28 |
-| `year` | `year` | `month` | 3 | `quarter` | `day` | 28 | 28 |
-
-`unitPerTick` is how much time one cell holds. Zooming out raises it, from six hours to a day, a week, a month and a quarter.
-
-`tickAlign` is the boundary the first cell snaps to. It applies only where a cell holds more than one `tickUnit`. Without it, week columns would open on the weekday the range starts on.
-
-`dragStepUnit` and `dragStepAmount` are also the snap grid for a bar drag, described in [Editing tasks](editing). Each scale's label formatters can be replaced, described in [Locale and date formats](i18n). The type is in [Scale and theme types](ref/scales).
-
-### Tick width
-
-No scale carries a pixel width. Each tick is measured when the cells are built:
-
-```ts title="src/timeline/utils/geometry.ts, createBottomRowCells"
-const dragStepRatio = basePxPerDragStep / dragStepAmount;
-const nextTick = current.add(unitPerTick, tickUnit);
-const tickDuration = nextTick.diff(current, dragStepUnit);
-const widthPx = tickDuration * dragStepRatio;
-```
-
-That gives these numbers:
-
-| scale | px per drag step unit | one tick covers | tick width | px per day | fits in 1200px |
-|---|---|---|---|---:|---|
-| `day` | 12 px/h | 6 h | 72px | 288 | 4 days |
-| `week` | 3 px/h | 24 h | 72px | 72 | 17 days |
-| `month` | 18 px/day | 7 days | 126px | 18 | 2 months |
-| `quarter` | 4 px/day | 1 calendar month | 112 to 124px | 4 | 10 months |
-| `year` | 1 px/day | 1 calendar quarter | 90 to 92px | 1 | 3 years |
-
-Two rules shape that table.
-
-A header cell stays between roughly 60 and 130px. A date is readable and a bar edge is grabbable at that width, so zooming out gives a cell more time to hold rather than making it narrower.
-
-Each step out divides the pixels per day by about four: 288, 72, 18, 4 and 1. Ctrl and wheel and the arrow keys move through the same scale order, so one step means the same thing from either input.
-
-The `quarter` and `year` scales use a `month` tick, so their cells are as wide as the calendar period. February 2025 is 112px at `quarter` scale and a month of 31 days is 124px.
-
-### Initial scale
-
-`defaultScale` is the initial value. It is applied when the chart's store is constructed, so the first paint is already at that scale. Later prop changes are ignored.
-
-The scale is not persisted. There is no `storageKey` prop, and the package does not write to `sessionStorage` or `localStorage`. A reload, a route change or a remount starts again from `defaultScale`, regardless of what the user last picked.
-
-The scale is React state of one chart. An app that persists it stores the value itself and passes it back as `defaultScale`.
-
-### Changing the scale
-
-The chart renders no scale picker. It draws the timeline and, when enabled, the [task list pane](task-list), with no UI around them. Two things connect a picker of your own to the chart:
-
-- `setScale(scale)` on the chart ref switches the scale. Its signature is in [GanttHandle](ref/handle).
-- `onScaleChange` fires once per committed change from any source: `setScale`, Ctrl and wheel, `zoomToFit()`, or the keyboard. The argument is the `GanttScaleKey` now rendered, reported after the gesture settles. The chart's record of the previous scale starts at the initial scale, so the callback does not fire on mount or on a StrictMode remount.
-
-A native `<select>` fits this. Call `setScale` from the select's `onChange` and set the select's value from `onScaleChange`.
-
-Wheel zoom and the keyboard also change the scale, so reading the value back from the callback keeps your control showing the rendered scale. The complete component is in [Imperative API](imperative-api).
-
-## Range
-
-With no range props, the chart fits the timeline to the data. It scans every task for the minimum `startDate` and the maximum `endDate`. [Roll-up](task-list) runs first, so a summary row widened by its children widens the range too.
-
-The chart pads that span by five ticks of the current scale on each side. A tick is a different span at each scale:
-
-| scale | one tick | buffer per side |
-|---|---|---|
-| `day` | 6 hours | 30 hours |
-| `week` | 1 day | 5 days |
-| `month` | 7 days | 35 days |
-| `quarter` | 1 month | 5 months |
-| `year` | 3 months | 15 months |
-
-Cells are laid out from the padded start, snapped down to a tick boundary. Where the scale has a `tickAlign`, that boundary is used, so `month` cells open on a Sunday.
-The loop runs while the tick start is before the padded end, so the final cell can finish past it.
-
-A task from `2025-01-10` to `2025-01-12` at `month` scale pads to `2024-12-06` to `2025-02-16`. The start snaps down to Sunday `2024-12-01`.
-That gives 11 week cells, with the bar 720px from the left and 36px wide.
-
-### Pinned range
-
-`visibleStart` and `visibleEnd` are ISO strings. A pinned end is used verbatim. Task dates and the buffer do not move it.
-
-Pin both ends and the task dates no longer affect layout. A task outside the window keeps its row, and its bar is clamped to the nearest edge at the minimum bar width.
-Pin one end and the other auto-fits with its buffer of five ticks.
-
-The pinned start is also snapped down to a tick boundary. A `visibleStart` of `2025-03-14` becomes `2025-03-01` at `quarter` scale and `2025-01-01` at `year` scale, where a tick is a whole quarter. The last cell can overshoot `visibleEnd`.
-
-> [!WARNING]
-> With no tasks and only one end pinned, the chart renders an empty element and throws no error. Pin both ends to draw an empty calendar.
-
-### Infinite scroll
-
-`infiniteScroll` defaults to `false`. Off, the range is the tasks plus the buffer, and the scroll container stops there.
-
-On, the chart reads `scrollLeft` on every scroll event. When the view comes within half a viewport of either end, it adds about one viewport of ticks to that side.
-
-The chunk is `ceil(viewportPx / pxPerTick)` ticks, minimum one, where `pxPerTick` is the average tick width at the current scale. The front is checked first, so one pass never grows both sides.
-
-Growth is capped at 2000 ticks per side. When cells are added in front, the chart shifts `scrollLeft` by the added width, so the view stays on the same dates.
-
-Three consequences follow:
-
-- The check runs as soon as the listener is attached, before any scrolling. A chart that mounts at `scrollLeft: 0` is already within half a viewport of the front, so it extends immediately.
-- A pinned end never grows. With `visibleStart` and `visibleEnd` both set, `infiniteScroll` does nothing.
-- The accumulated extension is counted in ticks and tagged with the scale it was measured at. Changing scale drops it and refits from the tasks.
-
-### onRangeChange
-
-`onRangeChange` receives a `GanttDateRange` of two `Dayjs` values. `start` is the first cell's start. `end` is the exclusive end of the last cell, the last cell's start plus one tick. Querying `[start, end]` inclusively counts the last tick twice.
-
-```tsx title="Roadmap.tsx"
-import { useCallback } from "react";
-import {
-  ReactGanttChart,
-  type GanttDateRange,
-  type Task,
-} from "@jaeungkim/gantt-chart";
-import "@jaeungkim/gantt-chart/style.css";
-
-const tasks: Task[] = [
-  {
-    id: "spec",
-    name: "Spec",
-    startDate: "2025-06-10",
-    endDate: "2025-06-13",
-    parentId: null,
-    sequence: "1",
-  },
-];
-
-export function Roadmap() {
-  const handleRangeChange = useCallback((range: GanttDateRange) => {
-    const from = range.start.toISOString();
-    const to = range.end.toISOString();
-    void fetch(`/api/tasks?from=${from}&to=${to}`);
-  }, []);
-
-  return (
-    <ReactGanttChart
-      tasks={tasks}
-      defaultScale="month"
-      infiniteScroll
-      zoomOnWheel
-      onRangeChange={handleRangeChange}
-    />
-  );
-}
-```
-
-The callback fires on the first render that produces cells, and on every change of those two dates after that. It is deduped by start and end milliseconds, so a rebuild that lands on the same dates does not fire.
-
-Zoom is not deduped. Every scale pads and snaps differently, so a scale change almost always moves those two dates. Expect the callback to fire alongside `onScaleChange`.
-
-The handler is read through a ref rather than a dependency. Swapping its identity does not re-fire it, and a handler supplied after the first render sees only the next change.
-
-## Zoom
-
-`zoomOnWheel` defaults to `false`, which leaves Ctrl and wheel to the browser's page zoom. Turned on, the chart handles that gesture inside its own bounds. The keyboard binding below needs no opt-in.
+The timeline decides how much time fits on screen. Pick the scale it opens at, fit or pin its date
+range, and shade the days nobody works.
 
 <GanttDemo preset="zoom" />
 
-The scale order is the table's own order, finest first: `day`, `week`, `month`, `quarter`, `year`. Wheel down zooms out, matching the browser. The order clamps at both ends, so at `day` a further zoom in does nothing.
+## Choose a starting scale
 
-The chart accumulates `deltaY` across wheel events. A gesture has to reach 24 to move one step. After a step the gesture is locked, and every further event is ignored until a pause of 120ms.
+Five scales are built in, finest first. `defaultScale` picks the one the chart opens at and defaults
+to `month`.
 
-A trackpad pinch of twenty events is one step. Two separate wheel gestures 160ms apart move two steps.
+| Scale | Cell holds | Drag step | Px per day | Padding |
+|---|---|---|---:|---|
+| `day` | 6 hours | 1 hour | 288 | 30 hours |
+| `week` | 1 day | 6 hours | 72 | 5 days |
+| `month` | 7 days | 1 day | 18 | 35 days |
+| `quarter` | 1 month | 7 days | 4 | 5 months |
+| `year` | 1 quarter | 28 days | 1 | 15 months |
 
-The date under the cursor keeps its x position across the change. A cursor over the task list pane is clamped to the timeline's left edge.
-A cursor past the last rendered cell cancels the zoom, because there is no date there to anchor to.
+Each step out is about four times coarser, and a header cell stays 60 to 130px wide. A `quarter` or
+`year` cell follows the calendar. The drag step is the grid a bar snaps to, covered in
+[Editing tasks](editing).
 
-Plain wheel scrolls vertically and Shift and wheel scrolls horizontally, with `zoomOnWheel` on or off. Only the Ctrl and Cmd variants change meaning.
+```tsx title="ProjectChart.tsx"
+import { useState } from 'react';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
+import '@jaeungkim/gantt-chart/style.css';
 
-Ctrl or Cmd with ArrowUp steps one scale finer, and with ArrowDown one scale coarser. The binding is part of the chart's keyboard map. It needs focus inside the chart but no pointer, and it works with `zoomOnWheel` on or off.
-
-It clamps at the same two ends, anchors on the center of the timeline rather than a cursor, and announces the new scale through the chart's live region. See [Keyboard and screen readers](accessibility).
-
-To fit every visible bar into the viewport in one call, use `zoomToFit()` on the chart ref, described in [Imperative API](imperative-api).
-
-## Today line
-
-The chart draws one vertical line at today's date. There is no prop for other markers such as deadlines or sprint ranges.
-
-The line has a head, a small dot straddling the header's bottom border at the same x. The dot is in the header, so it stays in place while the rows scroll under it.
-
-There is no prop to hide, move or label the marker. The line is `.gantt-today-marker`, the dot is `.gantt-today-dot`, and both take their color from one token listed in [Theming](theming).
-CSS on those two classes is the only way to restyle or hide it.
-
-The date is read when the timeline is recomputed. There is no timer, so the line does not move at midnight, and it disappears when today is outside the rendered range.
-
-## Non-working days
-
-`showNonWorkingDays` defaults to `true`. It shades non-working days as a background layer behind the bars.
-
-Two props decide which days those are. `workingWeekdays` is the weekly rule. It takes UTC day numbers, where `0` is Sunday, and defaults to Monday to Friday. `holidays` is the list of exceptions on top of it, matched against each tick's UTC day.
-
-```tsx title="NonWorkingDays.tsx"
-import { ReactGanttChart, type Task } from "@jaeungkim/gantt-chart";
-import "@jaeungkim/gantt-chart/style.css";
-
-const tasks: Task[] = [
-  {
-    id: "spec",
-    name: "Spec",
-    startDate: "2025-06-10",
-    endDate: "2025-06-13",
-    parentId: null,
-    sequence: "1",
-  },
+const initialTasks: Task[] = [
+  { id: 'spec', name: 'Spec', parentId: null, sequence: '1',
+    startDate: '2026-06-10', endDate: '2026-06-13' },
 ];
 
-// Both arrays are read by identity, so they live outside the component.
-const WORKING_WEEKDAYS = [1, 2, 3, 4, 5, 6];
-const HOLIDAYS = ["2025-06-06", "2025-08-15"];
+export function ProjectChart() {
+  const [tasks, setTasks] = useState(initialTasks);
 
-export function NonWorkingDays() {
   return (
     <ReactGanttChart
       tasks={tasks}
-      // Saturdays are worked here, so the weekly rule leaves only Sunday off.
-      workingWeekdays={WORKING_WEEKDAYS}
-      holidays={HOLIDAYS}
+      onTasksChange={setTasks}
+      defaultScale="week"
+      height={420}
     />
   );
 }
 ```
 
-A new array on every render rebuilds the calendar on every render. Keep both in a module constant or a `useMemo`.
+`defaultScale` is read once at mount; later changes are ignored. `onScaleChange` reports every
+committed change, from the ref, wheel zoom, the keyboard or `zoomToFit()`, and never on mount.
 
-### Naming a holiday
+The chart draws no scale picker. Wire one to `setScale` on the ref, reading its value back from
+`onScaleChange`. See [Imperative API](imperative-api).
 
-A bare string is a day off with no name. The object form adds a name, a color and an end date:
+## Fit the timeline to your data
+
+With no range props the chart fits the timeline to the rolled-up task dates, earliest `startDate` to
+latest `endDate`, padded by five ticks at each end. Cells start there, snapped back to a tick
+boundary, so `month` week columns open on a Sunday.
+
+The last cell can finish past the padded end. See [Task list and hierarchy](task-list).
+
+`onRangeChange` reports the range as two `Dayjs` values. `end` is exclusive, the last cell's start
+plus one tick, so an inclusive query counts the last tick twice.
+
+It fires on the first render with cells, then whenever those dates change, which a scale change
+almost always causes. The handler is read through a ref, so replacing it does not re-fire it; a late
+one sees only the next change.
+
+A vertical line marks today, with a dot in the header above it. No prop adds another marker or
+moves, labels or hides this one; CSS on `.gantt-today-marker` and `.gantt-today-dot` restyles it.
+The date is read when the timeline recomputes, so it never moves at midnight and vanishes when today
+leaves the range.
+
+## Pin or extend the range
+
+`visibleStart` and `visibleEnd` take ISO strings and pin the timeline instead of fitting it. A pinned
+start snaps back to a tick boundary; a pinned end is used as given.
+
+Pin both and task dates stop affecting the layout. A task outside the window keeps its row, its bar
+clamped to the nearest edge at the minimum width.
+
+Pin one end and the other auto-fits with its padding. With no tasks and one end pinned, the chart
+renders an empty element and throws nothing.
+
+`infiniteScroll` grows the range as people scroll, off by default. Coming within half a viewport of
+either end adds about a viewport of ticks there, up to 2000 per side.
+
+The front is checked first, so a chart mounted at the far left extends straight away. Cells added in
+front shift the scroll, keeping the view on the same dates. A pinned end never grows, and a scale
+change drops what has accumulated.
+
+## Let people zoom
+
+`zoomOnWheel` is off by default, leaving Ctrl or Cmd with the wheel to page zoom. Turn it on and
+that gesture steps one scale, wheel down to zoom out.
+
+The date under the cursor keeps its x position. A cursor over the task list anchors on the
+timeline's left edge, and one past the last cell cancels the zoom.
+
+Ctrl or Cmd with ArrowUp steps one scale finer and ArrowDown one coarser, needing no prop. It anchors
+on the timeline's centre and announces the new scale. See
+[Keyboard and screen readers](accessibility).
+
+Both stop at the finest and coarsest scale. Plain wheel scrolls vertically and Shift with the wheel
+horizontally, either way. `zoomToFit()` on the ref fits every rendered bar in one call, as
+[Imperative API](imperative-api) shows.
+
+## Shade weekends and holidays
+
+`showNonWorkingDays` is on by default, shading non-working days behind the bars and writing holiday
+names in the tick row. `workingWeekdays` sets the weekly rule in UTC day numbers, `0` being Sunday,
+and defaults to Monday to Friday. `holidays` lists the exceptions, matched against each tick's UTC
+date.
 
 ```tsx
-holidays={[
-  "2025-06-06",
-  { date: "2025-09-24", endDate: "2025-09-26", label: "Chuseok", color: "#7c3aed" },
-]}
+const WORKING_WEEKDAYS = [1, 2, 3, 4, 5, 6];
+const HOLIDAYS = [
+  '2026-06-06',
+  { date: '2026-09-24', endDate: '2026-09-26', label: 'Chuseok', color: '#7c3aed' },
+];
+
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  workingWeekdays={WORKING_WEEKDAYS}
+  holidays={HOLIDAYS}
+/>
 ```
 
-| field | type | description |
-|---|---|---|
-| `date` | `string` | UTC `YYYY-MM-DD`. Required. |
-| `endDate` | `string` | Inclusive last day. Omitted, the holiday is one day. |
-| `label` | `string` | Written in the tick row over the holiday's band. |
-| `color` | `string` | Any CSS color, tinted onto that band. |
+Both arrays are read by identity, so a fresh literal each render rebuilds the calendar. Keep them in
+a module constant or a `useMemo`.
 
-The `Holiday` type is in [Scale and theme types](ref/scales).
-
-The name is written in the tick row over the holiday's band, in the cells where the tick numerals were, the way a dragged edge writes its date. It is shown without hover only when the band is at least 44px wide.
-A holiday of one day is named at the `week` scale and not at `month`, where a day is a seventh of a cell.
-
-A narrower band shows its name on hover. The pointer over the band in the header fades the name in over the tick cells.
-A name wider than the tick cells it covers is clipped. A live drag readout paints over it for the length of the gesture.
-The tint marks the day in every case.
-
-Two named holidays whose bands begin in the same tick cell would print on top of each other. Only the first shows its name without hover. The second shows its name on hover only, however wide its band is.
-
-Hover works in the timeline header only. The shading in the chart body is under the surface that draws new tasks, and a hover target there would take those gestures.
-The name is hidden with `opacity` rather than `display` in both cases, so a screen reader announces it either way.
-
-`color` is tinted at the weekend shade's weight. A holiday looks like a Saturday in a different color, and the grid stays visible beneath it.
-Its band is kept separate from an adjacent weekend, so the two do not merge and the holiday keeps its tint and name.
-
-A holiday on a day the weekly rule already has off keeps its name and color. Where two entries cover the same day, the earlier one in the array supplies that day's label and color.
-A day is assigned once and not rewritten, so array order decides an overlap.
-
-Ranges expand to at most 366 days. An `endDate` before its `date`, or one that does not parse, collapses that entry to its single start day instead of throwing. A `date` that does not parse drops the entry.
+A bare `YYYY-MM-DD` string is a day off with no name. The object form adds an inclusive `endDate`, a
+`label` and a `color`. Where two entries cover a day, the earlier one wins.
 
 <GanttDemo preset="holidays" />
 
-The demo above is at `month` scale. The holiday spanning three days is wide enough to hold its name, and the one spanning one day shows its name on hover.
+A name appears in the tick row only where its band is at least 44px wide, so the shutdown above is
+named and the one-day offsite is not. Hover a narrower band in the header to read it.
 
-Shading is decided by the scale's `tickUnit`, not by the scale's name:
+Where two names open in the same cell, only the first is shown. Names are hidden with `opacity`
+rather than `display`, so a screen reader announces them anyway.
 
-| scale | `tickUnit` | shaded |
-|---|---|---|
-| `day` | `hour` | yes |
-| `week` | `day` | yes |
-| `month` | `day` | yes |
-| `quarter` | `month` | no |
-| `year` | `month` | no |
+A `color` is tinted at the weekend's weight, and a holiday band stays separate from the weekend
+beside it. One on a day already off keeps its name and colour.
 
-Zoom out to `quarter` or `year` and the shading disappears. A month tick cannot be half non-working, so the layer is skipped there.
+CSS on `.gantt-holiday-cell` restyles every name. `color` is the only per-holiday style, and nothing
+adds a class or an icon to one holiday.
 
-Shading is per day even where a cell is not. A `month` cell holds seven days and each one is checked on its own.
-A cell opens on Sunday, so a weekend is an 18px region at its left edge and another at its right.
-The Saturday of one cell merges with the Sunday of the next into one 36px region.
+Shading follows the tick, not the scale name. `day`, `week` and `month` shade, `quarter` and `year`
+do not, because a month tick cannot be half non-working. Each day in a multi-day cell is checked on
+its own, and adjacent non-working days merge into one band.
 
-At `day` scale the check runs once per tick of six hours, and adjacent non-working ticks merge. One non-working day is four ticks merged into one 288px block.
+## Before you integrate
 
-Shading changes no dates. `workingCalendar` moves a drag result off a non-working day. See [Working calendar](working-calendar).
+- Zoom is five fixed steps, with no pixels-per-day prop, no fractional zoom and no custom scale.
+- `defaultScale` is not persisted. A reload starts there again, so store the scale yourself and pass
+  it back.
+- `showNonWorkingDays` shades days and nothing else. `false` hides the shading and the names, and a
+  dropped bar lands on a Saturday unless `workingCalendar` is on. See
+  [Working calendar](working-calendar).
+- `firstDayOfWeek` regroups the `week` scale's top header only. It moves no shading, and `month` week
+  columns still open on a Sunday.
+- `holidays` entries are read leniently. A range expands to at most 366 days, a backwards `endDate`
+  collapses to its start day, and an unparseable `date` drops it.
 
-Props and defaults: [GanttProps](ref/props).
-
-## Limitations
-
-- Pixels per day are not a prop. Tick widths come from `basePxPerDragStep / dragStepAmount`, and neither is a prop. Zoom is a discrete jump between the five scales, so there is no `pxPerDay`, zoom percentage, fractional zoom or animated zoom.
-- The scale table is a module constant. A host that needs a two-week column cannot add one.
-- The chart ships no scale picker. A picker of your own calls `setScale` and reads `onScaleChange`.
-- The scale is not persisted. A reload starts again at `defaultScale`.
-- The timeline internals are not exported. The scale config, the scale order and the utilities that build cells stay inside the package. `GanttDateRange` and `GanttScaleKey` are exported, and the geometry is not.
-- The today line has no prop to switch it off. CSS on its two classes is the only way to hide it, and nothing refreshes it at midnight.
-- Dates are not validated here. Tasks whose dates are all unparseable produce an empty timeline rather than an error.
-- Shading and the drop snap are separate switches. `showNonWorkingDays={false}` hides the shading and the holiday names, and nothing else. With `workingCalendar` on, the same days decide where a drag lands. See [Working calendar](working-calendar).
-- `firstDayOfWeek` moves no shading. It regroups the `week` scale's top header and nothing else, and week columns at the `month` scale always open on Sunday. Which days are off is decided by `workingWeekdays`, and the two are unrelated.
-- A holiday's color is the only thing it restyles. There is no class or icon per holiday, and the name can only be styled through `.gantt-holiday-cell`.
-- `zoomOnWheel` takes every Ctrl and Cmd wheel event. `preventDefault` runs before the accumulator, so page zoom is blocked inside the chart even on events that produce no scale step.
-- `visibleStart`, `visibleEnd` and `infiniteScroll` are horizontal only. They do not affect rows.
-- Scroll position is not controlled. There is no `scrollLeft` prop and no `onScroll`. `initialScrollTo` sets it once after the first render. After that, `onRangeChange` reports dates rather than pixels, and programmatic scrolling goes through the chart ref.
-
-Next: [Editing tasks](editing).
+See [GanttProps](ref/props) for the props and [Scale and theme types](ref/scales) for the `Holiday`
+shape.

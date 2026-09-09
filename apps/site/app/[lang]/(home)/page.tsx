@@ -37,7 +37,7 @@ const COPY: Record<'en' | 'ko', Copy> = {
     heroBody:
       'Drag tasks, connect dependencies, and organize projects into nested timelines. Working calendars, keyboard editing, and light and dark themes come built in.',
     getStarted: 'Get started',
-    credentials: 'Open source · MIT licensed · React 18 & 19 · TypeScript',
+    credentials: 'Open source, MIT licensed, React 18 and 19, TypeScript types',
     tryTitle: 'Try it',
     tryBody:
       'The chart below is the published component. Drag a bar, pull an edge, or draw a link between two rows.',
@@ -65,20 +65,20 @@ const COPY: Record<'en' | 'ko', Copy> = {
       },
       '/docs/working-calendar': {
         title: 'Plan around working days',
-        body: 'Set the working weekdays, and give each holiday a name and a colour. Turn on workingCalendar and a drop on a non-working day moves forward to the next working day.',
+        body: 'Set the working weekdays, and give each holiday a name and a color. Turn on workingCalendar and a drop on a non-working day moves forward to the next working day.',
       },
       '/docs/theming': {
         title: 'Match your app',
-        body: "Every colour reads from a CSS custom property. With no theme prop set, the chart follows the host page's color-scheme.",
+        body: "Every color reads from a CSS custom property. With no theme prop set, the chart follows the host page's color-scheme.",
       },
     },
   },
   ko: {
     heroTitle: 'React 앱에서 직접 편집하는 프로젝트 타임라인',
     heroBody:
-      '작업을 끌어 옮기고 의존성을 연결하고 프로젝트를 계층형 타임라인으로 정리하세요. 근무일 달력과 키보드 편집, 라이트·다크 테마를 기본으로 제공해요.',
+      '작업을 끌어 옮기고 의존성을 연결하고 프로젝트를 계층형 타임라인으로 정리하세요. 근무일 달력과 키보드 편집, 라이트와 다크 테마를 기본으로 제공해요.',
     getStarted: '시작하기',
-    credentials: '오픈 소스 · MIT 라이선스 · React 18 & 19 · TypeScript',
+    credentials: '오픈 소스, MIT 라이선스, React 18과 19 지원, TypeScript 타입 제공',
     tryTitle: '직접 해보기',
     tryBody:
       '아래 차트는 배포된 실제 컴포넌트예요. 막대를 끌고 가장자리를 당기고 두 행 사이에 링크를 그어 보세요.',

@@ -131,36 +131,8 @@ export function resolveTaskInteraction(
 | 없음 | 없음 | 없음 | `false` | 허용 | 4 |
 | 없음 | 없음 | 없음 | 없음 | 허용 | 4 |
 
-아래 차트는 읽기 전용이고 작업 하나의 플래그가 그 작업의 진행률 핸들만 다시 켜요.
-
-```tsx title="잠긴 차트, 살아 있는 진행률 핸들 하나"
-<ReactGanttChart
-  readOnly
-  tasks={[
-    {
-      id: 'design',
-      name: 'Design',
-      startDate: '2026-03-02',
-      endDate: '2026-03-06',
-      parentId: null,
-      sequence: '1',
-    },
-    {
-      id: 'build',
-      name: 'Build',
-      startDate: '2026-03-09',
-      endDate: '2026-03-20',
-      parentId: null,
-      sequence: '2',
-      progress: 40,
-      allowProgressChange: true,
-    },
-  ]}
-/>
-```
-
-두 번째 작업의 `allowProgressChange`는 1단계에서 결정돼서 진행률 핸들은 그대로 끌 수 있어요. 두
-작업의 나머지 제스처는 모두 4단계까지 내려가고 거기서 `readOnly`가 막아요.
+차트에 `readOnly`를 두고 한 작업에만 `allowProgressChange: true`를 주면, 그 작업은 1단계에서
+결정되고 나머지는 모두 4단계로 내려가요. [작업 편집](../editing)을 참고하세요.
 
 ### 권한 6가지
 

@@ -1,103 +1,36 @@
 ---
 title: "작업 생성"
-description: "작업 초안을 만드는 세 가지 진입점, 셋 다 onTaskCreate로 넘기는 초안, 그리고 생성을 끄는 스위치"
+description: "차트에서 작업을 추가하고, 넘어온 초안을 실제 행으로 만들어요."
 ---
 
-작업 생성은 새 작업의 날짜 범위를 초안으로 만들어 `onTaskCreate`에 넘기는 흐름이에요. 진입점은
-**Add task** 버튼과 차트 ref의 `addTask()`, 마지막 행 아래에 그린 범위예요. 차트가 행을 직접
-추가하지는 않아요. 이 페이지는 세 진입점과 눈금 맞춤, `allowTaskCreate`를 다뤄요.
+작업 생성은 초안까지예요. 차트는 버튼과 그린 범위, 차트 ref에서 날짜 범위를 모아 `onTaskCreate`를 호출하고 행은 직접 추가하지 않아요.
 
-## Add task 버튼
+## 작업 생성 켜기
 
-`showTaskList`를 켜면 패널 아래쪽에 **Add task** 버튼이 그려져요. 누르면 오늘 자리에 눈금 하나
-길이의 초안이 만들어져요. 그리기로 나올 수 있는 가장 짧은 범위예요. 오늘이 렌더링된 타임라인 밖에
-있으면 첫 눈금에서 시작해요.
+`onTaskCreate`를 넘기고 새 작업은 앱의 상태에 추가해요. 이 콜백이 없으면 버튼도 십자선 커서도 그리기 제스처도 나타나지 않아요.
 
-키보드로 초안을 만들 때는 이 버튼을 쓰세요. `treegrid` 바깥에 그려지니까 그리드 다음에 오는 탭 스톱
-하나를 차지해요. 패널이 없는 차트에는 버튼도 없어요. 범위를 그리거나 `addTask()`를 호출하세요.
-
-라벨은 차트가 그리는 다른 문자열과 마찬가지로 하드코딩된 영어 `Add task`예요.
-[로케일과 날짜 형식](i18n)을 참고하세요.
-
-## 차트 ref의 `addTask()`
-
-직접 만든 툴바나 단축키에서 같은 초안을 만들려면 `addTask()`를 호출하세요.
-
-```tsx
-ganttRef.current?.addTask();
-```
-
-생성이 꺼져 있으면 아무 일도 하지 않으니 여기에 연결한 버튼에는 가드가 필요 없어요. 핸들의 나머지는
-[명령형 API](imperative-api)에서 설명해요.
-
-## 범위 그리기
-
-마지막 행 아래 빈 공간을 누르고 옆으로 끌었다가 놓으세요. 점선 고스트가 포인터를 따라오고 손을 떼면
-그려진 범위가 `onTaskCreate`로 넘어가요.
-
-누르는 지점은 마지막 행 아래여야 해요. 행 위에서는 막대든 화살표든 핸들이든 빈 부분이든 아무것도
-그려지지 않아요. 마우스는 곧바로 그리기를 시작해요. 터치와 펜은 막대 드래그와 같은 400ms 길게
-누르기가 필요해요. [작업 편집](editing)을 참고하세요.
-
-빈 공간 전체가 하나의 대상이에요. 빈 행이 여러 개 있는 게 아니에요. 어디를 누르든 고스트는 마지막
-행 바로 아래에 그려져요. 호스트 앱이 작업을 추가하면 새 행이 그 자리에 생기거든요.
-
-세로 이동은 무시하니까 대각선으로 끌어도 가로로 끈 것과 같은 범위가 그려져요. 4px보다 짧은 드래그는
-아무것도 넘기지 않아요. `Escape`는 진행 중인 그리기를 취소하고 막대나 진행률 드래그에는 영향이
-없어요.
-
-## 눈금 맞춤
-
-그린 범위는 현재 배율의 눈금 단위까지 바깥으로 넓어져요. 막대의 이동과 크기 조절은
-[작업 편집](editing)이 설명하는 드래그 단계로 움직여요.
-
-| 배율 | 그린 범위가 맞춰지는 단위 |
-|---|---|
-| `day` | 하루의 1/4 (6시간 칸) |
-| `week` | 일 |
-| `month` | 주 |
-| `quarter` | 월 |
-| `year` | 분기 |
-
-월 배율에서 막대는 1일 단위로 끌리고 그리기는 주 단위로 나와요. 연 배율에서는 28일 단위로 끌리고
-그리기는 분기 단위로 나와요. 눈금 하나 안에 머무는 범위도 눈금 하나 길이가 돼요.
-
-그린 범위에는 드래그 경계가 적용되지 않아서 `minDate`보다 앞에서 시작할 수 있어요.
-[작업 편집](editing)을 참고하세요.
-
-## 초안
-
-차트는 작업을 만들지 않고 `onTasksChange`도 발생시키지 않아요. 초안을 담아 `onTaskCreate`를
-호출하기만 해요. 새 행은 호스트 앱이 `tasks` 배열에 작업을 넣을 때 나타나요.
-
-`GanttTaskDraft`에는 `startDate`와 `endDate` 두 필드가 있어요. 배율에 맞춰진 UTC ISO
-문자열이에요. 초안에는 행 정보가 없어요. 범위는 행이 없는 자리에서만 그려지고 버튼과 `addTask()`도
-특정 행에서 시작하지 않아요.
-
-```tsx title="src/PlanBoard.tsx"
+```tsx title="ProjectChart.tsx"
 import { useState } from 'react';
-import {
-  ReactGanttChart,
-  type GanttTaskDraft,
-  type Task,
-} from '@jaeungkim/gantt-chart';
+import { ReactGanttChart, type GanttTaskDraft, type Task } from '@jaeungkim/gantt-chart';
 import '@jaeungkim/gantt-chart/style.css';
 
-export function PlanBoard({ initial }: { initial: Task[] }) {
-  const [tasks, setTasks] = useState<Task[]>(initial);
+const initialTasks: Task[] = [
+  { id: 'design', name: 'Design', parentId: null, sequence: '1',
+    startDate: '2026-09-01', endDate: '2026-09-08' },
+];
+
+export function ProjectChart() {
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
 
   const handleTaskCreate = ({ startDate, endDate }: GanttTaskDraft) => {
-    const name = window.prompt('Task name');
-    if (!name) return; // 아무것도 추가되지 않아요 - 차트는 스스로 아무것도 추가하지 않아요
-
     setTasks((current) => [
       ...current,
       {
         id: crypto.randomUUID(),
-        name,
-        startDate, // UTC ISO, 현재 배율의 눈금 단위에 맞춰진 값
+        name: 'New task',
+        startDate,
         endDate,
-        parentId: null, // 초안에는 행이 없어요 - 어디에 넣을지는 직접 정하세요
+        parentId: null,
         sequence: `${current.length + 1}`,
       },
     ]);
@@ -108,35 +41,50 @@ export function PlanBoard({ initial }: { initial: Task[] }) {
       tasks={tasks}
       onTasksChange={setTasks}
       onTaskCreate={handleTaskCreate}
+      showTaskList
+      height={420}
     />
   );
 }
 ```
 
+초안에는 `startDate`와 `endDate`만 있어요. 현재 배율에 맞춰진 UTC ISO 문자열이에요. 초안에 행 정보가 없으니 id와 이름, `parentId`, `sequence`는 앱에서 정해요. [작업 데이터](task-data)에서 확인해요.
+
+초안만으로는 `onTasksChange`가 발생하지 않아요. 새 행은 앱의 상태에 작업이 들어오면 나타나요.
+
+## 초안이 만들어지는 곳
+
+진입점 세 곳이 모두 같은 초안을 만들어요.
+
+**Add task** 버튼은 작업 목록 아래쪽에 있어서 `showTaskList`가 필요해요. 누르면 오늘 자리에 눈금 하나 길이의 초안을 보내고, 오늘이 그려진 타임라인 밖에 있으면 첫 눈금에서 시작해요.
+
+차트 ref의 `addTask()`는 직접 만든 툴바나 키보드 단축키에서 같은 초안을 보내요. [명령형 API](imperative-api)에서 확인해요.
+
+그리는 범위는 마지막 행 아래에서 시작해요. 그 빈 공간을 누르고 옆으로 끌었다가 놓아요. 행 위에서는 막대든 화살표든 핸들이든 행의 빈 부분이든 아무것도 그려지지 않아요.
+
+마우스는 곧바로 그리기를 시작해요. 터치와 펜은 막대 드래그와 같은 400 ms 길게 누르기가 필요하고, 이 동작은 [작업 편집](editing)에서 설명해요. 세로 이동은 무시해요. 4px보다 짧은 드래그는 아무것도 보내지 않고, `Escape`는 진행 중인 그리기를 취소해요.
+
+## 현재 배율에 맞추기
+
+그린 범위는 화면에 보이는 배율의 눈금 단위까지 바깥으로 넓어져요. 눈금 하나에 담기는 단위는 [타임라인과 배율](timeline)에서 확인해요.
+
+눈금 하나 안에 머무는 범위도 눈금 하나 길이가 돼요.
+
+막대 드래그는 다른 단위로 움직여요. `month` 배율에서 막대는 1일 단위로 움직이고 그린 범위는 주 단위로 나와요.
+
+그린 범위에는 `minDate`와 `maxDate`가 적용되지 않아서 초안이 `minDate`보다 앞에서 시작할 수 있어요. [작업 편집](editing)에서 확인해요.
+
 ## 작업 생성 끄기
 
-`allowTaskCreate`는 차트 전체에 적용되고 세 진입점을 한꺼번에 켜고 꺼요. `false`로 두면 버튼이
-그려지지 않고 `addTask()`는 아무 일도 하지 않고 그리기 제스처도 사라져요. `allowTaskCreate`에 값을
-넘기면 그 값을 써요. 넘기지 않으면 `!readOnly`로 정해져요. `Task`에는 `allowTaskCreate` 필드가
-없어서 거기에 넣은 값은 무시돼요.
+`allowTaskCreate`는 차트 전체에 적용되고 세 진입점을 함께 제어해요. `false`로 두면 버튼이 그려지지 않고 그리기 제스처가 꺼지고 `addTask()`도 아무 일도 하지 않아요.
 
-> [!IMPORTANT]
-> 작업 생성에는 `onTaskCreate`도 필요해요. 이 콜백이 없으면 `allowTaskCreate` 값과 상관없이 버튼,
-> 십자선 커서, 고스트, 그리기 제스처가 모두 나타나지 않아요.
+`allowTaskCreate`를 넘기지 않으면 `readOnly`를 따라요. `Task`에는 `allowTaskCreate` 필드가 없어서 거기에 넣은 값은 무시돼요. [상호작용 설정](ref/interaction-config)에서 확인해요.
 
-작업도 없고 고정된 표시 범위도 없으면 세 진입점 모두 초안을 만들지 못해요. 타임라인이 그려져야
-범위를 맞출 눈금도 생기거든요. `visibleStart`와 `visibleEnd`로 표시 범위를 고정하면 타임라인이
-그려져요.
+## 적용 전에 확인하기
 
-## 한계
+- `onTaskCreate`가 있어야 작업 생성이 동작해요. `allowTaskCreate`만 켜면 버튼도 그려지지 않고 제스처도 켜지지 않아요.
+- `visibleStart`와 `visibleEnd`는 빈 차트에 타임라인을 만들어요. 작업도 없고 고정된 표시 범위도 없으면 범위를 맞출 눈금이 없어서 어느 진입점도 초안을 만들지 못해요.
+- 그리기 제스처에는 포인터가 필요해요. 키보드로는 **Add task** 버튼에서 같은 초안을 만들고 이 버튼은 행 다음에 탭 스톱 하나를 차지해요. 작업 생성에 묶인 키는 없어요. [키보드와 스크린 리더](accessibility)에서 확인해요.
+- 작업 삭제에는 포인터 경로가 없어요. 작업은 키보드에서만 지워요.
 
-- 작업 생성은 초안까지예요. 버튼과 `addTask()`와 그린 범위가 `onTaskCreate`를 호출하고 행은 호스트
-  앱이 추가해요.
-- 작업 삭제는 키보드에서만 할 수 있어요.
-- `GanttTaskDraft`에는 `startDate`와 `endDate`뿐이라 새 작업이 트리의 어디에 들어갈지는 호스트 앱이
-  정해요.
-- `allowTaskCreate`만으로는 부족해요. 세 진입점 모두 `onTaskCreate`가 있어야 동작해요.
-- 그리기 제스처는 포인터로만 할 수 있어요. 같은 초안은 **Add task** 버튼으로 만들 수 있지만 이
-  버튼에 묶인 키는 없어요.
-
-다음: [행 순서 바꾸기](reordering).
+prop 정의는 [GanttProps](ref/props), 버튼이 놓이는 목록은 [작업 목록과 계층 구조](task-list)에서 확인해요.

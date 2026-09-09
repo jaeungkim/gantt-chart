@@ -39,8 +39,8 @@ including the wheel and keyboard ones. See [GanttHandle](handle).
 ### Per-scale configuration
 
 Each key maps to one row of a fixed table. The row sets the header cell labels, the time one tick
-covers, and the pixels one drag step is worth. [The timeline](../timeline) lists the five rows'
-values. This page describes the shape of one row:
+covers, and the pixels one drag step is worth. [The timeline](../timeline) lists what each scale
+shows. This page describes the shape of one row:
 
 ```ts
 export interface GanttScaleConfig {
@@ -74,8 +74,8 @@ export type GanttLabelUnit =
 `GanttScaleConfig`, `GanttLabelUnit` and the `GANTT_SCALE_CONFIG` object itself are module-internal
 and not exported from the package. The table cannot be imported, extended or replaced, and no prop
 adds a sixth scale. Tick widths are derived from `basePxPerDragStep / dragStepAmount`.
-[The timeline](../timeline) has the arithmetic, and [Editing tasks](../editing) has the drag grid
-the same two fields define.
+[The timeline](../timeline) lists the resulting pixels per day, and [Editing tasks](../editing)
+has the drag grid the same two fields define.
 
 ### Built-in labels
 
@@ -150,10 +150,7 @@ export type GanttFormatOverrides = Partial<
 
 This is the type of the `formats` prop. A scale left out of the record keeps its resolved labels.
 
-```tsx title="QuarterHeader.tsx"
-import { ReactGanttChart } from '@jaeungkim/gantt-chart';
-import type { GanttFormatOverrides, Task } from '@jaeungkim/gantt-chart';
-
+```tsx
 const formats: GanttFormatOverrides = {
   quarter: {
     header: (d) => `${d.year()} Q${Math.floor(d.month() / 3) + 1}`,
@@ -162,21 +159,6 @@ const formats: GanttFormatOverrides = {
     tooltip: (d) => d.format('YYYY-MM-DD'),
   },
 };
-
-const tasks: Task[] = [
-  {
-    id: 'design',
-    name: 'Design',
-    startDate: '2026-01-05',
-    endDate: '2026-02-20',
-    parentId: null,
-    sequence: '1',
-  },
-];
-
-export default function QuarterHeader() {
-  return <ReactGanttChart tasks={tasks} formats={formats} locale="en-US" />;
-}
 ```
 
 `formats` is declared at module scope so the object keeps the same identity across renders.

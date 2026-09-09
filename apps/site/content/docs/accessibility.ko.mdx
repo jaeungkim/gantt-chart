@@ -1,400 +1,128 @@
 ---
 title: "키보드와 스크린 리더"
-description: "키 맵, ARIA 트리, 알림 문구, 키보드로 닿지 않는 부분"
+description: "키보드로 할 수 있는 일과 스크린 리더가 읽어 주는 내용, 아직 포인터가 필요한 동작을 정리해요."
 ---
 
-차트의 키보드 입력은 `role="treegrid"` 요소에 붙은 핸들러 하나가 모두 처리해요. 이 핸들러는
-14개의 키를 처리하고 그중 10개는 작업 데이터를 바꿔요. 나머지 키는 그대로 브라우저로 올라가요.
-이 페이지는 키 맵, 편집 키의 권한 확인, ARIA 트리, 스크린 리더 알림, 포커스, 키보드로 닿지 않는
-부분을 다뤄요.
-
-## 키 맵
-
-핸들러는 `treegrid` 요소에서만 동작해요. 처리하는 키는 다른 동작을 하기 전에 먼저
-`preventDefault`돼요. `Alt+ArrowLeft`를 눌러도 브라우저가 뒤로 가지 않아요.
-
-| 키 | 조합키 | 동작 |
-|---|---|---|
-| `ArrowDown` | `Ctrl`/`Cmd` 없음, `Alt` 없음 | 같은 열에서 한 행 아래로 포커스를 옮겨요. 마지막 행에서 멈춰요. |
-| `ArrowUp` | `Ctrl`/`Cmd` 없음, `Alt` 없음 | 같은 열에서 한 행 위로 포커스를 옮겨요. 0번 행에서 멈춰요. |
-| `ArrowRight` | `Alt`, `Shift`, `Ctrl`/`Cmd` 없음 | 접힌 확장 가능 행의 0번 열에서는 행을 펼쳐요. 그 밖에는 다음 셀로 옮기고 행의 마지막 셀에서 멈춰요. |
-| `ArrowLeft` | `Alt`, `Shift`, `Ctrl`/`Cmd` 없음 | 펼쳐진 확장 가능 행의 0번 열에서는 행을 접어요. 그 밖에는 이전 셀로 옮기고 0번 열에서 멈춰요. |
-| `ArrowLeft` / `ArrowRight` | `Alt` | 포커스된 작업을 한 단계 앞이나 뒤로 옮겨요. 두 날짜가 함께 움직여요. |
-| `ArrowLeft` / `ArrowRight` | `Shift` | 종료일을 한 단계 옮겨요. 오른쪽 가장자리의 크기 조절이에요. |
-| `ArrowLeft` / `ArrowRight` | `Alt`+`Shift` | 시작일을 한 단계 옮겨요. 왼쪽 가장자리의 크기 조절이에요. |
-| `ArrowUp` / `ArrowDown` | `Alt` | 포커스된 행을 형제 사이에서 한 자리 위나 아래로 옮겨요. 형제 목록의 양 끝에서 멈춰요. |
-| `ArrowRight` / `ArrowLeft` | `Ctrl` 또는 `Cmd` | 행을 앞 형제의 마지막 자식으로 들여쓰거나 부모의 다음 형제로 내어써요. |
-| `ArrowUp` / `ArrowDown` | `Ctrl` 또는 `Cmd` | 타임라인 배율을 한 단계 촘촘하게 또는 성기게 바꿔요. 양 끝에서 멈춰요. |
-| `Home` | `Ctrl`/`Cmd` 없음 | 현재 행의 첫 셀로 옮겨요. |
-| `Home` | `Ctrl` 또는 `Cmd` | 첫 행의 첫 셀로 옮겨요. |
-| `End` | `Ctrl`/`Cmd` 없음 | 현재 행의 마지막 셀로 옮겨요. |
-| `End` | `Ctrl` 또는 `Cmd` | 마지막 행의 마지막 셀로 옮겨요. |
-| `Enter` / `Space` | 무관 | 확장 가능 행은 펼치거나 접어요. 그 밖의 행은 진행률을 뺀 라벨을 알리고, 패널이 켜져 있으면 그 작업의 상세 패널을 열어요. |
-| `Delete` / `Backspace` | 무관 | 포커스된 행의 작업과 모든 하위 작업을 삭제해요. |
-| `+` / `=` | 무관 | 진행률을 5포인트 올려요. |
-| `-` / `_` | 무관 | 진행률을 5포인트 내려요. |
-| 그 밖의 모든 키 | 무관 | 브라우저로 넘겨요. `Tab`, `PageUp`, `PageDown`, `F2`와 문자 키는 여기서 처리하지 않아요. `Escape`도 마찬가지예요. 상세 패널이 열려 있는 동안에는 `document` 리스너가 패널을 닫고, 패널 안의 입력란에서는 그 칸의 초안만 되돌리고 패널은 열어 두어요. |
-
-방향키 이동은 끝에서 멈추고 순환하지 않아요. `ArrowUp`과 `ArrowDown`은 출발한 열을 그대로
-가져가고 떠난 행을 기준으로 열 범위를 제한해요. 다른 행으로 건너뛰면서 도착한 행에서 열을 다시
-읽는 키는 `Ctrl`+`End`뿐이에요.
-
-아래 차트는 `hierarchy`가 켜져 있어요. `Tab`으로 들어가서 키 맵을 눌러 보세요.
+마우스를 쓸 수 없어도 키보드만으로 작업을 옮기고, 크기를 조절하고, 순서를 바꾸고, 삭제할 수
+있어요. 편집할 때마다 라이브 영역이 내용을 읽어 주고, 아직 포인터가 필요한 동작도 몇 가지 있어요.
 
 <GanttDemo preset="hierarchy" />
 
-### 조합키 우선순위
+## 키보드로 이동하기
 
-핸들러는 가로 방향키를 이동으로 읽기 전에 `Alt`와 `Shift`를 먼저 확인해요. 그래서
-`Shift+ArrowRight`는 크기 조절이에요. 범위 선택 기능은 없어요. 가로 방향키에 `Ctrl`이나 `Cmd`가
-붙으면 들여쓰기와 내어쓰기라서 `Ctrl+ArrowRight`는 셀 이동이 아니에요. 세로 방향키에서는 같은
-조합키가 배율 이동이고 `Alt`는 행 이동이에요.
+작업 목록과 타임라인은 하나의 `role="treegrid"`이고, 각 행은 `aria-owns`로 타임라인에 있는 자기
+막대를 가리켜요. 이 요소에 붙은 핸들러 하나가 모든 키 입력을 읽어서 아래 14개 키를 처리하고
+나머지는 앱으로 그대로 올려보내요. 처리하는 키는 먼저 `preventDefault`되니 `Alt+ArrowLeft`를
+눌러도 브라우저가 뒤로 가지 않아요.
 
-### 한 단계의 크기
-
-한 단계는 현재 배율의 드래그 단계이고 키를 누르는 순간에 읽어요. 포인터 드래그도 같은 단계를
-써요. 배율별 값은 [타임라인](timeline)의 배율 표에 있어요.
-
-단계는 달력 단위로 더하니 서머타임 경계를 넘어도 작업의 시각은 그대로예요.
-
-줌을 바꾸면 편집 키가 움직이는 크기가 달라져요. `Alt+ArrowRight` 한 번이 `day` 배율에서는
-1시간이고 `year` 배율에서는 28일이에요. 줌은 새 배율만 알려요.
-
-### 배율 단계 이동
-
-`Ctrl`/`Cmd` + `ArrowUp`은 한 단계 촘촘하게, `Ctrl`/`Cmd` + `ArrowDown`은 한 단계 성기게 옮겨요.
-순서는 `day`, `week`, `month`, `quarter`, `year`로 고정이에요. 타임라인 영역 한가운데의 날짜가
-그대로 가운데에 남아서 화면이 튀지 않아요.
-
-새 배율은 라이브 영역에 `week scale`처럼 알려지고 `onScaleChange`도 같은 키로 발생해요. 이 키는
-`zoomOnWheel`과 상관없이 동작해요. 휠 줌은 기본으로 꺼져 있지만 이 키는 항상 켜져 있어요.
-
-이 키도 `treegrid` 핸들러의 일부예요. 포커스가 차트 안에 있어야 하고 행도 하나 이상 있어야
-해요. 배율 순서의 양 끝에서는 키가 `preventDefault`되고 아무 일도 일어나지 않아요.
-
-### 행 이동
-
-`Alt` + 세로 방향키는 포커스된 행을 형제 사이에서 한 자리 옮겨요. `Ctrl`/`Cmd` + `ArrowRight`는
-앞 형제의 마지막 자식으로 만들고, `Ctrl`/`Cmd` + `ArrowLeft`는 부모의 다음 형제로 만들어요.
-
-네 키 모두 `allowReorder`를 켜야 동작해요. 다른 편집 제스처와 달리 순서 바꾸기는 기본으로 꺼져
-있어요. [행 순서 바꾸기](reordering)를 참고하세요. 들여쓰기와 내어쓰기는 `hierarchy`도 필요해요.
-없으면 다시 쓸 부모 링크가 없어서 동작하지 않아요.
-
-`Ctrl`/`Cmd` + `ArrowLeft`는 누를 때마다 한 단계씩 올라가요. 행은 방금 떠난 부모 바로 뒤에 놓여요.
-그래서 3단계 깊이의 행이 최상위까지 가려면 세 번 눌러야 해요. 포인터로는 최상위 행의 위쪽이나
-아래쪽 구역에 놓아서 한 번에 최상위로 뺄 수 있어요([행 순서 바꾸기](reordering) 참고).
-
-확정된 이동은 라이브 영역이 알려요. 차트가 옮기지 않는 행은 [행 순서 바꾸기](reordering)에 있어요.
-
-## 권한 확인
-
-모든 편집 키는 드래그와 같은 작업별 권한을 확인해요. `task.allowX`에서 `config.readOnly`까지
-이어지는 4단계 우선순위는 [작업 편집](editing)에 있어요.
-
-| 키 | 확인하는 권한 |
+| 키 | 동작 |
 |---|---|
-| `Alt`+`ArrowLeft` / `ArrowRight` | `canMove` |
-| `Shift` 및 `Alt`+`Shift` 방향키 | `canResize` |
-| `+` `=` `-` `_` | `canChangeProgress` |
-| `Delete` / `Backspace` | `canMove` |
-| `Alt` + 세로 방향키, `Ctrl`/`Cmd` + 가로 방향키 | `canReorder` |
-| 방향키, `Home`, `End`, `Enter`, `Space`, 배율 단계 이동 | 없음. 이동, 펼치기와 접기, 줌은 완전히 읽기 전용인 차트에서도 동작해요. |
+| `ArrowUp` / `ArrowDown` | 열은 그대로 두고 한 행 위아래로 옮겨요. 양 끝에서 멈추고 순환하지 않아요. |
+| `ArrowRight` / `ArrowLeft` | 펼칠 수 있는 행의 첫 셀에서는 펼치거나 접어요. 그 밖에는 한 셀 옮기고 끝에서 멈춰요. |
+| `Home` / `End` | 행의 첫 셀이나 마지막 셀로 가요. `Ctrl`이나 `Cmd`를 더하면 첫 행이나 마지막 행으로 가요. |
+| `Enter` / `Space` | 펼칠 수 있는 행은 펼치거나 접어요. 그 밖의 행은 행을 읽어 주고 [상세 패널](detail-panel)이 켜져 있으면 열어요. |
 
-삭제 권한은 따로 없어요. 옮길 수 있는 작업은 삭제할 수도 있어요.
+## 키보드로 편집하기
 
-`canReorder`만 이 우선순위를 따르지 않아요. 작업이나 차트가 `allowReorder`를 켜기 전까지는
-`false`예요. 그래서 `allowReorder`를 설정하지 않은 차트에서는 읽기 전용 여부와 상관없이 순서
-바꾸기 키가 동작하지 않아요. [`GanttInteractionConfig`](ref/interaction-config)를 참고하세요.
+가로 방향키는 이동으로 읽히기 전에 조합키가 먼저 가져가요. 그래서 `Shift+ArrowRight`는 크기
+조절이고 `Ctrl+ArrowRight`는 들여쓰기예요. 범위 선택은 없어요.
 
-요약 행은 크기 조절과 진행률 변경을 거부해요. 이 규칙은 모든 플래그보다 우선해요. 자세한 내용은
-[작업 편집](editing)에 있어요. `progress` 필드가 없는 작업도 마찬가지예요. 키보드는 있는 숫자를
-움직이기 때문이에요.
-
-아래 예제는 `readOnly` 차트에 잠긴 작업과 편집 가능한 작업을 하나씩 두어요.
-
-```tsx title="src/App.tsx"
-import { useState } from 'react';
-import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
-
-const initial: Task[] = [
-  {
-    id: 'frozen',
-    name: 'Frozen',
-    startDate: '2026-03-02T00:00:00Z',
-    endDate: '2026-03-06T00:00:00Z',
-    parentId: null,
-    sequence: '1',
-    progress: 0,
-  },
-  {
-    id: 'editable',
-    name: 'Editable',
-    startDate: '2026-03-09T00:00:00Z',
-    endDate: '2026-03-20T00:00:00Z',
-    parentId: null,
-    sequence: '2',
-    progress: 40,
-    allowMove: true,
-    allowProgressChange: true,
-    maxDate: '2026-03-31T00:00:00Z',
-  },
-];
-
-export default function App() {
-  const [tasks, setTasks] = useState<Task[]>(initial);
-
-  // Alt+화살표와 +/-는 'editable'에서만 동작해요. 'frozen'에서는 Alt+화살표가
-  // "Frozen cannot be changed"를, +/-가 "Frozen progress cannot be changed"를 읽어 줘요.
-  // Alt+ArrowRight는 'editable'이 maxDate에서 끝나는 순간 멈추고, 그때부터는
-  // "Editable cannot be changed"를 읽어 줘요.
-  return <ReactGanttChart tasks={tasks} readOnly onTasksChange={setTasks} />;
-}
-```
-
-prop과 기본값은 [GanttProps](ref/props)에 있어요.
-
-## 배율 선택기
-
-차트는 타임라인을 그리고 `showTaskList`가 켜져 있으면 작업 목록도 그려요. 배율 선택기는 그리지
-않아요.
-
-포인터 없이 배율을 바꾸는 내장 수단은 `Ctrl`/`Cmd` + 세로 방향키뿐이에요. 포인터 사용자가 누를
-컨트롤은 직접 만들어야 해요.
-
-네이티브 `<select>`로 만드세요. 완성된 컴포넌트는 [명령형 API](imperative-api)에 있어요.
-
-`<select>`는 키보드, 스크린 리더, 터치 동작을 플랫폼에서 그대로 가져와요. 옵션 텍스트도 직접
-쓰니까 배율 키 5개를 번역할 수 있어요. 차트의 헤더 셀, 눈금, 툴팁은 이미 모두 `Intl`을 거쳐요.
-
-다른 컨트롤을 만들면 그 접근성은 호스트 앱이 책임져요. 차트는 `setScale`과 `onScaleChange`만
-제공하고 컨트롤은 그리지 않아요.
-
-## ARIA 트리
-
-작업 목록과 타임라인은 하나의 `treegrid`예요. 행은 작업 목록 안에 있고 `aria-owns`로 타임라인의
-자기 막대를 가리켜요.
-
-```text title="렌더링된 DOM"
-section.gantt-container
-├─ div.gantt-sr-only                  role=status, aria-live=polite
-└─ div.gantt-layout
-   ├─ div.gantt-main
-   │  ├─ div.gantt-scroll-container
-   │  │  └─ div.gantt-body            role=treegrid, aria-label="Gantt chart", aria-rowcount
-   │  │     ├─ div.gantt-grid         role=presentation
-   │  │     │  ├─ div.gantt-grid-header  role=row, aria-rowindex=1
-   │  │     │  │  ├─ div             role=columnheader, "Task name", 시각적으로 숨김
-   │  │     │  │  └─ span             role=columnheader, "Timeline", 시각적으로 숨김
-   │  │     │  └─ div.gantt-grid-body role=rowgroup
-   │  │     │     └─ div.gantt-grid-row  role=row, aria-level, aria-posinset, aria-setsize,
-   │  │     │        │                aria-rowindex, aria-expanded?, aria-owns
-   │  │     │        └─ div          role=gridcell, tabIndex 0 또는 -1
-   │  │     │           └─ button     그립과 확장 버튼, tabIndex=-1, aria-hidden=true
-   │  │     └─ div.gantt-timeline     role=presentation
-   │  │        ├─ div.gantt-header-wrapper  날짜 축이에요. 안의 드래그 판독값은 aria-hidden이에요
-   │  │        └─ div.gantt-content   role=presentation
-   │  │           ├─ div.gantt-rows   role=presentation
-   │  │           │  └─ div.gantt-task-row  aria-hidden=true, 줄무늬 전용
-   │  │           └─ div#task-<id>    role=gridcell, tabIndex 0 또는 -1, aria-label
-   │  ├─ div.gantt-grid-splitter      role=separator, aria-orientation=vertical, aria-valuenow, tabIndex=0
-   │  └─ div.gantt-grid-footer        button "Add task", 목록 패널이 보이고 작업 생성이 켜져 있을 때만
-   └─ aside.gantt-detail              role=complementary, aria-label="Task details", 열려 있는 동안만
-```
-
-`aria-level`은 1부터 시작해요. `aria-posinset`과 `aria-setsize`는 접힌 부모에 가려진 행을 빼고
-세어요. 부모를 접으면 형제 행의 번호가 다시 매겨져요. `aria-rowcount`는 그 행 수에 헤더 행
-하나를 더한 값이고 데이터의 전체 개수가 아니에요.
-
-`aria-expanded`는 펼칠 수 없는 행에서 `false`가 아니라 아예 빠져요. 요약 행은 `hierarchy`가 켜져
-있을 때만 펼칠 수 있어요. `hierarchy={false}`면 이 속성이 사라지고 `Enter`는 행을 펼치는 대신
-라벨을 알려요. [작업 목록과 계층](task-list)을 참고하세요.
-
-`aria-owns`에는 그 행에 있는 작업마다 id가 하나씩 들어가요. 레인 행은 여러 id를 가져요. 모든
-행에 작업이 하나 이상 있어서 이 속성이 빠지는 행은 없어요. [레인](lanes)을 참고하세요.
-
-비근무일 음영은 `aria-hidden`이에요. 휴일 이름은 `display` 대신 `opacity`로 숨기니까 보이든 안
-보이든 읽혀요. [타임라인](timeline)을 참고하세요.
-
-### 숨긴 작업 목록 패널
-
-`showTaskList`의 기본값은 `false`예요. `true`로 켜지 않으면 패널이 없어요. 차트 안에서 패널을
-여닫는 기능은 없어서 아래 세 가지는 prop을 바꿀 때만 달라져요.
-
-- 열 헤더 행이 없어서 `aria-rowcount`에서 `+1`이 빠지고 첫 데이터 행이 `aria-rowindex={1}`이
-  돼요.
-- `role="rowgroup"`이 없어요. 행은 `role="presentation"` 래퍼 바로 안에 놓여요.
-- 0번 열이 작업 목록의 첫 열이 아니라 첫 막대가 돼요.
-
-### 생략되는 속성
-
-차트는 `aria-colindex`, `aria-colcount`, `aria-selected`, `aria-current`, `aria-multiselectable`,
-`aria-describedby`, `aria-labelledby`를 어디에도 설정하지 않아요. `role="treeitem"`을 가진 요소도
-없어요. 셀은 자기 열 위치를 알리지 않고 선택 상태도 보조 기술에 노출되지 않아요.
-
-막대의 링크 핸들은 `role="button"`에 `tabIndex={-1}`이에요. 진행률 핸들은 `role="slider"`에
-`aria-valuemin`, `aria-valuemax`, `aria-valuenow`를 갖지만 역시 `tabIndex={-1}`이라 키보드로 닿을
-수 없어요.
-
-## 라벨과 알림
-
-막대의 `aria-label`은 네 부분을 정해진 순서로 이어요. 이름, `summary`, 날짜 범위, 진행률
-순이에요. `summary`는 요약 행에만 붙고 진행률은 작업에 진행률이 있을 때만 붙어요.
-
-날짜는 현재 배율의 `tooltip` 포매터로 만들어요. 호버 카드, 상세 패널, 드래그 알림이 쓰는 것과
-같은 포매터예요. 라벨은 배율에 따라 바뀌어요. `formats[scale].tooltip`을 덮어쓰면 읽히는 내용도
-바뀌어요. [로케일과 날짜 형식](i18n)을 참고하세요.
-
-| 작업 | 배율 | 실제 `aria-label` |
+| 키 | 동작 | 권한 |
 |---|---|---|
-| `Design phase`, 40% | `month` | `Design phase, Mar 3, 2025 to Mar 14, 2025, 40% complete` |
-| `Design phase`, 40% | `day` | `Design phase, Mar 3, 2025 00:00 UTC to Mar 14, 2025 00:00 UTC, 40% complete` |
-| `Phase 1`, `isSummary`, 3월부터 5월까지 | `quarter` | `Phase 1, summary, Mar 2025 to May 2025` |
+| `Alt` + 가로 방향키 | 작업을 옮겨요. 두 날짜가 함께 움직여요. | `canMove` |
+| `Shift` + 가로 방향키 | 종료일을 옮겨요. | `canResize` |
+| `Alt`+`Shift` + 가로 방향키 | 시작일을 옮겨요. | `canResize` |
+| `+` / `=`, `-` / `_` | 진행률을 5포인트 올리거나 내려요. | `canChangeProgress` |
+| `Delete` / `Backspace` | 작업과 하위 트리를 삭제해요. | `canMove` |
+| `Alt` + 세로 방향키 | 형제 사이에서 행을 옮겨요. | `canReorder` |
+| `Ctrl`/`Cmd` + 가로 방향키 | 앞 형제 아래로 들여쓰거나 한 단계 내어써요. | `canReorder` |
+| `Ctrl`/`Cmd` + 세로 방향키 | 배율을 한 단계 촘촘하거나 성기게 바꿔요. | 없음 |
 
-키보드 편집은 `role="status" aria-live="polite"` 영역 하나로 알려요. 이 영역은 컨테이너의 첫
-자식이고 차트 본문보다 앞에 있어요.
+한 단계는 키를 누르는 순간 읽는 현재 배율의 드래그 단계예요. 달력 단위로 더하니 서머타임 경계를
+넘어도 작업의 시각은 그대로예요. 줌을 바꾸면 편집 키가 움직이는 크기도 달라져요. 새 배율은 알려
+주지만 새 단계는 알리지 않고, 배율별 단계는 [타임라인](timeline)에 있어요.
 
-| 키 | 알림 |
+삭제 권한은 따로 없어서 옮길 수 있는 작업은 삭제할 수도 있어요. 요약 행은 플래그와 상관없이
+크기 조절과 진행률 변경을 무시하고, `progress` 필드가 없는 작업도 마찬가지예요. 플래그는
+드래그와 똑같이 정해져요. 우선순위는 [상호작용 설정](ref/interaction-config)에서 확인해요.
+
+이동, 접기, 배율 단계는 권한을 확인하지 않아서 읽기 전용 차트에서도 동작해요. 순서 바꾸기 키는
+읽기 전용 여부와 상관없이 `allowReorder`가 필요하고, 들여쓰기와 내어쓰기는 `hierarchy`도
+필요해요. `Ctrl`/`Cmd`+`ArrowLeft`는 한 번에 한 단계씩 올라가면서 방금 떠난 부모 뒤에 행을
+놓아요. 3단계 깊이의 행은 세 번 눌러야 하지만 [드래그](reordering)는 한 번에 최상위로 가요.
+
+차트는 배율 선택기를 그리지 않아서 포인터 없이 배율을 바꾸는 내장 수단은 이 두 키뿐이에요.
+`setScale`에 연결한 네이티브 `<select>`는 플랫폼의 키보드 동작을 그대로 가져와요. 완성된
+컴포넌트는 [명령형 API](imperative-api)에 있어요.
+
+## 스크린 리더가 읽는 내용
+
+막대의 라벨은 이름, 요약 행이면 `summary`, 날짜, 진행률이 있으면 진행률 순이에요. 날짜는 현재
+배율의 툴팁 포매터로 만드니 `locale`이나 `formats[scale].tooltip`을 바꾸면 읽히는 내용도 바뀌어요.
+자세한 내용은 [로케일과 날짜 형식](i18n)에서 확인해요.
+
+키보드 편집은 차트의 첫 자식인 `role="status" aria-live="polite"` 영역 하나로 알려요. 문구는
+영어로 고정이고 그 안의 날짜만 `locale`과 `formats`를 따라요.
+
+| 상황 | 알림 |
 |---|---|
-| `Alt`/`Shift` 방향키, 수락 | `Design phase, Mar 3, 2025 to Mar 15, 2025` |
-| `Alt`/`Shift` 방향키, 거부 | `Design phase cannot be changed` |
-| `+` 또는 `-`, 수락 | `Design phase, 45% complete` |
-| `+` 또는 `-`, 거부 | `Design phase progress cannot be changed` |
-| `Delete`, 수락 | `Design phase deleted` |
-| `Delete`, 거부 | `Design phase cannot be deleted` |
-| 순서 바꾸기 키, 수락 | `Design phase moved to 2 of 5 under Phase 1`. 부모가 없으면 `at the top level` |
-| 순서 바꾸기 키, 거부 | 없음 |
-| 확장할 수 없는 행에서 `Enter` | 진행률을 뺀 전체 라벨 |
-| 확장할 수 있는 행에서 `Enter` | 없음 |
-| `Ctrl`/`Cmd` + 세로 방향키 | `week scale`. 도착한 배율의 키 |
-| 배율 순서의 양 끝에서 같은 키 | 없음 |
+| 날짜 편집 | `Design phase, Mar 3, 2025 to Mar 15, 2025` |
+| 진행률 변경 | `Design phase, 45% complete` |
+| 삭제 | `Design phase deleted` |
+| 행 이동 | `Design phase moved to 2 of 5 under Phase 1`. 부모가 없으면 `at the top level` |
+| 막힌 편집 | `Design phase cannot be changed`, `progress cannot be changed`, `cannot be deleted` |
+| 배율 변경 | `week scale` |
 
-포인터 드래그도 알려요. 제스처가 이어지는 동안 막대가 두 번째 `role="status"` 줄을 그려요.
-이동과 크기 조절에서는 이 줄이 시각적으로 숨겨져 있어요. 눈에 보이는 드래그 날짜 표시, 그러니까
-날짜 축 눈금 셀에 쓰이는 날짜는 `aria-hidden`이에요. 이 줄은 `Start: Mar 3, 2025`나
-`End: Mar 15, 2025`를 읽고 막대 전체를 옮길 때는 두 날짜를 모두 읽어요. 진행률 드래그에서는
-같은 status 줄이 화면에도 보여요.
+적용되지 않은 행 이동은 아무것도 알리지 않고, 접기와 펼치기도 알리지 않아요. 형제 목록의 양 끝,
+앞 형제가 없는 들여쓰기, 최상위 행의 내어쓰기, `allowReorder`가 없는 차트, `false`를 반환한
+`onTaskMove`가 모두 조용히 끝나요.
 
-`showTooltip={false}`는 호버 카드와 이 드래그 status 줄을 함께 없애요. 그래서 툴팁을 끈
-차트에서는 포인터 편집 중에 알림이 없어요. 위의 키보드 알림은 영향을 받지 않아요.
+포인터 드래그는 막대에 그려지는 두 번째 `role="status"` 줄로 알려요. 이동과 크기 조절에서는 이
+줄이 숨겨져 있고 진행률 드래그에서는 퍼센트 표시로 보여요. 드래그 중 눈금 행에 쓰이는 날짜는
+`aria-hidden`이에요. `showTooltip={false}`는 이 줄을 호버 카드와 함께 없애서 툴팁을 끈 차트는
+포인터 편집 중에 아무것도 알리지 않아요. 키보드 알림은 그대로예요.
 
-## 포커스
+호버 카드는 450ms 머문 뒤에 열리고, `Escape`로 닫을 수 있고, 카드 위로 포인터를 옮길 수 없고,
+터치에서는 열리지 않아요. 카드의 날짜와 진행률은 이미 막대 라벨에 있어요.
 
-`treegrid` 안의 탭 스톱은 하나예요. 포커스 상태가 가리키는 행과 열의 셀이에요. 나머지 셀은 전부
-`tabIndex={-1}`이에요. 렌더링된 컴포넌트는 페이지에 탭 스톱을 최대 8개 더해요. 그중 5개는 열린
-상세 패널의 것이에요. 커스텀 `renderDetail` 본문은 그 5개를 자기가 그리는 요소로 대신해요.
+## 탭 순서와 포커스
 
-| # | 요소 | 나타나는 조건 |
-|---|---|---|
-| 1 | 로빙 `treegrid` 셀 | 포커스 상태에 맞는 셀이 렌더링돼 있을 때 |
-| 2 | 작업 목록 스플리터 | 작업 목록 패널이 보일 때 |
-| 3 | **Add task** 버튼 | 패널이 보이고 작업 생성이 켜져 있을 때 |
-| 4 | 패널의 이름 입력란 | 이름을 편집할 수 있을 때 |
-| 5 | 패널의 **Start** 입력란 | 날짜를 편집할 수 있을 때 |
-| 6 | 패널의 **End** 입력란 | 날짜를 편집할 수 있을 때 |
-| 7 | 패널의 **Progress** 입력란 | 작업에 `progress`가 있고 편집할 수 있을 때 |
-| 8 | 패널의 닫기 버튼 | 항상 |
+마운트 직후에는 포커스된 요소가 없고 첫 `Tab`은 treegrid의 첫 셀로 들어가요. `tasks`가 비어
+있으면 들어갈 셀이 없어요.
 
-4번부터 8번까지는 기본 본문으로 패널이 열려 있어야 해요. 각 칸은 작업의 플래그가 허용할 때만
-입력을 받아요. 어떤 플래그가 어떤 칸을 여는지는 [상세 패널](detail-panel)에 있어요. 편집할 수
-없는 칸은 텍스트로 그려지고 탭 스톱이 아니에요.
+treegrid의 탭 스톱은 로빙 방식 하나예요. 여기에 스플리터, **Add task** 버튼, 열린 상세 패널의
+이름과 **Start**, **End**, **Progress** 입력란, 닫기 버튼까지 더하면 페이지에 최대 8개가 생겨요.
+작업의 플래그가 편집을 막은 칸은 텍스트로 그려지고 탭 스톱이 아니며, 직접 만든 `renderDetail`
+본문이 패널의 5개를 대신해요.
 
-행의 셀은 왼쪽부터 번호가 붙어요. 작업 목록의 이름 셀이 먼저고, 그다음부터 그 행에 있는 막대가
-하나씩 이어져요.
+셀을 클릭하면 포커스 상태가 그 셀로 맞춰지고, 키보드로 옮기면 행을 화면 안으로 스크롤한 뒤
+포커스를 줘요. 방향키로 막대에 올라가도 선택되지는 않고 `aria-selected`도 쓰지 않아요.
+[이벤트](events)를 참고해요.
 
-셀을 클릭하면 포커스 상태가 그 셀로 맞춰져요. 키보드 이동은 순서가 반대예요. 먼저 포커스 상태를
-바꾸고 맞는 요소를 세 번 찾아요. 한 번은 바로 찾고 나머지 두 번은 이어지는 애니메이션 프레임에서
-찾아요. 그 사이에 행과 작업을 화면 안으로 스크롤해요. 세 번째에도 없으면 DOM 포커스는 있던
-자리에 남아요.
+상세 패널은 treegrid 밖의 `role="complementary"`이고 포커스 트랩이 없어요. 패널을 닫으면 열 때
+포커스를 갖고 있던 요소로 돌아가지만, 포커스가 패널 안이나 `<body>`에 있거나 아무 데도 없을 때만
+그래요.
 
-마운트 직후에는 포커스된 요소가 없어요. `treegrid`에 처음 닿는 `Tab`은 `0:0` 셀로 들어가요.
-`tasks`가 비어 있으면 들어갈 셀이 없어요.
-
-### 상세 패널의 탭 스톱
-
-패널은 `treegrid` 밖에 있으니 로빙 탭 스톱에 영향을 주지 않아요. 패널 안의 포커스 가능 요소는 DOM
-순서상 차트 뒤에 와요. 패널은 다이얼로그가 아니라 `role="complementary"`예요. 포커스 트랩이 없고,
-차트가 다시 키를 받기 전에 닫아야 하는 것도 없어요. [상세 패널](detail-panel)을 참고하세요.
-
-패널을 닫으면 포커스는 패널이 열릴 때 포커스를 갖고 있던 요소로 돌아가요. `Enter`를 받은
-셀이거나 클릭한 막대예요. 다만 포커스가 패널 안이나 `<body>`에 있거나 아무 데도 없을 때만
-돌아가요. 페이지의 다른 곳에서 입력하는 중에 패널이 닫히면 포커스를 옮기지 않아요. 이 되돌리기가
-없으면 `Escape`가 포커스를 `<body>`에 두고 차트의 키보드 이동이 끊겨요. 패널을 다른 작업으로
-옮기거나 여는 것은 포커스를 옮기지 않아요.
-
-### 포커스와 선택
-
-방향키로 막대에 올라가도 선택되지 않아요. `onTaskSelect`는 발생하지 않고 `selectedTaskId`도
-그대로예요. `aria-selected`는 어디에도 쓰이지 않아요. 선택은 포인터로만 바꿔요.
-[이벤트](events)를 참고하세요.
-
-## treegrid 밖의 키
-
-| 키 | 리스너 위치 | 동작 |
-|---|---|---|
-| `ArrowLeft` / `ArrowRight`, `Enter` | 스플리터 | 작업 목록 너비를 조절하거나 보이는 행 중 가장 넓은 행에 맞춰요. 너비 범위와 단계는 [작업 목록과 계층](task-list)에 있어요. |
-| `Delete` / `Backspace`, `Escape` | `document`, 의존성 화살표가 선택된 동안 | 페이지 어디서든 화살표를 삭제하거나 선택을 풀어요. `input`, `textarea`, `select`, contenteditable 안에서는 건너뛰어요. |
-| `Escape` | `document`, 상세 패널이 열린 동안 | 페이지 어디서든 상세 패널을 닫아요. 행은 선택된 채로 남아요. 패널 안의 입력란에서는 키가 거기서 멈춰요. 그 칸이 저장된 값으로 돌아가고 패널은 열린 채예요. |
+treegrid 밖에서는 스플리터가 가로 방향키와 `Enter`를 받아요. 의존성 화살표가 선택된 동안에는
+`Delete`, `Backspace`, `Escape`가 document까지 닿고 입력란 안에서는 건너뛰어요. `Escape`는 열린
+패널도 어디서든 닫지만, 패널의 입력란 안에서는 그 칸을 되돌려요.
 
 ## 알려진 빈틈
 
-일부 포인터 제스처에는 대응하는 키가 없어요. 의존성 화살표 그리기는 링크 핸들이
-`tabIndex={-1}`이라 키보드로 닿을 수 없어요. 화살표를 선택하고 삭제하는 것도 클릭이 필요해요.
-[의존성](dependencies)을 참고하세요.
+- [의존성 화살표](dependencies)를 그리는 키는 없어요. 링크 핸들이 `tabIndex={-1}`이라 화살표를
+  선택하는 것도, 그래서 삭제하는 것도 클릭이 필요해요.
+- [새 작업](task-creation)을 그리려면 포인터가 필요하지만, 작업 목록 아래 **Add task** 버튼이
+  평범한 탭 스톱에서 같은 초안을 만들어요. 목록 패널을 숨겼다면 직접 만든 단축키로 `addTask()`를
+  호출하세요.
+- `Delete`는 행의 어느 셀에서든 포커스된 행과 그 하위 트리를 지워요. 확인 절차도, 되돌릴
+  스냅샷도 없어요. 되돌리려면 이전 배열을 `onTasksChange`에서 갖고 있으세요.
+- 가로로 화면 밖에 나간 막대는 그리지 않아서 로빙 탭 스톱이 가리킬 요소가 없어질 수 있어요.
+  그러면 `Tab`이 treegrid 안에서 아무것도 찾지 못하고, 포커스가 아직 안에 있다면 `Home`이나
+  `End`가 탭 스톱을 되살려요. 작업 목록을 숨기면 모든 셀이 막대라서 treegrid 전체가 비기도 해요.
+- `PageUp`, `PageDown`, 타이핑 검색, `F2` 편집 모드, 다중 선택, treegrid 안의 `Escape`는
+  처리하지 않아요. 키를 다시 배치하거나 키보드 편집만 끄는 prop은 없어요.
+- 고대비용 스타일은 없어서 스타일시트에 `forced-colors`와 `prefers-contrast` 블록이 없어요.
+  `prefers-reduced-motion`은 트랜지션과 애니메이션을 0.01ms로, 스크롤 동작을 `auto`로 바꿔요.
 
-마지막 행 아래에 새 작업을 그리는 것도 포인터 전용이에요. 다만 `onTaskCreate`를 발생시키는 유일한
-길은 아니에요. 작업 목록 아래 **Add task** 버튼이 같은 초안으로 `onTaskCreate`를 호출하고, 이
-버튼은 평범한 탭 스톱이에요. 패널을 숨긴 차트에는 둘 다 없어서 작업 생성이 다시 포인터 전용이
-돼요. 여기에 묶인 키는 없어요. 단축키가 필요하면 직접 만들어서 ref의 `addTask()`를 호출하세요.
-[작업 생성](task-creation)을 참고하세요.
-
-> [!WARNING]
-> `Delete`는 `hierarchy`가 켜져 있든 아니든 모든 하위 작업까지 지워요. 이름 셀을 포함해 행의 어느
-> 셀에서든 확인 절차 없이 실행돼요. 차트는 되돌릴 스냅샷을 갖고 있지 않아요.
-
-거부된 키가 모두 알려지지는 않아요. 권한 확인에서 거부되면 알려요. 거부된 행 이동은 알리지
-않아요. 형제 목록의 양 끝에서 누른 `Alt` + 세로 방향키, 앞 형제가 없는 들여쓰기, 최상위에서의
-내어쓰기, `allowReorder`를 설정하지 않은 차트, `false`를 반환하는 `onTaskMove`는 모두 키를
-`preventDefault`한 뒤 알림 없이 끝나요.
-
-가로로 화면 밖에 나간 막대는 탭 스톱이 가리킬 요소를 남기지 않아요. 뷰포트 밖 막대는 렌더링되지
-않지만 행의 `aria-owns`에는 그 id가 남아 있어요. 포커스가 `treegrid` 안에 있으면 `Home`이나
-`End`로 되살릴 수 있어요.
-
-셀에서 작업을 찾지 못하면 행의 첫 작업으로 돌아가요. 작업 목록 셀에서 누른 `Delete`가 그 행의
-작업을 지우는 것도 같은 대체 동작이에요.
-
-펼치기와 접기는 알리지 않아요. 확장 가능 행에서 `Enter`를 누르면 포커스가 셀에 있는 채로 행의
-`aria-expanded`만 바뀌고 라이브 영역에는 아무것도 쓰지 않아요.
-
-호버 툴팁은 SC 1.4.13의 닫기(dismissible)를 만족해요. `Escape`를 누르면 포인터를 움직이지 않고도
-닫혀요. 호버 유지(hoverable)는 만족하지 않아요. 카드가 `pointer-events: none`이라 카드 쪽으로
-포인터를 옮기면 막대를 벗어나 카드가 닫혀요. 카드는 450ms 머문 뒤에 열려요. 카드 안에는 닿을
-것이 없어요. 링크나 컨트롤이 없고 같은 날짜와 진행률은 이미 막대의 `aria-label`에 있어요.
-
-터치에서는 호버 툴팁이 뜨지 않아요. 카드는 `pointerType`이 `"mouse"`일 때만 `pointerenter`에서
-열려요. 탭은 호환용 `mouseenter`만 발생시키고 `mouseleave`는 발생시키지 않아요. 이 확인이 없으면
-카드가 손가락 아래에 열린 채로 남아요. 드래그 날짜 표시는 호버가 아니라 제스처를 따르니 영향이
-없어요.
-
-## 한계
-
-- 키 재배치와 끄기 기능은 없어요. 키보드 계층은 패키지 밖으로 내보내는 것이 없어요. 키 바인딩을
-  바꾸거나, 포인터 편집과 별개로 키보드 편집만 끄거나, `treegrid`가 아닌 것을 렌더링하는 prop은
-  없어요.
-- `PageUp`, `PageDown`, 타입 어헤드, `F2` 편집 모드, 다중 선택, `treegrid` 안의 `Escape`는
-  처리하지 않아요.
-- 포커스 트랩과 건너뛰기 링크는 없어요. `Tab`은 한 번에 `treegrid`를 벗어나고, 행이 많은 차트를
-  건너뛰는 방법은 브라우저가 제공하는 것뿐이에요.
-- 고대비 지원은 없어요. 스타일시트에 `forced-colors`와 `prefers-contrast` 블록이 없어요.
-  `prefers-reduced-motion`은 지켜요. 차트 안의 트랜지션과 애니메이션이 0.01ms로 줄고
-  `scroll-behavior`는 `auto`가 돼요.
-- 확인 절차는 호스트 앱이 만들어야 해요. `Delete`는 하위 트리를 바로 지워요. 다이얼로그가
-  필요하면 `onTasksChange`에서 스냅샷을 갖고 있다가 `tasks`로 다시 넘겨서 행을 되돌리세요.
-- 알림 문구는 고정이에요. 위의 문자열은 드래그 status 줄까지 영어로 하드코딩돼 있어요. 그 안의
-  날짜만 `locale`과 `formats` prop을 따라요.
-- 스크린 리더 테스트는 호스트 앱이 해야 해요. 이 저장소에서는 실제 스크린 리더로 검증하지
-  않았어요. 키 해석기와 ARIA prop 빌더의 단위 테스트가 전부예요.
-
-다음: [로케일과 날짜 형식](i18n).
+실제 스크린 리더로 검증한 내용은 없어요. 사용자가 쓰는 리더로 직접 확인하세요. prop과 기본값은
+[GanttProps](ref/props)에 있어요.

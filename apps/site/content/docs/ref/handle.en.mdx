@@ -131,39 +131,7 @@ scrolls to `0`.
 `align` applies to the horizontal axis only. When `scrollToTask` scrolls vertically, it always
 centres the row.
 
-## Attaching the ref
-
-```tsx title="TimelinePane.tsx"
-import { useRef } from 'react';
-import { ReactGanttChart } from '@jaeungkim/gantt-chart';
-import type { GanttHandle, Task } from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
-
-const tasks: Task[] = [
-  {
-    id: '1', name: 'Design', parentId: null, sequence: '1',
-    startDate: '2025-06-01', endDate: '2025-06-10',
-  },
-  {
-    id: '2', name: 'Build', parentId: null, sequence: '2',
-    startDate: '2025-06-11', endDate: '2025-06-30',
-  },
-];
-
-export function TimelinePane() {
-  const chart = useRef<GanttHandle>(null);
-
-  return (
-    <>
-      <button onClick={() => chart.current?.scrollToToday({ align: 'start' })}>
-        Today
-      </button>
-      <button onClick={() => chart.current?.zoomToFit()}>Fit</button>
-      <ReactGanttChart ref={chart} tasks={tasks} height={400} />
-    </>
-  );
-}
-```
+[Imperative API](../imperative-api) shows the handle attached to a toolbar.
 
 ## Early calls
 

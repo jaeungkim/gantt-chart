@@ -132,36 +132,8 @@ In the table, unset means the field is `undefined`.
 | unset | unset | unset | `false` | allowed | 4 |
 | unset | unset | unset | unset | allowed | 4 |
 
-The chart below is read-only, and one task's own flag re-enables the progress handle on that task.
-
-```tsx title="Frozen chart, one live progress handle"
-<ReactGanttChart
-  readOnly
-  tasks={[
-    {
-      id: 'design',
-      name: 'Design',
-      startDate: '2026-03-02',
-      endDate: '2026-03-06',
-      parentId: null,
-      sequence: '1',
-    },
-    {
-      id: 'build',
-      name: 'Build',
-      startDate: '2026-03-09',
-      endDate: '2026-03-20',
-      parentId: null,
-      sequence: '2',
-      progress: 40,
-      allowProgressChange: true,
-    },
-  ]}
-/>
-```
-
-`allowProgressChange` on the second task is decided at level 1, so its progress handle still drags.
-Every other gesture on both tasks falls to level 4, where `readOnly` blocks it.
+A chart-level `readOnly` with `allowProgressChange: true` on one task resolves at level 1 for
+that task and at level 4 for everything else. See [Editing tasks](../editing).
 
 ### The six capabilities
 

@@ -11,7 +11,7 @@ Bring interactive project planning to your React app.
 Drag tasks, connect dependencies, and organize projects into nested timelines. Working calendars,
 keyboard editing, and light and dark themes come built in.
 
-Open source · MIT licensed · React 18 & 19 · TypeScript
+Open source, MIT licensed, React 18 and 19, TypeScript types
 
 [Quick start](https://gantt.jaeungkim.com/docs/quick-start) |
 [Playground](https://gantt.jaeungkim.com/playground) |
@@ -27,14 +27,14 @@ Open source · MIT licensed · React 18 & 19 · TypeScript
   dependencies.
 - **Plan around working days.** Define workweeks and holidays, with optional snapping to the next
   working day.
-- **Explore larger plans.** Rows and time cells are virtualized, with five scales from day to year.
+- **Render large plans.** Rows and time cells are virtualized, with five scales from day to year.
 - **Use the keyboard.** Navigate, move, resize and reorder tasks with edit announcements.
   See the [accessibility guide](https://gantt.jaeungkim.com/docs/accessibility) for supported
   actions and remaining gaps.
 - **Match your app.** Light and dark themes, CSS custom properties, localized dates and custom
   detail panels.
-- **Connect your data.** Receive updated tasks through `onTasksChange` and handle storage in
-  your app.
+- **Save through your app.** Every committed edit arrives as one `onTasksChange` call with the
+  complete next array. Storage, validation and undo stay in your app.
 
 ## Install
 

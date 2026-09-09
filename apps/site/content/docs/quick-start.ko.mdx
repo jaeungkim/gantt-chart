@@ -1,49 +1,35 @@
 ---
 title: "빠른 시작"
-description: "설치부터 편집 결과를 앱 상태로 받는 차트까지"
+description: "완성된 예제로 React 앱에 편집 가능한 프로젝트 타임라인을 추가해요"
 ---
 
-`@jaeungkim/gantt-chart`는 앱이 들고 있는 `tasks` 배열을 그려요. 편집이 확정될 때마다 다음 배열
-전체가 `onTasksChange`로 돌아와요. 이 페이지는 `pnpm add`부터 편집 결과를 앱 상태로 받는 차트까지
-순서대로 만들어요. 처음 세 코드 블록은 파일 전체예요. 뒤의 블록은 그 파일을 고치는 diff예요.
+작업 세 개로 바로 편집할 수 있는 차트를 만들어 봐요. 편집 결과는 React 상태에 반영하므로,
+실제 데이터를 연결하기 전에 작업을 옮기며 동작을 확인할 수 있어요.
 
 <GanttDemo preset="basic" />
 
-## 설치
+## 패키지 설치
 
-패키지는 ESM과 CJS로 배포돼요. `react`와 `react-dom`은 peer dependency고 `^18`과 `^19`를 지원해요.
+`react`와 `react-dom`이 설치된 React 18 또는 19 앱에서 시작해요.
 
 ```bash
 pnpm add @jaeungkim/gantt-chart
-# npm install @jaeungkim/gantt-chart
-# yarn add @jaeungkim/gantt-chart
 ```
 
-그다음 앱 어디에서든 스타일시트를 한 번 불러오세요.
+다른 패키지 매니저를 사용한다면 `npm install @jaeungkim/gantt-chart` 또는
+`yarn add @jaeungkim/gantt-chart`를 실행하면 돼요.
 
-```ts title="src/main.tsx"
+## 차트 추가
+
+아래 예제로 `ProjectChart.tsx`를 만들고 앱에서 `<ProjectChart />`를 렌더링해요.
+차트의 레이아웃과 스타일을 적용하려면 예제의 스타일시트도 꼭 불러와야 해요.
+
+```tsx title="ProjectChart.tsx"
+import { useState } from 'react';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
 import '@jaeungkim/gantt-chart/style.css';
-```
 
-`"./style.css"`는 `package.json`에 선언된 subpath export예요. `./dist/gantt-chart.css`로
-매핑되니 `dist` 안쪽 경로를 쓸 필요가 없어요.
-
-스타일시트를 불러오지 않으면 아무것도 배치되지 않아요. `.gantt-container`에 flex 컬럼이 적용되지
-않고 막대에는 컴포넌트가 인라인으로 쓴 `translateX`만 남아요. `--gantt-*` 토큰도 모두 정의되지
-않아요. 화면에는 망가진 차트 대신 평범한 텍스트가 쌓인 모습만 보여서 데이터 문제로 오해하기
-쉬워요.
-
-## 작업 3개 렌더링하기
-
-모든 작업에는 `id`, `name`, `startDate`, `endDate`, `parentId`, `sequence` 필드 6개가 필수예요.
-`sequence`는 점으로 구분한 숫자 문자열이고 행 순서를 정해요. `YYYY-MM-DD` 형태의 날짜는 UTC
-자정으로 읽어서 어느 시간대에서든 적힌 그 날짜에 놓여요. 전체 규칙은 [작업 데이터](task-data)를
-참고하세요.
-
-```ts title="src/tasks.ts"
-import type { Task } from '@jaeungkim/gantt-chart';
-
-export const initialTasks: Task[] = [
+const initialTasks: Task[] = [
   {
     id: 'design',
     name: 'Design',
@@ -64,183 +50,70 @@ export const initialTasks: Task[] = [
     dependencies: [{ targetId: 'design', type: 'FS' }],
   },
   {
-    id: 'ship',
-    name: 'Ship',
+    id: 'review',
+    name: 'Review',
     startDate: '2026-03-23',
-    endDate: '2026-03-23',
+    endDate: '2026-03-27',
     parentId: null,
     sequence: '3',
-    dependencies: [{ targetId: 'build', type: 'FS' }],
+    progress: 0,
   },
 ];
-```
-
-`dependencies`에는 그 작업이 기다리는 작업을 적어요. 그래서 `build`에는 `design`으로 이어지는
-링크가 생겨요. `FS`는 finish-to-start예요. 나머지 세 타입은 [의존성](dependencies)에서 설명해요.
-
-```tsx title="src/ProjectChart.tsx"
-import { ReactGanttChart } from '@jaeungkim/gantt-chart';
-import { initialTasks } from './tasks';
-
-export function ProjectChart() {
-  return <ReactGanttChart tasks={initialTasks} height={420} />;
-}
-```
-
-`height`의 기본값은 `600`이고 `width`의 기본값은 `"100%"`예요. 둘 다 픽셀 숫자나 CSS 길이 문자열을
-받아요. 퍼센트 높이는 부모 요소에 높이가 있을 때만 적용돼요. 여기 나온 prop의 시그니처와 기본값은
-[GanttProps](ref/props)에 있어요.
-
-이 차트는 다른 prop 없이도 바로 편집할 수 있어요. 막대를 옆으로 끌면 작업이 이동하고 양쪽 끝을
-끌면 크기가 바뀌어요.
-
-`design`과 `build`는 숫자 `progress`가 있어서 진행률 핸들이 보여요. `ship`은 `progress`가 없어서
-핸들도 없어요.
-
-막대에 마우스를 올리면 양 끝에 연결점이 나타나요. 연결점을 다른 막대로 끌면 의존성 화살표가
-그려져요. 화살표를 클릭하면 선택되고 Delete나 Backspace를 누르면 지워져요.
-
-차트는 툴바, 배율 선택기, 버튼을 그리지 않아요. 사용자가 클릭할 컨트롤은 호스트 앱에서 그리세요.
-`<select>` 레시피는 [명령형 API](imperative-api)에 있어요.
-
-`defaultScale`은 초기 배율을 정하고 기본값은 `"month"`예요. 차트에 포커스가 있을 때 Ctrl/Cmd +
-ArrowUp을 누르면 한 단계 촘촘한 배율로 바뀌어요. Ctrl/Cmd + ArrowDown을 누르면 한 단계 성긴 배율로
-바뀌어요.
-
-편집 내용은 새로고침하면 사라져요. 차트는 편집 내용을 인스턴스마다 새로 만드는 스토어에 보관해요.
-이 스토어는 컴포넌트가 마운트된 동안에만 유지돼요. 배율도 저장되지 않아요. 자세한 내용은
-[타임라인](timeline)을 참고하세요.
-
-## 편집 내용 유지하기
-
-`onTasksChange`는 편집이 확정될 때마다 새 작업 배열 전체를 넘겨요. 이 배열을 앱 상태에 저장하면
-차트가 앱 데이터를 편집해요.
-
-```tsx title="src/ProjectChart.tsx"
-import { useState } from 'react';
-import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
-import { initialTasks } from './tasks';
 
 export function ProjectChart() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
 
-  const handleTasksChange = (next: Task[]) => {
-    setTasks(next);
-    void fetch('/api/tasks', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(next),
-    });
-  };
-
   return (
     <ReactGanttChart
       tasks={tasks}
-      onTasksChange={handleTasksChange}
+      onTasksChange={setTasks}
+      showTaskList
       height={420}
     />
   );
 }
 ```
 
-콜백은 패치가 아니라 작업 전부를 넘겨요. 배열을 그대로 앱 상태에 넣거나 요청 본문에 실어 보내면
-돼요. 날짜는 `2026-03-09T00:00:00.000Z` 같은 완전한 ISO 문자열로 넘어와요. 그래서 `2026-03-09`로
-적었던 날짜는 첫 드래그 뒤에 문자열 형태가 바뀌어요.
+왼쪽 패널에는 작업 이름이 나타나요. 막대는 작업 기간을 보여 주고, 화살표는 Design과 Build를
+연결해요. `showTaskList`는 왼쪽 패널을 켜고, `height`는 차트 높이를 정해요.
 
-`tasks` prop은 배열의 동일성이 아니라 내용으로 비교해요. 같은 내용을 새 배열에 담아 넘기면
-무시돼요. 비교 방식과 교체가 반영되는 조건은 [작업 데이터](task-data)를 참고하세요.
+예제에는 작업에 필요한 여섯 필드가 모두 들어 있어요. `parentId: null`은 상위 작업이 없다는
+뜻이고, `sequence`는 표시 순서를 정해요. 실제 데이터를 연결할 때는 [작업 데이터](task-data)를
+참고하면 돼요.
 
-## 작업 목록 추가하기
+앱을 실행해 결과를 확인해요. 왼쪽 패널에 Design, Build, Review 세 이름이 보이고 날짜 그리드
+위에는 막대 세 개와 Design에서 Build로 이어지는 화살표가 나타나요. 스타일이 없는 텍스트만 보이면
+스타일시트를 불러왔는지 먼저 확인하세요.
 
-왼쪽 패널은 기본으로 꺼져 있어요. `showTaskList`를 설정하면 켜져요.
+## 직접 편집해 보기
 
-```diff title="src/ProjectChart.tsx"
-      <ReactGanttChart
-        tasks={tasks}
-        onTasksChange={handleTasksChange}
-        height={420}
-+       showTaskList
-      />
-```
+1. Build 막대를 좌우로 끌어서 작업 날짜를 옮겨 봐요.
+2. 막대의 양쪽 끝을 끌어서 작업 기간을 바꿔 봐요.
+3. Build 안의 진행률 핸들을 끌어서 완료 비율을 바꿔 봐요.
+4. Build에 마우스를 올린 뒤, 오른쪽 연결점을 Review로 끌어서 의존성을 추가해 봐요.
 
-패널에는 행마다 작업 이름이 하나씩 표시돼요. 날짜는 막대가 보여 줘요. 작업의 나머지 정보는
-[상세 패널](detail-panel)에 넣으세요. `showRowNumbers`를 설정하면 각 행의 `sequence`가 이름 앞
-열에 표시돼요.
+예제에서는 이 편집 기능을 바로 사용할 수 있어요. 허용할 편집을 정하는 방법은
+[작업 편집](editing)에 있어요. 연결 유형과 일정에 미치는 영향은 [의존성](dependencies)에서 다뤄요.
 
-두 패널 사이의 스플리터는 [작업 목록과 계층](task-list)에서 다뤄요. 접기 버튼은 없어요. 패널을
-숨기려면 `showTaskList={false}`로 설정하세요.
+## 편집 결과 반영
 
-## 계층
+`onTasksChange={setTasks}`는 편집이 확정되면 갱신된 작업 배열 전체를 React 상태에 반영해요.
+그 상태를 다시 `tasks`로 넘기면 차트와 앱이 같은 데이터를 사용해요.
 
-행 순서는 언제나 `sequence`에서 나와요. 중첩은 따로 켜야 해요. `hierarchy`를 설정하면 깊이를
-`parentId` 체인에서 읽어요.
+예제의 편집 결과는 컴포넌트가 마운트된 동안만 유지돼요. 새로고침 후에도 유지하려면 앱의 저장소나
+API를 연결하고 저장 오류도 앱에서 처리해야 해요. 차트가 데이터를 직접 저장하지는 않아요.
+콜백 흐름은 [이벤트](events)에서 확인할 수 있어요.
 
-```diff title="src/tasks.ts"
-+ {
-+   id: 'phase-1',
-+   name: 'Phase 1',
-+   startDate: '2026-03-02',
-+   endDate: '2026-03-20',
-+   parentId: null,
-+   sequence: '1',
-+ },
-  {
-    id: 'design',
-    name: 'Design',
-    startDate: '2026-03-02',
-    endDate: '2026-03-06',
--   parentId: null,
--   sequence: '1',
-+   parentId: 'phase-1',
-+   sequence: '1.1',
-    progress: 100,
-  },
-```
+## 예제 확장
 
-`build`도 똑같이 `parentId: 'phase-1'`과 `sequence: '1.2'`로 바꾸세요. 두 작업의 나머지 필드는
-그대로 두세요.
+다음으로 필요한 가이드를 골라 보세요.
 
-```diff title="src/ProjectChart.tsx"
-      <ReactGanttChart
-        tasks={tasks}
-        onTasksChange={handleTasksChange}
-        height={420}
-        showTaskList
-+       hierarchy
-      />
-```
+- **[작업 데이터](task-data):** 실제 작업 데이터를 연결하고 날짜를 읽는 방식을 확인해요.
+- **[작업 목록과 계층](task-list):** 작업을 프로젝트 단계별로 묶어요.
+- **[작업 생성](task-creation):** 새 작업을 추가해요.
+- **[근무일 달력](working-calendar):** 드래그할 때 주말과 휴일을 반영해요.
+- **[테마](theming):** 앱에 맞게 색상을 바꿔요.
+- **[명령형 API](imperative-api):** 배율 선택기나 오늘 이동 버튼을 추가해요.
+- **[GanttProps](ref/props):** 컴포넌트 옵션을 찾아봐요.
 
-`phase-1`에 자식이 생기면 요약 행이 돼요. 날짜는 자신의 필드가 아니라 자식에서 계산돼요. 막대를
-끌면 하위 트리 전체가 함께 움직여요. 롤업과 접기 상태는 [작업 목록과 계층](task-list)에서
-설명해요.
-
-## 한계
-
-- 차트는 아무것도 저장하지 않아요. `onTasksChange`가 없으면 편집은 컴포넌트 스토어에만 남고
-  새로고침하면 사라져요. 불러오기, 저장, 충돌 해결은 호스트 앱이 맡아요.
-- 차트는 작업을 스스로 추가하지 않아요. 작업 목록 아래 **Add task** 버튼, ref의 `addTask()`,
-  마지막 행 아래에 범위를 그리는 동작은 `onTaskCreate`를 넘길 때만 생겨요. 셋 다 확정이 아니라
-  초안을 알려 줘요. [작업 생성](task-creation)을 참고하세요.
-- 포커스된 행에서 Delete나 Backspace를 누르면 그 작업과 하위 트리 전체가 지워지고
-  `onTasksChange`가 호출돼요. 이동이 막힌 작업은 지워지지 않아요. 같은 키가 선택된 의존성
-  화살표도 지우니 둘이 동시에 일어날 수 있어요.
-- 작업 데이터는 검증하지 않아요. `sequence`가 `undefined`면 렌더링 중에 예외가 나요. 파싱할 수
-  없는 날짜는 경고 없이 타임라인 전체를 덮는 막대가 돼요. 배열을 넘기기 전에 검증하세요.
-- 폰트는 패키지에 포함하지도 내려받지도 않아요. `--gantt-font-sans`는 호스트 페이지가 Pretendard를
-  불러왔으면 그 폰트를 쓰고 그렇지 않으면 시스템 폰트를 써요. 다른 토큰처럼 호스트에서 덮어쓸 수
-  있어요. [테마](theming)를 참고하세요. 유일한 초기화 규칙은 `box-sizing: border-box`고
-  `.gantt-container` 안에만 적용돼요.
-- React 컴포넌트는 타임라인을 그려요. `showTaskList`를 설정하면 작업 목록 패널도 그려요. 차트 주변
-  UI는 그리지 않고 스타일 없는 모드도 없어요. 트리와 달력 함수는 React 없이 가져올 수 있어요.
-  [헤드리스 코어](headless-core)를 참고하세요.
-
-## 다음 단계
-
-- 데이터가 예상과 다르게 보일 때: [작업 데이터](task-data).
-- 이름 패널, 들여쓰기, 접기가 필요할 때: [작업 목록과 계층](task-list).
-- 끌 수 있는 범위를 제한하고 싶을 때: [작업 편집](editing).
-- 드롭이 주말이나 휴일을 피하게 하고 싶을 때: [근무일 달력](working-calendar).
-- 비근무일 음영, 근무 요일 변경, 휴일 이름이 필요할 때: [타임라인](timeline).
-- 모든 prop을 한 표에서 보고 싶을 때: [GanttProps](ref/props).
-
-다음: [작업 데이터](task-data).
+더 많은 옵션을 직접 바꿔 보려면 [플레이그라운드](/ko/playground)를 열어 봐요.

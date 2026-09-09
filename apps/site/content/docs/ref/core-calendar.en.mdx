@@ -140,12 +140,7 @@ import { createWorkingCalendar } from '@jaeungkim/gantt-chart';
 dayjs.extend(utc);
 
 const calendar = createWorkingCalendar({ holidays: ['2025-06-09'] });
-
-// Friday, one working day forward: the weekend and Monday's holiday are both skipped.
 calendar.addDays(dayjs.utc('2025-06-06'), 1).toISOString(); // 2025-06-10T00:00:00.000Z
-calendar.daysBetween(dayjs.utc('2025-06-06'), dayjs.utc('2025-06-13')); // 4
-calendar.isWorkingDay(dayjs.utc('2025-06-09')); // false
-calendar.skipsNonWorkingDays; // true
 ```
 
 Nothing in the package takes a calendar argument. The chart builds its own from

@@ -53,11 +53,11 @@ export type GanttDetailRenderer = (props: GanttDetailRenderProps) => ReactNode;
 const renderDetail: GanttDetailRenderer = ({ task, close, scale, update }) => (
   <>
     <button type="button" onClick={close} aria-label="Close task details">
-      ✕
+      Close
     </button>
     <h2>{task.name}</h2>
     <p>
-      {task.startDate.slice(0, 10)} → {task.endDate.slice(0, 10)} · {scale}
+      {task.startDate.slice(0, 10)} to {task.endDate.slice(0, 10)} ({scale})
     </p>
     <button type="button" onClick={() => update({ progress: 100 })}>
       Mark done

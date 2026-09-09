@@ -1,132 +1,79 @@
 ---
 title: "Working calendar"
-description: "Snapping a bar drag forward off weekends and holidays"
+description: "Snap a dragged bar forward off weekends and holidays."
 ---
 
-`workingCalendar` moves the result of a bar drag forward off weekends and holidays. This page
-covers the prop, the snap it applies to each gesture, what it leaves unchanged, and its limitations.
+Dragging a bar can leave a task starting on a Saturday. Turn on `workingCalendar` and a dropped bar moves forward to the next working day, using the same days the timeline shades.
 
 <GanttDemo preset="workingCalendar" />
 
-## The working calendar
+## Turn on working-day snapping
 
-`workingCalendar` is a boolean and defaults to `false`. Set it and the chart builds a calendar that
-skips non-working days and passes it to the bar drag. Left off, the drag uses a calendar that counts
-every day, which is plain calendar arithmetic.
+`workingCalendar` is a boolean and defaults to `false`. Left off, a drag counts every day, which is plain calendar arithmetic.
 
-```tsx title="src/WorkWeek.tsx"
+The working week runs Monday to Friday by default. Pass `workingWeekdays` as weekday numbers, with `0` for Sunday, and `holidays` for the days off beyond the weekend.
+
+```tsx title="WorkWeekChart.tsx"
+import { useState } from 'react';
 import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
 import '@jaeungkim/gantt-chart/style.css';
 
-export function WorkWeek({ tasks, setTasks }: {
-  tasks: Task[];
-  setTasks: (next: Task[]) => void;
-}) {
+const HOLIDAYS = ['2026-09-25'];
+
+const initialTasks: Task[] = [
+  { id: 'audit', name: 'Content audit', parentId: null, sequence: '1',
+    startDate: '2026-09-01', endDate: '2026-09-04' },
+];
+
+export function WorkWeekChart() {
+  const [tasks, setTasks] = useState(initialTasks);
+
   return (
     <ReactGanttChart
       tasks={tasks}
       onTasksChange={setTasks}
       workingCalendar
-      holidays={['2026-09-21']}
+      holidays={HOLIDAYS}
+      showTaskList
+      height={420}
     />
   );
 }
 ```
 
-With the prop on, the shading and the snap use the same calendar object. A day is non-working when
-`workingWeekdays` does not list its weekday, or when `holidays` covers its UTC `YYYY-MM-DD`.
+A day is non-working when `workingWeekdays` does not list its weekday, or when `holidays` covers its UTC date. The shading and the snap read that one definition, so a shaded day is always a skipped day. [The timeline](timeline) covers what those two props shade.
 
-The shaded days and the skipped days use that one definition, so they match. Both props and the
-shading are described in [The timeline](timeline).
+A holiday's `label` and `color` never reach the snap. A named holiday and a plain Saturday move a drop by the same number of days.
 
-A holiday's `label` and `color` do not affect the snap. It reads only whether a day is worked, so a
-named holiday and a plain Saturday move a drop by the same number of days.
+`workingWeekdays` and `holidays` are the whole configuration. No prop takes a calendar object, so a rule those two cannot express, such as every second Friday off, stays outside the snap. For your own date math, use `createWorkingCalendar` from [Working calendar helpers](ref/core-calendar).
 
-The chart does not accept a calendar you built yourself. `workingWeekdays` and `holidays` describe
-it. No prop accepts a `WorkingCalendar` object.
+## Move or resize a bar
 
-A rule those two props cannot express, such as every second Friday off or a per-person calendar,
-stays outside the snap. `createWorkingCalendar` in [Working calendar helpers](ref/core-calendar) is
-for your own date math.
-
-Props and defaults: [GanttProps](ref/props).
-
-### The drop snap
-
-The snap is what the calendar does to a gesture. It changes no other part of the drag.
-
-The edge that moved ends on a working day, and everything moving with it follows by the same number
-of days. For a summary bar that is the whole subtree. Summary bars are described in
-[Task list and hierarchy](task-list).
+Which edge snaps depends on the gesture.
 
 | Gesture | Edge that snaps | The other edge |
 |---|---|---|
-| Move | the start | follows by the same days, so the span is kept |
-| Left resize | the start | stays, so the bar comes out shorter |
-| Right resize | the end | stays, so the bar comes out longer |
+| Move | Start | Follows by the same days, so the span is kept |
+| Left resize | Start | Stays, so the bar comes out shorter |
+| Right resize | End | Stays, so the bar comes out longer |
 
-The snap counts whole days and only moves forward, so the time of day is kept. A left-edge resize
-that would snap past the bar's own end does not snap.
+Drag the Content audit bar four days later at the month scale and its start lands on Saturday `2026-09-05`. The start snaps forward two days to Monday `2026-09-07`, the end follows, and the bar keeps its span of three days.
 
-The snap applies during the drag. The bar and the drag readout in the tick row show the snapped
-dates while the pointer is down, and release commits those same dates.
+The snap counts whole days and only moves forward, so the time of day is kept. A left resize that would snap past the bar's own end does not snap. Dragging a summary bar carries its whole subtree, as [Task list and hierarchy](task-list) describes.
 
-### Unchanged behaviour
+The snap applies while the pointer is down. The bar and the date readout in the header show the snapped dates, and releasing commits them.
 
-Bar geometry ignores the calendar. A bar that spans a weekend spans it on screen either way, because
-the calendar only decides where a drop ends.
+## Bar width and shading
 
-The timeline ticks and the header cells are unchanged as well. The shading is unchanged too and has
-its own prop.
+A bar that spans a weekend still spans it on screen. The calendar decides where a drop lands, not how a bar is drawn. The columns, the header and the shading are unchanged as well.
 
-The drag itself moves in plain calendar time. The conversion from pointer position to date counts
-every day, and the calendar adds the forward snap on top of that. A move keeps the bar's span in
-calendar days rather than in working days.
+Pointer position still converts to a date by counting every day. The snap is added on top, so a move keeps the bar's span in calendar days rather than working days.
 
-## A worked example
+## Before you integrate
 
-This example uses one task, all times UTC, with `workingCalendar` on and no holidays.
+- The snap runs on a pointer drag of a bar. A new `tasks` array, a drawn link, a drawn task and a date typed in the [detail panel](detail-panel) all keep the dates you passed in.
+- Keyboard moves and resizes shift by plain drag steps, so they can leave a bar on a non-working day. See [Keyboard and screen readers](accessibility).
+- `minDate` and `maxDate` clamp after the snap and win, so a bar held at a bound can end on a Saturday. [Editing tasks](editing) covers those bounds.
+- The calendar is data your app passes in. Nothing in the chart edits `workingWeekdays` or `holidays`.
 
-```ts
-import type { Task } from '@jaeungkim/gantt-chart';
-
-export const tasks: Task[] = [
-  {
-    id: 'audit', name: 'Content audit', parentId: null, sequence: '1',
-    startDate: '2026-09-01T09:00:00Z', endDate: '2026-09-04T17:00:00Z',
-  },
-];
-```
-
-`09-01` is a Tuesday and `09-04` a Friday, so the bar is inside one work week. Drag it at the month
-scale, where one drag step is a whole day.
-
-| Gesture | Without `workingCalendar` | With it |
-|---|---|---|
-| move 3 days later | `09-04 09:00 - 09-07 17:00` | no change. Friday is a working day |
-| move 4 days later | `09-05 09:00 - 09-08 17:00` | `09-07 09:00 - 09-10 17:00` |
-| right edge 1 day later | `09-01 09:00 - 09-05 17:00` | `09-01 09:00 - 09-07 17:00` |
-
-The four-day move puts the start on a Saturday, so the start snaps forward two days to Monday and
-the end follows by two days. The bar keeps its span of three days. The right resize snaps the end
-alone, from Saturday to Monday, so the bar ends two days later than the drag position.
-
-Add `holidays={['2026-09-07']}` and the four-day move goes one day further, to a start of
-`09-08 09:00` and an end of `09-11 17:00`.
-
-## Limitations
-
-The snap runs on a pointer bar drag only. Loading a new `tasks` array, drawing a link and drawing a
-new task below the last row all keep the dates you passed in. Editing a date field in the
-[Detail panel](detail-panel) keeps them too.
-
-Keyboard editing does not snap. The `Alt` + arrow moves and the keyboard resizes shift by plain drag
-steps, so they can leave a bar on a non-working day. The bindings are in
-[Keyboard and screen readers](accessibility).
-
-The `minDate` and `maxDate` clamp runs after the snap. The clamp wins, so a bar held at a bound can
-end on a Saturday. Those bounds are described in [Editing tasks](editing).
-
-The working calendar cannot be edited from the chart. It is data your app passes in.
-
-Next: [Detail panel](detail-panel).
+Props and defaults: [GanttProps](ref/props).

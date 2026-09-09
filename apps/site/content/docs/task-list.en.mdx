@@ -1,280 +1,102 @@
 ---
 title: "Task list and hierarchy"
-description: "The left pane, the splitter and the `parentId` tree"
+description: "Show task names, group work into phases, and collapse completed sections."
 ---
 
-The task list is the pane on the left that shows each row's task name. With `hierarchy` on, a
-task that has children renders as a summary row whose dates come from those children. This page
-covers the pane, the splitter and the `parentId` tree.
+A project is easier to navigate when tasks sit under phases. Turn on the task list to show names beside the timeline, then enable hierarchy to make parent tasks summarize their children.
 
 <GanttDemo preset="hierarchy" />
 
-## Showing the pane
+## Build a task tree
 
-The pane is off by default. Set `showTaskList` to show it. `showRowNumbers` is the pane's other
-content switch, described below.
-
-| `showTaskList` | Pane |
-|---|---|
-| omitted | hidden |
-| `true` | shown |
-| `false` | hidden |
-
-`false` renders the timeline alone. The chart has no control of its own for hiding the pane. To
-let an end user hide it, build a button in the host app and drive `showTaskList` from its state.
-Props and defaults: [GanttProps](ref/props).
-
-The example renders a three-task tree with the pane on.
-
-```tsx title="ProjectChart.tsx"
-import { ReactGanttChart } from '@jaeungkim/gantt-chart';
-import type { Task } from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
-
-const tasks: Task[] = [
-  { id: 'p1', name: 'Phase 1', parentId: null, sequence: '1',
-    startDate: '2025-03-03', endDate: '2025-03-28' },
-  { id: 't1', name: 'Design', parentId: 'p1', sequence: '1.1',
-    startDate: '2025-03-03', endDate: '2025-03-12', progress: 100 },
-  { id: 't2', name: 'Build', parentId: 'p1', sequence: '1.2',
-    startDate: '2025-03-12', endDate: '2025-03-28', progress: 40 },
-];
-
-export function ProjectChart() {
-  return <ReactGanttChart tasks={tasks} showTaskList height={420} />;
-}
-```
-
-## Pane contents
-
-The pane shows names in one column, at a starting width of 220px.
-
-`showRowNumbers` adds a narrow number column in front of the names. It prints `task.sequence`,
-the outline path the chart orders rows by, so the first child of task 2 reads `2.1`. A row
-holding a whole lane prints its first task's number only.
-
-| `showRowNumbers` | Number column |
-|---|---|
-| omitted | hidden |
-| `true` | shown, printing `task.sequence` |
-| `false` | hidden |
-
-<GanttDemo preset="rowNumbers" />
-
-The number is the task's own field, so collapsing a parent renumbers nothing. Reordering a row
-does change it, because a move rewrites `sequence`. See [Reordering rows](reordering).
-
-There is no prop for a date column, and none is planned. The bars already show when a task runs,
-and a date column would halve the space left for the name. Dates in your own format, an owner, a
-status or a custom widget belong in the [detail panel](detail-panel) on the right.
-
-The header row prints nothing. The pane's one header cell carries the screen reader name
-`Task name`, and the number column, drawn inside the tree cell, has no header cell. The only
-visible string the pane renders is the **Add task** button label, hardcoded English like the rest
-of the UI around the chart. See [Locale and date formats](i18n).
-
-The **Add task** button is in the pane's footer. It renders while task creation is on:
-`onTaskCreate` is given, and neither `allowTaskCreate: false` nor a bare `readOnly` turns
-creation off. Like the splitter it is rendered outside the treegrid, so the grid keeps its single
-tab stop and the button is an ordinary one after it. Clicking it calls `onTaskCreate` with a
-draft. The draft, and the two other ways to produce one, are in [Creating tasks](task-creation).
-
-## Name cell
-
-Each row has one grid cell, the tree cell. The number, when on, is drawn inside it rather than as
-a second cell. The cell holds up to six parts, in this order:
-
-- A drag grip, while row reordering is on anywhere in the chart, visible only while its row is
-  hovered or focused. Rows that cannot move get a 20px spacer instead. See
-  [Reordering rows](reordering).
-- The row's `sequence`, with `showRowNumbers` on. It comes before the indent, so the column keeps
-  one x position at every depth.
-- An indent spacer of `depth * 16` pixels.
-- The expander button on an expandable row, or a 20px spacer on every other row.
-- The task's name. The cell carries the same string as a native `title` attribute, so a name too
-  long for the pane is readable on hover.
-- A `+N` badge counting the extra tasks when a row holds more than one, which happens with
-  [lanes](lanes).
-
-The cell spans the whole pane width, so every pixel the splitter adds goes to the name. A name
-that still does not fit is truncated with an ellipsis.
-
-## Resizing the pane
-
-| Control | Behaviour |
-|---|---|
-| Splitter drag | width at press plus the pointer's travel, clamped to 120 to 800px |
-| Splitter double-click | fits the pane to the widest visible row's full name, same clamp |
-| Splitter keyboard | `ArrowLeft` / `ArrowRight` step 16px, `Enter` fits like double-click, same clamp |
-| Splitter semantics | `role="separator"`, `aria-orientation="vertical"`, label `Resize task list` |
-
-Fit measures the rows on screen. Rows virtualized out of the viewport are not in the DOM, so a
-longer name further down does not widen the pane until it scrolls into view.
-
-The splitter is rendered outside the treegrid, so the grid keeps one tab stop and the splitter is
-a second, separate one. See [Keyboard and screen readers](accessibility). It renders only while
-the pane is visible, so `showTaskList={false}` removes it too.
-
-Pane width is local component state. No prop sets it and no callback reports it. It resets on
-remount.
-
-## Depth from parentId
-
-`hierarchy` defaults to `false`. Off, `parentId` has no effect on rendering, and the indentation
-comes from the dots in `sequence`.
-
-| | `hierarchy: false` | `hierarchy: true` |
-|---|---|---|
-| Row order | `sequence` | `sequence`, unchanged |
-| Row depth | dot count in `sequence` | steps up the `parentId` chain |
-| `isSummary` | never | a task with at least one child |
-| Summary dates | raw values render | recomputed from the children |
-| Row collapse | no expanders, `collapsedIds` inert for task ids | active |
-
-Row order comes from `sequence` in both modes. `parentId` never moves a row.
-[Task data](task-data) explains how `sequence` sorts.
-
-## Summary dates
-
-A summary's `startDate` is the earliest `startDate` among its children, and its `endDate` is the
-latest `endDate` among them. The parent's own dates in your data are discarded on every render.
-
-Roll-up runs deepest first, so a grandchild's move reaches the grandparent through the parent.
-It also runs before the timeline fits its range, so a child reaching past its parent's stated
-dates still widens the timeline.
-
-The recomputed values are re-serialized as full UTC ISO strings. This matters when `renderDetail`
-or a click callback compares the task it receives against your source strings. See
-[Tree helpers](ref/core-tree).
-
-A parent whose children all carry unparseable dates keeps its own dates, and no error is raised.
-
-## Summary progress
-
-An explicit `progress` on the parent is left alone. Only a missing one is rolled up, as a
-duration-weighted average of the children. [Tree helpers](ref/core-tree) describes the weighting
-and rounding.
-
-## Summary row gestures
-
-Resizing and progress dragging are off on a summary row, and no per-task flag re-enables them.
-See [GanttInteractionConfig](ref/interaction-config). The progress fill still draws, and only the
-drag handle is hidden.
-
-Moving is not affected. Dragging a summary bar moves its whole subtree by the same delta, bounded
-by the intersection of every member's own drag window. See [Editing tasks](editing).
-
-A summary row carries the class `summary` on both its grid row and its bar. The word `summary` is
-inserted into its accessible name, between the task name and the date range.
-
-## Collapsing rows
-
-Collapse state is one list of ids, in controlled or uncontrolled mode.
-
-| Prop | Mode | Rule |
-|---|---|---|
-| `collapsedIds` | controlled | the array given is what the chart shows, and internal state stops updating |
-| `defaultCollapsedIds` | uncontrolled | read once into the initial state; later changes are ignored |
-| `onCollapsedChange` | both | fires on every toggle with the full next array |
-
-The mode switch is `collapsedIds !== undefined`. `null` is not in the prop's type and does not
-opt out. Passed `null`, the pane draws from the internal list and stops writing to it, so every
-expander freezes while `onCollapsedChange` keeps firing. When both props are passed,
-`collapsedIds` wins and `defaultCollapsedIds` only seeds state that nothing reads.
-
-`onCollapsedChange` fires in both modes. It does not fire on mount or for `defaultCollapsedIds`.
-The payload is the whole next array, not a delta. A newly collapsed id is appended at the end,
-and an expanded one is filtered out.
-
-Nearly every write is a toggle. The one other writer is a row move. Dropping a dragged row into a
-collapsed parent expands that parent, so the moved row stays visible, and `onCollapsedChange`
-fires for that expand too. See [Reordering rows](reordering).
-
-> [!WARNING]
-> In controlled mode the chart collapses nothing on its own. It waits for a new `collapsedIds`
-> array. Passing `collapsedIds` without handling `onCollapsedChange` leaves every expander
-> looking broken.
-
-A collapsed row stays on screen and its descendants disappear. Collapsing an id with no children
-hides nothing, and the id stays in the list.
-
-Toggles come from the expander button in the name cell, from `ArrowRight` / `ArrowLeft` on the
-first cell, or from `Enter` / `Space` anywhere on the row. See
-[Keyboard and screen readers](accessibility).
-
-A row holding several tasks in one lane has the id `a+b`, which matches no task. See
-[Lanes](lanes). Its first task alone decides whether the row gets an expander, so a summary
-sharing a lane gets a toggle that hides nothing.
-
-The example holds the collapsed list in state, with `p1` collapsed at first.
+Set each child's `parentId` to its parent's `id`. Use `sequence` to place the parent before its children.
 
 ```tsx title="ProjectChart.tsx"
 import { useState } from 'react';
-import { ReactGanttChart } from '@jaeungkim/gantt-chart';
-import type { Task } from '@jaeungkim/gantt-chart';
+import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
 import '@jaeungkim/gantt-chart/style.css';
 
-const tasks: Task[] = [
-  { id: 'p1', name: 'Phase 1', parentId: null, sequence: '1',
-    startDate: '2025-03-03', endDate: '2025-03-28' },
-  { id: 't1', name: 'Design', parentId: 'p1', sequence: '1.1',
-    startDate: '2025-03-03', endDate: '2025-03-12', progress: 100 },
-  { id: 't2', name: 'Build', parentId: 'p1', sequence: '1.2',
-    startDate: '2025-03-12', endDate: '2025-03-28', progress: 40 },
+const initialTasks: Task[] = [
+  { id: 'release', name: 'Release', parentId: null, sequence: '1',
+    startDate: '2026-09-01', endDate: '2026-09-18' },
+  { id: 'design', name: 'Design', parentId: 'release', sequence: '1.1',
+    startDate: '2026-09-01', endDate: '2026-09-08', progress: 100 },
+  { id: 'build', name: 'Build', parentId: 'release', sequence: '1.2',
+    startDate: '2026-09-08', endDate: '2026-09-18', progress: 40 },
 ];
 
 export function ProjectChart() {
-  const [collapsedIds, setCollapsedIds] = useState<string[]>(['p1']);
+  const [tasks, setTasks] = useState(initialTasks);
 
   return (
     <ReactGanttChart
       tasks={tasks}
+      onTasksChange={setTasks}
       showTaskList
       hierarchy
-      collapsedIds={collapsedIds}
-      onCollapsedChange={setCollapsedIds}
       height={420}
     />
   );
 }
 ```
 
-## Edge cases
+`showTaskList` displays the left pane. `hierarchy` enables parent summaries and collapse controls. Both are off by default, so enable both for the example above.
 
-A broken `parentId` (an orphan, a self reference, an empty string or a cycle) is normalized to a
-root before the pane draws it, with no warning. The rules are in [Tree helpers](ref/core-tree).
+## Understand parent tasks
 
-A summary with an explicit `progress` keeps it, including `0`, because the roll-up only fills a
-nullish value. The value is not clamped, so a stored `250` reaches `renderDetail` and the click
-callbacks as `250` while the bar draws at 100%. The progress handle stays hidden either way.
+A task with children becomes a summary row. Its displayed dates span the earliest child start to the latest child end, including nested descendants.
 
-Duplicate `id` values are not deduplicated. The duplicate is pushed into its parent's child list
-twice and counted twice in the roll-up.
+If the parent has no `progress`, the chart calculates it from the children's progress, weighted by duration. Set the parent's `progress` explicitly to use your own value.
 
-There is no depth cap. A chain 25 levels deep gives its last row a depth of 24, so 384px of
-indent.
+Dragging a summary bar moves its descendants together. Summary bars cannot be resized or have their progress dragged. See [Editing tasks](editing) for drag behavior and [Tree helpers](ref/core-tree) for the calculation rules.
 
-## Limitations
+`sequence` still controls row order. With hierarchy on, `parentId` controls depth; with it off, the dots in `sequence` provide indentation only. Keep the two fields consistent when preparing [task data](task-data).
 
-- The pane shows the name and nothing else. There is no column API, no sorting and no filtering.
-- The name cell is read-only. There is no inline editor, no `onCellChange` and no renderer for a
-  grid row. `renderDetail` is the chart's only render prop, and it draws the detail panel, not a
-  row. The most a row takes from a task is `className`, described in [Styling](styling).
-- Pane width has no prop and is not persisted. It opens at 220px every time, and only the
-  splitter changes it.
-- Row height, the starting width, the 120 to 800 splitter range and the 16px indent are not
-  exported. A host app cannot import them to match its own UI.
-- The tree does not order rows, and nothing checks that `sequence` agrees with `parentId`. A
-  child whose `sequence` sorts above its parent renders above it, indented, with wrong ARIA
-  positions and no warning.
-- Broken parent links are repaired without a callback, a console message or a flag on the row.
-- Roll-up covers `startDate`, `endDate` and a missing `progress`. It does not roll up `color`,
-  `className` or `dependencies`.
-- `collapsedIds` and `defaultCollapsedIds` do nothing while `hierarchy` is off.
+## Collapse sections
 
-The host app keeps `sequence` consistent with `parentId`, holds the collapsed list in state for
-controlled collapse, and persists pane width. It also builds any control that hides the pane and
-validates parent links before render. `buildTaskTree` is exported for that last step. Per-task
-detail goes in the detail panel. See [Headless core](headless-core).
+Use `defaultCollapsedIds` to start with a section closed and let the chart handle later toggles:
 
-Next: [Lanes](lanes).
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  showTaskList
+  hierarchy
+  defaultCollapsedIds={['release']}
+/>
+```
+
+To save expansion state in your app, use `collapsedIds` and `onCollapsedChange` together:
+
+```tsx
+const [collapsedIds, setCollapsedIds] = useState<string[]>(['release']);
+
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  showTaskList
+  hierarchy
+  collapsedIds={collapsedIds}
+  onCollapsedChange={setCollapsedIds}
+/>
+```
+
+The callback receives the complete next list of collapsed ids. When you supply `collapsedIds`, pass that list back to update the view. Collapsing hides descendants while keeping the parent visible.
+
+## Adjust the task list
+
+Add `showRowNumbers` to display outline numbers such as `1.2` beside names.
+
+<GanttDemo preset="rowNumbers" />
+
+Drag the splitter to resize the pane, or double-click it to fit visible task names. The splitter also supports arrow keys and Enter. Width is local state and resets when the chart remounts; there is no width prop or change callback.
+
+The pane shows task names and optional outline numbers. Put additional fields and editors in a [detail panel](detail-panel). To let users add tasks from the pane's footer, connect [task creation](task-creation).
+
+## Before you integrate
+
+- Use unique ids and valid parent links. Missing parents and cycles are treated as roots for rendering, without correcting your source data.
+- Keep summary tasks out of shared [lanes](lanes). A packed row represents several tasks and does not provide a reliable summary collapse target.
+- Collapse controls require `hierarchy`. Task names are not inline-editable, and the pane has no custom column, sorting, or filtering API.
+
+See [GanttProps](ref/props) for prop definitions and [Keyboard and screen readers](accessibility) for navigation.

@@ -1,18 +1,10 @@
 ---
 title: "개념과 용어"
-description: "나머지 문서가 쓰는 용어를 한 곳에서 정의해요"
+description: "차트의 구성 요소와 그 바탕이 되는 작업 데이터를 알아봐요"
 ---
 
-이 페이지는 나머지 문서가 쓰는 용어를 정의해요. 한 대상에는 한 단어만 써요. 행과 작업은 다른
-개념이에요. 작업 두 개가 한 행을 공유하면 그 차이가 드러나요.
-
-## 차트와 호스트 앱
-
-차트는 `@jaeungkim/gantt-chart`가 내보내는 `<ReactGanttChart>` 컴포넌트예요. `tasks` prop을 그리고
-편집이 생길 때마다 `onTasksChange`를 호출해요.
-
-호스트 앱은 차트를 감싸는 애플리케이션이에요. 작업 배열을 갖고 무엇을 저장할지 정하고 차트가
-`onTasksChange`로 넘긴 배열을 반영해요. [이벤트](events)를 참고하세요.
+간트 차트가 처음이라면 막대, 행, 연결선이 무엇을 뜻하는지 여기서 알아볼 수 있어요.
+[빠른 시작](quick-start)으로 바로 시작하고, 낯선 용어가 나올 때 돌아와도 좋아요.
 
 ## 차트의 구성 요소
 
@@ -20,183 +12,58 @@ description: "나머지 문서가 쓰는 용어를 한 곳에서 정의해요"
 
 | 용어 | 뜻 |
 |---|---|
-| 작업(task) | `tasks` 배열의 항목 하나예요. |
-| 막대(bar) | 작업 하나를 그린 가로 블록이에요. 끌어서 편집하는 방법은 [작업 편집](editing) 참고 |
-| 행(row) | 그리드의 한 줄이에요. 작업 하나를 담거나 레인을 공유하는 여러 작업을 담아요. |
-| 작업 목록(task list) | 타임라인 왼쪽에서 작업 이름을 나열하는 패널이에요. [작업 목록과 계층](task-list) 참고 |
-| 타임라인(timeline) | 시간 축과 그 위에 그리는 모든 것이에요. [타임라인](timeline) 참고 |
-| 배율(scale) | 타임라인을 그리는 단위예요. `day`, `week`, `month`, `quarter`, `year` 중 하나예요. [타임라인](timeline) 참고 |
-| 눈금(tick) | 아래쪽 헤더 행의 셀 하나예요. 눈금 하나가 덮는 시간은 배율에 따라 달라요. |
-| 드래그 단계(drag step) | 막대를 끌 때 한 번에 움직이는 거리예요. 배율이 정해요. `day`에서는 1시간이고 `year`에서는 28일이에요. [작업 편집](editing) 참고 |
-| 드래그 날짜 표시(drag readout) | 드래그 중에 움직이는 가장자리가 놓이는 눈금 셀에 표시되는 날짜예요. 막대 폭만큼 옅은 음영이 함께 깔려요. 이동은 양쪽 끝을 표시하고 크기 조절은 움직이는 쪽만 표시해요. [작업 편집](editing) 참고 |
-| 요약 행(summary row) | `hierarchy`가 켜진 상태에서 `parentId`로 자식을 가진 작업이에요. 날짜는 자식에게서 가져와요. [작업 목록과 계층](task-list) 참고 |
-| 롤업(roll-up) | 요약 행이 자식에게서 가져오는 날짜와 진행률이에요. [작업 목록과 계층](task-list) 참고 |
-| 레인(lane) | 여러 작업을 한 행에 나란히 놓는 `lane` 필드예요. [레인](lanes) 참고 |
-| 상세 패널(detail panel) | 차트 옆에 도킹돼 작업 하나를 보여 주는 패널이에요. [상세 패널](detail-panel) 참고 |
-| `treegrid` | 작업 목록과 타임라인을 하나의 그리드로 담는 `role="treegrid"` 요소예요. 안쪽 탭 스톱은 하나예요. [키보드와 스크린 리더](accessibility) 참고 |
+| 작업(task) | `tasks` 배열의 항목 하나예요. 이름과 시작일, 종료일을 가져요. |
+| 막대(bar) | 작업 기간을 나타내는 가로 블록이에요. 끌어서 작업을 편집해요. |
+| 행(row) | 차트의 가로 한 줄이에요. 보통 작업 하나가 들어가요. |
+| 작업 목록(task list) | 타임라인 왼쪽에 작업 이름을 보여 주는 선택 사항인 패널이에요. |
+| 타임라인(timeline) | 날짜 눈금에 맞춰 막대를 보여 주는 영역이에요. |
+| 배율(scale) | 눈금 하나가 나타내는 시간 범위예요. 세밀한 일 단위 보기부터 연 단위 보기까지 있어요. |
+| 상세 패널(detail panel) | 선택한 작업의 정보를 보여 주는 선택 사항인 패널이에요. |
 
-아래 스니펫에 위 용어가 모두 등장해요.
+날짜 표시를 바꾸려면 [타임라인](timeline)을 참고하면 돼요. 작업 정보를 더 보여 주려면
+[상세 패널](detail-panel)을 참고하면 돼요.
 
-```tsx title="concepts-demo.tsx"
-import { useState } from 'react';
-import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
+## 작업 데이터와 앱
 
-const initialTasks: Task[] = [
-  {
-    id: 'phase-1',
-    name: 'Phase 1',
-    startDate: '2026-03-02',
-    endDate: '2026-03-20',
-    parentId: null,
-    sequence: '1',
-  },
-  {
-    id: 'design',
-    name: 'Design',
-    startDate: '2026-03-02',
-    endDate: '2026-03-06',
-    parentId: 'phase-1',
-    sequence: '1.1',
-    lane: 'Ana',
-  },
-  {
-    id: 'build',
-    name: 'Build',
-    startDate: '2026-03-09',
-    endDate: '2026-03-20',
-    parentId: 'phase-1',
-    sequence: '1.2',
-    lane: 'Ana',
-    progress: 40,
-    dependencies: [{ targetId: 'design', type: 'FS' }],
-  },
-  {
-    id: 'ship',
-    name: 'Ship',
-    startDate: '2026-03-23',
-    endDate: '2026-03-27',
-    parentId: null,
-    sequence: '2',
-    dependencies: [{ targetId: 'build', type: 'FS' }],
-  },
-];
+앱은 `<ReactGanttChart>`에 작업 데이터를 넘겨요. 편집이 확정되면 차트는 갱신된 배열을
+`onTasksChange`로 전달해요. 저장 방법은 앱에서 정해요.
 
-export function Demo() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+**초안(draft)**은 `onTaskCreate`로 전달되는 새 작업의 후보예요. 앱에서 식별 정보를 채워 넣고
+작업 배열에 추가해요. 자세한 흐름은 [작업 생성](task-creation)에서 다뤄요.
 
-  return (
-    <ReactGanttChart
-      tasks={tasks}
-      onTasksChange={setTasks}
-      hierarchy
-      workingCalendar
-    />
-  );
-}
-```
+React 상태에 연결하는 예제는 [빠른 시작](quick-start)에 있어요. 필수 필드와 날짜 형식,
+앱에서 데이터를 검증할 때 알아둘 내용은 [작업 데이터](task-data)에서 설명해요.
 
-작업 네 개가 행 세 개에 그려져요. `design`과 `build`는 `Ana` 레인을 공유하면서 시간이 겹치지 않아서
-한 행에 함께 놓여요. 묶는 규칙은 [레인](lanes)에서 설명해요.
+## 프로젝트 구조
 
-## 데이터 용어
+**계층(hierarchy)**은 작업을 프로젝트 단계와 하위 작업으로 묶는 구조예요. `parentId`는 상위
+작업을 가리키고, `sequence`는 표시 순서를 정해요. `hierarchy`를 켜면 그룹을 접고 펼칠 수 있어요.
 
-작업은 차트에 넘기는 단위예요. `id`, `name`, `startDate`, `endDate`, `parentId`, `sequence` 여섯
-개는 반드시 넘겨야 하고 나머지 필드는 생략할 수 있어요. 필드 표는 [작업 데이터](task-data)에 있고
-타입은 [Task와 작업 타입](ref/task)에 있어요.
+**요약 행(summary row)**은 상위 작업을 나타내요. 날짜와 진행률은 하위 작업에서 계산하며,
+이 계산을 **롤업(roll-up)**이라고 해요. 요약 막대를 끌면 그룹 전체가 함께 움직여요.
+자세한 내용은 [작업 목록과 계층](task-list)에 있어요.
 
-초안은 차트가 `onTaskCreate`로 넘기는 새 작업이에요. 날짜 두 개만 담고 다른 필드는 없어요. `id`,
-`parentId`, `sequence`는 호스트 앱이 만들어요. [작업 생성](task-creation)을 참고하세요.
+**레인(lane)**은 여러 작업을 한 행에 나란히 배치해요. 기간이 겹치는 작업은 다른 행에 놓여요.
+화면에서 작업을 함께 배치하는 기능이며, 부모 자식 관계를 만들지는 않아요.
+배치 규칙은 [레인](lanes)에서 설명해요.
 
-의존성은 작업 두 개를 잇는 링크예요. 타입은 `FS`, `SS`, `FF`, `SF` 네 가지예요. 첫 글자는 선행
-작업(predecessor)의 끝을 가리키고 둘째 글자는 후행 작업(successor)의 끝을 가리켜요.
-[의존성](dependencies)을 참고하세요.
+## 작업 사이의 연결
 
-선행 작업은 링크에서 앞선 작업이고 후행 작업은 뒤따르는 작업이에요. 의존성 항목은 후행 작업에 두고
-`targetId`에 선행 작업의 id를 적어요. 아래 항목은 후행 작업인 `build`에 있어요.
+**의존성(dependency)**은 두 작업을 연결해요. **선행 작업(predecessor)**은 다른 작업이 의존하는
+작업이고, **후행 작업(successor)**은 그 작업에 의존하는 작업이에요.
 
-```ts
-import type { TaskDependency } from '@jaeungkim/gantt-chart';
+예를 들어 Build에 Design을 가리키는 finish-to-start(`FS`) 의존성이 있으면 Design이 끝난 뒤
+Build를 시작한다는 뜻이에요. 의존성은 Build에 저장하고, `targetId`에 Design의 ID를 넣어요.
 
-// 이건 후행 작업인 "build"에 놓여요. build는 design이 끝나기를 기다린다는 뜻이에요.
-const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
-```
+연결선을 그려도 작업 일정이 자동으로 조정되지는 않아요. 네 가지 연결 유형과 동작은
+[의존성](dependencies)에서 확인할 수 있어요.
 
-## 근무일 달력
+## 근무일
 
-근무일은 `workingWeekdays`에 있는 요일 중 `holidays` 항목이 덮지 않는 날이에요. 요일을 따로 정하지
-않으면 월요일부터 금요일까지 근무일로 봐요. 휴일은 `holidays`에 넣는 항목이에요. `YYYY-MM-DD`
-문자열로 적거나 이름과 색을 담은 객체로 넘기세요.
+**근무일 달력(working calendar)**은 차트에 적용할 근무 요일과 휴일을 정해요.
+`workingCalendar`를 켜면 드래그 결과가 비근무일에 놓이지 않도록 날짜를 조정할 수 있어요.
 
-근무일 달력은 이 둘을 함께 읽는 규칙이에요. `workingCalendar`가 꺼져 있으면 막대는 포인터를 놓은
-자리에 그대로 있어요. 켜면 비근무일에 놓은 막대가 다음 근무일로 옮겨져요. 두 경우 모두 막대는
-화면에서 그 날들을 가로지르고 드래그 단계도 달력 날짜 기준으로 계산해요. 이 설정이 무엇을 바꾸고
-무엇을 그대로 두는지는 [근무일 달력](working-calendar)에서 설명해요. 음영과 휴일 이름은
-[타임라인](timeline)에 있어요.
+타임라인에는 주말과 휴일을 포함한 모든 날짜가 계속 표시돼요. 날짜 조정 규칙은
+[근무일 달력](working-calendar)에 있고, 음영 표시는 [타임라인](timeline)에서 다뤄요.
 
-## `sequence`와 `parentId`
-
-`sequence`와 `parentId`는 서로 독립된 필드예요. 차트는 둘을 맞춰 주지 않아요.
-
-`sequence`는 계층 여부와 상관없이 행 순서를 정해요. 점으로 이어진 문자열이고 점으로 나눈 자리마다
-숫자로 비교해요. 비교 규칙은 [작업 데이터](task-data)에서 설명해요.
-
-`parentId`는 `hierarchy` prop이 켜져 있을 때만 중첩을 정해요. 꺼져 있으면 들여쓰기는 `sequence`의
-점 개수로 정해요. 작업을 지우면 `hierarchy`와 상관없이 하위 트리 전체가 함께 지워져요. 그래서
-`parentId`는 두 모드에서 모두 읽어요. [키보드와 스크린 리더](accessibility)를 참고하세요.
-
-아래 표에서 `Audit`은 `Phase 1`의 자식이지만 최상위 `sequence`를 갖고 있어요.
-
-| 작업 | `sequence` | `parentId` | 깊이, `hierarchy` 끔 | 깊이, `hierarchy` 켬 |
-|---|---|---|---|---|
-| Phase 1 | `'1'` | `null` | 0 | 0 |
-| Design | `'1.1'` | `'phase-1'` | 1 | 1 |
-| Audit | `'3'` | `'phase-1'` | 0 | 1 |
-
-두 모드 모두 행 순서는 `sequence`로 정해요. 그래서 행은 표에 적힌 순서대로 나오고 깊이만 달라져요.
-
-두 필드가 맞아떨어지는 건 관례예요. 차트가 강제하지는 않아요. 부모보다 앞에 정렬되는 `sequence`를
-가진 자식은 경고 없이 부모 위에 들여쓰기된 채로 그려져요. 차트에서 그린 작업이든 편집한 작업이든
-넘기는 모든 작업의 `sequence`는 호스트 앱이 책임져요.
-
-행 순서 바꾸기만 예외예요. `allowReorder`를 켜면 행을 끌어 다른 자리나 다른 부모로 옮길 수 있어요.
-행을 옮기면 바뀐 순서대로 `sequence`를 다시 매겨요. 자리가 바뀐 작업은 모두 새 값을 받아요.
-`allowReorder`는 기본으로 꺼져 있어요. [행 순서 바꾸기](reordering)를 참고하세요.
-
-## 행과 작업
-
-`GanttRow.tasks`는 항목이 하나 이상인 배열이에요.
-
-| 행 | `tasks.length` | 언제 |
-|---|---|---|
-| 일반 행 | 1 | 보통의 경우 |
-| 레인 행 | 2 이상 | `lane`을 공유하고 시간이 겹치지 않는 작업들 |
-
-`lane`을 쓰면 세 번째 행과 세 번째 작업이 서로 달라져요. `row.tasks[0]`을 읽는 코드는 행 자체가
-아니라 그 행의 첫 작업을 읽어요. 행 모델과 그 id, ARIA 번호 매기기는 [레인](lanes)과
-[GanttRow](ref/rows)에서 설명해요.
-
-## prop이 필요한 용어
-
-위 용어 가운데 일부는 prop을 설정하기 전까지 아무것도 가리키지 않아요.
-
-| 용어 | 필요한 것 | 기본값 |
-|---|---|---|
-| 요약 행, 롤업, 하위 트리 끌기, 작업 행 접기 | `hierarchy` | `false` |
-| 레인 행 | 작업 두 개 이상에 붙은 `lane` 값 | prop 없음 |
-| 작업 목록 | `showTaskList` | `false` |
-| 상세 패널 | `showDetail` 또는 `renderDetail` 하나만으로도 | 꺼짐 |
-| 비근무일에 놓은 막대 옮기기 | `workingCalendar` | `false` |
-
-여기 나온 prop의 시그니처와 기본값은 [GanttProps](ref/props)에 있어요.
-
-## 한계
-
-위 용어가 가리키는 범위는 차트가 강제하는 범위보다 넓어요. 그중 두 가지는 차트 전체에 하나로 고정돼요.
-
-- 근무일 달력과 시간대는 차트 전체에 하나씩 적용되고 작업별로 정할 수 없어요. 모든 날짜는 UTC예요.
-- 행 높이는 고정이고 모든 행은 작업에서 나오므로 빈 행을 만들 수 없어요.
-
-차트가 검사하지 않는 것과 저장하지 않는 것, 모델로 갖지 않는 것은 [소개](introduction)를 참고하세요.
-
-다음: [빠른 시작](quick-start).
+이제 차트를 추가하려면 [빠른 시작](quick-start)으로 이어가면 돼요.

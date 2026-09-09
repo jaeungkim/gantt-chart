@@ -1,206 +1,69 @@
 ---
-title: "Concepts and vocabulary"
-description: "The terms the rest of the docs use, each defined once"
+title: "Concepts"
+description: "Understand the chart's parts and the task data behind them"
 ---
 
-This page defines the terms the rest of the docs use, one word per thing. A row and a task are
-different things, and the difference matters when two tasks share a row.
-
-## Chart and host app
-
-The chart is the `<ReactGanttChart>` component that `@jaeungkim/gantt-chart` exports. It renders
-the `tasks` prop and calls `onTasksChange` with every edit.
-
-The host app is the application around the chart. It holds the task array, decides what to persist
-and applies the array the chart passes to `onTasksChange`. See [Events](events).
+If you are new to Gantt charts, start here to learn what the bars, rows, and connections mean.
+You can also go straight to the [Quick start](quick-start) and return when you meet an unfamiliar term.
 
 ## Parts of the chart
 
-<ChartSketch />
+<ChartSketch lang="en" />
 
 | Term | Meaning |
 |---|---|
-| task | One entry in the `tasks` array. |
-| bar | The horizontal block drawn for one task. Dragging it is described in [Editing tasks](editing). |
-| row | One line of the grid. It holds one task, or several that share a lane. |
-| task list | The left pane, listing task names beside the timeline. See [Task list and hierarchy](task-list). |
-| timeline | The time axis and everything drawn against it. See [The timeline](timeline). |
-| scale | The unit the timeline is drawn in, one of `day`, `week`, `month`, `quarter` or `year`. See [The timeline](timeline). |
-| tick | One cell of the lower header row. The time one tick covers depends on the scale. |
-| drag step | The distance one snap of a bar drag moves it. The scale sets it, one hour at `day` and 28 days at `year`. See [Editing tasks](editing). |
-| drag readout | The dates a live drag writes into the tick cells where its moving edges land, over a tint the width of the bar. A move writes both ends. A resize writes only the end it moves. See [Editing tasks](editing). |
-| summary row | A task with children under `parentId`, when `hierarchy` is on. Its dates come from the children. See [Task list and hierarchy](task-list). |
-| roll-up | The dates and progress a summary row takes from its children. See [Task list and hierarchy](task-list). |
-| lane | The `lane` field, which places several tasks side by side on one row. See [Lanes](lanes). |
-| detail panel | The pane docked beside the chart that shows one task. See [Detail panel](detail-panel). |
-| treegrid | The `role="treegrid"` element that holds the task list and the timeline as one grid, with one tab stop inside it. See [Keyboard and screen readers](accessibility). |
+| Task | One item in your `tasks` array, with a name and start and end dates. |
+| Bar | The horizontal shape that shows a task's dates. Dragging it edits the task. |
+| Row | A horizontal space in the chart. It usually holds one task. |
+| Task list | The optional pane to the left of the timeline, showing task names. |
+| Timeline | The dated grid where the bars appear. |
+| Scale | How much time the timeline shows in each division, from a detailed day view to a year view. |
+| Detail panel | An optional panel for viewing information about a selected task. |
 
-The snippet below uses every term above.
+To change the date display, read [The timeline](timeline). To show more task information, read
+[Detail panel](detail-panel).
 
-```tsx title="concepts-demo.tsx"
-import { useState } from 'react';
-import { ReactGanttChart, type Task } from '@jaeungkim/gantt-chart';
-import '@jaeungkim/gantt-chart/style.css';
+## Tasks and your app
 
-const initialTasks: Task[] = [
-  {
-    id: 'phase-1',
-    name: 'Phase 1',
-    startDate: '2026-03-02',
-    endDate: '2026-03-20',
-    parentId: null,
-    sequence: '1',
-  },
-  {
-    id: 'design',
-    name: 'Design',
-    startDate: '2026-03-02',
-    endDate: '2026-03-06',
-    parentId: 'phase-1',
-    sequence: '1.1',
-    lane: 'Ana',
-  },
-  {
-    id: 'build',
-    name: 'Build',
-    startDate: '2026-03-09',
-    endDate: '2026-03-20',
-    parentId: 'phase-1',
-    sequence: '1.2',
-    lane: 'Ana',
-    progress: 40,
-    dependencies: [{ targetId: 'design', type: 'FS' }],
-  },
-  {
-    id: 'ship',
-    name: 'Ship',
-    startDate: '2026-03-23',
-    endDate: '2026-03-27',
-    parentId: null,
-    sequence: '2',
-    dependencies: [{ targetId: 'build', type: 'FS' }],
-  },
-];
+Your app passes task data to `<ReactGanttChart>`. When an edit is committed, the chart reports
+the updated array through `onTasksChange`. Your app decides how to save it.
 
-export function Demo() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+A **draft** is a proposed new task reported through `onTaskCreate`. The app supplies its identity
+and adds it to the task array. See [Creating tasks](task-creation).
 
-  return (
-    <ReactGanttChart
-      tasks={tasks}
-      onTasksChange={setTasks}
-      hierarchy
-      workingCalendar
-    />
-  );
-}
-```
+The [Quick start](quick-start) shows the state connection. [Task data](task-data) explains the
+required fields, date format, and data validation responsibilities.
 
-The snippet renders four tasks on three rows. `design` and `build` share the lane `Ana` without
-overlapping, so they are packed onto one row. [Lanes](lanes) describes the packing.
+## Project structure
 
-## Data terms
+Use a **hierarchy** to group tasks into phases and subtasks. A task's `parentId` identifies its
+parent, while `sequence` sets display order. Enable `hierarchy` to use collapsible groups.
 
-A task is the unit you pass in. The required fields are `id`, `name`, `startDate`, `endDate`,
-`parentId` and `sequence`, and every other field is optional. The field table is in
-[Task data](task-data) and the type in [Task and task types](ref/task).
+A **summary row** represents a parent task. Its dates and progress are calculated from its children;
+this calculation is called a **roll-up**. Dragging its bar moves the group together.
+See [Task list and hierarchy](task-list).
 
-A draft is the new task the chart passes to `onTaskCreate`. It carries two dates and no other
-field. The host app supplies the `id`, `parentId` and `sequence`. See
-[Creating tasks](task-creation).
+A **lane** places tasks beside each other on a shared row. Tasks with overlapping dates need
+separate rows. A lane groups the display; it does not create a parent-child relationship.
+See [Lanes](lanes).
 
-A dependency is a link between two tasks, of type `FS`, `SS`, `FF` or `SF`. The first letter is the
-predecessor's end and the second is the successor's end. See [Dependencies](dependencies).
+## Connections between tasks
 
-The predecessor is the earlier task in a link and the successor is the later one. The entry is
-stored on the successor, and its `targetId` names the predecessor. The entry below is on `build`,
-the successor.
+A **dependency** connects two tasks. The **predecessor** is the task being depended on, and the
+**successor** is the task that depends on it.
 
-```ts
-import type { TaskDependency } from '@jaeungkim/gantt-chart';
+For example, Build can have a finish-to-start (`FS`) dependency on Design: Build is expected to
+start after Design finishes. The dependency is stored on Build, with Design's ID as `targetId`.
 
-// This sits on "build", the successor. It reads: build waits for design to finish.
-const dependencies: TaskDependency[] = [{ targetId: 'design', type: 'FS' }];
-```
+Drawing a connection does not automatically reschedule the tasks. See [Dependencies](dependencies)
+for the four connection types and their behavior.
 
-## Working calendar
+## Working days
 
-A working day is a weekday listed in `workingWeekdays` that no `holidays` entry covers.
-`workingWeekdays` defaults to Monday to Friday. A holiday is one of those entries, either a
-`YYYY-MM-DD` string or an object that also carries a label and a colour.
+A **working calendar** defines working weekdays and holidays for the chart. It can move a drag
+result off a non-working day when `workingCalendar` is enabled.
 
-The working calendar is the rule that reads both. With `workingCalendar` off, a bar stays where the
-pointer released it. With it on, a drop on a non-working day moves forward to the next working day.
-In both modes, bars span those days on screen and the drag step counts calendar days.
-[Working calendar](working-calendar) covers what the setting changes and what it leaves alone. The
-shading and the holiday names are described in [The timeline](timeline).
+The timeline still shows calendar days, including weekends and holidays. See
+[Working calendar](working-calendar) for snapping behavior and [The timeline](timeline) for shading.
 
-## `sequence` and `parentId`
-
-`sequence` and `parentId` are independent fields. The chart does not reconcile them.
-
-`sequence` sets the row order, with or without hierarchy. It is a dotted string compared segment by
-segment as numbers. [Task data](task-data) describes the comparison.
-
-`parentId` sets the nesting, and only when `hierarchy` is on. With `hierarchy` off, indentation
-comes from the number of dots in `sequence`. Deleting a task removes its whole subtree with
-`hierarchy` on or off, so `parentId` is read in both modes. See
-[Keyboard and screen readers](accessibility).
-
-In the table below, `Audit` is a child of `Phase 1` but carries a top-level `sequence`.
-
-| Task | `sequence` | `parentId` | Depth, `hierarchy` off | Depth, `hierarchy` on |
-|---|---|---|---|---|
-| Phase 1 | `'1'` | `null` | 0 | 0 |
-| Design | `'1.1'` | `'phase-1'` | 1 | 1 |
-| Audit | `'3'` | `'phase-1'` | 0 | 1 |
-
-Both modes read `sequence` for row order, so the rows come out in the order shown and only the
-depth differs.
-
-Agreement between the two fields is a convention. The chart does not enforce it. A child whose
-`sequence` sorts above its parent renders above its parent, indented, with no warning. The host app
-is responsible for that string on every task it passes in, including tasks drawn on the chart and
-tasks it edits.
-
-Row reordering is the exception. With `allowReorder` on, a row can be dragged to a new slot or a
-new parent. A move renumbers `sequence` from the resulting row order, so every task whose position
-changed gets a new value. `allowReorder` is off by default. See [Reordering rows](reordering).
-
-## Rows and tasks
-
-`GanttRow.tasks` is an array with one or more entries.
-
-| Row | `tasks.length` | When |
-|---|---|---|
-| ordinary row | 1 | the normal case |
-| lane row | 2 or more | tasks that share a `lane` and do not overlap in time |
-
-With `lane` in use, the third row and the third task are different things. Code that reads
-`row.tasks[0]` reads the first task on that row, not the row itself. The row model, its ids and its
-ARIA numbering are described in [Lanes](lanes) and [GanttRow](ref/rows).
-
-## Terms that need a prop
-
-Some of the terms above describe nothing until a prop is set.
-
-| Term | Needs | Default |
-|---|---|---|
-| summary row, roll-up, subtree drag, collapsing a task row | `hierarchy` | `false` |
-| lane row | a `lane` value on two or more tasks | no prop |
-| task list | `showTaskList` | `false` |
-| detail panel | `showDetail`, or `renderDetail` on its own | off |
-| a drop moving off a non-working day | `workingCalendar` | `false` |
-
-The signature and default of every prop named here are in [GanttProps](ref/props).
-
-## Limitations
-
-The terms above cover more than the chart enforces. Two of them are fixed for the whole chart.
-
-- The working calendar and the time zone apply to the whole chart, not per task. All dates are UTC.
-- Row height is fixed, and every row comes from a task, so an empty row cannot be created.
-
-What the chart does not check, store or model is listed in [Introduction](introduction).
-
-Next: [Quick start](quick-start).
+Ready to add the chart? Continue to [Quick start](quick-start).
