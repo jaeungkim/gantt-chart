@@ -8,7 +8,7 @@ const FEATURES = [
   '/docs/editing',
   '/docs/accessibility',
   '/docs/introduction',
-  '/docs/headless-core',
+  '/docs/task-list',
   '/docs/working-calendar',
   '/docs/theming',
 ] as const;
@@ -19,6 +19,7 @@ interface Copy {
   heroTitle: string;
   heroBody: string;
   getStarted: string;
+  credentials: string;
   tryTitle: string;
   tryBody: string;
   playground: string;
@@ -32,21 +33,22 @@ interface Copy {
 // The landing page is a translation pair like every docs page: en and ko move together.
 const COPY: Record<'en' | 'ko', Copy> = {
   en: {
-    heroTitle: 'A Gantt chart for React that behaves like a controlled input',
+    heroTitle: 'Bring interactive project planning to your React app.',
     heroBody:
-      'Drag a bar and the complete next tasks array comes back through onTasksChange. Your app holds that array, and the chart persists nothing.',
+      'Drag tasks, connect dependencies, and organize projects into nested timelines. Working calendars, keyboard editing, and light and dark themes come built in.',
     getStarted: 'Get started',
+    credentials: 'Open source · MIT licensed · React 18 & 19 · TypeScript',
     tryTitle: 'Try it',
     tryBody:
       'The chart below is the published component. Drag a bar, pull an edge, or draw a link between two rows.',
-    playground: 'Open the playground',
+    playground: 'Try the playground',
     docsTitle: 'Read the docs',
     docsBody: 'Every prop, guide and reference page, in English and Korean.',
     introduction: 'Introduction',
     props: 'GanttProps',
     features: {
       '/docs/editing': {
-        title: 'Controlled editing',
+        title: 'Edit the plan directly',
         body: 'Drag to move, pull an edge to resize, drag the handle to set progress, draw an arrow to link two rows. Every gesture calls onTasksChange with the complete next array.',
       },
       '/docs/accessibility': {
@@ -54,39 +56,40 @@ const COPY: Record<'en' | 'ko', Copy> = {
         body: 'An ARIA treegrid with a roving tabindex, arrow key navigation and keyboard edits announced in a status region. The accessibility page lists the gaps.',
       },
       '/docs/introduction': {
-        title: 'Virtualized',
+        title: 'Explore larger plans',
         body: 'Rows and timeline ticks are both windowed, so the chart renders what is on screen plus a small overscan.',
       },
-      '/docs/headless-core': {
-        title: 'Headless core',
-        body: 'createWorkingCalendar and the task tree helpers import no React. They use no DOM, so a server or a worker can run them.',
+      '/docs/task-list': {
+        title: 'Move a whole project phase',
+        body: 'Organize tasks into a collapsible hierarchy. Move a summary row and its children follow, keeping the phase together.',
       },
       '/docs/working-calendar': {
-        title: 'Working calendar',
+        title: 'Plan around working days',
         body: 'Set the working weekdays, and give each holiday a name and a colour. Turn on workingCalendar and a drop on a non-working day moves forward to the next working day.',
       },
       '/docs/theming': {
-        title: 'CSS custom properties',
+        title: 'Match your app',
         body: "Every colour reads from a CSS custom property. With no theme prop set, the chart follows the host page's color-scheme.",
       },
     },
   },
   ko: {
-    heroTitle: '제어 컴포넌트처럼 동작하는 React 간트 차트',
+    heroTitle: 'React 앱에서 직접 편집하는 프로젝트 타임라인',
     heroBody:
-      '막대를 끌면 다음 tasks 배열 전체가 onTasksChange로 돌아와요. 그 배열은 앱이 들고 있고 차트는 아무것도 저장하지 않아요.',
+      '작업을 끌어 옮기고 의존성을 연결하고 프로젝트를 계층형 타임라인으로 정리하세요. 근무일 달력과 키보드 편집, 라이트·다크 테마를 기본으로 제공해요.',
     getStarted: '시작하기',
+    credentials: '오픈 소스 · MIT 라이선스 · React 18 & 19 · TypeScript',
     tryTitle: '직접 해보기',
     tryBody:
       '아래 차트는 배포된 실제 컴포넌트예요. 막대를 끌고 가장자리를 당기고 두 행 사이에 링크를 그어 보세요.',
-    playground: '플레이그라운드 열기',
+    playground: '플레이그라운드 체험하기',
     docsTitle: '문서 읽기',
     docsBody: '모든 prop과 가이드, 레퍼런스 페이지를 영어와 한국어로 제공해요.',
     introduction: '소개',
     props: 'GanttProps',
     features: {
       '/docs/editing': {
-        title: '제어되는 편집',
+        title: '타임라인에서 바로 편집',
         body: '막대를 끌어 옮기고 가장자리를 당겨 크기를 조절해요. 핸들을 끌면 진행률이 정해지고 화살표를 그으면 두 행이 연결돼요. 모든 제스처가 다음 tasks 배열 전체로 onTasksChange를 호출해요.',
       },
       '/docs/accessibility': {
@@ -94,19 +97,19 @@ const COPY: Record<'en' | 'ko', Copy> = {
         body: '로빙 tabindex와 방향키 이동을 지원하는 ARIA treegrid예요. 키보드로 만든 편집은 role="status" 요소로 알려요. 남은 한계는 접근성 문서에 정리해 뒀어요.',
       },
       '/docs/introduction': {
-        title: '가상화',
+        title: '더 큰 계획도 한눈에',
         body: '행과 타임라인 눈금을 모두 가상화해요. 화면에 보이는 범위와 오버스캔만큼만 렌더링해요.',
       },
-      '/docs/headless-core': {
-        title: '헤드리스 코어',
-        body: 'createWorkingCalendar와 작업 트리 헬퍼는 React를 가져오지 않아요. DOM도 쓰지 않아서 서버나 워커에서도 실행할 수 있어요.',
+      '/docs/task-list': {
+        title: '프로젝트 단계를 한 번에 이동',
+        body: '작업을 접고 펼칠 수 있는 계층으로 정리하세요. 요약 행을 옮기면 하위 작업이 함께 움직여요.',
       },
       '/docs/working-calendar': {
-        title: '근무일 달력',
+        title: '근무일에 맞춘 일정',
         body: '근무 요일을 정하고 휴일마다 이름과 색을 지정하세요. workingCalendar를 켜면 비근무일에 놓은 막대가 다음 근무일에 놓여요.',
       },
       '/docs/theming': {
-        title: 'CSS 커스텀 속성',
+        title: '앱에 어울리는 디자인',
         body: '모든 색을 CSS 커스텀 속성에서 읽어요. theme prop을 넘기지 않으면 호스트 페이지의 color-scheme을 그대로 따라요.',
       },
     },
@@ -144,12 +147,20 @@ export default async function HomePage({
 
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Link
+            href={`${prefix}/playground`}
+            className="rounded-lg border border-fd-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-fd-accent"
+          >
+            {copy.playground}
+          </Link>
+          <Link
             href={`${prefix}/docs/quick-start`}
             className="rounded-lg bg-fd-primary px-5 py-2.5 text-sm font-medium text-fd-primary-foreground transition-opacity hover:opacity-90"
           >
             {copy.getStarted}
           </Link>
         </div>
+
+        <p className="mt-5 text-sm text-fd-muted-foreground">{copy.credentials}</p>
 
         <code className="mt-7 inline-block rounded-lg border border-fd-border bg-fd-card px-4 py-2 font-mono text-sm">
           pnpm add @jaeungkim/gantt-chart
