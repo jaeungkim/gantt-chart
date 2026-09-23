@@ -80,7 +80,7 @@
     "vite": "^6.4.3",
     "vite-plugin-dts": "^5.1.0",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.1.11",
+    "vitest": "^5.0.1",
     "zustand": "^5.0.15"
   },
   "packageManager": "pnpm@10.30.3",
