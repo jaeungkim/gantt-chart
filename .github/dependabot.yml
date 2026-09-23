@@ -4,16 +4,31 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Only propose a release once it has been out a while. Hijacked npm versions are usually
+    # caught and unpublished within days, and a major's .0.1 fixes land in its first weeks.
+    # Security updates ignore this. pnpm's own minimumReleaseAge (pnpm-workspace.yaml) is
+    # shorter, so it never rejects a version Dependabot picked.
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
     labels: [dependencies] # override the default (dependencies + javascript)
     groups:
       non-major:
         patterns: ['*']
         update-types: [minor, patch]
+    ignore:
+      # @types/node describes the Node the code runs on: 22 locally, 24 in CI, on Vercel and in
+      # publish.yml. A newer major type-checks calls to APIs that are undefined there. Move it
+      # by hand, together with the runtime. Its patches still arrive in the group above.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: / # scans .github/workflows
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     labels: [dependencies]
     groups:
       actions:
