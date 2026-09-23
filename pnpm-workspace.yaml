@@ -4,3 +4,24 @@ packages:
 # esbuild ships prebuilt binaries via optionalDependencies; its postinstall script is not needed.
 allowBuilds:
   esbuild: false
+
+# Supply-chain guards, as set by Vite, Vitest, TanStack Query, Next.js and typescript-eslint.
+# They apply whenever pnpm resolves a version (pnpm add/update, Dependabot's runs), not to a
+# --frozen-lockfile install of versions already locked.
+# Never resolve a version published less than a day ago (minutes; pnpm 11's default).
+# A fix you need sooner goes in minimumReleaseAgeExclude as name@version.
+minimumReleaseAge: 1440
+# Fail if a version carries weaker publish provenance than an earlier release of the same
+# package, which is what a publish from a stolen npm token looks like.
+trustPolicy: no-downgrade
+# Known false positives, each pinned to one version so a later release is checked again.
+trustPolicyExclude:
+  # Under @types/node@22. 6.13-6.19.2 shipped provenance, then undici's release pipeline
+  # dropped it from mid-2024. Vitest and TanStack Query exclude the same version.
+  - undici-types@6.21.0
+  # Under @vitejs/plugin-react (via Babel). A 6.x backport published without provenance in July
+  # 2023, three days after 7.5.4 shipped with it. Vite, Vitest, TanStack Query and typescript-eslint
+  # exclude it.
+  - semver@6.3.1
+# Transitive dependencies must come from the registry, never a git URL or a tarball.
+blockExoticSubdeps: true
