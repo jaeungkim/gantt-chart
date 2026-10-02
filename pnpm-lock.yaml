@@ -30,8 +30,8 @@ importers:
         specifier: ^19.2.18
         version: 19.3.0
       '@vitejs/plugin-react':
-        specifier: ^4.7.0
-        version: 4.7.0(vite@6.4.3(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.1))
+        specifier: ^5.2.0
+        version: 5.2.0(vite@6.4.3(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.1))
       eslint:
         specifier: ^10.9.1
         version: 10.11.0(jiti@2.7.0)
@@ -189,6 +189,11 @@ packages:
 
   '@babel/parser@7.29.8':
     resolution: {integrity: sha512-E8lTAYNB1KW+FH+VGJuZM1ioAx2E6oVlvQFRrf5P8ZZmsiJXYAD9vTFV7yyEURNzgh1dFqMZuO6tUwcARbqFCA==}
+    engines: {node: '>=6.0.0'}
+    hasBin: true
+
+  '@babel/parser@7.29.9':
+    resolution: {integrity: sha512-CjXrNHTnvqBVqHgdBysY3vk2T8tpJHb5/RMeHJBTyVa9xgugCB0CJTx/3oO8RV2QRQP391RWpB7D6hLjm8V9uA==}
     engines: {node: '>=6.0.0'}
     hasBin: true
 
@@ -1250,8 +1255,8 @@ packages:
   '@radix-ui/rect@1.1.3':
     resolution: {integrity: sha512-JtyZR+mqgBibTo8xea3B6ZRmzZiM/YeVBtUkas6zMuXjAlfIFIW2FgqeM9eLyvEaYX66vr6DJMK+4U6LV0KhNw==}
 
-  '@rolldown/pluginutils@1.0.0-beta.27':
-    resolution: {integrity: sha512-+d0F4MKMCbeVUJwG96uQ4SgAznZNSq93I3V+9NHA4OpvqG8mRCpGdKmK8l/dl02h2CCDHwW2FqilnTyDcAnqjA==}
+  '@rolldown/pluginutils@1.0.0-rc.3':
+    resolution: {integrity: sha512-eybk3TjzzzV97Dlj5c+XrBFW57eTNhzod66y9HrBlzJ6NsCrWCp/2kaPS3K9wJmurBC0Tdw4yPjXKZqlznim3Q==}
 
   '@rollup/pluginutils@5.4.0':
     resolution: {integrity: sha512-MfPp06CjRLfXQ3wY0R8vJDYBy/MvVcc9OulEfR0B8Iv9ko+GCNaRZ+EpJYFl27LhKsZK0o420sYCRHCjfCgeUg==}
@@ -1718,11 +1723,11 @@ packages:
       vue-router:
         optional: true
 
-  '@vitejs/plugin-react@4.7.0':
-    resolution: {integrity: sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA==}
-    engines: {node: ^14.18.0 || >=16.0.0}
+  '@vitejs/plugin-react@5.2.0':
+    resolution: {integrity: sha512-YmKkfhOAi3wsB1PhJq5Scj3GXMn3WvtQ/JC0xoopuHoXSdmtdStOpFrYaT1kie2YgFBcIe64ROzMYRjCrYOdYw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
-      vite: ^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
+      vite: ^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
 
   '@vitest/mocker@5.0.1':
     resolution: {integrity: sha512-6K1DoBNAPGvuOcSsGA4D6x+5zEEff/KmOOP3uetT2TrGpVfI+HRHRnJJfKi5ib/g1vx8IYHQD8s0pbJz8WQI7Q==}
@@ -1893,8 +1898,8 @@ packages:
     resolution: {integrity: sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==}
     engines: {node: 20 || >=22}
 
-  browserslist@4.28.8:
-    resolution: {integrity: sha512-V2NpofLblG64mfOtSgDhOJESZEGogzDMBv/q+W6oc4LXWP/q75eOXoOaaOu1EOadB9U4Bwx/e0yzbvwKH8zalA==}
+  browserslist@4.29.1:
+    resolution: {integrity: sha512-AUdjuRyCNGUYtqpqfTmWyM4fXay8yIQhmLnvYe/THMGfT9B/34X7xQd3ifKxwyNPPpowVBjLb+64BN9Rn1mizw==}
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
     hasBin: true
 
@@ -2006,8 +2011,8 @@ packages:
     resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
     engines: {node: '>=0.3.1'}
 
-  electron-to-chromium@1.5.418:
-    resolution: {integrity: sha512-UzS26r3AEbG5wSoGVpJKqwHIU9zwQN7LHdVIThDrJpS0I5KdlXFMEb8543fhc9dVnIIAST6ar8rhwa00AL5MlA==}
+  electron-to-chromium@1.5.439:
+    resolution: {integrity: sha512-qu6QIPXhsb+CRcAiTMNjR4A1y/7tCYKkKjr5CZXRVih6qkDf79peZ2BpEU3qoDBNCRrcy3Mra3X9nG5oruuA7Q==}
 
   enhanced-resolve@5.24.5:
     resolution: {integrity: sha512-L1l8TNvomm6UVW5B253AGxQagSQr+vGwhMlrrfRS2qmhx46AMpMVJKQYLvWYbysTMY8VoicOvzHzoHMbyzB+4A==}
@@ -2816,8 +2821,8 @@ packages:
       sass:
         optional: true
 
-  node-releases@2.0.54:
-    resolution: {integrity: sha512-YHs7BmmcsdAI5Ozuf8JZo6PT0mv2GIWC9vMfvUC3dp65M8hn7Ux8CPL+2oBI7juNuj9d0ndhTcznq2ODBps9cQ==}
+  node-releases@2.0.57:
+    resolution: {integrity: sha512-kQK9LGGFiHtrWiNhZtA7Qbw17AQz+dmsEKODRIVTXA9+e5MS/2gZEBhYJt13GrAz5/IOZKddH/0Z3TP/Zgo+yw==}
     engines: {node: '>=18'}
 
   npm-to-yarn@3.2.0:
@@ -2913,8 +2918,8 @@ packages:
     peerDependencies:
       react: ^19.3.0
 
-  react-refresh@0.17.0:
-    resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
+  react-refresh@0.18.0:
+    resolution: {integrity: sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==}
     engines: {node: '>=0.10.0'}
 
   react-remove-scroll-bar@2.3.8:
@@ -3251,8 +3256,8 @@ packages:
     resolution: {integrity: sha512-5uKD0nqiYVzlmCRs01Fhs2BdkEgBS3SAVP6ndrBsuK42iC2+JHyxM05Rm9G8+5mkmRtzMZGY8Ct5+mliZxU/Ww==}
     engines: {node: '>=18.12.0'}
 
-  update-browserslist-db@1.3.2:
-    resolution: {integrity: sha512-UQ+MSxlhRm1bzjhU+DcuXfjFO1FzNtqhK5+9Yvlp90ItDLk5vT932A0rFu619nf7RVS+Y/VeaUW1jaRDqZ8VJw==}
+  update-browserslist-db@1.3.3:
+    resolution: {integrity: sha512-pJ2sYawQS0R/WI928Gj5GlPhTGzbMelq0+4INtSYNDV9ErKJcX6xjGWkoG/VnB3dpUm00zALaqkrUD77pO5TDQ==}
     hasBin: true
     peerDependencies:
       browserslist: '>= 4.21.0'
@@ -3486,7 +3491,7 @@ snapshots:
       '@babel/helper-compilation-targets': 7.29.7
       '@babel/helper-module-transforms': 7.29.7(@babel/core@7.29.7)
       '@babel/helpers': 7.29.7
-      '@babel/parser': 7.29.8
+      '@babel/parser': 7.29.9
       '@babel/template': 7.29.7
       '@babel/traverse': 7.29.8
       '@babel/types': 7.29.8
@@ -3501,7 +3506,7 @@ snapshots:
 
   '@babel/generator@7.29.8':
     dependencies:
-      '@babel/parser': 7.29.8
+      '@babel/parser': 7.29.9
       '@babel/types': 7.29.8
       '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/trace-mapping': 0.3.31
@@ -3511,7 +3516,7 @@ snapshots:
     dependencies:
       '@babel/compat-data': 7.29.7
       '@babel/helper-validator-option': 7.29.7
-      browserslist: 4.28.8
+      browserslist: 4.29.1
       lru-cache: 5.1.1
       semver: 6.3.1
 
@@ -3550,6 +3555,10 @@ snapshots:
     dependencies:
       '@babel/types': 7.29.8
 
+  '@babel/parser@7.29.9':
+    dependencies:
+      '@babel/types': 7.29.8
+
   '@babel/plugin-transform-react-jsx-self@7.29.7(@babel/core@7.29.7)':
     dependencies:
       '@babel/core': 7.29.7
@@ -3563,7 +3572,7 @@ snapshots:
   '@babel/template@7.29.7':
     dependencies:
       '@babel/code-frame': 7.29.7
-      '@babel/parser': 7.29.8
+      '@babel/parser': 7.29.9
       '@babel/types': 7.29.8
 
   '@babel/traverse@7.29.8':
@@ -3571,7 +3580,7 @@ snapshots:
       '@babel/code-frame': 7.29.7
       '@babel/generator': 7.29.8
       '@babel/helper-globals': 7.29.7
-      '@babel/parser': 7.29.8
+      '@babel/parser': 7.29.9
       '@babel/template': 7.29.7
       '@babel/types': 7.29.8
       debug: 4.4.3
@@ -4413,7 +4422,7 @@ snapshots:
 
   '@radix-ui/rect@1.1.3': {}
 
-  '@rolldown/pluginutils@1.0.0-beta.27': {}
+  '@rolldown/pluginutils@1.0.0-rc.3': {}
 
   '@rollup/pluginutils@5.4.0(rollup@4.63.1)':
     dependencies:
@@ -4656,7 +4665,7 @@ snapshots:
 
   '@types/babel__core@7.20.5':
     dependencies:
-      '@babel/parser': 7.29.8
+      '@babel/parser': 7.29.9
       '@babel/types': 7.29.8
       '@types/babel__generator': 7.27.0
       '@types/babel__template': 7.4.4
@@ -4668,7 +4677,7 @@ snapshots:
 
   '@types/babel__template@7.4.4':
     dependencies:
-      '@babel/parser': 7.29.8
+      '@babel/parser': 7.29.9
       '@babel/types': 7.29.8
 
   '@types/babel__traverse@7.28.0':
@@ -4822,14 +4831,14 @@ snapshots:
       next: 16.3.6(@babel/core@7.29.7)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react: 19.3.0
 
-  '@vitejs/plugin-react@4.7.0(vite@6.4.3(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.1))':
+  '@vitejs/plugin-react@5.2.0(vite@6.4.3(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.1))':
     dependencies:
       '@babel/core': 7.29.7
       '@babel/plugin-transform-react-jsx-self': 7.29.7(@babel/core@7.29.7)
       '@babel/plugin-transform-react-jsx-source': 7.29.7(@babel/core@7.29.7)
-      '@rolldown/pluginutils': 1.0.0-beta.27
+      '@rolldown/pluginutils': 1.0.0-rc.3
       '@types/babel__core': 7.20.5
-      react-refresh: 0.17.0
+      react-refresh: 0.18.0
       vite: 6.4.3(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.1)
     transitivePeerDependencies:
       - supports-color
@@ -4957,13 +4966,13 @@ snapshots:
     dependencies:
       balanced-match: 4.0.4
 
-  browserslist@4.28.8:
+  browserslist@4.29.1:
     dependencies:
       baseline-browser-mapping: 2.11.26
       caniuse-lite: 1.0.30001812
-      electron-to-chromium: 1.5.418
-      node-releases: 2.0.54
-      update-browserslist-db: 1.3.2(browserslist@4.28.8)
+      electron-to-chromium: 1.5.439
+      node-releases: 2.0.57
+      update-browserslist-db: 1.3.3(browserslist@4.29.1)
 
   cacheable@2.5.0:
     dependencies:
@@ -5047,7 +5056,7 @@ snapshots:
 
   diff@8.0.4: {}
 
-  electron-to-chromium@1.5.418: {}
+  electron-to-chromium@1.5.439: {}
 
   enhanced-resolve@5.24.5:
     dependencies:
@@ -6204,7 +6213,7 @@ snapshots:
       - '@types/node'
       - babel-plugin-macros
 
-  node-releases@2.0.54: {}
+  node-releases@2.0.57: {}
 
   npm-to-yarn@3.2.0: {}
 
@@ -6304,7 +6313,7 @@ snapshots:
       react: 19.3.0
       scheduler: 0.28.0
 
-  react-refresh@0.17.0: {}
+  react-refresh@0.18.0: {}
 
   react-remove-scroll-bar@2.3.8(@types/react@19.3.0)(react@19.3.0):
     dependencies:
@@ -6709,9 +6718,9 @@ snapshots:
       picomatch: 4.0.7
       webpack-virtual-modules: 0.6.2
 
-  update-browserslist-db@1.3.2(browserslist@4.28.8):
+  update-browserslist-db@1.3.3(browserslist@4.29.1):
     dependencies:
-      browserslist: 4.28.8
+      browserslist: 4.29.1
       escalade: 3.2.0
       picocolors: 1.1.1
 
