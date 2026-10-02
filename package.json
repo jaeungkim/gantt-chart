@@ -68,7 +68,7 @@
     "@microsoft/api-extractor": "^7.55.2",
     "@types/node": "^22.20.1",
     "@types/react": "^19.2.18",
-    "@vitejs/plugin-react": "^4.7.0",
+    "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^10.9.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.5",
