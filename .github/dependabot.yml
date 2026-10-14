@@ -1,28 +1,18 @@
 version: 2
 updates:
+  # Security updates only, as MUI runs it. The package ships one dependency (dayjs) and users
+  # resolve it from their own lockfile, so a version bump here changes nothing they install.
+  # Advisory fixes still open PRs: security updates are switched on in the repo settings and
+  # have their own fixed limit, which this 0 does not touch. Tooling is upgraded by hand.
   - package-ecosystem: npm # covers pnpm lockfiles
     directory: /
     schedule:
-      interval: weekly
-    # Only propose a release once it has been out a while. Hijacked npm versions are usually
-    # caught and unpublished within days, and a major's .0.1 fixes land in its first weeks.
-    # Security updates ignore this. pnpm's own minimumReleaseAge (pnpm-workspace.yaml) is
-    # shorter, so it never rejects a version Dependabot picked.
-    cooldown:
-      default-days: 7
-      semver-major-days: 30
-    labels: [dependencies] # override the default (dependencies + javascript)
-    groups:
-      non-major:
-        patterns: ['*']
-        update-types: [minor, patch]
-    ignore:
-      # @types/node describes the Node the code runs on: 22 locally, 24 in CI, on Vercel and in
-      # publish.yml. A newer major type-checks calls to APIs that are undefined there. Move it
-      # by hand, together with the runtime. Its patches still arrive in the group above.
-      - dependency-name: '@types/node'
-        update-types: ['version-update:semver-major']
+      interval: weekly # required key; unused while version updates are off
+    open-pull-requests-limit: 0
+    labels: [dependencies] # override the default (dependencies + javascript); security PRs use it too
 
+  # Version updates stay on here. pnpm/action-setup is pinned to a commit SHA, and GitHub raises
+  # no security alert for a SHA-pinned action, so without these the pin would never move.
   - package-ecosystem: github-actions
     directory: / # scans .github/workflows
     schedule:
