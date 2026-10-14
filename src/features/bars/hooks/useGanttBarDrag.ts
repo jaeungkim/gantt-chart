@@ -8,6 +8,7 @@ import {
 import { Dayjs } from "dayjs";
 import { useEffect, useRef } from "react";
 import { useGanttStore, useGanttStoreApi } from "shared/context";
+import { useLatestRef } from "shared/hooks/useLatestRef";
 import {
   GanttDragBounds,
   GanttDragMode,
@@ -85,8 +86,7 @@ export function useGanttBarDrag(
   const movedRef = useRef(false);
   /** Aborts a touch long press that has not lifted the bar yet */
   const pendingGestureRef = useRef<(() => void) | null>(null);
-  const optionsRef = useRef(options);
-  optionsRef.current = options;
+  const optionsRef = useLatestRef(options);
 
   // A row scrolled out of view while a finger rests on it must not lift later
   useEffect(() => () => pendingGestureRef.current?.(), []);

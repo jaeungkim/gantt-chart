@@ -1,12 +1,11 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
-import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
+  resolve: { tsconfigPaths: true },
   plugins: [
     react(),
-    tsconfigPaths(),
     dts({
       include: ['src'],
       exclude: ['src/**/*.test.*'],
@@ -21,7 +20,7 @@ export default defineConfig({
       fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
       formats: ['es', 'cjs'],
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: ['react', 'react-dom', 'react/jsx-runtime'],
     },
   },
