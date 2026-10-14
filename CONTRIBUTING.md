@@ -21,9 +21,9 @@ to `src/`, so a library edit hot-reloads straight into the page. A production bu
 `workspace:*` to `dist/`, which keeps what Vercel serves identical to what npm serves.
 
 That alias also maps one glob per top-level folder in `src/`. The library imports its own
-modules bare (`bars/components/GanttBar`, `shared/store`) through `baseUrl: "src"` in the root
-tsconfig, and Turbopack does not read tsconfig paths. The folder list is read off disk, so a
-new domain folder needs no edit there.
+modules bare (`features/bars/components/GanttBar`, `shared/store`) through `baseUrl: "src"` in the
+root tsconfig, and Turbopack does not read tsconfig paths. The folder list is read off disk, so a
+new folder needs no edit there.
 
 ## The playground
 
@@ -57,29 +57,30 @@ Every demo on the site, the playground included, shares the one fixture in
 
 ## Source layout
 
-`src/` is grouped by what a folder is for rather than by what kind of file it holds. A feature's
-component, its hooks and its math are in one directory, so the things that change together are
-edited together. A feature can be read or deleted in one place instead of four parallel trees.
+`src/` follows the layering of TanStack Table's `table-core`: a headless `core/`, one folder per
+feature under `features/`, and the root modules that compose them. A feature's component, its
+hooks and its math are in one directory, so the things that change together are edited together.
+A feature can be read or deleted in one place instead of four parallel trees.
 
 | Folder | Owns |
 |---|---|
 | `src/core/` | the headless core: tree, calendar, reorder, dates. Plain data and pure functions, no React and no DOM. |
-| `src/shared/` | what more than one feature needs: constants, the shared types, the zustand store and its context, i18n formatters, pointer-gesture helpers. It sits below the domains and never imports one. |
-| `src/timeline/` | the time axis: date and pixel geometry, the tick/header model, viewport and zoom, virtualization, the header, today line and non-working shading. |
-| `src/bars/` | the bars themselves and every bar-level gesture: move, resize, progress, draw-to-create. |
-| `src/dependencies/` | dependency links: validation, arrow geometry, the arrow layer, link dragging. |
-| `src/rows/` | the row model: lane packing, collapse, the row layer. |
-| `src/task-list/` | the left pane: the grid, its columns and its splitter, plus row reordering. |
-| `src/interaction/` | selection, the keyboard map and the aria labels. |
-| `src/detail/` | the task detail panel. |
+| `src/shared/` | what more than one feature needs: constants, the shared types, the zustand store and its context, i18n formatters, pointer-gesture helpers. It sits below the features and never imports one. |
+| `src/features/timeline/` | the time axis: date and pixel geometry, the tick/header model, viewport and zoom, virtualization, the header, today line and non-working shading. |
+| `src/features/bars/` | the bars themselves and every bar-level gesture: move, resize, progress, draw-to-create. |
+| `src/features/dependencies/` | dependency links: validation, arrow geometry, the arrow layer, link dragging. |
+| `src/features/rows/` | the row model: lane packing, collapse, the row layer. |
+| `src/features/task-list/` | the left pane: the grid, its columns and its splitter, plus row reordering. |
+| `src/features/interaction/` | selection, the keyboard map and the aria labels. |
+| `src/features/detail/` | the task detail panel. |
 | `src/` (root) | `Gantt.tsx` composes the features, `useGanttSelectors.ts` is the store subscription it renders from, `props.ts` is the public prop surface, `index.ts` is the package barrel, `styles.css` is the published stylesheet. |
 
-Inside a domain, files are split again by what they are: `components/`, `hooks/` and `utils/`.
-A domain has only the ones it needs. `interaction/` has no components and `bars/` has no utils.
-`src/timeline/` uses all three. The listing below leaves some files out.
+Inside a feature, files are split again by what they are: `components/`, `hooks/` and `utils/`.
+A feature has only the ones it needs. `interaction/` has no components and `bars/` has no utils.
+`timeline/` uses all three. The listing below leaves some files out.
 
 ```
-src/timeline/
+src/features/timeline/
   components/  GanttChartHeader.tsx  GanttTodayLine.tsx  GanttNonWorkingLayer.tsx
   hooks/       useGanttViewport.ts   useGanttScrollApi.ts  useGanttVirtualization.ts
   utils/       geometry.ts  transform.ts  header.ts  viewport.ts
@@ -91,29 +92,31 @@ root, with `hooks/`, `utils/` and `virtual/` beneath.
 
 Four rules apply:
 
-- `src/core/` may not import from any of the other folders. It has to stay runnable in Node, so an
-  eslint block scoped to `src/core/**` forbids React, zustand, the DOM globals, the root modules
-  and every domain folder. Both lists are read off `src/` at lint time rather than typed out, so
-  a new folder or root module is covered the day it appears. The domain patterns are `<domain>/**`
-  rather than `<domain>/*`, because of the nesting above, and a root module is restricted in both
-  its bare and its relative spelling.
-- Do not add directory barrels. Import the file (`shared/constants`, `timeline/utils/geometry`)
-  rather than the directory. A bare barrel specifier survives verbatim into the emitted `.d.ts` and
-  breaks every consumer's `tsc`. CI greps `dist/` for it.
-- A file goes in the domain it belongs to, rather than the one that happens to use it.
-  `interaction/` owns the aria labels even though `bars/` renders them. Cross-domain imports are
-  normal. Do not duplicate a helper to avoid one, and do not promote a helper to `src/shared/`
-  just because a second domain reached for it. A helper with a clear owner keeps that owner.
-  What does move to `src/shared/` is vocabulary with no owning feature: a type or constant that
-  several domains and the store all speak. `LinkAnchor` lives there for that reason, even though
-  only `dependencies/` produces one, because `shared/store.ts` holds the drag draft and `shared/`
-  may not import a domain.
-- Imports run one way. `core/` imports nothing of ours, `shared/` imports only `core/`, and
-  domains import `core/`, `shared/` and each other. Within a domain, keep the module graph
-  acyclic. Two files that need each other are usually one file.
+- Imports run one way: `core/`, then `shared/`, then `features/`, then the root modules. `core/`
+  imports nothing of ours, `shared/` imports only `core/`, and features import `core/`, `shared/`
+  and each other. Only a root module imports a root module. Within a feature, keep the module
+  graph acyclic. Two files that need each other are usually one file.
+- An eslint block fences each layer off from the ones above it. The `src/core/**` block also
+  forbids React, zustand and the DOM globals, because the core has to stay runnable in Node. The
+  folder and root-module lists are read off `src/` at lint time rather than typed out, so a new
+  folder or root module is covered the day it appears. Folder patterns are `<folder>/**` rather
+  than `<folder>/*`, because of the nesting above, and every pattern is restricted in both its
+  bare and its relative spelling.
+- Do not add directory barrels. Import the file (`shared/constants`,
+  `features/timeline/utils/geometry`) rather than the directory. A bare barrel specifier survives
+  verbatim into the emitted `.d.ts` and breaks every consumer's `tsc`. CI greps `dist/` for it.
+- A file goes in the feature it belongs to, rather than the one that happens to use it.
+  `interaction/` owns the aria labels even though `bars/` renders them. Imports between features
+  are normal, as they are between TanStack's. Do not duplicate a helper to avoid one, and do not
+  promote a helper to `src/shared/` just because a second feature reached for it. A helper with
+  a clear owner keeps that owner. What does move to `src/shared/` is vocabulary with no owning
+  feature: a type or constant that several features and the store all speak. `LinkAnchor` lives
+  there for that reason, even though only `dependencies/` produces one, because `shared/store.ts`
+  holds the drag draft and `shared/` may not import a feature.
 
 Imports are bare and resolved by `baseUrl: "src"` in `tsconfig.json`, so a module's specifier is
-its path under `src/`: `bars/hooks/useGanttBarDrag`, `rows/utils/rows`, `interaction/utils/a11y`.
+its path under `src/`: `features/bars/hooks/useGanttBarDrag`, `features/rows/utils/rows`,
+`features/interaction/utils/a11y`.
 
 Tests sit in the folder of the code they cover, named after the module they cover. A module
 large enough to test along separate axes may carry more than one suite, with the axis after the
@@ -124,7 +127,7 @@ module name: `geometry.test.ts`, `geometry.drag.test.ts`, `geometry.timezone.tes
 ```bash
 pnpm lint
 pnpm type-check
-pnpm test        # vitest, across src/core and the domain folders (pure functions only)
+pnpm test        # vitest, across src/core, src/shared and src/features (pure functions only)
 pnpm build
 ```
 

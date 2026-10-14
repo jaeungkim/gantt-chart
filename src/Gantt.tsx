@@ -1,17 +1,17 @@
-import GanttChartHeader from "timeline/components/GanttChartHeader";
-import GanttDependencyArrows from "dependencies/components/GanttDependencyArrows";
-import GanttDragGuides from "bars/components/GanttDragGuides";
-import GanttGridSplitter from "task-list/components/GanttGridSplitter";
-import GanttTaskAddRow from "task-list/components/GanttTaskAddRow";
+import GanttChartHeader from "features/timeline/components/GanttChartHeader";
+import GanttDependencyArrows from "features/dependencies/components/GanttDependencyArrows";
+import GanttDragGuides from "features/bars/components/GanttDragGuides";
+import GanttGridSplitter from "features/task-list/components/GanttGridSplitter";
+import GanttTaskAddRow from "features/task-list/components/GanttTaskAddRow";
 import {
   GanttTodayDot,
   GanttTodayLine,
-} from "timeline/components/GanttTodayLine";
-import GanttTaskGrid from "task-list/components/GanttTaskGrid";
-import GanttBarsLayer from "bars/components/GanttBarsLayer";
-import GanttHolidayLabels from "timeline/components/GanttHolidayLabels";
-import GanttNonWorkingLayer from "timeline/components/GanttNonWorkingLayer";
-import GanttRowsLayer from "rows/components/GanttRowsLayer";
+} from "features/timeline/components/GanttTodayLine";
+import GanttTaskGrid from "features/task-list/components/GanttTaskGrid";
+import GanttBarsLayer from "features/bars/components/GanttBarsLayer";
+import GanttHolidayLabels from "features/timeline/components/GanttHolidayLabels";
+import GanttNonWorkingLayer from "features/timeline/components/GanttNonWorkingLayer";
+import GanttRowsLayer from "features/rows/components/GanttRowsLayer";
 import {
   forwardRef,
   useCallback,
@@ -22,24 +22,24 @@ import {
   useRef,
   useState,
 } from "react";
-import { useGanttCollapse } from "rows/hooks/useGanttCollapse";
+import { useGanttCollapse } from "features/rows/hooks/useGanttCollapse";
 import {
   defaultTaskDraft,
   useGanttDrawCreate,
-} from "bars/hooks/useGanttDrawCreate";
-import { useGanttInteraction } from "interaction/hooks/useGanttInteraction";
-import { useGanttKeyboardNav } from "interaction/hooks/useGanttKeyboardNav";
-import { useGanttRowModel } from "rows/hooks/useGanttRowModel";
+} from "features/bars/hooks/useGanttDrawCreate";
+import { useGanttInteraction } from "features/interaction/hooks/useGanttInteraction";
+import { useGanttKeyboardNav } from "features/interaction/hooks/useGanttKeyboardNav";
+import { useGanttRowModel } from "features/rows/hooks/useGanttRowModel";
 import { useGanttSelectors } from "./useGanttSelectors";
-import { useGanttSelection } from "interaction/hooks/useGanttSelection";
-import GanttDetailPanel from "detail/components/GanttDetailPanel";
+import { useGanttSelection } from "features/interaction/hooks/useGanttSelection";
+import GanttDetailPanel from "features/detail/components/GanttDetailPanel";
 import {
   useGanttDetail,
   useGanttDetailSlide,
-} from "detail/hooks/useGanttDetail";
-import { GanttHandle, useGanttScrollApi } from "timeline/hooks/useGanttScrollApi";
-import { useGanttTaskMove } from "task-list/hooks/useGanttTaskMove";
-import { useGanttVirtualization } from "timeline/hooks/useGanttVirtualization";
+} from "features/detail/hooks/useGanttDetail";
+import { GanttHandle, useGanttScrollApi } from "features/timeline/hooks/useGanttScrollApi";
+import { useGanttTaskMove } from "features/task-list/hooks/useGanttTaskMove";
+import { useGanttVirtualization } from "features/timeline/hooks/useGanttVirtualization";
 import {
   useGanttInitialScroll,
   useGanttRangeExtension,
@@ -47,7 +47,7 @@ import {
   useGanttScaleReport,
   useGanttTimelineSync,
   useGanttWheelZoom,
-} from "timeline/hooks/useGanttViewport";
+} from "features/timeline/hooks/useGanttViewport";
 import { useResolvedTheme } from "shared/hooks/useResolvedTheme";
 import { GanttStoreContext, useGanttStore } from "shared/context";
 import { createGanttStore } from "shared/store";
@@ -61,7 +61,7 @@ import {
   computeNonWorkingRanges,
   OFF_DAY_KEY,
   type NonWorkingDay,
-} from "timeline/utils/geometry";
+} from "features/timeline/utils/geometry";
 import { resolveFormatters } from "shared/utils/i18n";
 import { indexHolidays } from "shared/utils/holidays";
 import { GanttProps } from './props';

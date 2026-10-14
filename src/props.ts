@@ -1,6 +1,6 @@
 import { GanttTaskMoveChange } from "core/reorder";
-import { GanttTaskDraft } from "bars/hooks/useGanttDrawCreate";
-import { GanttDependencyChange } from "dependencies/hooks/useGanttLinkDrag";
+import { GanttTaskDraft } from "features/bars/hooks/useGanttDrawCreate";
+import { GanttDependencyChange } from "features/dependencies/hooks/useGanttLinkDrag";
 import {
   GanttDateRange,
   GanttDetailRenderer,

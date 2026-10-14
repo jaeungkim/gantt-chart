@@ -9,7 +9,7 @@ export type {
   GanttTaskCreateApi,
   GanttScrollApi,
   GanttScrollOptions,
-} from './timeline/hooks/useGanttScrollApi';
+} from './features/timeline/hooks/useGanttScrollApi';
 export type {
   Task,
   TaskDependency,
@@ -17,13 +17,13 @@ export type {
   TaskTransformed,
   GanttInteractionConfig,
 } from './shared/task';
-export type { GanttDependencyChange } from './dependencies/hooks/useGanttLinkDrag';
+export type { GanttDependencyChange } from './features/dependencies/hooks/useGanttLinkDrag';
 export type {
   GanttMoveRejection,
   GanttTaskMove,
   GanttTaskMoveChange,
 } from './core/reorder';
-export type { GanttTaskDraft } from './bars/hooks/useGanttDrawCreate';
+export type { GanttTaskDraft } from './features/bars/hooks/useGanttDrawCreate';
 export type {
   GanttDateRange,
   GanttDetailRenderProps,
@@ -34,7 +34,7 @@ export type {
   GanttTheme,
   Holiday,
 } from './shared/types';
-export type { GanttRow } from './rows/utils/rows';
+export type { GanttRow } from './features/rows/utils/rows';
 
 // Headless core - no React, no DOM. Usable on a server or in a worker.
 export {
