@@ -2,7 +2,8 @@ import { RootProvider } from 'fumadocs-ui/provider/next';
 import dynamic from 'next/dynamic';
 import type { ReactNode } from 'react';
 import { provider } from '@/lib/i18n';
-import { pretendardKorean, pretendardLatin } from '../fonts/pretendard';
+// Upstream's dynamic subset: 92 unicode-range slices, so a page fetches only the glyph blocks it uses.
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import { Analytics } from '@vercel/analytics/next';
 
 // Dev-only: a top-level import would ship the 440 kB toolbar to prod, so it stays in this ternary.
@@ -21,11 +22,7 @@ export default async function LangLayout({
   const { lang } = await params;
 
   return (
-    <html
-      lang={lang}
-      className={`${pretendardLatin.variable} ${pretendardKorean.variable}`}
-      suppressHydrationWarning
-    >
+    <html lang={lang} suppressHydrationWarning>
       <body className="flex min-h-screen flex-col">
         <RootProvider i18n={provider(lang)}>{children}</RootProvider>
         <Analytics />
