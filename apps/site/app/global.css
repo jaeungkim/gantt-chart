@@ -6,17 +6,11 @@
 @import '@jaeungkim/gantt-chart/style.css' layer(gantt);
 
 /* Tailwind derives --default-font-family from --font-sans, moving the whole shell onto Pretendard.
-   `inline` is required (the vars come from classes on <html>); latin first so hangul falls through. */
-@theme inline {
-  --font-sans: var(--font-pretendard-latin), var(--font-pretendard-korean),
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-}
-
-/* next/font hashes the family, so the chart's own "Pretendard Variable" token matches nothing.
-   Unlayered, so this outranks the library's rule in layer(gantt). */
-.gantt-container {
-  --gantt-font-sans: var(--font-pretendard-latin), var(--font-pretendard-korean),
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+   The same family name the library's own --gantt-font-sans token leads with, so the chart matches
+   without an override. */
+@theme {
+  --font-sans: 'Pretendard Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui,
+    sans-serif;
 }
 
 /* The playground console. Fumadocs keeps its own motion in `@theme`, so this follows the same
