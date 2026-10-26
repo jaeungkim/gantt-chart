@@ -43,6 +43,8 @@ For time-based plans, use ISO strings with an explicit offset:
 
 Dates without an offset are also read as UTC. Edits return full UTC ISO strings, so `2026-09-01` may come back as `2026-09-01T00:00:00.000Z`.
 
+A bar move leaves a date that does not parse untouched, such as an empty placeholder on a summary row. Resizing an edge whose date does not parse gives it the date where the edge is dropped.
+
 The chart does not offer a local-time-zone mode. [Locale and date formats](i18n) changes labels, not the time zone used for layout.
 
 ## Set order and structure
@@ -67,7 +69,11 @@ Preserve optional fields such as dependencies and progress when saving. If your 
 
 When your app edits tasks directly, create a new array and new objects for changed tasks. Mutating the existing array in place does not trigger synchronization.
 
-The chart also compares incoming data with the previous incoming data using JSON serialization. Re-passing the previous value is not a reliable way to reject a chart edit: an unchanged serialized value does not replace the chart's internal data. Property order and extra fields can affect that comparison.
+The chart compares each new `tasks` array with the one it last received, using JSON serialization, and applies it only when the two differ. Property order and extra fields can affect that comparison. A list that cannot be serialized, such as one holding a circular reference or a `BigInt`, always counts as changed, so every new array replaces the chart's data.
+
+The comparison is against that last array, not against what the chart shows. Re-passing the array it last received reverts nothing, so a handler that skips `setTasks` leaves the edit on screen. Setting the previous array later, once the chart has received the edited one, does revert it. The optimistic save in [Events](events) works this way.
+
+To reject an edit outright instead of reverting it, see [Events](events).
 
 ## Add more detail
 

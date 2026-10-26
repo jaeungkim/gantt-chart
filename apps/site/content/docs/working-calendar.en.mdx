@@ -59,9 +59,11 @@ Which edge snaps depends on the gesture.
 
 Drag the Content audit bar four days later at the month scale and its start lands on Saturday `2026-09-05`. The start snaps forward two days to Monday `2026-09-07`, the end follows, and the bar keeps its span of three days.
 
-The snap counts whole days and only moves forward, so the time of day is kept. A left resize that would snap past the bar's own end does not snap. Dragging a summary bar carries its whole subtree, as [Task list and hierarchy](task-list) describes.
+A right resize snaps the last day the bar covers, because `endDate` is exclusive. An end at Saturday `00:00` covers through Friday, so it stays. An end at Sunday `00:00` covers Saturday, so it moves to Tuesday `00:00` and the bar now covers through Monday.
 
-The snap applies while the pointer is down. The bar and the date readout in the header show the snapped dates, and releasing commits them.
+The snap counts whole days and only moves forward, so the time of day is kept. A left resize that would snap onto or past the bar's own end does not snap. Dragging a summary bar carries its whole subtree, as [Task list and hierarchy](task-list) describes.
+
+The snap applies while the pointer is down. The bar and the date readout in the header show the snapped dates, and releasing commits them. A drag released where it started commits nothing, so a bar that starts on a non-working day stays there. A resize of a bar shorter than one drag step is the exception: it still lengthens the bar to at least one step.
 
 ## Bar width and shading
 
@@ -72,7 +74,6 @@ Pointer position still converts to a date by counting every day. The snap is add
 ## Before you integrate
 
 - The snap runs on a pointer drag of a bar. A new `tasks` array, a drawn link, a drawn task and a date typed in the [detail panel](detail-panel) all keep the dates you passed in.
-- Keyboard moves and resizes shift by plain drag steps, so they can leave a bar on a non-working day. See [Keyboard and screen readers](accessibility).
 - `minDate` and `maxDate` clamp after the snap and win, so a bar held at a bound can end on a Saturday. [Editing tasks](editing) covers those bounds.
 - The calendar is data your app passes in. Nothing in the chart edits `workingWeekdays` or `holidays`.
 

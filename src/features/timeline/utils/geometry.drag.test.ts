@@ -125,7 +125,6 @@ describe('clampDragDates - bounds composed with the invert clamp (#42)', () => {
       { min: dayjs('2025-06-01T00:00:00Z'), max: dayjs('2025-06-30T00:00:00Z') },
       'month'
     );
-    // Bound alone would allow 06-30, which is past the fixed end - one day back instead
     expect(iso(out.startDate)).toBe('2025-06-13T00:00:00.000Z');
     expect(out.startDate.valueOf()).toBeLessThan(out.endDate.valueOf());
   });
@@ -154,7 +153,6 @@ describe('clampDragDates - bounds composed with the invert clamp (#42)', () => {
   });
 
   it('never inverts, even when the task already sits outside its own window', () => {
-    // min is past the fixed right edge - non-inversion wins over the bound
     const out = clampDragDates(
       'left',
       dayjs('2025-06-10T00:00:00Z'),
@@ -169,7 +167,6 @@ describe('clampDragDates - bounds composed with the invert clamp (#42)', () => {
 
 describe('pxBetweenDates (#42)', () => {
   it('matches a whole number of drag steps at every scale', () => {
-    // week: 6 hours per step at 18px (72px a day), year: 28 days per step at 28px
     expect(
       pxBetweenDates(
         dayjs('2025-06-10T00:00:00Z'),
@@ -278,13 +275,11 @@ describe('clampMoveDelta - subtree drag bounds (#42 + hierarchy)', () => {
   });
 
   it('shrinks the delta to what the only bounded member allows', () => {
-    // 06-10 with a 06-08 floor can only give up 2 days of a 5-day pull left
     const members = [member('2025-06-10', '2025-06-14', '2025-06-08')];
     expect(clampMoveDelta(members, -5 * DAY, 'month')).toBe(-2 * DAY);
   });
 
   it('takes the tightest bound across the whole subtree', () => {
-    // The parent could slide 4 days right; a child may only slide 1
     const members = [
       member('2025-06-10', '2025-06-14', undefined, '2025-06-18'),
       member('2025-06-12', '2025-06-16', undefined, '2025-06-17'),

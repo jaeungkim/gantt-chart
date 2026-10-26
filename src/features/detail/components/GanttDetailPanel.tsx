@@ -1,41 +1,34 @@
-import {
-  Fragment,
-  ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { CSSProperties, useCallback, useEffect, useState } from "react";
 import dayjs from "core/dates";
 import { useGanttStoreApi } from "shared/context";
+import { useLatestRef } from "shared/hooks/useLatestRef";
 import {
   GanttDetailRenderer,
-  GanttLocaleOptions,
+  GanttFormatters,
   GanttScaleKey,
 } from "shared/types";
 import {
   GanttInteractionConfig,
   normalizeProgress,
+  resolveTaskColors,
   Task,
   TaskTransformed,
 } from "shared/task";
-import { formatDuration, resolveFormatters } from "shared/utils/i18n";
+import { formatDuration } from "shared/utils/i18n";
 import {
-  commitDetailPatch,
   DetailEditableField,
   resolveDetailEditability,
   resolveFieldPatch,
 } from "features/detail/utils/edit";
+import { LINK_TYPE_TITLE } from "features/dependencies/utils/link";
 
 interface GanttDetailPanelProps {
   task: TaskTransformed;
   /** Every task, so a dependency's target id can be printed by name */
   tasks: TaskTransformed[];
   scale: GanttScaleKey;
-  localeOptions?: GanttLocaleOptions;
-  /** Gates which built-in fields take input - the same flags the drag gestures obey */
+  tooltip: GanttFormatters["tooltip"];
+  /** Gates which built-in fields take input */
   interaction?: GanttInteractionConfig;
   onClose: () => void;
   onTasksChange?: (updatedTasks: Task[]) => void;
@@ -46,19 +39,15 @@ interface GanttDetailPanelProps {
 }
 
 interface DetailInputProps {
-  id?: string;
-  type: "text" | "date" | "number";
-  /** The store's value - the draft resets to it on an external change or a refused commit */
+  className: string;
+  type: "text" | "date";
+  /** The store's value */
   value: string;
   commit: (value: string) => void;
-  min?: number;
-  max?: number;
-  step?: number;
   "aria-label"?: string;
 }
 
-// Commits on blur and Enter; Escape reverts the draft without closing the panel
-function DetailInput({ value, commit, ...rest }: DetailInputProps) {
+function useDraft<T>(value: T) {
   const [draft, setDraft] = useState(value);
 
   // The store value wins whenever it changes - a landed commit, or a drag that moved the task
@@ -68,6 +57,13 @@ function DetailInput({ value, commit, ...rest }: DetailInputProps) {
     setDraft(value);
   }
 
+  return [draft, setDraft] as const;
+}
+
+// Commits on blur and Enter; Escape reverts the draft without closing the panel
+function DetailInput({ value, commit, ...rest }: DetailInputProps) {
+  const [draft, setDraft] = useDraft(value);
+
   const submit = () => {
     if (draft !== value) commit(draft);
     // A landed commit echoes back through `value`; a refused one leaves this as the revert
@@ -76,16 +72,18 @@ function DetailInput({ value, commit, ...rest }: DetailInputProps) {
 
   return (
     <input
-      className="gantt-detail-input"
       {...rest}
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={submit}
       onKeyDown={(event) => {
-        if (event.key === "Enter") submit();
+        if (event.key === "Enter") {
+          // Commits the field only, not a host <form> the chart sits in
+          event.preventDefault();
+          submit();
+        }
         if (event.key === "Escape") {
-          // stopPropagation at the React root keeps the panel's document-level
-          // Escape listener from also closing the panel
+          event.preventDefault();
           event.stopPropagation();
           setDraft(value);
         }
@@ -94,154 +92,126 @@ function DetailInput({ value, commit, ...rest }: DetailInputProps) {
   );
 }
 
+// The slider wears the task's own bar colors, so it reads as the bar it edits
+function ProgressField({
+  value,
+  editable,
+  colors,
+  commit,
+}: {
+  value: number;
+  editable: boolean;
+  colors: CSSProperties;
+  commit: (value: string) => void;
+}) {
+  const [draft, setDraft] = useDraft(value);
+
+  // One commit per gesture: a drag or a held arrow key lands once, on release
+  const submit = () => {
+    if (draft !== value) commit(String(draft));
+  };
+
+  const style = { ...colors, "--gantt-detail-progress": `${draft}%` } as CSSProperties;
+
+  return (
+    <label className="gantt-detail-section">
+      <span className="gantt-detail-row">
+        <span className="gantt-detail-label">Progress</span>
+        <span className="gantt-detail-meta">{draft}%</span>
+      </span>
+      {editable ? (
+        <input
+          className="gantt-detail-progress"
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={draft}
+          style={style}
+          onChange={(event) => setDraft(Number(event.target.value))}
+          onPointerUp={submit}
+          onKeyDown={(event) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            event.stopPropagation();
+            setDraft(value);
+          }}
+          onKeyUp={submit}
+          onBlur={submit}
+        />
+      ) : (
+        <span className="gantt-detail-progress" style={style} />
+      )}
+    </label>
+  );
+}
+
 /** The docked panel on the right */
 // A sibling of `.gantt-main`, not a layer over it, so width-based scroll and zoom math stays correct.
-// `complementary` and not a dialog on purpose - the chart behind it stays interactive.
 export default function GanttDetailPanel({
   task,
   tasks,
   scale,
-  localeOptions,
+  tooltip,
   interaction,
   onClose,
   onTasksChange,
   render,
   open,
 }: GanttDetailPanelProps) {
-  const panelRef = useRef<HTMLElement>(null);
   const storeApi = useGanttStoreApi();
-  const idBase = useId();
-  // The label and its input build the same id, so they read the same expression
-  const fieldId = (field: "startDate" | "endDate" | "progress") =>
-    `${idBase}-${field}`;
+  const closeRef = useLatestRef(onClose);
 
-  // Restore focus on unmount only, and only while focus is still ours (in the panel, on <body>,
-  // or nowhere) - the panel can close while the user is typing elsewhere on the host's page.
-  const returnFocusRef = useRef<Element | null>(null);
+  // Subscribed once: a host render between listeners would otherwise swap it out mid-dispatch
   useEffect(() => {
-    // Read once, here: by cleanup time React has already detached the ref
-    const panel = panelRef.current;
-    returnFocusRef.current = document.activeElement;
-    return () => {
-      const active = document.activeElement;
-      const ours =
-        active === null ||
-        active === document.body ||
-        (panel?.contains(active) ?? false);
-      if (!ours) return;
-
-      const previous = returnFocusRef.current;
-      if (previous instanceof HTMLElement && previous.isConnected) {
-        previous.focus({ preventScroll: true });
-      }
-    };
-  }, []);
-
-  // Document-level: focus can sit on <body> or outside the chart, where a React handler on the
-  // chart's own tree would never see the keydown.
-  useEffect(() => {
+    // A field marks its own Escape handled: stopPropagation cannot shield a listener on React's root
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !event.defaultPrevented) closeRef.current();
     };
 
+    // Document-level: focus can sit on <body> or outside the chart, where a React handler on the
+    // chart's own tree would never see the keydown.
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [onClose]);
-
-  const { tooltip } = useMemo(
-    () => resolveFormatters(scale, localeOptions),
-    [scale, localeOptions]
-  );
+  }, [closeRef]);
 
   const update = useCallback(
-    (patch: Partial<Omit<Task, "id">>) =>
-      commitDetailPatch(storeApi, task.id, patch, onTasksChange),
+    (patch: Partial<Omit<Task, "id">>) => {
+      const { rawTasks, setRawTasks } = storeApi.getState();
+      const updated = rawTasks.map((entry) =>
+        entry.id === task.id ? { ...entry, ...patch } : entry
+      );
+      setRawTasks(updated);
+      onTasksChange?.(updated);
+    },
     [storeApi, task.id, onTasksChange]
   );
 
-  const commitField = useCallback(
-    (field: DetailEditableField, value: string) => {
-      const patch = resolveFieldPatch(task, field, value, interaction);
-      if (patch) update(patch);
-    },
-    [task, interaction, update]
-  );
+  const commitField = (field: DetailEditableField, value: string) => {
+    const patch = resolveFieldPatch(task, field, value, interaction);
+    if (patch) update(patch);
+  };
 
   const editable = resolveDetailEditability(task, interaction);
   const progress = normalizeProgress(task.progress);
   const start = dayjs(task.startDate);
   const end = dayjs(task.endDate);
   // Predecessors by name; an id naming no task falls back to the id itself
-  const predecessors = (task.dependencies ?? []).map(
-    (dep) => tasks.find((entry) => entry.id === dep.targetId)?.name ?? dep.targetId
-  );
-
-  const dateInput = (field: "startDate" | "endDate", value: string) => (
-    <DetailInput
-      id={fieldId(field)}
-      type="date"
-      value={dayjs(value).format("YYYY-MM-DD")}
-      commit={(next) => commitField(field, next)}
-    />
-  );
-
-  // Captions are fixed English: the only words the panel prints, and `renderDetail` replaces them
-  const fields: { caption: string; value: ReactNode; inputId?: string }[] = [
-    editable.dates
-      ? {
-          caption: "Start",
-          inputId: fieldId("startDate"),
-          value: dateInput("startDate", task.startDate),
-        }
-      : { caption: "Start", value: tooltip(start) },
-    editable.dates
-      ? {
-          caption: "End",
-          inputId: fieldId("endDate"),
-          value: dateInput("endDate", task.endDate),
-        }
-      : { caption: "End", value: tooltip(end) },
-    { caption: "Duration", value: formatDuration(end.valueOf() - start.valueOf()) },
-  ];
-  if (progress !== null) {
-    fields.push(
-      editable.progress
-        ? {
-            caption: "Progress",
-            inputId: fieldId("progress"),
-            value: (
-              <DetailInput
-                id={fieldId("progress")}
-                type="number"
-                min={0}
-                max={100}
-                step={1}
-                value={String(progress)}
-                commit={(next) => commitField("progress", next)}
-              />
-            ),
-          }
-        : { caption: "Progress", value: `${progress}%` }
-    );
-  }
-  if (predecessors.length > 0) {
-    fields.push({ caption: "Depends on", value: predecessors.join(", ") });
-  }
+  const dependencies = (task.dependencies ?? []).map((dep) => ({
+    ...dep,
+    name: tasks.find((entry) => entry.id === dep.targetId)?.name ?? dep.targetId,
+  }));
 
   return (
-    <aside
-      ref={panelRef}
-      className={open ? "gantt-detail gantt-detail-open" : "gantt-detail"}
-      role="complementary"
-      aria-label="Task details"
-    >
+    <aside className={open ? "gantt-detail gantt-detail-open" : "gantt-detail"}>
       {render ? (
         render({ task, close: onClose, scale, update })
       ) : (
         <>
-          <div className="gantt-detail-header">
+          <header className="gantt-detail-header">
             {editable.name ? (
               <DetailInput
+                className="gantt-detail-title"
                 type="text"
                 aria-label="Task name"
                 value={task.name}
@@ -253,23 +223,70 @@ export default function GanttDetailPanel({
             <button
               type="button"
               className="gantt-detail-close"
+              title="Close"
+              aria-label="Close"
               onClick={onClose}
-              aria-label="Close task details"
             >
-              ✕
+              <svg viewBox="0 0 16 16">
+                <path d="M4 4l8 8M12 4l-8 8" />
+              </svg>
             </button>
-          </div>
+          </header>
 
-          <dl className="gantt-detail-fields">
-            {fields.map(({ caption, value, inputId }) => (
-              <Fragment key={caption}>
-                <dt>
-                  {inputId ? <label htmlFor={inputId}>{caption}</label> : caption}
-                </dt>
-                <dd>{value}</dd>
-              </Fragment>
-            ))}
-          </dl>
+          <section className="gantt-detail-section">
+            <span className="gantt-detail-row">
+              <span className="gantt-detail-label">Dates</span>
+              <span className="gantt-detail-meta">
+                {formatDuration(end.valueOf() - start.valueOf())}
+              </span>
+            </span>
+            <span className="gantt-detail-dates">
+              {(["startDate", "endDate"] as const).map((field) => (
+                <label key={field} className="gantt-detail-field">
+                  <span className="gantt-detail-sublabel">
+                    {field === "startDate" ? "Start" : "End"}
+                  </span>
+                  {editable.dates ? (
+                    <DetailInput
+                      className="gantt-detail-input"
+                      type="date"
+                      value={dayjs(task[field]).format("YYYY-MM-DD")}
+                      commit={(next) => commitField(field, next)}
+                    />
+                  ) : (
+                    <span className="gantt-detail-value">
+                      {tooltip(field === "startDate" ? start : end)}
+                    </span>
+                  )}
+                </label>
+              ))}
+            </span>
+          </section>
+
+          {progress !== null && (
+            <ProgressField
+              value={progress}
+              editable={editable.progress}
+              colors={resolveTaskColors(task.color) as CSSProperties}
+              commit={(next) => commitField("progress", next)}
+            />
+          )}
+
+          {dependencies.length > 0 && (
+            <section className="gantt-detail-section">
+              <span className="gantt-detail-label">Depends on</span>
+              <ul className="gantt-detail-deps">
+                {dependencies.map(({ targetId, type, name }) => (
+                  <li key={targetId}>
+                    <span className="gantt-detail-badge" title={LINK_TYPE_TITLE[type]}>
+                      {type}
+                    </span>
+                    <span className="gantt-detail-dep-name">{name}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </>
       )}
     </aside>

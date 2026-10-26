@@ -4,7 +4,7 @@ import { GanttBottomRowCell, GanttScaleKey } from "shared/types";
 import { Task, TaskTransformed } from "shared/task";
 import dayjs from "core/dates";
 import { TaskTree } from "core/tree";
-import { sortTasksBySequence } from "core/reorder";
+import { buildTaskOrder, sortTasksBySequence } from "core/reorder";
 
 // Bar geometry: where a task's span starts and how wide it is, in px along the tick strip.
 export function calculateDateOffsets(
@@ -17,8 +17,7 @@ export function calculateDateOffsets(
     return { barMarginLeftAmount: 0, barWidthSize: 0 };
   }
 
-  const config = GANTT_SCALE_CONFIG[scaleKey];
-  const { tickUnit, unitPerTick } = config;
+  const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];
 
   let leftMargin = 0;
   let barWidth = 0;
@@ -67,11 +66,23 @@ export function calculateDateOffsets(
   };
 }
 
-function calculateTaskDepth(sequence: string): number {
-  return sequence.split(".").length - 1;
+function calculateTaskDepth(
+  parentOf: ReadonlyMap<string, string | null>,
+  id: string
+): number {
+  // Duplicate ids can loop the sequence forest, so stop at the first repeat.
+  const seen = new Set<string>();
+  for (
+    let cursor = parentOf.get(id);
+    cursor && !seen.has(cursor);
+    cursor = parentOf.get(cursor)
+  ) {
+    seen.add(cursor);
+  }
+  return seen.size;
 }
 
-// With `tree` (hierarchy on) depth comes from the parent chain, not the sequence, and rows
+// With `tree` (hierarchy on) depth comes from the `parentId` chain, not the sequence, and rows
 // with children are marked as summaries.
 export function transformTasks(
   tasks: Task[],
@@ -80,11 +91,11 @@ export function transformTasks(
   tree?: TaskTree
 ): TaskTransformed[] {
   const sortedTasks = sortTasksBySequence(tasks);
+  // Hierarchy off: depth follows the forest moves use, so a path with no parent row is a root.
+  const { parentOf } = tree ?? buildTaskOrder(sortedTasks, false);
 
   return sortedTasks.map((task, index) => {
-    const depth = tree
-      ? tree.depthOf.get(task.id) ?? 0
-      : calculateTaskDepth(task.sequence);
+    const depth = calculateTaskDepth(parentOf, task.id);
     const isSummary = (tree?.childIds.get(task.id)?.length ?? 0) > 0;
     const order = index + 1;
 

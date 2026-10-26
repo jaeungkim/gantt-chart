@@ -3,7 +3,7 @@ title: "Reordering rows"
 description: "Let people drag task-list rows to a new position or under a new parent."
 ---
 
-A plan changes shape as often as it changes dates. Turn on row dragging so people can move a task-list row to a new position, or under a new parent.
+Row dragging moves a task-list row to a new position or under a new parent. Turn it on, then decide which moves your app accepts.
 
 ## Turn on row dragging
 
@@ -33,13 +33,11 @@ A task's own `allowReorder` wins over the chart's, and `readOnly: true` on a tas
 
 The chart's `readOnly` is not consulted, because reordering has no permissive default to fall back to. See [interaction configuration](ref/interaction-config) for the precedence.
 
-A draggable row shows a grip on its left edge, on hover and on keyboard focus. A row that cannot move keeps a blank spacer there, so its text stays aligned.
+A draggable row shows a grip on its left edge on hover. A row that cannot move keeps a blank spacer there, so its text stays aligned.
 
-A drag starts on the grip only. A press anywhere else in the row selects it, and `Escape` returns a dragged row to its place.
+A drag starts on the grip only. A click anywhere else in the row is an ordinary row click, and `Escape` returns a dragged row to its place.
 
 On touch, rest a finger on the grip for the same 400 ms a bar drag needs. See [Editing tasks](editing).
-
-`Alt` with the vertical arrows moves a row among its siblings, and `Ctrl`/`Cmd` with the horizontal arrows indents or outdents it. See [keyboard controls](accessibility).
 
 ## Where a row lands
 
@@ -95,7 +93,7 @@ Both come from one result, so they cannot disagree. See [tree helpers](ref/core-
 
 `onTaskMove` is not awaited, so only a literal `false` rejects a move. A handler returning a promise has already allowed it.
 
-To undo a move your server refuses, pass the previous `tasks` array back. See [Events](events).
+To undo a move your server refuses, keep the moved array in state, then set the previous one back when the save fails, as [Events](events) shows. The chart reverts only to an array that differs from the last one it received, so skipping `setTasks` leaves the move on screen. See [Task data](task-data).
 
 That works only while your app holds the array in state. A chart given a literal array tracks its own copy and has nothing to revert to.
 
@@ -103,6 +101,7 @@ That works only while your app holds the array in state. A chart given a literal
 
 - A row carrying more than one task can neither be dragged nor receive a drop, because a shared [lane](lanes) row names no single task to move.
 - A drop into a row appends last among its children. No region names a slot between two children, so drop the row as a sibling of that child instead.
-- A row drag does not auto-scroll. `autoScrollOnDrag` covers bar moves and resizes only, so scroll a distant drop target into view first.
+- A row drag does not auto-scroll. `autoScrollOnDrag` covers bar moves and resizes only, so scroll a distant drop target into view first. A release over the header, or above or below the visible rows, drops nothing.
+- Row dragging needs a pointer. No key moves a row.
 
 Props and defaults: [GanttProps](ref/props).

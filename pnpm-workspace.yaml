@@ -19,9 +19,9 @@ trustPolicyExclude:
   # Under @types/node@22. 6.13-6.19.2 shipped provenance, then undici's release pipeline
   # dropped it from mid-2024. Vitest and TanStack Query exclude the same version.
   - undici-types@6.21.0
-  # Under @vitejs/plugin-react (via Babel). A 6.x backport published without provenance in July
-  # 2023, three days after 7.5.4 shipped with it. Vite, Vitest, TanStack Query and typescript-eslint
-  # exclude it.
+  # Under @babel/core, a dependency of eslint-plugin-react-hooks. A 6.x backport published
+  # without provenance in July 2023, three days after 7.5.4 shipped with it. Vite, Vitest,
+  # TanStack Query and typescript-eslint exclude it.
   - semver@6.3.1
 # Transitive dependencies must come from the registry, never a git URL or a tarball.
 blockExoticSubdeps: true

@@ -1,8 +1,9 @@
 import type { VirtualItem } from "shared/virtual/window";
 import { RefObject, useEffect, useRef } from "react";
 import { buildTaskOrder, GanttDropMode, moveForDrop } from "core/reorder";
-import { GanttTaskMoveApi } from "features/task-list/hooks/useGanttTaskMove";
+import { GanttTaskMoveApi } from "features/task-list/types";
 import { useLatestRef } from "shared/hooks/useLatestRef";
+import { HEADER_HEIGHT } from "shared/constants";
 import { useGanttStore, useGanttStoreApi } from "shared/context";
 import { GanttReorderDraft } from "shared/store";
 import { GanttRow } from "features/rows/utils/rows";
@@ -38,8 +39,9 @@ export function useGanttRowDrag({
   const moveRef = useLatestRef(move);
   // Aborts a touch long press that has not lifted yet
   const pendingRef = useRef<(() => void) | null>(null);
-  // Tears down the running drag - also on unmount, so a culled row leaves no listeners or draft
+  // Tears down the running drag - also on unmount, so no listeners or draft are left behind
   const cleanupRef = useRef<(() => void) | null>(null);
+  const reorderedRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -58,11 +60,10 @@ export function useGanttRowDrag({
     // Nothing commits until the release, so the sibling lists are read once, not per frame
     const order = buildTaskOrder(storeApi.getState().rawTasks, hierarchy);
 
+    // Capture throws if the pointer is already gone; pointerup/pointercancel below still tear the drag down
     try {
       element.setPointerCapture(pointerId);
-    } catch {
-      // Pointer already gone; pointerup/pointercancel below still tear the drag down
-    }
+    } catch {}
 
     // Rows let touch scroll the pane, so the scroll is held off by hand for this drag
     const releaseTouchScroll =
@@ -70,9 +71,21 @@ export function useGanttRowDrag({
     const previousCursor = document.body.style.cursor;
     document.body.style.cursor = "grabbing";
 
+    const scrollEl = bodyRef.current?.closest<HTMLElement>(
+      ".gantt-scroll-container"
+    );
+    // Rows under the sticky header or past the bottom edge are rendered but hidden
+    const inView = (clientY: number) => {
+      if (!scrollEl) return true;
+      const { top } = scrollEl.getBoundingClientRect();
+      return (
+        clientY >= top + HEADER_HEIGHT && clientY < top + scrollEl.clientHeight
+      );
+    };
+
     const resolveDrop = (clientY: number): GanttReorderDraft | null => {
       const body = bodyRef.current;
-      if (!body) return null;
+      if (!body || !inView(clientY)) return null;
 
       // The body scrolls with its container, so its own rect already carries the scroll
       const y = clientY - body.getBoundingClientRect().top;
@@ -114,27 +127,22 @@ export function useGanttRowDrag({
       storeApi.getState().setReorderDraft(resolveDrop(moveEvent.clientY));
     };
 
-    const detachListeners = () => {
+    const cancelDrag = () => {
       releaseTouchScroll?.();
       document.body.style.cursor = previousCursor;
       document.removeEventListener("pointermove", handlePointerMove);
       document.removeEventListener("pointerup", handlePointerUp);
       document.removeEventListener("pointercancel", handlePointerCancel);
       document.removeEventListener("keydown", handleKeyDown);
+      // Throws when already released, or the grip is gone
       try {
         element.releasePointerCapture(pointerId);
-      } catch {
-        // Already released, or the grip is gone
-      }
-    };
-
-    const cancelDrag = () => {
-      detachListeners();
+      } catch {}
       cleanupRef.current = null;
       storeApi.getState().setReorderDraft(null);
     };
 
-    // Browser-cancelled gestures (scroll takeover, multi-touch) drop the row
+    // Browser-cancelled gestures (scroll takeover, multi-touch) move nothing
     const handlePointerCancel = (cancelEvent: PointerEvent) => {
       if (cancelEvent.pointerId !== pointerId) return;
       cancelDrag();
@@ -150,12 +158,17 @@ export function useGanttRowDrag({
       // Resolved again, not read off the draft: a wheel scroll slides the rows under a
       // pointer that never moved, so the draft can name a row that is no longer there
       const dropped =
-        lastClientY === null
+        lastClientY === null || !inView(lastClientY)
           ? null
           : (resolveDrop(lastClientY) ?? storeApi.getState().reorderDraft);
       cancelDrag();
 
       if (dropped?.move && !dropped.rejection) {
+        // Any click from this release lands in this same task, before the timer clears the flag
+        reorderedRef.current = true;
+        setTimeout(() => {
+          reorderedRef.current = false;
+        });
         moveRef.current.apply(dropped.move);
       }
     }
@@ -192,5 +205,11 @@ export function useGanttRowDrag({
     );
   };
 
-  return { onGripPointerDown, draft };
+  const consumeDragClick = (): boolean => {
+    if (!reorderedRef.current) return false;
+    reorderedRef.current = false;
+    return true;
+  };
+
+  return { onGripPointerDown, consumeDragClick, draft };
 }

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Task } from 'shared/task';
+import type { GanttScaleKey } from 'shared/types';
 import dayjs from 'core/dates';
-// This import is the SSR regression test: a browser global at module scope fails to load in Node.
 import { createGanttStore } from './store';
 
 let store: ReturnType<typeof createGanttStore>;
@@ -15,9 +15,16 @@ describe('defaultScale seed', () => {
     expect(createGanttStore().getState().selectedScale).toBe('month');
   });
 
-  // Seeded at construction, not in a mount effect, so the first paint is already at the host's scale.
   it('starts at the scale it was constructed with', () => {
     expect(createGanttStore('quarter').getState().selectedScale).toBe('quarter');
+  });
+
+  it('falls back to month for a null, unknown or inherited key', () => {
+    for (const scale of [null, 'weekly', 'toString']) {
+      expect(
+        createGanttStore(scale as unknown as GanttScaleKey).getState().selectedScale,
+      ).toBe('month');
+    }
   });
 
   it('skips a redundant set so subscribers do not re-run', () => {
@@ -69,7 +76,6 @@ describe('syncTasksFromProps', () => {
     store.getState().setRawTasks(tasks);
 
     const before = store.getState();
-    // The host storing what onTasksChange handed it and passing it back
     store.getState().syncTasksFromProps(tasks.map((t) => ({ ...t })));
 
     expect(store.getState()).toBe(before);
@@ -81,6 +87,57 @@ describe('syncTasksFromProps', () => {
     store.getState().syncTasksFromProps([task('fresh', '2026-07-01')]);
 
     expect(store.getState().rawTasks.map((t) => t.id)).toEqual(['fresh']);
+  });
+
+  it('takes a task that cannot be serialized as changed instead of throwing', () => {
+    const project: { tasks: Task[] } = { tasks: [] };
+    const looped = { ...task('a', '2026-06-01'), project };
+    project.tasks.push(looped);
+    const bigint = { ...task('b', '2026-06-01'), revision: BigInt(3) };
+
+    for (const odd of [looped, bigint]) {
+      const store = createGanttStore();
+      store.getState().setRawTasks([odd]);
+      store.getState().syncTasksFromProps([{ ...odd }]);
+      expect(store.getState().rawTasks[0]).not.toBe(odd);
+    }
+  });
+});
+
+describe('clearAllDragOffsets', () => {
+  const node = (id: string, parentId: string | null): Task => ({
+    id,
+    name: id,
+    startDate: '2026-03-02',
+    endDate: '2026-03-20',
+    parentId,
+    sequence: '1',
+  });
+  const raw = [node('phase', null), node('a', 'phase'), node('b', 'phase'), node('other', null)];
+  const offset = { offsetX: 90, offsetWidth: 0 };
+
+  it('keeps every offset of an in-flight summary drag, and drops the rest', () => {
+    const store = createGanttStore();
+    store.getState().setRawTasks(raw);
+    store.getState().setBarDrag({
+      task: { ...raw[0], barLeft: 0, barWidth: 100, depth: 0, order: 0, originalOrder: 0, isSummary: true },
+      mode: 'bar',
+    });
+    store.getState().setDragOffsets({ phase: offset, a: offset, b: offset, other: offset });
+
+    store.getState().clearAllDragOffsets();
+
+    expect(Object.keys(store.getState().dragOffsets).sort()).toEqual(['a', 'b', 'phase']);
+  });
+
+  it('drops every offset once no drag is in flight', () => {
+    const store = createGanttStore();
+    store.getState().setRawTasks(raw);
+    store.getState().setDragOffsets({ phase: offset, a: offset });
+
+    store.getState().clearAllDragOffsets();
+
+    expect(store.getState().dragOffsets).toEqual({});
   });
 });
 
@@ -116,20 +173,4 @@ describe('per-instance isolation', () => {
     b.getState().setSelectedScale('day');
     expect(a.getState().selectedScale).toBe('week');
   });
-});
-
-describe('selection', () => {
-  it('keeps the selection identity stable when the same row is clicked twice', () => {
-    expect(store.getState().selectedTaskId).toBeNull();
-
-    store.getState().setSelectedTaskId('a1');
-    const afterFirst = store.getState();
-
-    store.getState().setSelectedTaskId('a1');
-    expect(store.getState()).toBe(afterFirst);
-
-    store.getState().setSelectedTaskId(null);
-    expect(store.getState().selectedTaskId).toBeNull();
-  });
-
 });

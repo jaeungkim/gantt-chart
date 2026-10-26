@@ -1,8 +1,10 @@
 import { useMemo } from "react";
-import { useGanttStore } from "shared/context";
-import { GanttBottomRowCell, GanttScaleKey } from "shared/types";
-import type { GanttVirtualization } from "features/timeline/hooks/useGanttVirtualization";
-import { mergeHeaderGroups } from "features/timeline/utils/header";
+import {
+  GanttBottomRowCell,
+  GanttLocaleOptions,
+  GanttScaleKey,
+} from "shared/types";
+import type { GanttVirtualization } from "features/timeline/types";
 import { resolveFormatters } from "shared/utils/i18n";
 import { createTopHeaderGroups } from "features/timeline/utils/geometry";
 
@@ -10,8 +12,9 @@ interface GanttChartHeaderProps {
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
   width: number;
-  // Chart's window; the bottom cells come from it (top groups are CSS-sticky)
+  // Chart's window; the bottom cells come from it (top-group labels are CSS-sticky)
   virtual: GanttVirtualization;
+  localeOptions?: GanttLocaleOptions;
 }
 
 function GanttChartHeader({
@@ -19,21 +22,18 @@ function GanttChartHeader({
   selectedScale,
   width,
   virtual,
+  localeOptions,
 }: GanttChartHeaderProps) {
-  const localeOptions = useGanttStore((store) => store.localeOptions);
   const formatters = useMemo(
     () => resolveFormatters(selectedScale, localeOptions),
     [selectedScale, localeOptions]
   );
 
-  // Window comes from the chart, so header cells and the bars beneath cull together
+  // `leadingCellPx` sizes the spacer for the skipped leading cells - keeps the flex flow intact.
   const { virtualCells, leadingCellPx } = virtual;
 
   const topGroups = useMemo(
-    () =>
-      mergeHeaderGroups(
-        createTopHeaderGroups(bottomRowCells, selectedScale, localeOptions)
-      ),
+    () => createTopHeaderGroups(bottomRowCells, selectedScale, localeOptions),
     [bottomRowCells, selectedScale, localeOptions]
   );
 
@@ -55,8 +55,7 @@ function GanttChartHeader({
         </div>
 
         <div className="gantt-bottom-row">
-          {/* Spacer for the skipped leading cells - keeps the flex flow intact */}
-          <div style={{ width: `${leadingCellPx}px` }} aria-hidden="true" />
+          <div style={{ width: `${leadingCellPx}px` }} />
           {virtualCells.map((virtualCell) => {
             const cell = bottomRowCells[virtualCell.index];
             if (!cell) return null;

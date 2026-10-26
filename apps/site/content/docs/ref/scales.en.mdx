@@ -24,14 +24,13 @@ import type {
 export type GanttScaleKey = 'day' | 'week' | 'month' | 'quarter' | 'year';
 ```
 
-The declaration order is the scale order, finest first. Ctrl/Cmd + ArrowUp moves one scale finer
-and Ctrl/Cmd + ArrowDown one scale coarser, clamped at both ends. Ctrl/Cmd + wheel moves through the
-same order when `zoomOnWheel` is on. `defaultScale` takes one of these values and defaults to
-`'month'`.
+The declaration order is the scale order, finest first. Ctrl/Cmd + wheel moves through this order
+when `zoomOnWheel` is on, clamped at both ends. `defaultScale` takes one of these values. Omitted,
+or set to anything else, it falls back to `'month'`.
 
 The chart renders no scale picker of its own and does not keep the scale across a remount. Render
 your own picker and drive it through `setScale` on the ref. `onScaleChange` reports every change,
-including the wheel and keyboard ones. See [GanttHandle](handle).
+including the wheel ones. See [GanttHandle](handle).
 
 `formats` is keyed by this type, and `GanttDetailRenderProps.scale` carries it. See
 [Detail renderer](renderers).
@@ -96,10 +95,10 @@ The tooltip and readout strings are in separate `DATE_FORMATS` and `RANGE_FORMAT
 neither exported. `[UTC]` in the two `day` strings is a dayjs escaped literal, not a resolved
 zone name.
 
-The tooltip string is the chart's general-purpose date label. The hover tooltip, the bar's ARIA
-label, the drag and keyboard announcements and the built-in detail panel's Start and End fields all
-print it. The panel prints it only where those two fields are not editable. An editable field is a
-native `<input type="date">` showing `YYYY-MM-DD`. See [Detail panel](../detail-panel).
+The tooltip string is the chart's general-purpose date label. The hover tooltip and the built-in
+detail panel's Start and End fields both print it. The panel prints it only where those two fields
+are not editable. An editable field is a native `<input type="date">` showing `YYYY-MM-DD`. See
+[Detail panel](../detail-panel).
 
 The readout string is the compact per-scale variant used by the header drag readout. Where the
 chart writes the readout and why the shorter strings drop the year are in
@@ -118,10 +117,10 @@ export interface GanttScaleFormat {
   /** Top header row - one label per group */
   header?: (date: Dayjs) => string;
   /**
-   * Every date the chart writes as a single date: the bar's hover tooltip, its live drag readout
-   * and aria-label, the header's drag guide labels (through `edge` and `range`, which follow this
-   * slot), and the detail panel's Start and End where they are not editable - an editable date is
-   * a native `<input type="date">` and never reaches a formatter.
+   * Every date the chart writes as a single date: the bar's hover tooltip, the header's drag guide
+   * labels (through `edge` and `range`, which follow this slot), and the detail panel's Start and
+   * End where they are not editable - an editable date is a native `<input type="date">` and never
+   * reaches a formatter.
    */
   tooltip?: (date: Dayjs) => string;
 }
@@ -131,7 +130,7 @@ export interface GanttScaleFormat {
 |---|---|---|---|
 | `tick` | `(date: Dayjs) => string` | no | one label per tick, bottom header row |
 | `header` | `(date: Dayjs) => string` | no | one label per group, top header row |
-| `tooltip` | `(date: Dayjs) => string` | no | every date off the header rows: the hover tooltip, the bar's ARIA label, the drag and keyboard announcements, and the built-in detail panel's dates where they are not editable |
+| `tooltip` | `(date: Dayjs) => string` | no | every date off the header rows: the hover tooltip and the built-in detail panel's dates where they are not editable |
 
 The three slots are resolved independently. Supplying `header` alone leaves `tick` and `tooltip` on
 the `locale` or built-in labels.
@@ -190,7 +189,7 @@ export interface Holiday {
   endDate?: string;
   /** Written in the tick row over the holiday's band, when the band is wide enough to hold it */
   label?: string;
-  /** Any CSS colour. Tinted onto the grid at the weekend shade's weight, never painted over it. */
+  /** Any CSS color, tinted at 14% in place of the usual non-working shade. */
   color?: string;
 }
 ```
@@ -200,7 +199,7 @@ export interface Holiday {
 | `date` | `string` | yes | the first day off, as a UTC `YYYY-MM-DD` string |
 | `endDate` | `string` | no | inclusive last day of the span; omit for a single day |
 | `label` | `string` | no | text written in the tick row over the holiday's band |
-| `color` | `string` | no | any CSS color, tinted onto the grid at the weekend shade's weight |
+| `color` | `string` | no | any CSS color, tinted at 14% in place of the usual non-working shade |
 
 What the chart draws for a holiday, when the label appears and how the entries are supplied are in
 [The timeline](../timeline).

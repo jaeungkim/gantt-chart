@@ -4,8 +4,8 @@ description: "Run the chart's tree and calendar math in Node, a worker or a test
 ---
 
 The chart's tree, row-order and calendar math is a set of plain functions that need no React, no
-stylesheet and no DOM. Run them on your server so a report and the chart cannot disagree about a
-phase's dates.
+stylesheet and no DOM. Run them in a Node script, a worker or a test so a report and the chart
+cannot disagree about a phase's dates.
 
 ## Import the helpers
 
@@ -20,8 +20,13 @@ The headless set is eight functions and values: `buildTaskTree`, `collectSubtree
 `createWorkingCalendar`. Their only runtime dependency is `dayjs` with the `utc` plugin.
 
 There is no `/core` subpath. The package declares `.`, `./style.css` and `./package.json`, and
-ships as one bundle that includes the React component. `react` and `react-dom` are external, so a
-Node script that imports `rollUpTasks` still needs both (`^18` or `^19`) installed and resolvable.
+ships as one bundle that includes the React component. `react` is external and loads with the
+bundle, so a Node script that imports `rollUpTasks` still needs it (`^18` or `^19`) installed and
+resolvable.
+
+The bundle opens with a `"use client"` directive. In a React Server Component or a route handler,
+such as in the Next.js App Router, every name you import arrives as a client reference. The
+helpers cannot be called there. Plain Node scripts, workers and tests are unaffected.
 
 ## Roll up a tree
 
@@ -52,7 +57,12 @@ const tasks: Task[] = [
 const calendar = createWorkingCalendar({ holidays: ['2025-06-06'] });
 
 for (const task of rollUpTasks(tasks, buildTaskTree(tasks))) {
-  const days = calendar.daysBetween(dayjs.utc(task.startDate), dayjs.utc(task.endDate));
+  const start = dayjs.utc(task.startDate);
+  const end = dayjs.utc(task.endDate);
+  const days =
+    calendar.daysBetween(start, end) +
+    Number(calendar.isWorkingDay(start)) -
+    Number(calendar.isWorkingDay(end));
   console.log(task.id, task.startDate.slice(0, 10), task.endDate.slice(0, 10), `${days}wd`, task.progress);
 }
 ```
@@ -68,6 +78,10 @@ B 2025-06-05 2025-06-10 2wd 40
 `P` was declared as ending on `2025-06-03` and comes back ending on `2025-06-10`, with a
 `progress` of 63 the input never set. A rewritten parent comes back as a full ISO string, while
 rows the roll-up left alone keep the strings you passed in.
+
+`daysBetween` skips the day it starts from and counts the day it lands on. A date-only `endDate`
+leaves its own day out of the bar. The loop therefore adds the start day back and drops the end
+day. Without that step, a Monday-to-Saturday task in a plain work week counts 4 working days, not 5.
 
 The `tree` argument is optional and defaults to a fresh `buildTaskTree(tasks)`, so a call inside a
 loop rebuilds the tree every time. [Task list and hierarchy](task-list) covers what a summary row
@@ -101,9 +115,9 @@ const result = moveTask(tasks, { taskId: 'B', toParentId: null, toIndex: 0 }, { 
 if (result) await save(result.tasks);
 ```
 
-`moveTask` renumbers every task whose path changed and rewrites `parentId` on the moved task only.
-Tasks that stayed put keep their object identity. [Reordering rows](reordering) covers the row drag
-inside the chart.
+`moveTask` rewrites `parentId` on the moved task only. It renumbers every `sequence` that does not
+match the task's place in the tree after the move, whether the task moved or not. Every other task
+keeps its object identity. [Reordering rows](reordering) covers the row drag inside the chart.
 
 ## Before you integrate
 

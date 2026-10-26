@@ -177,4 +177,6 @@ calendar.addDays(dayjs.utc('2025-06-06'), 1).toISOString(); // 2025-06-10T00:00:
 [타임라인](../timeline)에서 설명해요.
 
 `workingCalendar` prop이 고르는 달력은 막대 드래그에서 읽어요. 거기서 `snapForward`가 끌던 끝을
-비근무일 밖으로 옮겨요. [근무일 달력](../working-calendar)을 참고하세요.
+비근무일 밖으로 옮겨요. 오른쪽 크기 조절에서는 막대가 덮는 마지막 순간, 곧 범위에서 빠지는 `endDate`의
+1밀리초 전을 넘겨요. 그래서 토요일 `00:00`에 끝나는 막대는 그대로 남아요.
+[근무일 달력](../working-calendar)을 참고하세요.

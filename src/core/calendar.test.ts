@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { CALENDAR_DAYS, createWorkingCalendar } from './calendar';
 import dayjs from './dates';
 
-// June 2025: 2nd Mon, 6th Fri, 7th/8th weekend, 9th the next Mon.
 const d = (iso: string) => dayjs(`2025-${iso}`);
 const iso = (date: { toISOString(): string }) => date.toISOString().slice(0, 16);
 
@@ -45,7 +44,7 @@ describe('working-day calendar', () => {
   it('counts only working days between two dates', () => {
     expect(workweek.daysBetween(d('06-02'), d('06-09'))).toBe(5);
     expect(workweek.daysBetween(d('06-06'), d('06-09'))).toBe(1);
-    expect(workweek.daysBetween(d('06-06'), d('06-08'))).toBe(0); // Fri -> Sun
+    expect(workweek.daysBetween(d('06-06'), d('06-08'))).toBe(0);
     expect(workweek.daysBetween(d('06-09'), d('06-02'))).toBe(-5);
   });
 
@@ -61,7 +60,6 @@ describe('working-day calendar', () => {
   });
 
   it('measures a non-working anchor from the working day the walk would reach', () => {
-    // Saturday is never counted either way.
     expect(workweek.daysBetween(d('06-07'), d('06-09'))).toBe(1);
     expect(workweek.daysBetween(d('06-07'), d('06-06'))).toBe(0);
     expect(workweek.daysBetween(d('06-06'), d('06-07'))).toBe(0);

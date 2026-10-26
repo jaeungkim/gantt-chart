@@ -1,8 +1,13 @@
-import { DependencyType, Task, TaskDependency, TaskTransformed } from "shared/task";
-import { LinkAnchor, LinkRejection } from "shared/types";
+import { LINK_ANCHOR_ZONE, MIN_RESIZABLE_WIDTH } from "shared/constants";
+import { DependencyType, Task, TaskTransformed } from "shared/task";
+import { GanttGeometry, LinkAnchor, LinkRejection } from "shared/types";
 
-// The minimum a task needs for the dependency math - TaskTransformed fits as-is
-type DependencyNode = Pick<Task, "id"> & { dependencies?: TaskDependency[] };
+export const LINK_TYPE_TITLE: Record<DependencyType, string> = {
+  FS: "Finish to start",
+  SS: "Start to start",
+  FF: "Finish to finish",
+  SF: "Start to finish",
+};
 
 // Predecessor's end first, successor's second: end -> start is FS, start -> start SS,
 // end -> end FF, start -> end SF
@@ -20,30 +25,29 @@ interface LinkTarget {
   anchor: LinkAnchor;
 }
 
-// The whole row band is the target, not just the bar; on a lane row the horizontally
-// nearest bar wins. `zone` is how far from the finish still counts as the finish, capped
-// at a third of the bar; the rest of the row is the start, so a loose drop makes FS.
+// On a lane row the horizontally nearest bar wins. `LINK_ANCHOR_ZONE` is how far from the finish
+// still counts as the finish, capped at a third of the bar; the rest is the start, so a loose drop
+// from a finish dot makes FS.
 export function resolveLinkTarget(
   rowTasks: TaskTransformed[],
   contentX: number,
   contentY: number,
-  rowHeight: number,
-  zone: number
+  geometry: GanttGeometry
 ): LinkTarget | null {
-  if (rowHeight <= 0) return null;
-
-  const rowIndex = Math.floor(contentY / rowHeight);
-  if (rowIndex < 0) return null;
+  const rowIndex = Math.floor(contentY / geometry.rowHeight);
 
   let task: TaskTransformed | null = null;
   let bestDistance = Infinity;
+
+  const drawnWidth = (candidate: TaskTransformed) =>
+    Math.max(candidate.barWidth, MIN_RESIZABLE_WIDTH);
 
   for (const candidate of rowTasks) {
     // `order` is the task's row number, rewritten by the row model (1-based)
     if (candidate.order - 1 !== rowIndex) continue;
 
     const left = candidate.barLeft;
-    const right = left + candidate.barWidth;
+    const right = left + drawnWidth(candidate);
     const distance =
       contentX < left ? left - contentX : Math.max(0, contentX - right);
 
@@ -53,11 +57,11 @@ export function resolveLinkTarget(
     }
   }
 
-  if (!task) return null;
+  if (!task || bestDistance > LINK_ANCHOR_ZONE) return null;
 
   const left = task.barLeft;
-  const width = task.barWidth;
-  const edge = Math.min(zone, width / 3);
+  const width = drawnWidth(task);
+  const edge = Math.min(LINK_ANCHOR_ZONE, width / 3);
 
   // Right of the bar is past `right - edge` too, so dropping beyond the finish is a finish
   return { task, anchor: contentX > left + width - edge ? "end" : "start" };
@@ -67,7 +71,7 @@ export function resolveLinkTarget(
 // lands on the successor; the walk goes up the predecessor chain and `seen` keeps a cycle
 // already in the data from spinning.
 export function validateDependency(
-  tasks: DependencyNode[],
+  tasks: Task[],
   predecessorId: string,
   successorId: string
 ): LinkRejection | null {
@@ -104,50 +108,40 @@ export const LINK_REJECTION_LABEL: Record<LinkRejection, string> = {
   cycle: "That would create a circular dependency",
 };
 
-// The tasks with one dependency added to the successor; the same array back when it is absent
+// The tasks with one dependency added to the successor
 export function addDependency(
   tasks: Task[],
   predecessorId: string,
   successorId: string,
   type: DependencyType
 ): Task[] {
-  let changed = false;
-
-  const next = tasks.map((task) => {
-    if (task.id !== successorId) return task;
-
-    changed = true;
-    return {
-      ...task,
-      dependencies: [
-        ...(task.dependencies ?? []),
-        { targetId: predecessorId, type },
-      ],
-    };
-  });
-
-  return changed ? next : tasks;
+  return tasks.map((task) =>
+    task.id === successorId
+      ? {
+          ...task,
+          dependencies: [
+            ...(task.dependencies ?? []),
+            { targetId: predecessorId, type },
+          ],
+        }
+      : task
+  );
 }
 
-// The tasks with one dependency removed from the successor; the same array back when there is none
+// The tasks with every dependency on the predecessor removed from the successor
 export function removeDependency(
   tasks: Task[],
   predecessorId: string,
   successorId: string
 ): Task[] {
-  let changed = false;
-
-  const next = tasks.map((task) => {
-    if (task.id !== successorId || !task.dependencies) return task;
-
-    const kept = task.dependencies.filter(
-      (dep) => dep.targetId !== predecessorId
-    );
-    if (kept.length === task.dependencies.length) return task;
-
-    changed = true;
-    return { ...task, dependencies: kept };
-  });
-
-  return changed ? next : tasks;
+  return tasks.map((task) =>
+    task.id === successorId && task.dependencies
+      ? {
+          ...task,
+          dependencies: task.dependencies.filter(
+            (dep) => dep.targetId !== predecessorId
+          ),
+        }
+      : task
+  );
 }

@@ -1,9 +1,9 @@
 ---
 title: "Styling"
-description: "Color bars from your own palette and attach your own CSS to a task."
+description: "Color bars from your own palette, attach your own CSS to a task, and size rows and bars."
 ---
 
-Bars take their colors from the theme. Set `color` on a task to paint one bar from your own palette, and `className` to hang your own CSS on it.
+Bars take their colors from the theme. Set `color` on a task to paint one bar from your own palette, `className` to hang your own CSS on it, and `rowHeight` and `barHeight` on the chart to size every row and bar.
 
 ## Color a bar by status
 
@@ -27,7 +27,7 @@ Summary bars fall back to the summary tokens, which makes the summary and task c
 
 A `color` that is `undefined`, `''` or whitespace sets nothing, and the bar renders like an uncolored one.
 
-`color` changes the bar and nothing else. The radius, shadow, selection outline and dependency arrows come from the stylesheet and the theme, and the task list does not read `color`.
+`color` changes the bar and the built-in detail panel's progress bar, and nothing else. The radius, shadow, selection outline and dependency arrows come from the stylesheet and the theme, and the task list does not read `color`.
 
 A bar narrower than 56px puts its name outside the right edge, where it takes the theme's muted color regardless of `color`.
 
@@ -60,19 +60,32 @@ Position in the `class` attribute has no effect on the cascade. Your rule wins o
 
 A row that holds several tasks in one [lane](lanes) takes the first task's `className`. Each bar keeps its own.
 
+## Size rows and bars
+
+`rowHeight` sets the height of every row in the task list and the timeline, 38px by default. `barHeight` sets the height of the bars inside them. Left unset, it scales with the row, so it is 28px at the default row height.
+
+```tsx
+<ReactGanttChart tasks={tasks} onTasksChange={setTasks} rowHeight={28} />
+```
+
+<GanttDemo preset="compact" />
+
+`barHeight` is capped at `rowHeight` minus 4px, which leaves a gap above and below every bar for the row rule and the arrows that pass between rows. A summary bar keeps the default 18:28 ratio to the task bars, so it is 18px by default.
+
+Both props take a number of pixels. A value that is not a positive, finite number, such as `0` or `NaN`, keeps the default.
+
 ## Turn tooltips off
 
-`showTooltip` defaults to `true`. It controls the hover card and the `%` readout shown while the progress handle is dragged, and `false` removes both.
-
-`false` also removes the live region announcements a pointer drag produces. See [Keyboard and screen readers](accessibility).
+`showTooltip` defaults to `true`. It controls the hover card, and `false` removes it.
 
 A move or a resize shows no hover card either way. Its readout is the date the tick row writes at the dragged edge, part of the header, which `showTooltip` does not affect. See [Locale and date formats](i18n).
 
 ## Before you integrate
 
 - `color` is a value you supply. There is no palette and no legend, so map a status to a color before passing the tasks.
-- `color-mix` support is required for the two derived shades, and relative color syntax for the computed label. Fewer browsers support the second one. Where either is missing, the bar keeps the plain `color` and the label falls back to the theme's bar text color.
+- `color-mix` support is required for the two derived shades, and relative color syntax for the computed label. Fewer browsers support the second one. Without `color-mix`, a colored bar turns transparent on hover and draws no progress fill. Without relative color syntax, its label takes the chart's body text color, `--gantt-foreground`.
 - The task list renders the task name, plus the row's `sequence` when `showRowNumbers` is on. Put other fields in the [detail panel](detail-panel), and see [Task list and hierarchy](task-list).
+- `rowHeight` and `barHeight` resize rows and bars only. The 73px header, the text and the connector dots keep their size at any value.
 - Header cells hold text only, and markup cannot be placed in them. `renderDetail` is the chart's only render prop and is not a styling hook. Every other surface is styled through CSS.
 
 See [GanttProps](ref/props) for prop definitions and [Task](ref/task) for the `color` and `className` fields.

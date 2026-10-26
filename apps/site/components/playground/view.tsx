@@ -8,7 +8,7 @@ import {
   type Task,
   type TaskTransformed,
 } from '@jaeungkim/gantt-chart';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { DEMO_ANCHOR, demoHolidays, demoTasks } from '@/components/demo/tasks';
 import {
   CONTROLS,
@@ -19,19 +19,22 @@ import {
   type Settings,
 } from '@/components/playground/controls';
 
-// The fixture's own span, as dates. Read off `demoTasks` rather than the live `tasks` state, so
-// dragging a bar out to the edge does not drag the bounds along with it.
-const day = (iso: string) => iso.slice(0, 10);
-const FIXTURE_START = day(
-  demoTasks.reduce((first, task) => (task.startDate < first ? task.startDate : first), demoTasks[0].startDate)
+// The fixture's own span. Read off `demoTasks` rather than the live `tasks` state, so dragging a
+// bar out to the edge does not drag the bounds along with it.
+const FIXTURE_START = demoTasks.reduce(
+  (first, task) => (task.startDate < first ? task.startDate : first),
+  demoTasks[0].startDate
 );
-const FIXTURE_END = day(
-  demoTasks.reduce((last, task) => (task.endDate > last ? task.endDate : last), demoTasks[0].endDate)
+const FIXTURE_END = demoTasks.reduce(
+  (last, task) => (task.endDate > last ? task.endDate : last),
+  demoTasks[0].endDate
 );
 
-// A fortnight past the tasks either side, so a pinned range reads apart from the auto-fit one.
 const shift = (iso: string, days: number) =>
-  new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+  new Date(Date.parse(iso) + days * 86_400_000).toISOString().slice(0, 10);
+
+// A fresh array every render would make the chart recompute its non-working days each time.
+const SIX_DAY_WEEK = [1, 2, 3, 4, 5, 6];
 
 // One override per slot, on two scales - enough to see `formats` beat both the locale and the
 // built-in labels. `d` arrives in UTC mode, so `.format()` needs no conversion.
@@ -41,8 +44,8 @@ const DEMO_FORMATS: GanttFormatOverrides = {
     header: (d) => d.format('MMMM YYYY').toUpperCase(),
     tooltip: (d) => d.format('YYYY/MM/DD HH:mm'),
   },
-  // The week scale ticks in days and groups in weeks, so the override that reads as a week goes on
-  // the header, not the tick.
+  // With `firstDayOfWeek` always set here, the week scale ticks in days and groups in weeks, so the
+  // override that reads as a week goes on the header, not the tick.
   week: { header: (d) => `week of ${d.format('D MMM')}` },
 };
 
@@ -56,8 +59,8 @@ const SURFACE = `border bg-white dark:bg-[#18181b] ${HAIRLINE}`;
 
 const PANEL = `${SURFACE} rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05),0_18px_44px_-14px_rgba(0,0,0,0.3)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.55),0_22px_52px_-16px_rgba(0,0,0,0.85)]`;
 
-// Every interactive surface is the same tinted fill over the panel, so nothing needs its own
-// colour: black at 2-7% in light, white at 3-9% in dark.
+// The action buttons and the selects are the same tinted fill, so none needs its own colour: black
+// at 2-6% in light, white at 3-8% in dark.
 const FILL =
   'bg-black/[0.02] hover:bg-black/[0.06] dark:bg-white/[0.03] dark:hover:bg-white/[0.08]';
 
@@ -73,18 +76,19 @@ const ACTION =
 
 const HEADING = 'text-[10px] font-semibold uppercase tracking-[0.09em] text-fd-muted-foreground';
 
-// A fixed 32px row is the whole rhythm of the panel - every control sits on the same baseline.
+// Every stat and control row is a fixed 32px, so a switch row and a select row come out the same
+// height.
 const ROW = 'flex h-8 items-center justify-between gap-3 text-[12.5px] text-fd-foreground';
 
 const DIVIDER = `border-t ${HAIRLINE}`;
 
-// The track is a sibling of the visually hidden input, so `peer-checked` drives both it and the
-// knob it paints with `::after`.
+// The track is a sibling of the transparent input, so `peer-checked` drives both it and the knob
+// it paints with `::after`.
 const SWITCH =
   'relative h-4 w-7 shrink-0 rounded-full bg-black/[0.18] transition-colors duration-200 after:absolute after:left-[2px] after:top-[2px] after:size-3 after:rounded-full after:bg-white after:shadow-[0_1px_2px_rgba(0,0,0,0.3)] after:transition-transform after:duration-200 peer-checked:bg-console-accent peer-checked:after:translate-x-3 peer-focus-visible:ring-2 peer-focus-visible:ring-console-accent/45 dark:bg-white/20';
 
-// Split from its width so the strip can carry a narrower one: seven controls plus a 120px select
-// wrap onto a third row at phone widths, and a scale key is a short word.
+// Split from its width so the strip can carry a narrower one on small screens; a scale key is a
+// short word.
 const SELECT_BASE =
   `h-7 cursor-pointer rounded-lg border px-2 text-[12px] text-fd-foreground transition-colors duration-150 ${HAIRLINE} ${FILL} ${FOCUS}`;
 
@@ -114,19 +118,21 @@ export function PlaygroundView() {
   const [tasks, setTasks] = useState<Task[]>(demoTasks);
   const [selected, setSelected] = useState<TaskTransformed | null>(null);
   const [range, setRange] = useState<string>('-');
-  // Collapse is controlled outright: the chevrons write back through `onCollapsedChange`, which is
-  // also what the two buttons below drive.
+  // Collapse is controlled outright: the chevrons write back through `onCollapsedChange`, into the
+  // same state the two buttons below set.
   const [collapsed, setCollapsed] = useState<string[]>([]);
-  // Tracked whether or not `controlledDetail` is on - off, it only feeds the stat row.
+  // Tracked whether or not `controlledDetail` is on - off, it only feeds the console.
   const [detailId, setDetailId] = useState<string | null>(null);
   // Both click callbacks land here: a double click reports last, over the two clicks under it.
   const [click, setClick] = useState('-');
+  const [mounts, setMounts] = useState(0);
   useEffect(() => writeSettings(settings), [settings]);
   // An overlay pinned over the viewport, not requestFullscreen, so the exit control stays visible.
   useEffect(() => {
     if (!fullscreen) return;
     const close = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFullscreen(false);
+      // The open detail panel takes this Escape for itself; the next one leaves fullscreen
+      if (e.key === 'Escape' && !document.querySelector('.gantt-detail-open')) setFullscreen(false);
     };
     document.addEventListener('keydown', close);
     const previous = document.body.style.overflow;
@@ -137,20 +143,30 @@ export function PlaygroundView() {
     };
   }, [fullscreen]);
 
-  // The store's equality guard makes a scale change that came from the chart a no-op, not a loop.
+  // Handing the chart the scale it is already on is a no-op, so a scale change that came from
+  // the chart does not loop.
   useEffect(() => {
     ref.current?.setScale(settings.scale);
   }, [settings.scale]);
 
-  const update = <K extends keyof Settings>(key: K, value: Settings[K]) =>
+  // A remounted chart starts with nothing selected and no panel, so the console's copies restart too
+  const remount = () => {
+    setMounts((count) => count + 1);
+    setSelected(null);
+    setDetailId(null);
+  };
+
+  const update = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setSettings((current) => ({ ...current, [key]: value }));
+    // `initialScrollTo` is read once, at mount, so the row only means anything on a remount.
+    if (key === 'initialScrollTo' || key === 'controlledDetail') remount();
+  };
 
   const reset = () => {
     setTasks(demoTasks);
-    setSelected(null);
     setCollapsed([]);
-    setDetailId(null);
     setClick('-');
+    remount();
   };
 
   // Only rows that actually have children collapse.
@@ -159,12 +175,6 @@ export function PlaygroundView() {
     .map((task) => task.id);
 
   const holidays = settings.holidays ? demoHolidays : undefined;
-
-  // A fresh array every render would make the chart recompute its non-working days each time.
-  const workingWeekdays = useMemo(
-    () => (settings.sixDayWeek ? [1, 2, 3, 4, 5, 6] : undefined),
-    [settings.sixDayWeek]
-  );
 
   const first = tasks.find((task) => task.parentId !== null) ?? tasks[0];
 
@@ -184,6 +194,36 @@ export function PlaygroundView() {
       ? 'Turn read only off first'
       : 'Turn task creation on first';
 
+  const todayButton = (
+    <button
+      type="button"
+      className={ACTION}
+      disabled={!todayInRange}
+      title={todayHint}
+      onClick={() => ref.current?.scrollToToday()}
+    >
+      Today
+    </button>
+  );
+
+  const fitButton = (
+    <button type="button" className={ACTION} onClick={() => ref.current?.zoomToFit()}>
+      Fit
+    </button>
+  );
+
+  const addTaskButton = (
+    <button
+      type="button"
+      className={ACTION}
+      disabled={!canCreate}
+      title={createHint}
+      onClick={() => ref.current?.addTask()}
+    >
+      Add task
+    </button>
+  );
+
   return (
     // 3.5rem is HomeLayout's `h-14` navbar; z-50 clears Fumadocs' sticky nav, which sits at z-40.
     <div
@@ -193,38 +233,19 @@ export function PlaygroundView() {
           : 'relative flex h-[calc(100svh-3.5rem)] w-full flex-col overflow-hidden bg-fd-background'
       }
     >
-      {/* The verbs a viewer presses many times a session, lifted out of the console: the two view
-          methods that need no fixture id, task creation, and the scale. Every switch stays in the
-          console - a strip of switches is just a second console. Painted on the chart's own ground
-          rather than the site's card, which would read as a band above the chart's header. */}
       <div
+        // The verbs a viewer presses many times a session, lifted out of the console: the two view
+        // methods that need no fixture id, task creation, and the scale. Every switch stays in the
+        // console - a strip of switches is just a second console. Painted on the chart's own ground
+        // rather than the site's card, which would read as a band above the chart's header.
         data-testid="toolbar"
         className={`relative flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b bg-[#fafafa] px-3 py-1.5 dark:bg-[#09090b] ${HAIRLINE}`}
       >
-        <button
-          type="button"
-          className={ACTION}
-          disabled={!todayInRange}
-          title={todayHint}
-          onClick={() => ref.current?.scrollToToday()}
-        >
-          Today
-        </button>
-        <button type="button" className={ACTION} onClick={() => ref.current?.zoomToFit()}>
-          Fit
-        </button>
-        <button
-          type="button"
-          className={ACTION}
-          disabled={!canCreate}
-          title={createHint}
-          onClick={() => ref.current?.addTask()}
-        >
-          Add task
-        </button>
-        {/* Writes the same `settings.scale` the console's row does, so the two cannot disagree,
-            and `onScaleChange` below carries a wheel or keyboard zoom back into both. */}
+        {todayButton}
+        {fitButton}
+        {addTaskButton}
         <select
+          // Writes the same `settings.scale` the console's row does, so the two cannot disagree.
           data-testid="toolbar-scale"
           aria-label="Timeline scale"
           className={`${SELECT_BASE} ml-auto w-[4.75rem] sm:w-[7.5rem]`}
@@ -238,11 +259,9 @@ export function PlaygroundView() {
           ))}
         </select>
 
-        {/* Native <details>: controls stay in the DOM while closed, so a test clicks
-            `console-toggle` first. Unpositioned, so the panel below anchors to the strip and lands
-            on its right gutter rather than on this button's edge. */}
         <details data-testid="console" className="group/console">
           <summary
+            // Native <details>: the controls stay in the DOM while closed.
             data-testid="console-toggle"
             title="Console"
             aria-label="Toggle the console"
@@ -258,12 +277,13 @@ export function PlaygroundView() {
 
           <div
             data-testid="console-panel"
-            // Hangs from the toggle at the strip's right edge, capped by what the window leaves
-            // below it - the navbar, the strip and a gap at either end.
-            // `overflow-clip`, not `hidden`: a hidden box is still a scroll container, and
-            // focusing a row's sr-only checkbox scrolled the whole panel out of its own frame -
-            // with no scrollbar to bring it back, the console read as an empty card. Clipping
-            // leaves .console-scroll as the only scroller, which is the one the rows live in.
+            // Anchored to the strip, not the toggle: the <details> is unpositioned, so this lands on
+            // the strip's right gutter, capped by what the window leaves below it - the navbar, the
+            // strip and a gap at either end.
+            // `overflow-clip`, not `hidden`: a hidden box is still a scroll container, and focus
+            // could scroll the whole panel out of its own frame with no scrollbar to bring it
+            // back. Clipping leaves .console-scroll as the only scroller, which is the one the
+            // rows live in.
             className={`absolute right-3 top-[calc(100%+0.5rem)] z-[1000] flex max-h-[min(40rem,calc(100svh-8rem))] w-[21rem] max-w-[calc(100vw-2rem)] origin-top-right cursor-auto touch-auto select-text flex-col overflow-clip text-[12.5px] motion-safe:animate-console-in ${PANEL}`}
           >
             <header
@@ -280,15 +300,7 @@ export function PlaygroundView() {
 
             <div className="console-scroll flex flex-1 flex-col overflow-y-auto overscroll-contain px-3.5 [&>*]:shrink-0">
               <div data-testid="actions" className="flex flex-wrap items-center gap-1.5 py-3">
-                <button
-                  type="button"
-                  className={ACTION}
-                  disabled={!todayInRange}
-                  title={todayHint}
-                  onClick={() => ref.current?.scrollToToday()}
-                >
-                  Today
-                </button>
+                {todayButton}
                 <button
                   type="button"
                   className={ACTION}
@@ -297,9 +309,7 @@ export function PlaygroundView() {
                 >
                   Scroll to anchor
                 </button>
-                <button type="button" className={ACTION} onClick={() => ref.current?.zoomToFit()}>
-                  Fit
-                </button>
+                {fitButton}
                 <button
                   type="button"
                   className={ACTION}
@@ -308,9 +318,9 @@ export function PlaygroundView() {
                 >
                   Scroll to {first?.id}
                 </button>
-                {/* The one handle member with no gesture behind it: the scroll node itself,
-                    for whatever the chart does not do for you. */}
                 <button
+                  // The one handle member with no gesture behind it: the scroll node itself,
+                  // for whatever the chart does not do for you.
                   type="button"
                   className={ACTION}
                   title="getScrollElement().scrollTo({ left: 0 })"
@@ -357,24 +367,16 @@ export function PlaygroundView() {
                 >
                   Expand all
                 </button>
-                <button
-                  type="button"
-                  className={ACTION}
-                  disabled={!canCreate}
-                  title={createHint}
-                  onClick={() => ref.current?.addTask()}
-                >
-                  Add task
-                </button>
+                {addTaskButton}
                 <button type="button" className={ACTION} onClick={reset}>
                   Reset data
                 </button>
               </div>
 
-              {/* The header already carries the task count and the scale, so this holds only what
-                  it does not repeat - and reads as more rows rather than a second layout. */}
               <dl data-testid="stats" className="pb-3">
                 {(
+                  // The header already carries the task count and the scale, so this holds only
+                  // what it does not repeat - and reads as more rows rather than a second layout.
                   [
                     ['Selected', selected?.id ?? '-'],
                     ['Last click', click],
@@ -417,12 +419,12 @@ export function PlaygroundView() {
                           title={control.hint}
                         >
                           <span>{control.label}</span>
-                          {/* Transparent over the whole row rather than `sr-only`: the browser
-                              reveals the box it focuses, and a 1px clipped one told it the row was
-                              already on screen - tabbing landed on switches nobody could see. */}
                           <input
                             data-testid={control.key}
                             type="checkbox"
+                            // Transparent over the whole row rather than `sr-only`: the browser
+                            // reveals the box it focuses, and a 1px clipped one told it the row was
+                            // already on screen - tabbing landed on switches nobody could see.
                             className="peer absolute inset-0 cursor-pointer opacity-0"
                             checked={settings[control.key]}
                             onChange={(e) => update(control.key, e.target.checked)}
@@ -475,10 +477,10 @@ export function PlaygroundView() {
         </button>
       </div>
 
-      {/* The chart's own box, under the strip: the height row sizes it and the rest of the
-          column is what "fill" fills. */}
       <div className="min-h-0 flex-1">
         <div
+          // The chart's own box, under the strip: the height row sizes it and the rest of the
+          // column is what "fill" fills.
           className="bg-fd-card"
           style={{
             height: settings.chartHeight === 'fill' ? '100%' : `${settings.chartHeight}px`,
@@ -486,8 +488,7 @@ export function PlaygroundView() {
         >
           <ReactGanttChart
             ref={ref}
-            // `initialScrollTo` is read once, at mount, so the row only means anything on a remount.
-            key={settings.initialScrollTo}
+            key={mounts}
             tasks={tasks}
             onTasksChange={setTasks}
             onTaskCreate={(draft) => {
@@ -505,7 +506,6 @@ export function PlaygroundView() {
               ]);
             }}
             onTaskSelect={setSelected}
-            // A double click fires two clicks first, so the last write wins and reads "(double)".
             onTaskClick={(task) => setClick(task.id)}
             onTaskDoubleClick={(task) => setClick(`${task.id} (double)`)}
             selectable={settings.selectable}
@@ -518,7 +518,7 @@ export function PlaygroundView() {
             onDependencyDelete={settings.vetoLinkDelete ? () => false : undefined}
             onTaskMove={settings.vetoMove ? () => false : undefined}
             readOnly={settings.readOnly}
-            // Each `allow*` beats `readOnly`, so only the off state is passed through.
+            // An explicit `allow*` beats `readOnly`, so these six pass only their off state.
             allowMove={settings.allowMove ? undefined : false}
             allowResize={settings.allowResize ? undefined : false}
             allowProgressChange={settings.allowProgressChange ? undefined : false}
@@ -528,10 +528,13 @@ export function PlaygroundView() {
             allowReorder={settings.reorder}
             minDate={settings.dateBounds ? FIXTURE_START : undefined}
             maxDate={settings.dateBounds ? FIXTURE_END : undefined}
+            // A fortnight past the tasks either side, so a pinned range reads apart from the
+            // auto-fit one.
             visibleStart={settings.visibleRange ? shift(FIXTURE_START, -14) : undefined}
             visibleEnd={settings.visibleRange ? shift(FIXTURE_END, 14) : undefined}
             height="100%"
             width="100%"
+            rowHeight={Number(settings.rowHeight)}
             showTaskList={settings.showTaskList}
             showRowNumbers={settings.showRowNumbers}
             collapsedIds={collapsed}
@@ -571,7 +574,7 @@ export function PlaygroundView() {
             hierarchy={settings.hierarchy}
             showNonWorkingDays={settings.showNonWorkingDays}
             holidays={holidays}
-            workingWeekdays={workingWeekdays}
+            workingWeekdays={settings.sixDayWeek ? SIX_DAY_WEEK : undefined}
             formats={settings.customFormats ? DEMO_FORMATS : undefined}
             workingCalendar={settings.workingCalendar}
             autoScrollOnDrag={settings.autoScrollOnDrag}

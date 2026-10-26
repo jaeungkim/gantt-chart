@@ -1,9 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import dayjs from 'core/dates';
 import { Task } from 'shared/task';
 import {
-  applyTaskPatch,
-  commitDetailPatch,
   resolveDetailEditability,
   resolveFieldPatch,
 } from './edit';
@@ -43,7 +41,6 @@ describe('resolveDetailEditability', () => {
     });
   });
 
-  // The name has no per-task capability flag, so the chart-wide readOnly is its last word
   it('keeps the name read-only under config readOnly even when a task flag reopens a gesture', () => {
     expect(
       resolveDetailEditability(task({ allowResize: true }), { readOnly: true }),
@@ -109,36 +106,5 @@ describe('resolveFieldPatch', () => {
     expect(resolveFieldPatch(task(), 'progress', '-5')).toEqual({ progress: 0 });
     expect(resolveFieldPatch(task(), 'progress', 'abc')).toBeNull();
     expect(resolveFieldPatch(task(), 'progress', '')).toBeNull();
-  });
-});
-
-describe('applyTaskPatch', () => {
-  it('patches only the target and keeps the others by identity', () => {
-    const other = task({ id: 'b' });
-    const tasks = [task(), other];
-    const updated = applyTaskPatch(tasks, 'a', { name: 'renamed' });
-
-    expect(updated).not.toBe(tasks);
-    expect(updated[0]).toMatchObject({ id: 'a', name: 'renamed' });
-    expect(updated[1]).toBe(other);
-  });
-});
-
-describe('commitDetailPatch', () => {
-  it('writes through setRawTasks and then the host callback, like every gesture', () => {
-    const rawTasks = [task()];
-    const setRawTasks = vi.fn();
-    const onTasksChange = vi.fn();
-
-    commitDetailPatch(
-      { getState: () => ({ rawTasks, setRawTasks }) },
-      'a',
-      { progress: 40 },
-      onTasksChange,
-    );
-
-    const updated = [{ ...task(), progress: 40 }];
-    expect(setRawTasks).toHaveBeenCalledWith(updated);
-    expect(onTasksChange).toHaveBeenCalledWith(updated);
   });
 });

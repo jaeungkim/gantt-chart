@@ -45,7 +45,7 @@ const HEADER_OPTIONS: Record<GanttScaleKey, Intl.DateTimeFormatOptions> = {
   year: UTC_YEAR,
 };
 
-// Drag tooltip and guides - the zone is spelled out where a clock time is visible
+// Tooltip - the zone is spelled out where a clock time is visible
 const TOOLTIP_OPTIONS: Record<GanttScaleKey, Intl.DateTimeFormatOptions> = {
   day: { ...UTC_DATE, ...CLOCK, timeZoneName: 'short' },
   week: UTC_DATE,
@@ -71,17 +71,19 @@ const RANGE_SEPARATOR = ' \u2013 ';
 // Locales already reported, so a bad prop does not log on every render
 const warnedLocales = new Set<string>();
 
+// Intl throws a RangeError on an invalid date; dayjs prints it, as the built-in labels do.
+function formatWith(intl: Intl.DateTimeFormat, date: Dayjs): string {
+  return date.isValid() ? intl.format(date.toDate()) : date.format();
+}
+
 function formatterFor(
   locale: string,
   options: Intl.DateTimeFormatOptions
 ): (date: Dayjs) => string {
   const intl = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options });
-  return (date) => intl.format(date.toDate());
+  return (date) => formatWith(intl, date);
 }
 
-// `formatRange` drops what the two ends share ('Jan 15 - 17'), which is the whole reason the
-// readout uses it. It throws on a range that runs backwards - reachable by resizing an end
-// past its own start - so that case falls back to printing both ends.
 function rangeFormatterFor(
   locale: string,
   options: Intl.DateTimeFormatOptions
@@ -91,7 +93,7 @@ function rangeFormatterFor(
     try {
       return intl.formatRange(start.toDate(), end.toDate());
     } catch {
-      return joinRange(intl.format(start.toDate()), intl.format(end.toDate()));
+      return joinRange(formatWith(intl, start), formatWith(intl, end));
     }
   };
 }
@@ -137,9 +139,9 @@ export function resolveFormatters(
     ? localeFormatters(options.locale, scale, headerScale)
     : null;
 
-  // The readout labels each end on its own, so `edge` is the primitive and `range` is two
-  // edges joined. Both follow `tooltip` down the same three layers: an override formats an
-  // end, a locale runs it through Intl, and the built-ins use the compact per-scale string.
+  // The readout labels each end on its own, so `edge` is the primitive. `edge` and `range` both
+  // follow `tooltip` down the same three layers: an override formats an end, a locale runs it
+  // through Intl, and the built-ins use the compact per-scale string.
   const overrideTooltip = override?.tooltip;
   const edge: GanttFormatters['edge'] =
     overrideTooltip ??
@@ -159,7 +161,7 @@ export function resolveFormatters(
     tick: override?.tick ?? intl?.tick ?? config.formatTickLabel,
     header: override?.header ?? intl?.header ?? headerConfig.formatHeaderLabel,
     tooltip:
-      override?.tooltip ??
+      overrideTooltip ??
       intl?.tooltip ??
       ((date) => date.format(DATE_FORMATS[scale])),
   };

@@ -1,14 +1,14 @@
 import type { Holiday, Task } from '@jaeungkim/gantt-chart';
 
 // Relative to today, not a fixed date: a pinned fixture drifts into the past and takes today off
-// the rendered range with it. Three weeks back to this week's Monday, so weekends land predictably
+// the rendered range with it. Three weeks before this week's Monday, so weekends land predictably
 // and today sits mid-fixture -- finished phases behind it, the build straddling it, launch ahead.
 const NOW = new Date();
 const ANCHOR =
   Date.UTC(NOW.getUTCFullYear(), NOW.getUTCMonth(), NOW.getUTCDate()) -
   (((NOW.getUTCDay() + 6) % 7) + 21) * 86_400_000;
 
-// The fixture's first day, so a demo opens framed on its own data rather than on today.
+// The fixture's first day, so a demo can open on its own data rather than on today.
 export const DEMO_ANCHOR = new Date(ANCHOR).toISOString().slice(0, 10);
 
 // Day `offset` from the anchor Monday, at `hours` o'clock UTC. Offset 0 is a Monday, so 5/6, 12/13,
@@ -23,7 +23,7 @@ const day = (offset: number) => at(offset, 0).slice(0, 10);
 
 // One fixture for every demo on the site: presets vary the props, never the data. Seven weeks of a
 // website redesign -- four phases, every dependency type, four milestones, and progress that agrees
-// with where today falls (offset 24).
+// with today when it falls late in week four.
 export const demoTasks: Task[] = [
   {
     id: 'p1',
@@ -247,9 +247,8 @@ export const demoTasks: Task[] = [
   },
 ];
 
-// Midweek days inside the fixture's range, so their shading reads apart from the weekends. One is
-// named and tinted, one is a three-day block, one is a bare string -- all three shapes the prop
-// takes, in the one place every demo reads its data from.
+// Weekdays inside the fixture's range, so their shading reads apart from the weekends. One is named
+// and tinted, one is a three-day block, one is a bare string -- all three shapes the prop takes.
 export const demoHolidays: (string | Holiday)[] = [
   { date: day(16), label: 'Company offsite', color: '#7c3aed' },
   { date: day(30), endDate: day(32), label: 'Summer shutdown', color: '#0ea5e9' },

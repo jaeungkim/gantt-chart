@@ -66,31 +66,54 @@ A feature can be read or deleted in one place instead of four parallel trees.
 |---|---|
 | `src/core/` | the headless core: tree, calendar, reorder, dates. Plain data and pure functions, no React and no DOM. |
 | `src/shared/` | what more than one feature needs: constants, the shared types, the zustand store and its context, i18n formatters, pointer-gesture helpers. It sits below the features and never imports one. |
-| `src/features/timeline/` | the time axis: date and pixel geometry, the tick/header model, viewport and zoom, virtualization, the header, today line and non-working shading. |
-| `src/features/bars/` | the bars themselves and every bar-level gesture: move, resize, progress, draw-to-create. |
+| `src/features/timeline/` | the time axis: date and pixel geometry, the tick axis and header groups, viewport and zoom, virtualization, the scroll calls of the ref handle, the header, today line and non-working shading. |
+| `src/features/bars/` | the bars themselves and every bar-level gesture: move, resize, draw-to-create. |
 | `src/features/dependencies/` | dependency links: validation, arrow geometry, the arrow layer, link dragging. |
 | `src/features/rows/` | the row model: lane packing, collapse, the row layer. |
 | `src/features/task-list/` | the left pane: the grid, its columns and its splitter, plus row reordering. |
-| `src/features/interaction/` | selection, the keyboard map and the aria labels. |
+| `src/features/selection/` | task selection. |
 | `src/features/detail/` | the task detail panel. |
-| `src/` (root) | `Gantt.tsx` composes the features, `useGanttSelectors.ts` is the store subscription it renders from, `props.ts` is the public prop surface, `index.ts` is the package barrel, `styles.css` is the published stylesheet. |
+| `src/` (root) | `Gantt.tsx` composes the features, `useGanttSelectors.ts` is the store subscription it renders from, `props.ts` is the public prop surface and the ref handle, `index.ts` is the package barrel, `styles.css` is the published stylesheet and `tokens.css` holds its tokens. |
 
-Inside a feature, files are split again by what they are: `components/`, `hooks/` and `utils/`.
-A feature has only the ones it needs. `interaction/` has no components and `bars/` has no utils.
-`timeline/` uses all three. The listing below leaves some files out.
+Inside a feature, files are split again by what they are: `components/`, `hooks/` and `utils/`,
+plus a `types.ts` for the types other files import. A feature has only the ones it needs.
+`selection/` has only `hooks/`, and `bars/` has no `utils/`. `timeline/` uses all four. Each hook
+in a `hooks/` folder has its own file, named after it. The listing below leaves some files out.
 
 ```
 src/features/timeline/
   components/  GanttChartHeader.tsx  GanttTodayLine.tsx  GanttNonWorkingLayer.tsx
-  hooks/       useGanttViewport.ts   useGanttScrollApi.ts  useGanttVirtualization.ts
-  utils/       geometry.ts  transform.ts  header.ts  viewport.ts
+  hooks/       useGanttTimelineSync.ts  useGanttScrollApi.ts  useGanttVirtualization.ts
+  utils/       geometry.ts  transform.ts  tickAxis.ts  viewport.ts
+  types.ts
 ```
 
 `src/core/` stays flat, one cohesive module rather than a feature. `src/shared/` keeps its five
 cross-cutting modules (`constants.ts`, `types.ts`, `task.ts`, `store.ts`, `context.ts`) at its
 root, with `hooks/`, `utils/` and `virtual/` beneath.
 
-Four rules apply:
+The public API is exactly what `src/index.ts` exports. It names each export and re-exports it from
+the file that declares it:
+
+| File | Declares |
+|---|---|
+| `src/Gantt.tsx` | the component, exported as `ReactGanttChart` |
+| `src/props.ts` | `GanttProps` and the ref handle: `GanttHandle`, `GanttDetailApi`, `GanttTaskCreateApi` |
+| `src/features/timeline/types.ts` | `GanttScrollApi` and `GanttScrollOptions` |
+| `src/features/dependencies/types.ts` | `GanttDependencyChange` |
+| `src/features/bars/types.ts` | `GanttTaskDraft` |
+| `src/features/rows/utils/rows.ts` | `GanttRow`, beside `buildGanttRows` |
+| `src/shared/types.ts` | the scale, format, theme, holiday, date-range and detail-renderer types |
+| `src/shared/task.ts` | `TaskTransformed` and `GanttInteractionConfig` |
+| `src/core/types.ts` | `Task`, `TaskDependency` and `DependencyType` |
+| `src/core/calendar.ts`, `tree.ts`, `reorder.ts` | the headless functions, each beside the types it takes and returns |
+| `src/styles.css` | the stylesheet published as `@jaeungkim/gantt-chart/style.css` |
+| `src/tokens.css` | the `--gantt-*` tokens and their dark values. `styles.css` imports it on its first line and Vite inlines it, so the package still ships one stylesheet. |
+
+`dist/index.d.ts` is bundled into one file, so no internal path reaches a consumer. Moving a public
+type changes its line in `index.ts` and its row here, and nothing a consumer sees.
+
+Five rules apply:
 
 - Imports run one way: `core/`, then `shared/`, then `features/`, then the root modules. `core/`
   imports nothing of ours, `shared/` imports only `core/`, and features import `core/`, `shared/`
@@ -106,35 +129,48 @@ Four rules apply:
   `features/timeline/utils/geometry`) rather than the directory. A bare barrel specifier survives
   verbatim into the emitted `.d.ts` and breaks every consumer's `tsc`. CI greps `dist/` for it.
 - A file goes in the feature it belongs to, rather than the one that happens to use it.
-  `interaction/` owns the aria labels even though `bars/` renders them. Imports between features
-  are normal, as they are between TanStack's. Do not duplicate a helper to avoid one, and do not
-  promote a helper to `src/shared/` just because a second feature reached for it. A helper with
-  a clear owner keeps that owner. What does move to `src/shared/` is vocabulary with no owning
-  feature: a type or constant that several features and the store all speak. `LinkAnchor` lives
-  there for that reason, even though only `dependencies/` produces one, because `shared/store.ts`
-  holds the drag draft and `shared/` may not import a feature.
+  Imports between features are normal, as they are between TanStack's. Do not duplicate a
+  helper to avoid one, and do not promote a helper to `src/shared/` just because a second
+  feature reached for it. A helper with a clear owner keeps that owner. What does move to
+  `src/shared/` is vocabulary with no owning feature: a type or constant that several features
+  and the store all speak. `LinkAnchor` lives there for that reason, even though only
+  `dependencies/` produces one, because `shared/store.ts` holds the drag draft and `shared/` may
+  not import a feature.
+- A type that another file imports lives in a `types.ts`, or beside the plain function that
+  produces it, the way `GanttRow` sits beside `buildGanttRows`. A hook or component file keeps
+  its types to itself, so nothing imports a hook to get a type. A `types.ts` imports only
+  `core/`, `shared/` and packages. The ref handle follows the same rule. `useGanttScrollApi`
+  builds the scroll calls, so `GanttScrollApi` is in `features/timeline/types.ts`. `Gantt.tsx`
+  builds the detail and create calls, so they are in `props.ts`, which composes all three into
+  `GanttHandle`.
 
 Imports are bare and resolved by `baseUrl: "src"` in `tsconfig.json`, so a module's specifier is
 its path under `src/`: `features/bars/hooks/useGanttBarDrag`, `features/rows/utils/rows`,
-`features/interaction/utils/a11y`.
+`features/dependencies/utils/link`.
 
 Tests sit in the folder of the code they cover, named after the module they cover. A module
 large enough to test along separate axes may carry more than one suite, with the axis after the
-module name: `geometry.test.ts`, `geometry.drag.test.ts`, `geometry.timezone.test.ts`.
+module name: `geometry.test.ts`, `geometry.drag.test.ts`, `geometry.timezone.test.ts`. Some
+suites read source or stylesheet text by path rather than importing it. Moving a file one of them
+reads means editing that path in the suite too.
 
 ## Before you open a PR
 
 ```bash
 pnpm lint
 pnpm type-check
-pnpm test        # vitest, across src/core, src/shared and src/features (pure functions only)
+pnpm test        # vitest in Node with no DOM, every suite under src/ and apps/site/
 pnpm build
 ```
 
 CI runs the same four commands on every PR, then builds the docs site and runs an SSR import
 smoke test. `pnpm docs:build` runs the library build and the docs site build locally. The SSR
-smoke test runs only in CI. There are no component tests, so for visual or drag changes attach a
-screenshot or GIF from the playground to the PR.
+smoke test runs only in CI.
+
+Besides pure functions, the suites render components and hooks with `react-dom/server`, mount a
+few on a `react-dom/client` root over a stub container, and run some under a mocked React. None of
+them sees layout, paint or a real pointer, so for visual or drag changes attach a screenshot or GIF
+from the playground to the PR.
 
 ## Documentation
 

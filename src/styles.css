@@ -1,87 +1,4 @@
-/* Tokens are scoped to .gantt-container, not :root, where they would collide with the host's. */
-.gantt-container {
-  /* Declared next to the tokens so UA chrome - scrollbars, form controls, the caret - is painted
-     to match instead of staying light on a dark chart. */
-  color-scheme: light;
-
-  --gantt-detail-width: 320px;
-
-  --gantt-font-sans: "Pretendard Variable", Pretendard, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", "Geist", system-ui, sans-serif;
-
-  --gantt-background: #fafafa;
-  --gantt-foreground: #18181b;
-
-  --gantt-muted: #f4f4f5;
-  --gantt-muted-foreground: #71717a;
-
-  --gantt-border: #e4e4e7;
-  --gantt-border-subtle: rgba(0, 0, 0, 0.04);
-
-  --gantt-bar-bg: #c7c7cd;
-  --gantt-bar-bg-hover: #b4b4bc;
-  --gantt-bar-text: #18181b;
-  /* Flat at rest: the shadow is an event - a hairline on hover, a real lift only while dragging. */
-  --gantt-bar-shadow: none;
-  --gantt-bar-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.08);
-  --gantt-bar-shadow-drag: 0 4px 12px rgba(0, 0, 0, 0.16);
-  /* Floating surfaces - a light panel on dark needs an edge, hence the ring in the dark value. */
-  --gantt-shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.15);
-
-  --gantt-arrow: #a1a1aa;
-
-  --gantt-accent: #3b82f6;
-
-  --gantt-today-marker: #f43f5e;
-
-  --gantt-summary-bg: #dcdce0;
-  --gantt-summary-bg-hover: #cfcfd4;
-
-  --gantt-progress-bg: #8e8e97;
-  --gantt-progress-handle: #52525b;
-
-  --gantt-non-working-bg: rgba(0, 0, 0, 0.035);
-
-  --gantt-duration-fast: 150ms;
-  --gantt-transition-fast: 150ms ease;
-  --gantt-transition-normal: 200ms ease;
-}
-
-/* `data-theme` is always written by the component - see useResolvedTheme, which takes the prop
-   when there is one and otherwise follows the host page's own `color-scheme`. */
-.gantt-container[data-theme="dark"] {
-  color-scheme: dark;
-
-  --gantt-background: #09090b;
-  --gantt-foreground: #fafafa;
-
-  --gantt-muted: #18181b;
-  --gantt-muted-foreground: #a1a1aa;
-
-  --gantt-border: #27272a;
-  --gantt-border-subtle: rgba(255, 255, 255, 0.04);
-
-  --gantt-bar-bg: #3a3a41;
-  --gantt-bar-bg-hover: #47474f;
-  --gantt-bar-text: #fafafa;
-  --gantt-bar-shadow: none;
-  --gantt-bar-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --gantt-bar-shadow-drag: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --gantt-shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
-
-  --gantt-arrow: #71717a;
-
-  --gantt-today-marker: #fb7185;
-
-  --gantt-summary-bg: #2a2a2f;
-  --gantt-summary-bg-hover: #35353c;
-
-  --gantt-progress-bg: #6c6c76;
-  --gantt-progress-handle: #a1a1aa;
-
-  --gantt-non-working-bg: rgba(255, 255, 255, 0.03);
-}
+@import "./tokens.css";
 
 /* Scoped border-box so layout math holds with or without the host's reset, without trampling it. */
 .gantt-container,
@@ -106,10 +23,6 @@
   color: var(--gantt-foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-.gantt-container:focus {
-  outline: none;
 }
 
 .gantt-main {
@@ -170,26 +83,8 @@
   top: 0;
   flex: none;
   z-index: 1;
-  display: flex;
-  align-items: flex-end;
-  padding-bottom: 6px;
-  overflow: hidden;
   background: var(--gantt-background);
   border-bottom: 1px solid var(--gantt-border);
-}
-
-.gantt-grid-header-cell {
-  flex: 1;
-  min-width: 0;
-  padding: 0 10px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--gantt-muted-foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .gantt-grid-body {
@@ -386,14 +281,12 @@
   user-select: none;
 }
 
-.gantt-grid-splitter:hover,
-.gantt-grid-splitter:focus-visible {
+.gantt-grid-splitter:hover {
   background: var(--gantt-accent);
   opacity: 0.5;
-  outline: none;
 }
 
-/* Outside the scroll container: a treegrid's children may only be rows, and it must stay put */
+/* Outside the scroll container: it must stay put */
 .gantt-grid-footer {
   flex: none;
   display: flex;
@@ -469,8 +362,7 @@
 }
 
 /* The date, typed like the tick beside it. Its own surface only matters when it is wider than
-   its cell - both edges in one cell at the finest zoom - where it spills out symmetrically and
-   still blanks what it covers. */
+   its cell, where it spills out symmetrically and still blanks what it covers. */
 .gantt-drag-cell > span {
   flex: none;
   padding: 0 6px;
@@ -528,21 +420,15 @@
   justify-content: center;
   overflow: hidden;
   background: var(--gantt-muted);
-  /* Up for a band with the room for it, and for any band under the pointer. Opacity, not display,
-     so a name a narrow band never stands up is still read out. */
+  /* Up for a band with the room for it, and for any band under the pointer */
   opacity: 0;
+  pointer-events: none;
   transition: opacity 90ms ease-out;
 }
 
 .gantt-holiday-cell.shown,
 .gantt-holiday-band:hover .gantt-holiday-cell {
   opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .gantt-holiday-cell {
-    transition: none;
-  }
 }
 
 /* Typed like the tick beside it. A name wider than the cells it stands in is ellipsised, never
@@ -594,7 +480,7 @@
 .gantt-header-wrapper {
   position: sticky;
   top: 0;
-  /* Never absorbs the column's shrink - the body below it is what grows and shrinks */
+  /* Never absorbs the column's shrink - the body below it is what grows */
   flex: none;
   z-index: 30;
   min-width: 100%;
@@ -701,11 +587,8 @@
   position: absolute;
   top: 0;
   left: 0;
-  display: flex;
   width: 100%;
-  align-items: center;
   border-bottom: 1px solid var(--gantt-border-subtle);
-  pointer-events: none;
 }
 
 /* Rules past the last row are a repeating background, in phase with the real row borders above */
@@ -752,18 +635,11 @@
   left: 0;
   width: 100%;
   pointer-events: none;
-  /* Explicit only because .linking overrides it; on the resting bars' layer, so bars paint over */
+  /* On the resting bars' layer, so bars paint over */
   z-index: 0;
 }
 
-/* While a link is drawn the preview only has to beat the header wrapper's 30 */
-.gantt-dependency-arrows.linking {
-  z-index: 45;
-}
-
-/* Nothing in this layer may take the pointer while it is on top, or the drop lands on an arrow */
-.gantt-dependency-arrows.linking .gantt-dependency-hit,
-.gantt-dependency-arrows.linking .gantt-dependency-delete {
+.gantt-dependency-arrows.linking .gantt-dependency-hit {
   pointer-events: none;
 }
 
@@ -783,12 +659,16 @@
 
 .gantt-dependency-arrow.selected {
   stroke: var(--gantt-accent);
-  stroke-width: 2.5;
+  stroke-width: 2;
 }
 
 .gantt-dependency-arrow-head {
   fill: var(--gantt-arrow);
   stroke: none;
+}
+
+.gantt-dependency-arrow-head.selected {
+  fill: var(--gantt-accent);
 }
 
 /* Invisible fat click target; re-enables hit testing under the SVG's inherited pointer-events */
@@ -804,19 +684,51 @@
   stroke: var(--gantt-accent);
 }
 
-.gantt-dependency-delete {
+.gantt-link-menu {
+  position: absolute;
+  z-index: 25;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--gantt-background);
+  border: 1px solid var(--gantt-border);
+  border-radius: 8px;
+  box-shadow: var(--gantt-shadow-overlay);
+  transform: translate(-50%, calc(-100% - 10px));
+}
+
+.gantt-link-menu.below {
+  transform: translate(-50%, 10px);
+}
+
+.gantt-link-menu button {
+  min-width: 30px;
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--gantt-muted-foreground);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  pointer-events: auto;
 }
 
-.gantt-dependency-delete circle {
-  fill: var(--gantt-accent);
+.gantt-link-menu button:hover {
+  background: var(--gantt-muted);
+  color: var(--gantt-foreground);
 }
 
-.gantt-dependency-delete path {
-  stroke: #fff;
-  stroke-width: 1.6;
-  stroke-linecap: round;
+.gantt-link-menu .gantt-link-menu-delete {
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.gantt-link-menu .gantt-link-menu-delete:hover {
+  background: color-mix(in srgb, var(--gantt-today-marker) 15%, transparent);
+  color: var(--gantt-today-marker);
 }
 
 /* Connector dot at either end of a bar, revealed on hover */
@@ -845,18 +757,23 @@
   right: -18px;
 }
 
-/* Pads the 12px dot to a 26x28 target, asymmetric so it never covers the resize grip behind it */
+/* Pads the 12px dot to a target 26px wide and the bar's full height, asymmetric so it never
+   covers the resize grip behind it */
 .gantt-link-handle::before {
   content: "";
   position: absolute;
+  top: calc(50% - var(--gantt-bar-height) / 2);
+  bottom: calc(50% - var(--gantt-bar-height) / 2);
 }
 
 .gantt-link-handle.start::before {
-  inset: -8px -6px -8px -8px;
+  left: -10px;
+  right: -8px;
 }
 
 .gantt-link-handle.end::before {
-  inset: -8px -8px -8px -6px;
+  left: -8px;
+  right: -10px;
 }
 
 /* Selection reveals them too - a finger has no hover */
@@ -866,10 +783,12 @@
   pointer-events: auto;
 }
 
-/* The source dot stays up for the whole gesture - the pointer left the bar long ago */
-.gantt-task-bar.link-source.link-at-start .gantt-link-handle.start,
-.gantt-task-bar.link-source.link-at-end .gantt-link-handle.end {
-  opacity: 1;
+.gantt-task-bar.selected:not(:hover) .gantt-link-handle.crowded,
+.gantt-task-bar.link-source .gantt-link-handle,
+.gantt-task-bar.link-valid .gantt-link-handle,
+.gantt-task-bar.link-invalid .gantt-link-handle {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Without hover, and without tap-to-select, the connectors are unreachable on touch */
@@ -878,42 +797,47 @@
     opacity: 0.55;
     pointer-events: auto;
   }
+
+  .gantt-task-bar .gantt-link-handle.crowded {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.gantt-task-bar.link-source,
+.gantt-task-bar.link-valid {
+  box-shadow: var(--gantt-bar-shadow-drag);
 }
 
 /* Drop target highlight while a link is being drawn */
 .gantt-task-bar.link-valid,
 .gantt-task-bar.link-invalid {
-  outline: 2px solid var(--gantt-accent);
+  outline: 1.5px solid var(--gantt-accent);
   outline-offset: 2px;
 }
 
-/* Must beat `.selected`, which draws the same outline */
 .gantt-task-bar.link-valid {
   background: var(--gantt-bar-color-hover, var(--gantt-bar-bg-hover));
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--gantt-accent) 25%, transparent);
 }
 
 .gantt-task-bar.link-invalid {
   outline-color: var(--gantt-today-marker);
-  box-shadow: none;
 }
 
-/* Marks the end the link would attach to - it decides which of the four types the drop makes */
-.gantt-task-bar.link-valid .gantt-link-handle.start,
-.gantt-task-bar.link-valid .gantt-link-handle.end {
-  opacity: 0;
-}
-
-.gantt-task-bar.link-valid.link-at-start .gantt-link-handle.start,
-.gantt-task-bar.link-valid.link-at-end .gantt-link-handle.end {
-  opacity: 1;
-  background: var(--gantt-accent);
+.gantt-link-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 20;
 }
 
 /* Rubber band following the pointer */
 .gantt-link-preview-line {
   stroke: var(--gantt-accent);
-  stroke-width: 2;
+  stroke-width: 1.5;
   stroke-dasharray: 4 3;
   fill: none;
 }
@@ -921,7 +845,6 @@
 /* Settled on a target: solid, because this is the arrow that will be committed */
 .gantt-link-preview-line.armed {
   stroke-dasharray: none;
-  stroke-width: 2.5;
 }
 
 .gantt-link-preview-line.invalid {
@@ -932,28 +855,37 @@
   fill: var(--gantt-accent);
 }
 
-.gantt-link-preview-type {
-  fill: var(--gantt-accent);
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  paint-order: stroke;
-  stroke: var(--gantt-background);
-  stroke-width: 3px;
-  stroke-linejoin: round;
-}
-
-.gantt-link-preview-reason {
-  fill: var(--gantt-today-marker);
-  font-family: inherit;
+.gantt-link-preview-label {
+  position: absolute;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--gantt-border);
+  border-radius: 6px;
+  background: var(--gantt-background);
+  box-shadow: var(--gantt-shadow-overlay);
+  color: var(--gantt-foreground);
   font-size: 11px;
   font-weight: 500;
-  /* Halo, so the reason stays readable over grid lines and arrows */
-  paint-order: stroke;
-  stroke: var(--gantt-background);
-  stroke-width: 3px;
-  stroke-linejoin: round;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.gantt-link-preview-label.flip {
+  transform: translateX(-100%);
+}
+
+.gantt-link-preview-label b {
+  color: var(--gantt-accent);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.gantt-link-preview-label.invalid {
+  color: var(--gantt-today-marker);
 }
 
 .gantt-content.drawable {
@@ -964,7 +896,7 @@
   position: absolute;
   top: 0;
   left: 0;
-  /* height and margin-top come from BAR_HEIGHT inline (Gantt.tsx) */
+  /* height and margin-top come from geometry.barHeight and geometry.rowHeight inline (Gantt.tsx) */
   background: var(--gantt-accent);
   opacity: 0.35;
   border: 1px dashed var(--gantt-accent);
@@ -979,11 +911,13 @@
   left: 0;
   display: flex;
   align-items: center;
+  pointer-events: none;
 }
 
 /* The wrapper's transform sorts in .gantt-content, so these lift the bar and its tooltip as one
-   subtree. Keyed off `has-tooltip`, not :hover - a progress drag keeps the readout up off the bar. */
-.gantt-bar-wrap:has(> .gantt-task-bar.has-tooltip) {
+   subtree. Keyed off the store's mouse hover, not :hover, which sticks after a tap on a touch
+   screen. Lifted at once, a hovered bar's finish dot clears a touching lane neighbour. */
+.gantt-bar-wrap:has(> .gantt-task-bar.hovered) {
   z-index: 1;
 }
 
@@ -995,6 +929,7 @@
   position: relative;
   /* Panning stays with the browser; a touch drag is lifted by a long press (shared/utils/pointerGesture) */
   touch-action: pan-x pan-y;
+  pointer-events: auto;
   display: flex;
   align-items: center;
   /* --gantt-bar-color is set inline from a task's color; without one the theme token decides */
@@ -1044,7 +979,7 @@
   box-shadow: var(--gantt-bar-shadow-drag);
 }
 
-/* Roll-up: height (inline, SUMMARY_BAR_HEIGHT) is the cue - a per-task color repaints the fill */
+/* Roll-up: height (inline, geometry.summaryBarHeight) is the cue - a per-task color repaints the fill */
 .gantt-task-bar.summary {
   background: var(--gantt-bar-color, var(--gantt-summary-bg));
   border-radius: 3px;
@@ -1084,39 +1019,6 @@
      right edge painted over the bar's own rounded corners. One shape, both radii. */
   border-radius: inherit;
   pointer-events: none;
-}
-
-.gantt-progress-handle {
-  position: absolute;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  margin-left: -5px;
-  background: var(--gantt-background);
-  border: 2px solid var(--gantt-progress-handle);
-  border-radius: 50%;
-  transform: translateY(-50%);
-  opacity: 0;
-  cursor: ew-resize;
-  transition: opacity var(--gantt-transition-fast);
-}
-
-.gantt-task-bar:hover .gantt-progress-handle,
-.gantt-progress-handle.dragging {
-  opacity: 1;
-}
-
-/* No hover on touch, and a 10px dot is under the 44px target; scoped so a mouse keeps its clicks */
-@media (hover: none) {
-  .gantt-progress-handle {
-    opacity: 1;
-  }
-
-  .gantt-progress-handle::before {
-    content: "";
-    position: absolute;
-    inset: -17px;
-  }
 }
 
 .gantt-task-name {
@@ -1187,7 +1089,6 @@
   }
 }
 
-/* Hover tooltip - the same shell, stacked lines instead of one live value */
 .gantt-bar-tooltip-detail {
   display: flex;
   flex-direction: column;
@@ -1241,25 +1142,6 @@
   line-height: 16px;
 }
 
-.gantt-sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-/* Bars and grid cells are plain divs - nothing draws a focus ring for them by default */
-.gantt-container [data-gantt-cell]:focus-visible {
-  outline: 2px solid var(--gantt-accent);
-  outline-offset: 1px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .gantt-container *,
   .gantt-container *::before,
@@ -1272,7 +1154,7 @@
 }
 
 /* Holds the chart and the docked panel side by side. flex/min-height must stay here or
-   .gantt-scroll-container loses its definite height; unpositioned, or the splitter re-anchors. */
+   .gantt-scroll-container loses its definite height. */
 .gantt-layout {
   display: flex;
   flex: 1;
@@ -1288,7 +1170,7 @@
   flex: 0 0 0px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
   padding: 16px 0;
   overflow: hidden auto;
   border-left: 0 solid var(--gantt-border);
@@ -1313,28 +1195,60 @@
 
 .gantt-detail-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
   gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gantt-border);
 }
 
+/* The name input stands where the title stood, and reads like it */
 .gantt-detail-title {
-  margin: 0;
-  font-size: 14px;
+  flex: 1;
+  min-width: 0;
+  margin: 0 0 0 -7px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--gantt-foreground);
+  font: inherit;
+  font-size: 15px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 22px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color var(--gantt-transition-fast),
+    box-shadow var(--gantt-transition-fast);
+}
+
+input.gantt-detail-title:hover {
+  border-color: var(--gantt-border);
 }
 
 .gantt-detail-close {
-  flex: 0 0 auto;
-  padding: 2px 6px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   background: none;
   color: var(--gantt-muted-foreground);
-  font-size: 13px;
-  line-height: 1;
   cursor: pointer;
+  transition: background var(--gantt-transition-fast),
+    color var(--gantt-transition-fast);
+}
+
+.gantt-detail-close svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
 }
 
 .gantt-detail-close:hover {
@@ -1342,52 +1256,179 @@
   color: var(--gantt-foreground);
 }
 
-.gantt-detail-close:focus-visible {
-  outline: 2px solid var(--gantt-accent);
-  outline-offset: 1px;
+.gantt-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.gantt-detail-fields {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 8px 16px;
-  margin: 0;
+.gantt-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gantt-detail-label {
   font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
 }
 
-.gantt-detail-fields dt {
+.gantt-detail-meta {
   color: var(--gantt-muted-foreground);
+  font-size: 12px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
 }
 
-.gantt-detail-fields dd {
-  margin: 0;
+.gantt-detail-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.gantt-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.gantt-detail-sublabel {
+  color: var(--gantt-muted-foreground);
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.gantt-detail-value {
+  font-size: 13px;
+  line-height: 20px;
   overflow-wrap: anywhere;
 }
 
 .gantt-detail-input {
-  padding: 2px 6px;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
   border: 1px solid var(--gantt-border);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--gantt-background);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   color: var(--gantt-foreground);
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  transition: border-color var(--gantt-transition-fast),
+    box-shadow var(--gantt-transition-fast);
 }
 
-.gantt-detail-input:focus-visible {
-  outline: 2px solid var(--gantt-accent);
-  outline-offset: 1px;
+.gantt-detail-input::-webkit-calendar-picker-indicator {
+  margin-left: 2px;
+  opacity: 0.45;
+  cursor: pointer;
 }
 
-/* The name input stands where the title stood, and reads like it */
-.gantt-detail-header .gantt-detail-input {
-  flex: 1;
-  min-width: 0;
-  font-size: 14px;
-  font-weight: 600;
+.gantt-detail-title:focus-visible,
+.gantt-detail-input:focus-visible,
+.gantt-detail-close:focus-visible {
+  outline: none;
+  border-color: var(--gantt-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gantt-accent) 30%, transparent);
 }
 
-.gantt-detail-fields .gantt-detail-input {
+.gantt-detail-progress {
+  --gantt-detail-fill: var(--gantt-progress-color, var(--gantt-progress-bg));
+  --gantt-detail-track: var(--gantt-bar-color, var(--gantt-bar-bg));
+  display: block;
   width: 100%;
+  height: 8px;
+  margin: 4px 0;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--gantt-detail-fill) var(--gantt-detail-progress),
+    var(--gantt-detail-track) var(--gantt-detail-progress)
+  );
+  appearance: none;
+  -webkit-appearance: none;
 }
 
+input.gantt-detail-progress {
+  cursor: pointer;
+}
+
+input.gantt-detail-progress::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--gantt-foreground);
+  border-radius: 50%;
+  background: var(--gantt-background);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  appearance: none;
+  -webkit-appearance: none;
+  transition: box-shadow var(--gantt-transition-fast);
+}
+
+input.gantt-detail-progress::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--gantt-foreground);
+  border-radius: 50%;
+  background: var(--gantt-background);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+input.gantt-detail-progress::-moz-range-track {
+  background: none;
+}
+
+input.gantt-detail-progress:focus-visible {
+  outline: none;
+}
+
+input.gantt-detail-progress:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gantt-accent) 35%, transparent);
+}
+
+input.gantt-detail-progress:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gantt-accent) 35%, transparent);
+}
+
+.gantt-detail-deps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gantt-detail-deps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.gantt-detail-badge {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--gantt-border);
+  border-radius: 6px;
+  color: var(--gantt-muted-foreground);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  letter-spacing: 0.02em;
+}
+
+.gantt-detail-dep-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -6,36 +6,19 @@ import { GanttDemo } from '@/components/demo/gantt-demo';
 // end up pointing at a page other than the one its text describes.
 const FEATURES = [
   '/docs/editing',
-  '/docs/accessibility',
+  '/docs/dependencies',
   '/docs/introduction',
   '/docs/task-list',
   '/docs/working-calendar',
   '/docs/theming',
 ] as const;
 
-type FeatureHref = (typeof FEATURES)[number];
-
-interface Copy {
-  heroTitle: string;
-  heroBody: string;
-  getStarted: string;
-  credentials: string;
-  tryTitle: string;
-  tryBody: string;
-  playground: string;
-  docsTitle: string;
-  docsBody: string;
-  introduction: string;
-  props: string;
-  features: Record<FeatureHref, { title: string; body: string }>;
-}
-
 // The landing page is a translation pair like every docs page: en and ko move together.
-const COPY: Record<'en' | 'ko', Copy> = {
+const COPY = {
   en: {
     heroTitle: 'Bring interactive project planning to your React app.',
     heroBody:
-      'Drag tasks, connect dependencies, and organize projects into nested timelines. Working calendars, keyboard editing, and light and dark themes come built in.',
+      'Drag tasks, connect dependencies, and organize projects into nested timelines. Working calendars and light and dark themes come built in.',
     getStarted: 'Get started',
     credentials: 'Open source, MIT licensed, React 18 and 19, TypeScript types',
     tryTitle: 'Try it',
@@ -49,11 +32,11 @@ const COPY: Record<'en' | 'ko', Copy> = {
     features: {
       '/docs/editing': {
         title: 'Edit the plan directly',
-        body: 'Drag to move, pull an edge to resize, drag the handle to set progress, draw an arrow to link two rows. Every gesture calls onTasksChange with the complete next array.',
+        body: 'Drag to move, pull an edge to resize, draw an arrow to link two rows, and set progress in the detail panel. Every edit calls onTasksChange with the complete next array.',
       },
-      '/docs/accessibility': {
-        title: 'Keyboard and screen readers',
-        body: 'An ARIA treegrid with a roving tabindex, arrow key navigation and keyboard edits announced in a status region. The accessibility page lists the gaps.',
+      '/docs/dependencies': {
+        title: 'Connect the work',
+        body: 'Draw finish-to-start, start-to-start, finish-to-finish and start-to-finish links between bars. Clicking an arrow shows a × button that deletes it. A link never reschedules a task.',
       },
       '/docs/introduction': {
         title: 'Explore larger plans',
@@ -69,14 +52,14 @@ const COPY: Record<'en' | 'ko', Copy> = {
       },
       '/docs/theming': {
         title: 'Match your app',
-        body: "Every color reads from a CSS custom property. With no theme prop set, the chart follows the host page's color-scheme.",
+        body: "Override the color tokens for your whole app or for one chart, and set row and bar heights with props. With no theme prop set, the chart follows the host page's color-scheme.",
       },
     },
   },
   ko: {
     heroTitle: 'React 앱에서 직접 편집하는 프로젝트 타임라인',
     heroBody:
-      '작업을 끌어 옮기고 의존성을 연결하고 프로젝트를 계층형 타임라인으로 정리하세요. 근무일 달력과 키보드 편집, 라이트와 다크 테마를 기본으로 제공해요.',
+      '작업을 끌어 옮기고 의존성을 연결하고 프로젝트를 계층형 타임라인으로 정리하세요. 근무일 달력과 라이트·다크 테마를 기본으로 제공해요.',
     getStarted: '시작하기',
     credentials: '오픈 소스, MIT 라이선스, React 18과 19 지원, TypeScript 타입 제공',
     tryTitle: '직접 해보기',
@@ -90,11 +73,11 @@ const COPY: Record<'en' | 'ko', Copy> = {
     features: {
       '/docs/editing': {
         title: '타임라인에서 바로 편집',
-        body: '막대를 끌어 옮기고 가장자리를 당겨 크기를 조절해요. 핸들을 끌면 진행률이 정해지고 화살표를 그으면 두 행이 연결돼요. 모든 제스처가 다음 tasks 배열 전체로 onTasksChange를 호출해요.',
+        body: '막대를 끌어 옮기고 가장자리를 당겨 크기를 조절해요. 화살표를 그으면 두 행이 연결되고, 진행률은 상세 패널에서 바꿔요. 모든 편집이 다음 tasks 배열 전체로 onTasksChange를 호출해요.',
       },
-      '/docs/accessibility': {
-        title: '키보드와 스크린 리더',
-        body: '로빙 tabindex와 방향키 이동을 지원하는 ARIA treegrid예요. 키보드로 만든 편집은 role="status" 요소로 알려요. 남은 한계는 접근성 문서에 정리해 뒀어요.',
+      '/docs/dependencies': {
+        title: '의존 관계를 화살표로 연결',
+        body: '막대 사이에 종료-시작, 시작-시작, 종료-종료, 시작-종료 연결을 그어요. 화살표를 클릭하면 연결을 삭제하는 × 버튼이 나타나요. 연결이 일정을 자동으로 조정하지는 않아요.',
       },
       '/docs/introduction': {
         title: '더 큰 계획도 한눈에',
@@ -110,7 +93,7 @@ const COPY: Record<'en' | 'ko', Copy> = {
       },
       '/docs/theming': {
         title: '앱에 어울리는 디자인',
-        body: '모든 색을 CSS 커스텀 속성에서 읽어요. theme prop을 넘기지 않으면 호스트 페이지의 color-scheme을 그대로 따라요.',
+        body: '색 토큰을 앱 전체나 차트 하나에만 덮어쓰고, 행과 막대 높이는 prop으로 정해요. theme prop을 넘기지 않으면 호스트 페이지의 color-scheme을 그대로 따라요.',
       },
     },
   },
@@ -136,7 +119,7 @@ export default async function HomePage({
   const copy = COPY[lang === 'ko' ? 'ko' : 'en'];
 
   return (
-    <main className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col">
       <section className="mx-auto w-full max-w-7xl px-4 pt-16 pb-10 text-center">
         <h1 className="text-balance break-keep text-4xl font-bold tracking-tight md:text-5xl">
           {copy.heroTitle}
@@ -218,6 +201,6 @@ export default async function HomePage({
           </Link>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

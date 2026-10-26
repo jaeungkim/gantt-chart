@@ -68,36 +68,10 @@ export function resolveFieldPatch(
       const clamped = clampToBounds(edited, minDate, maxDate);
       const start = field === "startDate" ? clamped : dayjs(task.startDate);
       const end = field === "endDate" ? clamped : dayjs(task.endDate);
-      // Same refusal as a resize drag: the bar never folds over
+      // Same rule as a resize drag, which clamps instead: the bar never folds over
       if (!end.isAfter(start)) return null;
 
       return { [field]: clamped.toISOString() };
     }
   }
-}
-
-export function applyTaskPatch(
-  rawTasks: Task[],
-  taskId: string,
-  patch: Partial<Omit<Task, "id">>
-): Task[] {
-  return rawTasks.map((task) =>
-    task.id === taskId ? { ...task, ...patch } : task
-  );
-}
-
-// The exact commit path every gesture uses (see commitEdit in useGanttKeyboardNav).
-// Typed structurally so tests can hand in a stub instead of a full store.
-export function commitDetailPatch(
-  storeApi: {
-    getState: () => { rawTasks: Task[]; setRawTasks: (tasks: Task[]) => void };
-  },
-  taskId: string,
-  patch: Partial<Omit<Task, "id">>,
-  onTasksChange?: (tasks: Task[]) => void
-): void {
-  const { rawTasks, setRawTasks } = storeApi.getState();
-  const updated = applyTaskPatch(rawTasks, taskId, patch);
-  setRawTasks(updated);
-  onTasksChange?.(updated);
 }

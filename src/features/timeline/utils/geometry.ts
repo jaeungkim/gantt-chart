@@ -21,7 +21,7 @@ import {
 import dayjs, { startOfQuarter, startOfWeek } from "core/dates";
 import { resolveFormatters, resolveLabelUnit } from "shared/utils/i18n";
 import { NO_RANGE_EXTENSION } from "features/timeline/utils/viewport";
-import { tickAxis, tickCellAt } from "./header";
+import { tickAxis, tickCellAt } from "./tickAxis";
 import { transformTasks } from "./transform";
 import { buildTaskTree, rollUpTasks } from "core/tree";
 
@@ -68,9 +68,7 @@ export function originShiftPx(
   return -(calculateDateOffsetPx(nextOrigin, prevTicks, scaleKey) ?? 0);
 }
 
-// Merges non-working cells into px ranges. Day and hour tick units only.
-// Adjacent days merge only while `nonWorkingDayAt` hands back the same key, so a holiday keeps
-// its own band - and its own tint and name - against the weekend it sits beside.
+// Merges non-working days into px ranges. Day and hour tick units only.
 export function computeNonWorkingRanges(
   timelineTicks: GanttBottomRowCell[],
   scaleKey: GanttScaleKey,
@@ -192,17 +190,23 @@ export function clampDragDates(
   return { startDate, endDate: end };
 }
 
+interface MoveMember {
+  start: Dayjs;
+  end: Dayjs;
+  bounds: GanttDragBounds;
+}
+
 // The moving tasks that have a window of their own, with the dates they started at. Each one
-// resolves its own bounds, so a descendant constrains a subtree move too - keyboard and pointer
-// both clamp against this list.
+// resolves its own bounds, so a descendant constrains a subtree move too - a pointer drag clamps
+// against this list.
 export function collectMoveMembers(
   rawTasks: Task[],
   movingIds: Set<string>,
   target: TaskTransformed,
   bounds: GanttDragBounds | null,
   interaction?: GanttInteractionConfig
-): { start: Dayjs; end: Dayjs; bounds: GanttDragBounds }[] {
-  const members: { start: Dayjs; end: Dayjs; bounds: GanttDragBounds }[] = [];
+): MoveMember[] {
+  const members: MoveMember[] = [];
 
   for (const task of rawTasks) {
     if (!movingIds.has(task.id)) continue;
@@ -226,7 +230,7 @@ export function collectMoveMembers(
 
 // Largest shared move keeping every member inside its own window; stays between 0 and requestedMs.
 export function clampMoveDelta(
-  members: { start: Dayjs; end: Dayjs; bounds: GanttDragBounds }[],
+  members: MoveMember[],
   requestedMs: number,
   scaleKey: GanttScaleKey
 ): number {
@@ -371,28 +375,6 @@ export function findDateRangeFromTasks(
   };
 }
 
-function padDateRange(
-  minDate: Dayjs,
-  maxDate: Dayjs,
-  selectedScale: GanttScaleKey,
-  extension: GanttRangeExtension
-): { paddedMinDate: Dayjs; paddedMaxDate: Dayjs } {
-  const config = GANTT_SCALE_CONFIG[selectedScale];
-  const { tickUnit, unitPerTick } = config;
-  const bufferAmount = TIMELINE_SHIFT_BUFFER * unitPerTick;
-
-  return {
-    paddedMinDate: minDate.subtract(
-      bufferAmount + extension.before * unitPerTick,
-      tickUnit
-    ),
-    paddedMaxDate: maxDate.add(
-      bufferAmount + extension.after * unitPerTick,
-      tickUnit
-    ),
-  };
-}
-
 function createBottomRowCells(
   rangeStart: Dayjs,
   rangeEnd: Dayjs,
@@ -431,7 +413,7 @@ function createBottomRowCells(
   return cells;
 }
 
-// First moment of the group a cell belongs to; 'quarter'/'week' are not dayjs units - see core/dates.
+// First moment of the group a cell belongs to; 'quarter' is not a dayjs unit - see core/dates.
 function groupStartDate(
   date: Dayjs,
   labelUnit: GanttLabelUnit,
@@ -450,43 +432,25 @@ export function createTopHeaderGroups(
   const labelUnit = resolveLabelUnit(selectedScale, localeOptions);
   const { header } = resolveFormatters(selectedScale, localeOptions);
 
-  if (bottomCells.length === 0) return [];
-
+  // Group on the label: neighbours a custom header labels alike share one cell.
   const groups: GanttTopHeaderGroup[] = [];
-  let currentGroup: GanttTopHeaderGroup | null = null;
-
   for (const cell of bottomCells) {
-    const start = groupStartDate(
-      cell.startDate,
-      labelUnit,
-      localeOptions?.firstDayOfWeek
+    const label = header(
+      groupStartDate(cell.startDate, labelUnit, localeOptions?.firstDayOfWeek)
     );
-    const key = start.valueOf();
-    const label = header(start);
-
-    if (currentGroup && currentGroup.startDate.valueOf() === key) {
-      currentGroup.widthPx += cell.widthPx;
+    const last = groups[groups.length - 1];
+    if (last?.label === label) {
+      last.widthPx += cell.widthPx;
     } else {
-      if (currentGroup) {
-        groups.push(currentGroup);
-      }
-      currentGroup = {
-        label,
-        widthPx: cell.widthPx,
-        startDate: start,
-      };
+      groups.push({ label, widthPx: cell.widthPx });
     }
-  }
-
-  if (currentGroup) {
-    groups.push(currentGroup);
   }
 
   return groups;
 }
 
 // Builds bottomCells + transformedTasks. A pinned `visibleRange` edge is used verbatim; an open one
-// auto-fits to the rolled-up task dates, buffered and widened by `extension`.
+// auto-fits to the task dates (rolled up under `hierarchy`), buffered and widened by `extension`.
 export function computeTimelineData(
   rawTasks: Task[],
   selectedScale: GanttScaleKey,
@@ -510,14 +474,11 @@ export function computeTimelineData(
 
   if (!rangeStart || !rangeEnd) {
     const { minDate, maxDate } = findDateRangeFromTasks(tasks);
-    const { paddedMinDate, paddedMaxDate } = padDateRange(
-      minDate,
-      maxDate,
-      selectedScale,
-      extension
-    );
-    rangeStart = rangeStart ?? paddedMinDate;
-    rangeEnd = rangeEnd ?? paddedMaxDate;
+    const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[selectedScale];
+    const buffer = TIMELINE_SHIFT_BUFFER * unitPerTick;
+    rangeStart =
+      rangeStart ?? minDate.subtract(buffer + extension.before * unitPerTick, tickUnit);
+    rangeEnd = rangeEnd ?? maxDate.add(buffer + extension.after * unitPerTick, tickUnit);
   }
 
   const bottomCells = createBottomRowCells(

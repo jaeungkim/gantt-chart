@@ -8,8 +8,8 @@
 
 Bring interactive project planning to your React app.
 
-Drag tasks, connect dependencies, and organize projects into nested timelines. Working calendars,
-keyboard editing, and light and dark themes come built in.
+Drag tasks, connect dependencies, and organize projects into nested timelines. Working calendars
+and light and dark themes come built in.
 
 Open source, MIT licensed, React 18 and 19, TypeScript types
 
@@ -20,19 +20,17 @@ Open source, MIT licensed, React 18 and 19, TypeScript types
 
 ## Features
 
-- **Edit the plan directly.** Move and resize tasks, adjust progress, and draw dependency arrows.
+- **Edit the plan directly.** Move and resize tasks, draw dependency arrows, and set progress in
+  the detail panel.
 - **Move a whole project phase.** Organize tasks into a collapsible hierarchy and move a summary
   row together with its children.
 - **Connect the work.** Draw finish-to-start, start-to-start, finish-to-finish and start-to-finish
-  dependencies.
+  dependencies. Clicking an arrow shows a × button that deletes it.
 - **Plan around working days.** Define workweeks and holidays, with optional snapping to the next
   working day.
 - **Render large plans.** Rows and time cells are virtualized, with five scales from day to year.
-- **Use the keyboard.** Navigate, move, resize and reorder tasks with edit announcements.
-  See the [accessibility guide](https://gantt.jaeungkim.com/docs/accessibility) for supported
-  actions and remaining gaps.
-- **Match your app.** Light and dark themes, CSS custom properties, localized dates and custom
-  detail panels.
+- **Match your app.** Light and dark themes, CSS custom properties, row and bar heights, per-chart
+  `style` overrides, localized dates and custom detail panels.
 - **Save through your app.** Every committed edit arrives as one `onTasksChange` call with the
   complete next array. Storage, validation and undo stay in your app.
 
@@ -45,8 +43,8 @@ pnpm add @jaeungkim/gantt-chart
 ```
 
 `react` and `react-dom` (`^18` or `^19`) are peer dependencies, and React is the only module the
-built bundle imports. The ESM build is under 40 kB gzipped and the stylesheet is 4.2 kB. `dayjs` is a
-declared dependency because `Dayjs` is in the public types.
+built bundle imports. Gzipped, the ESM build is under 40 kB and the stylesheet under 5 kB. `dayjs`
+is a declared dependency because `Dayjs` is in the public types.
 
 ## Connect it to your app
 

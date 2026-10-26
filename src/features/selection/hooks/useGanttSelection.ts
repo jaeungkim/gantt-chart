@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useLayoutEffect } from "react";
 import { useGanttStoreApi } from "shared/context";
 import { TaskTransformed } from "shared/task";
 
@@ -6,25 +6,23 @@ interface UseGanttSelectionParams {
   // Undefined lets `onTaskSelect` decide whether clicking selects a row
   selectable?: boolean;
   onTaskSelect?: (task: TaskTransformed | null) => void;
-  onTaskClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
-}
-
-interface GanttSelection {
-  // Selects a row, or clears the selection with null
-  select: (task: TaskTransformed | null) => void;
-  onTaskActivate: (task: TaskTransformed, event: React.MouseEvent) => void;
 }
 
 // Both panes go through the one `select`, so a bar and its grid row cannot disagree
 export function useGanttSelection({
   selectable,
   onTaskSelect,
-  onTaskClick,
-}: UseGanttSelectionParams): GanttSelection {
+}: UseGanttSelectionParams) {
   const storeApi = useGanttStoreApi();
   const enabled = selectable ?? onTaskSelect !== undefined;
 
-  const select = useCallback(
+  // Clears before paint, and silently: onTaskSelect never fires while selection is off
+  useLayoutEffect(() => {
+    if (!enabled) storeApi.getState().setSelectedTaskId(null);
+  }, [enabled, storeApi]);
+
+  // Selects a row, or clears the selection with null
+  return useCallback(
     (task: TaskTransformed | null) => {
       if (!enabled) return;
 
@@ -36,17 +34,4 @@ export function useGanttSelection({
     },
     [enabled, onTaskSelect, storeApi]
   );
-
-  const handleClick = useCallback(
-    (task: TaskTransformed, event: React.MouseEvent) => {
-      onTaskClick?.(task, event);
-      select(task);
-    },
-    [onTaskClick, select]
-  );
-
-  return {
-    select,
-    onTaskActivate: handleClick,
-  };
 }

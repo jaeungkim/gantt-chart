@@ -2,28 +2,17 @@ import './styles.css';
 
 export { default as ReactGanttChart } from './Gantt';
 
-export type { GanttProps } from './props';
 export type {
   GanttDetailApi,
   GanttHandle,
+  GanttProps,
   GanttTaskCreateApi,
-  GanttScrollApi,
-  GanttScrollOptions,
-} from './features/timeline/hooks/useGanttScrollApi';
-export type {
-  Task,
-  TaskDependency,
-  DependencyType,
-  TaskTransformed,
-  GanttInteractionConfig,
-} from './shared/task';
-export type { GanttDependencyChange } from './features/dependencies/hooks/useGanttLinkDrag';
-export type {
-  GanttMoveRejection,
-  GanttTaskMove,
-  GanttTaskMoveChange,
-} from './core/reorder';
-export type { GanttTaskDraft } from './features/bars/hooks/useGanttDrawCreate';
+} from './props';
+export type { GanttScrollApi, GanttScrollOptions } from './features/timeline/types';
+
+export type { DependencyType, Task, TaskDependency } from './core/types';
+export type { GanttInteractionConfig, TaskTransformed } from './shared/task';
+
 export type {
   GanttDateRange,
   GanttDetailRenderProps,
@@ -34,6 +23,8 @@ export type {
   GanttTheme,
   Holiday,
 } from './shared/types';
+export type { GanttDependencyChange } from './features/dependencies/types';
+export type { GanttTaskDraft } from './features/bars/types';
 export type { GanttRow } from './features/rows/utils/rows';
 
 // Headless core - no React, no DOM. Usable on a server or in a worker.
@@ -54,4 +45,7 @@ export {
   sortTasksBySequence,
   validateMove,
   type GanttMoveOptions,
+  type GanttMoveRejection,
+  type GanttTaskMove,
+  type GanttTaskMoveChange,
 } from './core/reorder';

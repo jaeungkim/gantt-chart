@@ -21,17 +21,10 @@ import type {
 ## GanttDetailRenderer
 
 ```ts title="src/shared/types.ts"
-/** Props handed to a `renderDetail` override */
 export interface GanttDetailRenderProps {
   task: TaskTransformed;
-  /** Closes the panel - wire it to your own close control */
   close: () => void;
   scale: GanttScaleKey;
-  /**
-   * Patches the open task through the chart's normal commit path (the store, then
-   * `onTasksChange`), so a custom body can commit edits in uncontrolled mode. Applies NO
-   * permission checks - a custom body enforces its own rules.
-   */
   update: (patch: Partial<Omit<Task, 'id'>>) => void;
 }
 
@@ -52,7 +45,7 @@ export type GanttDetailRenderer = (props: GanttDetailRenderProps) => ReactNode;
 ```tsx
 const renderDetail: GanttDetailRenderer = ({ task, close, scale, update }) => (
   <>
-    <button type="button" onClick={close} aria-label="Close task details">
+    <button type="button" onClick={close}>
       Close
     </button>
     <h2>{task.name}</h2>
@@ -71,9 +64,8 @@ const renderDetail: GanttDetailRenderer = ({ task, close, scale, update }) => (
 The renderer supplies the panel's children, so there is no props bag to spread. No other part of
 the chart accepts a custom renderer.
 
-- The chart renders the `<aside class="gantt-detail" role="complementary" aria-label="Task details">`
-  element itself. The `--gantt-detail-width` custom property sets its width (`320px`). The renderer
-  does not change it.
+- The chart renders the `<aside class="gantt-detail">` element itself. The `--gantt-detail-width`
+  custom property sets its width (`320px`). The renderer does not change it.
 - The built-in close button is not carried over into a custom body. `close` calls the same function
   that button calls. `Escape` closes the panel from anywhere on the page, even when the body renders
   no close control.
@@ -81,17 +73,18 @@ the chart accepts a custom renderer.
 - Passing the renderer turns the panel on when `showDetail` is omitted. An explicit
   `showDetail={false}` keeps it off.
 - The renderer always receives a task. Closing the panel does not unmount it immediately. The panel
-  keeps the last task through the 200ms close transition, and a 400ms timer releases it if
-  `transitionend` never fires. A body with mount side effects gets extra render passes while the
-  panel slides shut. The `<aside>` leaves the DOM after that transition.
+  keeps the last task through the 200ms close transition and releases it 400ms after the close. A
+  body with mount side effects gets extra render passes while the panel slides shut. The `<aside>`
+  leaves the DOM when that 400ms timer fires.
 - `update` uses the same commit path as the built-in body's inputs. It writes the task to the store
   and calls `onTasksChange`. An edit applies in uncontrolled mode, so your app does not have to pass
   `tasks` back.
 - `update` applies no checks of its own. The interaction flags, the date clamping and the progress
   normalization gate the built-in body only. A patch passed here reaches the store and
   `onTasksChange` as given, so a custom body enforces its own rules.
-- The patch cannot change the task's `id`. The type omits it, and the patch applies to the open
-  task.
+- The patch type omits `id`, but TypeScript rejects only an `id` written directly in an object
+  literal. An `id` that arrives through a spread, a variable or plain JavaScript is applied as given
+  and renames the task. The patch always applies to the open task.
 - The default body shows the name, the dates and the duration. Progress and predecessors appear
   only when the task has them. No prop adds a row or translates the captions, so other fields reach
   the panel only through the renderer.

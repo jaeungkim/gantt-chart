@@ -27,32 +27,31 @@ import {
   defaultTaskDraft,
   useGanttDrawCreate,
 } from "features/bars/hooks/useGanttDrawCreate";
-import { useGanttInteraction } from "features/interaction/hooks/useGanttInteraction";
-import { useGanttKeyboardNav } from "features/interaction/hooks/useGanttKeyboardNav";
 import { useGanttRowModel } from "features/rows/hooks/useGanttRowModel";
 import { useGanttSelectors } from "./useGanttSelectors";
-import { useGanttSelection } from "features/interaction/hooks/useGanttSelection";
+import { useGanttSelection } from "features/selection/hooks/useGanttSelection";
 import GanttDetailPanel from "features/detail/components/GanttDetailPanel";
-import {
-  useGanttDetail,
-  useGanttDetailSlide,
-} from "features/detail/hooks/useGanttDetail";
-import { GanttHandle, useGanttScrollApi } from "features/timeline/hooks/useGanttScrollApi";
+import { useGanttDetail } from "features/detail/hooks/useGanttDetail";
+import { useGanttDetailSlide } from "features/detail/hooks/useGanttDetailSlide";
+import { useGanttScrollApi } from "features/timeline/hooks/useGanttScrollApi";
 import { useGanttTaskMove } from "features/task-list/hooks/useGanttTaskMove";
 import { useGanttVirtualization } from "features/timeline/hooks/useGanttVirtualization";
-import {
-  useGanttInitialScroll,
-  useGanttRangeExtension,
-  useGanttRangeReport,
-  useGanttScaleReport,
-  useGanttTimelineSync,
-  useGanttWheelZoom,
-} from "features/timeline/hooks/useGanttViewport";
+import { useGanttInitialScroll } from "features/timeline/hooks/useGanttInitialScroll";
+import { useGanttRangeExtension } from "features/timeline/hooks/useGanttRangeExtension";
+import { useGanttRangeReport } from "features/timeline/hooks/useGanttRangeReport";
+import { useGanttScaleReport } from "features/timeline/hooks/useGanttScaleReport";
+import { useGanttTimelineSync } from "features/timeline/hooks/useGanttTimelineSync";
+import { useGanttWheelZoom } from "features/timeline/hooks/useGanttWheelZoom";
 import { useResolvedTheme } from "shared/hooks/useResolvedTheme";
 import { GanttStoreContext, useGanttStore } from "shared/context";
-import { createGanttStore } from "shared/store";
-import { BAR_HEIGHT, DEFAULT_GRID_WIDTH, NODE_HEIGHT } from "shared/constants";
-import { canCreateTasks, Task } from "shared/task";
+import { createGanttStore, snapshotTasks } from "shared/store";
+import { DEFAULT_GRID_WIDTH, resolveGeometry } from "shared/constants";
+import {
+  canCreateTasks,
+  GanttInteractionConfig,
+  Task,
+  TaskTransformed,
+} from "shared/task";
 import dayjs from "core/dates";
 import { CALENDAR_DAYS, createWorkingCalendar } from "core/calendar";
 import type { Dayjs } from "dayjs";
@@ -64,7 +63,7 @@ import {
 } from "features/timeline/utils/geometry";
 import { resolveFormatters } from "shared/utils/i18n";
 import { indexHolidays } from "shared/utils/holidays";
-import { GanttProps } from './props';
+import { GanttHandle, GanttProps } from './props';
 
 const DEFAULT_HEIGHT = 600;
 const DEFAULT_WIDTH = "100%";
@@ -90,8 +89,11 @@ function GanttChart(
     onTasksChange,
     height = DEFAULT_HEIGHT,
     width = DEFAULT_WIDTH,
+    rowHeight,
+    barHeight,
     theme,
     className,
+    style,
     showNonWorkingDays = true,
     workingWeekdays,
     holidays,
@@ -101,7 +103,7 @@ function GanttChart(
     locale,
     formats,
     firstDayOfWeek,
-    showTaskList,
+    showTaskList = false,
     showRowNumbers = false,
     hierarchy = false,
     collapsedIds,
@@ -136,8 +138,6 @@ function GanttChart(
     bottomRowCells,
     selectedScale,
     syncTasksFromProps,
-    setSelectedScale,
-    setLocaleOptions,
   } = useGanttSelectors();
 
   // undefined while nothing is set, so built-in labels are used without an Intl formatter
@@ -151,22 +151,19 @@ function GanttChart(
     [locale, formats, firstDayOfWeek]
   );
 
-  // Layout effect so the labels are in place before the first paint
-  useLayoutEffect(() => {
-    setLocaleOptions(localeOptions);
-  }, [localeOptions, setLocaleOptions]);
-
+  // One scroll container, so vertical scrolling and virtualization are shared
   const scrollRef = useRef<HTMLDivElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
 
-  const interaction = useGanttInteraction(props);
+  const interaction: GanttInteractionConfig = props;
+
+  const geometry = useMemo(
+    () => resolveGeometry(rowHeight, barHeight),
+    [rowHeight, barHeight]
+  );
 
   const [taskListWidth, setTaskListWidth] = useState(DEFAULT_GRID_WIDTH);
-  const taskListVisible = showTaskList ?? false;
   // Timeline px the pane covers; scroll and zoom math subtracts it so `scrollToDate` clears it
-  const paneInset = taskListVisible ? taskListWidth : 0;
-  // Cells before the bars on a row - the single name cell, or none while the pane is hidden
-  const gridColumnCount = taskListVisible ? 1 : 0;
+  const paneInset = showTaskList ? taskListWidth : 0;
 
   const collapse = useGanttCollapse({
     collapsedIds,
@@ -191,6 +188,7 @@ function GanttChart(
     rowCount: rows.length,
     bottomRowCells,
     scrollRef,
+    geometry,
   });
 
   const extension = useGanttRangeExtension({
@@ -207,7 +205,6 @@ function GanttChart(
   const move = useGanttTaskMove({
     hierarchy,
     interaction,
-    collapsedIds: collapse.collapsedIds,
     onTasksChange,
     onTaskMove,
     onExpand: collapse.expand,
@@ -235,10 +232,9 @@ function GanttChart(
   const nonWorkingDayAt = useCallback(
     (date: Dayjs): NonWorkingDay | null => {
       if (workweek.isWorkingDay(date)) return null;
-      const holiday = holidayIndex.byDate.get(date.format("YYYY-MM-DD"));
-      return holiday
-        ? { key: holiday.date, label: holiday.label, color: holiday.color }
-        : { key: OFF_DAY_KEY };
+      return (
+        holidayIndex.byDate.get(date.format("YYYY-MM-DD")) ?? { key: OFF_DAY_KEY }
+      );
     },
     [workweek, holidayIndex]
   );
@@ -249,21 +245,29 @@ function GanttChart(
   // A renderer turns the panel on; `showDetail` is the explicit override
   const detailEnabled = showDetail ?? renderDetail !== undefined;
 
-  const selection = useGanttSelection({
+  const select = useGanttSelection({
     // The panel turns selection on unless the host has said otherwise
     selectable: selectable ?? (detailEnabled ? true : undefined),
     onTaskSelect,
-    onTaskClick,
   });
 
-  // Wraps the selection click handler, so a click still selects and reaches the host first
   const detail = useGanttDetail({
     enabled: detailEnabled,
     tasks: transformedTasks,
     detailTaskId,
     onDetailChange,
-    onTaskActivate: selection.onTaskActivate,
   });
+
+  const openDetail = detail.open;
+  // Opening the panel, a click still selects and reaches the host first
+  const activateTask = useCallback(
+    (task: TaskTransformed, event: React.MouseEvent) => {
+      onTaskClick?.(task, event);
+      select(task);
+      openDetail(task.id);
+    },
+    [onTaskClick, select, openDetail]
+  );
 
   // Retains the last task so the body stays rendered while the panel slides shut
   const slide = useGanttDetailSlide(detail.task);
@@ -271,14 +275,14 @@ function GanttChart(
   const barOptions = useMemo(
     () => ({
       onTasksChange,
-      onTaskActivate: detail.onTaskActivate,
+      onTaskActivate: activateTask,
       onTaskDoubleClick,
       showTooltip,
       tooltip: resolveFormatters(selectedScale, localeOptions).tooltip,
     }),
     [
       onTasksChange,
-      detail.onTaskActivate,
+      activateTask,
       onTaskDoubleClick,
       showTooltip,
       selectedScale,
@@ -287,10 +291,11 @@ function GanttChart(
   );
 
   const canCreateTask = onTaskCreate !== undefined && canCreateTasks(interaction);
-  const { onDrawPointerDown, ghost } = useGanttDrawCreate({
+  const { onDrawPointerDown, consumeDrawClick, ghost } = useGanttDrawCreate({
     enabled: canCreateTask,
     rowCount: rows.length,
     onTaskCreate,
+    geometry,
   });
 
   // Click version of the drawn range, off exactly where the drawn one is off
@@ -302,12 +307,12 @@ function GanttChart(
 
   const resolvedTheme = useResolvedTheme(theme);
 
-  const syncedTasksRef = useRef<string | null>(null);
+  const syncedTasksRef = useRef<string | symbol | null>(null);
 
   // Overwrite the store only when the contents changed, not when the array identity did,
   // so a parent re-render passing the same data under a new identity does not revert drag edits
   useEffect(() => {
-    const snapshot = JSON.stringify(tasks);
+    const snapshot = snapshotTasks(tasks);
     if (snapshot === syncedTasksRef.current) return;
 
     syncedTasksRef.current = snapshot;
@@ -335,6 +340,7 @@ function GanttChart(
     extension,
     scrollRef,
     bottomRowCells,
+    syncWindow: virtual.syncWindow,
   });
 
   useGanttWheelZoom({
@@ -368,10 +374,9 @@ function GanttChart(
     bottomRowCells,
     transformedTasks: rowTasks,
     selectedScale,
-    rowHeight: NODE_HEIGHT,
     viewportInsetPx: paneInset,
     zoomTo,
-    setSelectedScale,
+    geometry,
   });
   useImperativeHandle(
     forwardedRef,
@@ -384,45 +389,24 @@ function GanttChart(
     [scrollApi, detail.open, detail.close, proposeTask]
   );
 
-  const keyboard = useGanttKeyboardNav({
-    // Enter opens the panel, the way a click does
-    onActivate: detailEnabled ? detail.open : undefined,
-    rows,
-    rawTasks,
-    gridColumnCount,
-    hierarchy,
-    collapsedIds: collapse.collapsedIds,
-    selectedScale,
-    localeOptions,
-    interaction,
-    onToggleCollapse: collapse.toggle,
-    onTasksChange,
-    move,
-    scrollToRow: virtual.scrollToRow,
-    scrollApi,
-    bodyRef,
-  });
-
   useGanttInitialScroll(initialScrollTo, bottomRowCells, scrollApi);
 
   // Empty timeline clears the selection; a click on a bar has a different target
-  const handleContentClick = useCallback(
-    (event: React.MouseEvent) => {
-      if (event.target !== event.currentTarget) return;
-      selection.select(null);
-      detail.close();
-    },
-    [selection, detail]
-  );
+  const handleContentClick = (event: React.MouseEvent) => {
+    if (consumeDrawClick() || event.target !== event.currentTarget) return;
+    select(null);
+    detail.close();
+  };
 
 
   const containerStyle = {
-    height: typeof height === "number" ? `${height}px` : height,
-    width: typeof width === "number" ? `${width}px` : width,
+    ...style,
+    height: style?.height ?? (typeof height === "number" ? `${height}px` : height),
+    width: style?.width ?? (typeof width === "number" ? `${width}px` : width),
     // How far the pinned task list reaches in; left-pinned timeline content offsets by this
     "--gantt-pane-inset": `${paneInset}px`,
     // Row height as a token, so CSS keeps the row pitch without a second copy of the number
-    "--gantt-row-height": `${NODE_HEIGHT}px`,
+    "--gantt-row-height": `${geometry.rowHeight}px`,
   } as React.CSSProperties;
   const timelineStyle = { width: `${virtual.totalWidth}px` };
 
@@ -432,28 +416,11 @@ function GanttChart(
       data-theme={resolvedTheme}
       style={containerStyle}
     >
-      {/* Live region - date changes made from the keyboard are announced here */}
-      <div className="gantt-sr-only" role="status" aria-live="polite">
-        {keyboard.announcement}
-      </div>
-
-      {/* The panel is a flex sibling, so the timeline narrows instead of being covered and scroll
-          measurements stay correct; the wrapper stays unpositioned so the splitter anchors to .gantt-main. */}
       <div className="gantt-layout">
         <div className="gantt-main">
           <div ref={scrollRef} className="gantt-scroll-container">
-            {/* One scroll container, so vertical scrolling and virtualization are shared; one
-                treegrid, with each row owning its bars through aria-owns. */}
-            <div
-              ref={bodyRef}
-              className="gantt-body"
-              role="treegrid"
-              aria-label="Gantt chart"
-              aria-rowcount={rows.length + (taskListVisible ? 1 : 0)}
-              onKeyDown={keyboard.onKeyDown}
-              onFocusCapture={keyboard.onFocusCapture}
-            >
-              {taskListVisible && (
+            <div className="gantt-body">
+              {showTaskList && (
                 <GanttTaskGrid
                   rows={rows}
                   virtualItems={virtual.virtualRows}
@@ -463,8 +430,7 @@ function GanttChart(
                   hierarchy={hierarchy}
                   collapsedIds={collapse.collapsedIds}
                   onToggleCollapse={collapse.toggle}
-                  focus={keyboard.focus}
-                  onRowClick={detail.onTaskActivate}
+                  onRowClick={activateTask}
                   onRowDoubleClick={onTaskDoubleClick}
                   reorderEnabled={reorderEnabled}
                   interaction={interaction}
@@ -472,33 +438,28 @@ function GanttChart(
                 />
               )}
 
-              <div
-                className="gantt-timeline"
-                style={timelineStyle}
-                role="presentation"
-              >
+              <div className="gantt-timeline" style={timelineStyle}>
                 <div className="gantt-header-wrapper" style={timelineStyle}>
                   <GanttChartHeader
                     bottomRowCells={bottomRowCells}
                     selectedScale={selectedScale}
                     width={virtual.totalWidth}
                     virtual={virtual}
+                    localeOptions={localeOptions}
                   />
 
-                  {/* Belongs to the date axis: inherits the wrapper's sticky and width, not part of the header cells */}
-                  {/* Before the guides, so a live drag readout paints over a holiday's name */}
                   <GanttHolidayLabels ranges={nonWorkingRanges} />
-                  <GanttDragGuides />
+                  <GanttDragGuides localeOptions={localeOptions} />
                   <GanttTodayDot leftPx={todayPx} />
                 </div>
 
                 <div
                   className={`gantt-content${canCreateTask ? " drawable" : ""}`}
                   style={{
-                    height: `${virtual.totalHeight}px`,
+                    // one blank row under the last, so a draw can start once rows fill the viewport
+                    height: `${virtual.totalHeight + (canCreateTask ? geometry.rowHeight : 0)}px`,
                     width: `${virtual.totalWidth}px`,
                   }}
-                  role="presentation"
                   onPointerDown={onDrawPointerDown}
                   onClick={handleContentClick}
                 >
@@ -507,9 +468,6 @@ function GanttChart(
                   <GanttRowsLayer
                     rows={rows}
                     virtualItems={virtual.virtualRows}
-                    ownedByTaskList={taskListVisible}
-                    hierarchy={hierarchy}
-                    collapsedIds={collapse.collapsedIds}
                   />
 
                   <GanttTodayLine leftPx={todayPx} />
@@ -521,11 +479,10 @@ function GanttChart(
                         left: `${ghost.leftPx}px`,
                         width: `${ghost.widthPx}px`,
                         // Same geometry as the bar this becomes, centred in the row
-                        height: `${BAR_HEIGHT}px`,
-                        marginTop: `${(NODE_HEIGHT - BAR_HEIGHT) / 2}px`,
+                        height: `${geometry.barHeight}px`,
+                        marginTop: `${(geometry.rowHeight - geometry.barHeight) / 2}px`,
                         transform: `translateY(${ghost.topPx}px)`,
                       }}
-                      aria-hidden="true"
                     />
                   )}
 
@@ -535,45 +492,47 @@ function GanttChart(
                     interaction={interaction}
                     onTasksChange={onTasksChange}
                     onDependencyDelete={onDependencyDelete}
+                    geometry={geometry}
                   />
 
                   <GanttBarsLayer
                     rows={rows}
                     virtualItems={virtual.virtualRows}
-                    gridColumnCount={gridColumnCount}
-                    focus={keyboard.focus}
                     isBarVisible={virtual.isBarVisible}
                     options={barOptions}
                     interaction={interaction}
                     calendar={calendar}
                     autoScrollOnDrag={autoScrollOnDrag}
                     onDependencyCreate={onDependencyCreate}
+                    geometry={geometry}
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Outside the scroll container to stay pinned to the pane edge, outside the treegrid to keep one tab stop */}
-          {taskListVisible && (
+          {showTaskList && (
+            // Outside the scroll container to stay pinned to the pane edge
             <GanttGridSplitter
               width={taskListWidth}
               onWidthChange={setTaskListWidth}
             />
           )}
 
-          {/* Out here for the splitter's reasons; also the only keyboard way in, since drawing is pointer-only */}
-          {taskListVisible && canCreateTask && (
+          {showTaskList && canCreateTask && (
+            // Out here for the splitter's reasons
             <GanttTaskAddRow width={taskListWidth} onAdd={proposeTask} />
           )}
         </div>
 
         {slide.task && (
+          // The panel is a flex sibling, so the timeline narrows instead of being covered and
+          // scroll measurements stay correct
           <GanttDetailPanel
             task={slide.task}
             tasks={transformedTasks}
             scale={selectedScale}
-            localeOptions={localeOptions}
+            tooltip={barOptions.tooltip}
             interaction={interaction}
             onClose={detail.close}
             onTasksChange={onTasksChange}

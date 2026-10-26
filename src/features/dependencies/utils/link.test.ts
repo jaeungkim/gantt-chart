@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { resolveGeometry } from 'shared/constants';
 import type { Task, TaskDependency, TaskTransformed } from 'shared/task';
 import {
   addDependency,
@@ -18,7 +19,6 @@ const task = (id: string, ...dependencies: TaskDependency[]): Task => ({
   dependencies,
 });
 
-// `b` depends on `a` (a is the predecessor)
 const fs = (targetId: string): TaskDependency => ({ targetId, type: 'FS' });
 
 describe('linkTypeFromAnchors', () => {
@@ -39,20 +39,21 @@ const bar = (
   ({ ...task(id), order, barLeft, barWidth }) as unknown as TaskTransformed;
 
 describe('resolveLinkTarget', () => {
-  const ROW = 38;
-  const ZONE = 24;
-  // Rows 1 and 2, plus two tasks sharing row 3 as lanes
+  const geometry = resolveGeometry();
+  const ROW = geometry.rowHeight;
   const rows = [
     bar('a', 1, 100, 300),
     bar('b', 2, 500, 20),
     bar('c', 3, 0, 60),
     bar('d', 3, 400, 60),
   ];
-  const at = (x: number, y: number) => resolveLinkTarget(rows, x, y, ROW, ZONE);
+  const at = (x: number, y: number) => resolveLinkTarget(rows, x, y, geometry);
 
-  it('takes the whole row band, not just the bar', () => {
-    expect(at(5, ROW - 2)?.task.id).toBe('a');
-    expect(at(2000, 4)?.task.id).toBe('a');
+  it('needs the pointer on a bar or within the zone beside it', () => {
+    expect(at(80, ROW - 2)?.task.id).toBe('a');
+    expect(at(420, 4)?.task.id).toBe('a');
+    expect(at(5, ROW - 2)).toBeNull();
+    expect(at(2000, 4)).toBeNull();
   });
 
   it('picks the nearest bar when lanes share a row', () => {
@@ -60,18 +61,17 @@ describe('resolveLinkTarget', () => {
     expect(at(390, 2.5 * ROW)?.task.id).toBe('d');
   });
 
-  it('reads the middle of a bar, and everything left of it, as its start', () => {
-    expect(at(10, 10)?.anchor).toBe('start');
+  it('reads the middle of a bar, and the zone left of it, as its start', () => {
+    expect(at(90, 10)?.anchor).toBe('start');
     expect(at(250, 10)?.anchor).toBe('start');
   });
 
-  it('reads the last of a bar, and everything right of it, as its finish', () => {
+  it('reads the last of a bar, and the zone right of it, as its finish', () => {
     expect(at(395, 10)?.anchor).toBe('end');
-    expect(at(900, 10)?.anchor).toBe('end');
+    expect(at(420, 10)?.anchor).toBe('end');
   });
 
   it('keeps a middle to aim at on a short bar', () => {
-    // 20px wide, so the finish zone is a third of it rather than the whole bar
     expect(at(505, 1.5 * ROW)?.anchor).toBe('start');
     expect(at(518, 1.5 * ROW)?.anchor).toBe('end');
   });
@@ -79,6 +79,11 @@ describe('resolveLinkTarget', () => {
   it('is nothing above the first row or below the last', () => {
     expect(at(200, -1)).toBeNull();
     expect(at(200, 10 * ROW)).toBeNull();
+  });
+
+  it('finds the row by the row height it is given', () => {
+    expect(at(80, 45)).toBeNull();
+    expect(resolveLinkTarget(rows, 80, 45, resolveGeometry(50))?.task.id).toBe('a');
   });
 });
 
@@ -103,13 +108,11 @@ describe('validateDependency', () => {
   });
 
   it('rejects an indirect cycle through a chain', () => {
-    // a <- b <- c, so making a depend on c closes the loop
     const tasks = [task('a'), task('b', fs('a')), task('c', fs('b'))];
     expect(validateDependency(tasks, 'c', 'a')).toBe('cycle');
   });
 
   it('rejects an indirect cycle through a branch of the predecessor graph', () => {
-    // a has two predecessors; the loop is only on the second branch
     const tasks = [
       task('a'),
       task('b'),
@@ -153,11 +156,6 @@ describe('addDependency', () => {
       { targetId: 'b', type: 'FF' },
     ]);
   });
-
-  it('returns the same array when the successor is unknown', () => {
-    const tasks = [task('a')];
-    expect(addDependency(tasks, 'a', 'ghost', 'FS')).toBe(tasks);
-  });
 });
 
 describe('removeDependency', () => {
@@ -166,11 +164,5 @@ describe('removeDependency', () => {
     expect(removeDependency(tasks, 'a', 'c')[2].dependencies).toEqual([
       { targetId: 'b', type: 'FS' },
     ]);
-  });
-
-  it('returns the same array when there is nothing to remove', () => {
-    const tasks = [task('a'), task('b', fs('a'))];
-    expect(removeDependency(tasks, 'b', 'a')).toBe(tasks);
-    expect(removeDependency(tasks, 'a', 'ghost')).toBe(tasks);
   });
 });

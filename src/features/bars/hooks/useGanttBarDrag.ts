@@ -9,12 +9,7 @@ import { Dayjs } from "dayjs";
 import { useEffect, useRef } from "react";
 import { useGanttStore, useGanttStoreApi } from "shared/context";
 import { useLatestRef } from "shared/hooks/useLatestRef";
-import {
-  GanttDragBounds,
-  GanttDragMode,
-  GanttDragOffset,
-  GanttScaleKey,
-} from "shared/types";
+import { GanttDragMode, GanttDragOffset } from "shared/types";
 import {
   GanttInteractionConfig,
   resolveTaskInteraction,
@@ -30,66 +25,58 @@ import {
   collectMoveMembers,
   pxBetweenDates,
   shiftByDragSteps,
+  timelineRange,
   toDragBounds,
 } from "features/timeline/utils/geometry";
 import { collectSubtreeIds } from "core/tree";
 import { edgeScrollVelocity, timelineEdges } from "features/timeline/utils/viewport";
+import { scrollBehavior } from "features/timeline/hooks/useGanttScrollApi";
 
 interface GanttBarDragOptions {
   onTasksChange?: (updatedTasks: Task[]) => void;
-  /** Scroll the timeline when the drag reaches a viewport edge (default true) */
   autoScroll?: boolean;
 }
 
-interface DragContext {
-  mode: GanttDragMode;
-  pointerId: number;
-  initialClientX: number;
-  initialStartDate: Dayjs;
-  initialEndDate: Dayjs;
-  initialBarWidth: number;
-  dragSteps: number;
-  basePxPerDragStep: number;
-  /** Last pointer position, so an auto-scroll frame can recompute without a new event */
-  lastClientX: number;
-  /** How far the timeline has auto-scrolled since the drag started (px) */
-  autoScrollPx: number;
-  // Keep computing in the step unit from when the drag started, even if the scale changes mid-drag
-  scaleKey: GanttScaleKey;
-  taskId: string;
-  /** Tasks that move together - the whole subtree for a summary row, otherwise just itself */
-  taskIds: string[];
-  /** Dates the moving tasks had when the drag started */
-  initialDates: Map<string, { start: Dayjs; end: Dayjs }>;
-  /** Extra days the working-day calendar snapped the last frame by (0 when it is off) */
-  snapDays: number;
-  /** The dragged bar's own bounds - null when it has none. Used by the resize modes. */
-  bounds: GanttDragBounds | null;
-  /** Moving tasks that have bounds, with their starting dates - a move clamps against all of them */
-  boundedMembers: { start: Dayjs; end: Dayjs; bounds: GanttDragBounds }[];
-  /** Shared clamped move, in ms - every moving task shifts by it. null when unclamped. */
-  moveDeltaMs: number | null;
-  /** Latest bound-clamped dates for a resize, committed instead of a plain step shift */
-  clamped: { startDate: Dayjs; endDate: Dayjs } | null;
+export function resizeEdgeAt(
+  rect: DOMRect,
+  clientX: number,
+  pointerType: string
+): "left" | "right" | null {
+  const touch = pointerType !== "mouse";
+  const edge = touch ? TOUCH_EDGE_THRESHOLD : EDGE_THRESHOLD;
+  const minWidth = touch ? MIN_TOUCH_RESIZABLE_WIDTH : MIN_RESIZABLE_WIDTH;
+  if (rect.width < minWidth) return null;
+
+  const relativeX = clientX - rect.left;
+  if (relativeX <= edge) return "left";
+  if (relativeX >= rect.width - edge) return "right";
+  return null;
 }
 
 /** Gantt bar drag behavior; `autoScroll` (default true) scrolls the timeline at a viewport edge. */
 export function useGanttBarDrag(
   task: TaskTransformed,
-  options: GanttBarDragOptions = {},
+  options: GanttBarDragOptions,
   interaction?: GanttInteractionConfig,
   calendar?: WorkingCalendar
 ) {
   const storeApi = useGanttStoreApi();
-  const dragContextRef = useRef<DragContext | null>(null);
+  const draggingRef = useRef(false);
   // The pointerup that ends a drag is followed by a click - this tells the two apart
   const movedRef = useRef(false);
   /** Aborts a touch long press that has not lifted the bar yet */
   const pendingGestureRef = useRef<(() => void) | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
   const optionsRef = useLatestRef(options);
 
   // A row scrolled out of view while a finger rests on it must not lift later
-  useEffect(() => () => pendingGestureRef.current?.(), []);
+  useEffect(
+    () => () => {
+      pendingGestureRef.current?.();
+      cleanupRef.current?.();
+    },
+    []
+  );
 
   const selectedScale = useGanttStore((s) => s.selectedScale);
   const { basePxPerDragStep } = GANTT_SCALE_CONFIG[selectedScale];
@@ -103,24 +90,18 @@ export function useGanttBarDrag(
   const detectDragMode = (
     e: React.PointerEvent<HTMLDivElement>
   ): GanttDragMode | null => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const touch = e.pointerType !== "mouse";
-    const edge = touch ? TOUCH_EDGE_THRESHOLD : EDGE_THRESHOLD;
-    const minWidth = touch ? MIN_TOUCH_RESIZABLE_WIDTH : MIN_RESIZABLE_WIDTH;
-
-    if (canResize && rect.width >= minWidth) {
-      const relativeX = e.clientX - rect.left;
-      if (relativeX <= edge) return "left";
-      if (relativeX >= rect.width - edge) return "right";
-    }
-
-    return canMove ? "bar" : null;
+    const edge = canResize
+      ? resizeEdgeAt(e.currentTarget.getBoundingClientRect(), e.clientX, e.pointerType)
+      : null;
+    return edge ?? (canMove ? "bar" : null);
   };
 
   const onPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
     if (!e.isPrimary || e.button !== 0) return;
     // Ignore a second pointer while a drag is already running
-    if (dragContextRef.current) return;
+    if (draggingRef.current) return;
+    // Touch drags end without a click to consume the flag, so each press starts clean.
+    movedRef.current = false;
     // Anything still pending belongs to a past press - the primary pointer is down once
     pendingGestureRef.current?.();
     pendingGestureRef.current = null;
@@ -149,8 +130,6 @@ export function useGanttBarDrag(
     initialClientX: number,
     element: HTMLDivElement
   ) => {
-    movedRef.current = false;
-
     const scrollEl = element.closest<HTMLElement>(
       ".gantt-scroll-container"
     );
@@ -161,21 +140,10 @@ export function useGanttBarDrag(
       ? collectSubtreeIds(rawTasks, task.id)
       : [task.id];
     const movingIds = new Set(taskIds);
-    const initialDates = new Map(
-      rawTasks
-        .filter((t) => movingIds.has(t.id))
-        .map((t) => [
-          t.id,
-          { start: dayjs(t.startDate), end: dayjs(t.endDate) },
-        ])
-    );
-    // The dragged bar itself uses the dates on screen (rolled up from children for a summary)
-    initialDates.set(task.id, {
-      start: dayjs(task.startDate),
-      end: dayjs(task.endDate),
-    });
 
+    // The dragged bar's own bounds - null when it has none
     const bounds = toDragBounds(minDate, maxDate);
+    // Moving tasks that have bounds, with their starting dates - a move clamps against all of them
     const boundedMembers = collectMoveMembers(
       rawTasks,
       movingIds,
@@ -184,37 +152,42 @@ export function useGanttBarDrag(
       interaction
     );
 
-    dragContextRef.current = {
-      mode,
-      pointerId,
-      initialClientX,
-      initialStartDate: dayjs(task.startDate),
-      initialEndDate: dayjs(task.endDate),
-      initialBarWidth: task.barWidth,
-      dragSteps: 0,
-      basePxPerDragStep,
-      lastClientX: initialClientX,
-      autoScrollPx: 0,
-      scaleKey: selectedScale,
-      taskId: task.id,
-      taskIds,
-      initialDates,
-      snapDays: 0,
-      bounds,
-      boundedMembers,
-      moveDeltaMs: null,
-      clamped: null,
-    };
+    draggingRef.current = true;
+    const taskStart = dayjs(task.startDate);
+    const taskEnd = dayjs(task.endDate);
+    const drawn = timelineRange(
+      storeApi.getState().bottomRowCells,
+      selectedScale
+    );
+    // A resize drags the edge as drawn: a date past the timeline, or an open one, is drawn at its edge.
+    // An open date anchors there in every mode, so no step math sees NaN.
+    const initialStartDate =
+      drawn &&
+      (!taskStart.isValid() || (mode === "left" && !taskStart.isAfter(drawn.start)))
+        ? drawn.start
+        : taskStart;
+    const initialEndDate =
+      drawn &&
+      (!taskEnd.isValid() || (mode === "right" && !taskEnd.isBefore(drawn.end)))
+        ? drawn.end
+        : taskEnd;
+    let dragSteps = 0;
+    let lastClientX = initialClientX;
+    // How far the timeline has auto-scrolled since the drag started (px)
+    let autoScrollPx = 0;
+    // Extra days the working-day calendar snapped the last frame by (0 when it is off)
+    let snapDays = 0;
+    // Shared clamped move, in ms - every moving task shifts by it. null when unclamped.
+    let moveDeltaMs: number | null = null;
+    // Latest bound-clamped dates for a resize
+    let clamped: { startDate: Dayjs; endDate: Dayjs } | null = null;
+    let resizedEdge = mode === "left" ? initialStartDate : initialEndDate;
 
-    storeApi.getState().setCurrentTask(task);
-    storeApi.getState().setDragMode(mode);
-    // A touch press does not focus the bar; without this the keyboard loses it after a touch drag
-    element.focus({ preventScroll: true });
+    storeApi.getState().setBarDrag({ task, mode });
+    // Capture throws if the pointer is already gone; pointerup/pointercancel below still tear the drag down
     try {
       element.setPointerCapture(pointerId);
-    } catch {
-      // Pointer already gone; pointerup/pointercancel below still tear the drag down
-    }
+    } catch {}
 
     // Touch scrolling must be held off by hand for as long as this drag owns the finger
     const releaseTouchScroll =
@@ -222,155 +195,150 @@ export function useGanttBarDrag(
 
     // Recomputes from the last known pointer position - auto-scroll frames bring no new event
     const applyMove = () => {
-      const ctx = dragContextRef.current;
-      if (!ctx) return;
-
-      const deltaX =
-        ctx.lastClientX - ctx.initialClientX + ctx.autoScrollPx;
-      const rawSteps = Math.round(deltaX / ctx.basePxPerDragStep);
+      const deltaX = lastClientX - initialClientX + autoScrollPx;
+      const rawSteps = Math.round(deltaX / basePxPerDragStep);
 
       // Clamp the step count, not just the preview - otherwise the commit lands end < start
       const maxShrinkSteps = Math.floor(
-        (ctx.initialBarWidth - ctx.basePxPerDragStep) / ctx.basePxPerDragStep
+        (task.barWidth - basePxPerDragStep) / basePxPerDragStep
       );
       let steps = rawSteps;
-      if (ctx.mode === "left") steps = Math.min(rawSteps, maxShrinkSteps);
-      if (ctx.mode === "right") steps = Math.max(rawSteps, -maxShrinkSteps);
+      if (mode === "left") steps = Math.min(rawSteps, maxShrinkSteps);
+      if (mode === "right") steps = Math.max(rawSteps, -maxShrinkSteps);
+      // A clipped edge already sits at the timeline's edge; outward it would only move a hidden date.
+      if (mode === "left" && initialStartDate !== taskStart) steps = Math.max(steps, 0);
+      if (mode === "right" && initialEndDate !== taskEnd) steps = Math.min(steps, 0);
 
-      if (steps === ctx.dragSteps) return;
-      ctx.dragSteps = steps;
+      if (steps === dragSteps) return;
+      dragSteps = steps;
       movedRef.current = true;
 
-      const draggedPx = steps * ctx.basePxPerDragStep;
-      const shift = (date: Dayjs) => shiftByDragSteps(date, steps, ctx.scaleKey);
+      // Release at zero steps commits nothing, so the preview shows nothing moved either.
+      if (steps === 0) {
+        storeApi.getState().clearDragOffsets(taskIds);
+        return;
+      }
+
+      const draggedPx = steps * basePxPerDragStep;
+      const shift = (date: Dayjs) => shiftByDragSteps(date, steps, selectedScale);
 
       let newStartDate: Dayjs;
       let newEndDate: Dayjs;
       let offsetX = 0;
       let offsetWidth = 0;
 
-      switch (ctx.mode) {
+      switch (mode) {
         case "bar":
-          newStartDate = shift(ctx.initialStartDate);
-          newEndDate = shift(ctx.initialEndDate);
+          newStartDate = shift(initialStartDate);
+          newEndDate = shift(initialEndDate);
           offsetX = draggedPx;
           offsetWidth = 0;
           break;
 
         case "left":
-          newStartDate = shift(ctx.initialStartDate);
-          newEndDate = ctx.initialEndDate;
+          newStartDate = shift(initialStartDate);
+          newEndDate = initialEndDate;
           offsetX = draggedPx;
           offsetWidth = -draggedPx;
           break;
 
         case "right":
-          newStartDate = ctx.initialStartDate;
-          newEndDate = shift(ctx.initialEndDate);
+          newStartDate = initialStartDate;
+          newEndDate = shift(initialEndDate);
           offsetX = 0;
           offsetWidth = draggedPx;
           break;
       }
 
       // Snap to a working day before the bounds clamp below, so a hard min/max always wins
-      let snapDays = 0;
+      snapDays = 0;
       if (calendar?.skipsNonWorkingDays) {
-        const anchor = ctx.mode === "right" ? newEndDate : newStartDate;
+        // The end is exclusive, so the day it closes is the one its last instant falls on.
+        const anchor =
+          mode === "right" ? newEndDate.subtract(1, "millisecond") : newStartDate;
         const snapped = calendar.snapForward(anchor);
         snapDays = snapped.diff(anchor, "day");
 
         // A left-edge resize must not snap past the bar's own end
-        if (ctx.mode === "left" && snapped.valueOf() >= newEndDate.valueOf()) {
+        if (mode === "left" && snapped.valueOf() >= newEndDate.valueOf()) {
           snapDays = 0;
         }
       }
-      ctx.snapDays = snapDays;
-
-      const snapPx = snapDays
-        ? pxBetweenDates(
-            newStartDate,
-            newStartDate.add(snapDays, "day"),
-            ctx.scaleKey
-          )
-        : 0;
 
       if (snapDays) {
-        if (ctx.mode !== "right") {
+        const snapPx = pxBetweenDates(
+          newStartDate,
+          newStartDate.add(snapDays, "day"),
+          selectedScale
+        );
+        if (mode !== "right") {
           newStartDate = newStartDate.add(snapDays, "day");
           offsetX += snapPx;
         }
-        if (ctx.mode !== "left") {
+        if (mode !== "left") {
           newEndDate = newEndDate.add(snapDays, "day");
         }
-        if (ctx.mode === "left") offsetWidth -= snapPx;
-        if (ctx.mode === "right") offsetWidth += snapPx;
+        if (mode === "left") offsetWidth -= snapPx;
+        if (mode === "right") offsetWidth += snapPx;
       }
 
-      // Offsets come from the clamped dates, not the raw steps, so the bar stops on the bound
-      if (ctx.mode === "bar") {
-        if (ctx.boundedMembers.length) {
+      if (mode === "bar") {
+        if (boundedMembers.length) {
           // One shared delta, shrunk to the tightest member bound, keeps the subtree rigid
           const requestedMs =
-            newStartDate.valueOf() - ctx.initialStartDate.valueOf();
+            newStartDate.valueOf() - initialStartDate.valueOf();
           const deltaMs = clampMoveDelta(
-            ctx.boundedMembers,
+            boundedMembers,
             requestedMs,
-            ctx.scaleKey
+            selectedScale
           );
-          ctx.moveDeltaMs = deltaMs;
-          newStartDate = ctx.initialStartDate.add(deltaMs, "millisecond");
-          newEndDate = ctx.initialEndDate.add(deltaMs, "millisecond");
+          moveDeltaMs = deltaMs;
+          newStartDate = initialStartDate.add(deltaMs, "millisecond");
+          newEndDate = initialEndDate.add(deltaMs, "millisecond");
         }
-      } else if (ctx.bounds) {
+      } else if (bounds) {
         // Resizes only ever touch the dragged bar, so its own bounds are enough
-        const clamped = clampDragDates(
-          ctx.mode,
+        clamped = clampDragDates(
+          mode,
           newStartDate,
           newEndDate,
-          ctx.bounds,
-          ctx.scaleKey
+          bounds,
+          selectedScale
         );
-        ctx.clamped = clamped;
         newStartDate = clamped.startDate;
         newEndDate = clamped.endDate;
       }
 
-      if (ctx.moveDeltaMs !== null || ctx.clamped) {
+      // Offsets come from the clamped dates, not the raw steps, so the bar stops on the bound
+      if (moveDeltaMs !== null || clamped) {
         const startPx = pxBetweenDates(
-          ctx.initialStartDate,
+          initialStartDate,
           newStartDate,
-          ctx.scaleKey
+          selectedScale
         );
         const endPx = pxBetweenDates(
-          ctx.initialEndDate,
+          initialEndDate,
           newEndDate,
-          ctx.scaleKey
+          selectedScale
         );
         offsetX = startPx;
         offsetWidth = endPx - startPx;
       }
 
-      // Descendants shift by the same amount, but each keeps its own dates
-      const memberShift =
-        ctx.moveDeltaMs !== null
-          ? (date: Dayjs) => date.add(ctx.moveDeltaMs as number, "millisecond")
-          : (date: Dayjs) => shift(date).add(snapDays, "day");
-      const memberPx =
-        ctx.moveDeltaMs !== null ? offsetX : draggedPx + snapPx;
+      // A clamped resize reports exactly the bound to onTasksChange
+      resizedEdge = mode === "left" ? newStartDate : newEndDate;
 
       const offsets: Record<string, GanttDragOffset> = {};
-      for (const id of ctx.taskIds) {
-        const initial = ctx.initialDates.get(id);
-        const isDraggedBar = id === ctx.taskId || !initial;
-        const start = isDraggedBar ? newStartDate : memberShift(initial.start);
-        const end = isDraggedBar ? newEndDate : memberShift(initial.end);
-
-        offsets[id] = {
-          offsetX: isDraggedBar ? offsetX : memberPx,
-          offsetWidth: isDraggedBar ? offsetWidth : 0,
-          offsetStartDate: start,
-          offsetEndDate: end,
-        };
+      for (const id of taskIds) {
+        offsets[id] =
+          id === task.id
+            ? {
+                offsetX,
+                offsetWidth,
+                offsetStartDate: newStartDate,
+                offsetEndDate: newEndDate,
+              }
+            : { offsetX, offsetWidth: 0 };
       }
 
       storeApi.getState().setDragOffsets(offsets);
@@ -386,17 +354,16 @@ export function useGanttBarDrag(
     };
 
     // Puts back this drag's scrolling; relative, so a manual scroll meanwhile still stands
-    const undoAutoScroll = (ctx: DragContext) => {
-      if (!scrollEl || !ctx.autoScrollPx) return;
+    const undoAutoScroll = () => {
+      if (!scrollEl || !autoScrollPx) return;
 
-      scrollEl.scrollBy({ left: -ctx.autoScrollPx, behavior: "smooth" });
-      ctx.autoScrollPx = 0;
+      scrollEl.scrollBy({ left: -autoScrollPx, behavior: scrollBehavior() });
+      autoScrollPx = 0;
     };
 
     const runAutoScroll = () => {
       autoScrollFrame = null;
-      const ctx = dragContextRef.current;
-      if (!ctx || !scrollEl || velocity === 0) return;
+      if (!scrollEl || velocity === 0) return;
 
       const before = scrollEl.scrollLeft;
       scrollEl.scrollLeft = before + velocity;
@@ -404,7 +371,7 @@ export function useGanttBarDrag(
 
       // Nothing moved means the range ends here - keep the loop alive so it resumes if it extends
       if (moved !== 0) {
-        ctx.autoScrollPx += moved;
+        autoScrollPx += moved;
         applyMove();
       }
 
@@ -425,10 +392,9 @@ export function useGanttBarDrag(
     };
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
-      const ctx = dragContextRef.current;
-      if (!ctx || moveEvent.pointerId !== ctx.pointerId) return;
+      if (moveEvent.pointerId !== pointerId) return;
 
-      ctx.lastClientX = moveEvent.clientX;
+      lastClientX = moveEvent.clientX;
       updateAutoScroll(moveEvent.clientX);
       applyMove();
     };
@@ -439,54 +405,54 @@ export function useGanttBarDrag(
       document.removeEventListener("pointerup", handlePointerUp);
       document.removeEventListener("pointercancel", handlePointerCancel);
       releaseTouchScroll?.();
+      cleanupRef.current = null;
     };
 
-    const endDrag = (ctx: DragContext) => {
-      undoAutoScroll(ctx);
-      dragContextRef.current = null;
-      storeApi.getState().setCurrentTask(null);
-      storeApi.getState().setDragMode(null);
-      storeApi.getState().clearDragOffsets(ctx.taskIds);
+    const endDrag = () => {
+      undoAutoScroll();
+      draggingRef.current = false;
+      storeApi.getState().setBarDrag(null);
+      storeApi.getState().clearDragOffsets(taskIds);
     };
 
     // A cancelled gesture (scroll takeover, multi-touch) reverts instead of committing
     const handlePointerCancel = (cancelEvent: PointerEvent) => {
-      const ctx = dragContextRef.current;
-      if (!ctx || cancelEvent.pointerId !== ctx.pointerId) return;
+      if (cancelEvent.pointerId !== pointerId) return;
 
       detachListeners();
-      endDrag(ctx);
+      endDrag();
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
-      const ctx = dragContextRef.current;
-      if (!ctx || upEvent.pointerId !== ctx.pointerId) return;
+      if (upEvent.pointerId !== pointerId) return;
 
       detachListeners();
 
-      if (ctx.dragSteps === 0) {
-        endDrag(ctx);
+      if (dragSteps === 0) {
+        endDrag();
         return;
       }
 
-      // A clamped move commits the shared delta; unclamped, the plain step shift
-      const shiftDate = (date: string) =>
-        ctx.moveDeltaMs !== null
-          ? dayjs(date).add(ctx.moveDeltaMs, "millisecond").toISOString()
-          : shiftByDragSteps(dayjs(date), ctx.dragSteps, ctx.scaleKey)
-              .add(ctx.snapDays, "day")
+      // A clamped move commits the shared delta; unclamped, the step shift plus the calendar snap
+      const shiftDate = (date: string) => {
+        // A date that does not parse, like a summary's placeholder, is written back as it was.
+        if (!dayjs(date).isValid()) return date;
+        return moveDeltaMs !== null
+          ? dayjs(date).add(moveDeltaMs, "millisecond").toISOString()
+          : shiftByDragSteps(dayjs(date), dragSteps, selectedScale)
+              .add(snapDays, "day")
               .toISOString();
+      };
 
-      // A clamped resize reports exactly the bound to onTasksChange
-      const clampedStart = ctx.clamped?.startDate.toISOString();
-      const clampedEnd = ctx.clamped?.endDate.toISOString();
+      // Ended before the commit, so a throw below cannot leave the bar stuck mid-drag.
+      draggingRef.current = false;
+      storeApi.getState().setBarDrag(null);
 
       // However many tasks moved, there is one updated array - onTasksChange fires once
-      const movedIds = new Set(ctx.taskIds);
       const draggedTasks = storeApi.getState().rawTasks.map((t) => {
-        if (!movedIds.has(t.id)) return t;
+        if (!movingIds.has(t.id)) return t;
 
-        switch (ctx.mode) {
+        switch (mode) {
           case "bar":
             return {
               ...t,
@@ -497,26 +463,27 @@ export function useGanttBarDrag(
           case "left":
             return {
               ...t,
-              startDate: clampedStart ?? shiftDate(t.startDate),
+              startDate: resizedEdge.toISOString(),
             };
 
           case "right":
             return {
               ...t,
-              endDate: clampedEnd ?? shiftDate(t.endDate),
+              endDate: resizedEdge.toISOString(),
             };
         }
       });
 
-      // Clearing dragOffset here flicks the bar back a frame; Gantt's recompute effect clears it
-      dragContextRef.current = null;
-      storeApi.getState().setCurrentTask(null);
-      storeApi.getState().setDragMode(null);
-
+      // Clearing dragOffsets here flicks the bar back a frame; useGanttTimelineSync's recompute effect clears them
       storeApi.getState().setRawTasks(draggedTasks);
       optionsRef.current.onTasksChange?.(draggedTasks);
     };
 
+    // A chart unmounted mid-drag drops the drag rather than commit it from its release
+    cleanupRef.current = () => {
+      detachListeners();
+      endDrag();
+    };
     document.addEventListener("pointermove", handlePointerMove);
     document.addEventListener("pointerup", handlePointerUp);
     document.addEventListener("pointercancel", handlePointerCancel);

@@ -8,18 +8,27 @@ export type {
 
 import type { Task, TaskDependency } from 'core/types';
 
-/** Chart-wide interaction settings - every gesture is allowed by default (task creation also needs `onTaskCreate`), and a task's own field of the same name wins. */
+/** The chart-wide interaction props as one type (there is no `interaction` prop); a task's own field of the same name wins. See https://gantt.jaeungkim.com/docs/ref/interaction-config */
 export interface GanttInteractionConfig {
+  /** Blocks every editing gesture on every task (default `false`); any `allowX` flag, on the chart or the task, beats it. */
   readOnly?: boolean;
+  /** Dragging a bar along the timeline; allowed unless `readOnly`. */
   allowMove?: boolean;
+  /** Dragging either bar edge and editing the detail panel's dates; allowed unless `readOnly`, never on a summary row. */
   allowResize?: boolean;
+  /** Editing progress in the detail panel, as bars have no progress handle; allowed unless `readOnly`, never on a summary row. */
   allowProgressChange?: boolean;
+  /** Drawing a dependency from or onto a bar; allowed unless `readOnly`. */
   allowLinkCreate?: boolean;
+  /** Selecting and deleting a dependency arrow, where the successor's flag decides; allowed unless `readOnly`. */
   allowLinkDelete?: boolean;
+  /** Drawing a task below the last row, the Add task button and `addTask()`; allowed unless `readOnly`, chart-wide only, and needs `onTaskCreate`. */
   allowTaskCreate?: boolean;
-  /** Turns row reordering on - opt-in (default false). */
+  /** Dragging a task-list row to a new position or parent; opt-in (default `false`), and never a row lane-mates share. */
   allowReorder?: boolean;
+  /** Earliest date a drag or a built-in detail-panel edit can reach, as an ISO string read in UTC. */
   minDate?: string;
+  /** Latest date a drag or a built-in detail-panel edit can reach, as an ISO string read in UTC. */
   maxDate?: string;
 }
 
@@ -38,21 +47,9 @@ interface ResolvedTaskInteraction {
 const NO_INTERACTION_CONFIG: GanttInteractionConfig = {};
 
 // Precedence: `task.allowX` > `task.readOnly` > `config.allowX` > `config.readOnly` > allowed.
-// Summary rows are never resizable and have no draggable progress - both roll up from children.
 // Reordering is the exception: its floor is `false`, so only an explicit flag turns it on.
 export function resolveTaskInteraction(
-  task: Pick<
-    Task,
-    | 'readOnly'
-    | 'allowMove'
-    | 'allowResize'
-    | 'allowProgressChange'
-    | 'allowLinkCreate'
-    | 'allowLinkDelete'
-    | 'allowReorder'
-    | 'minDate'
-    | 'maxDate'
-  > & { isSummary?: boolean },
+  task: Task & { isSummary?: boolean },
   config: GanttInteractionConfig = NO_INTERACTION_CONFIG
 ): ResolvedTaskInteraction {
   const resolve = (
@@ -119,14 +116,22 @@ export function resolveTaskColors(color: string | undefined): TaskColorVars {
     '--gantt-bar-text-color': `oklch(from ${base} clamp(0, (l / 0.5637 - 1) * -infinity, 1) 0 h)`,
   };
 }
+
+/** A `Task` plus the layout the chart computed, as the click, select and detail callbacks receive it; output only, so edit `tasks` instead. See https://gantt.jaeungkim.com/docs/ref/task */
 export interface TaskTransformed extends Task {
+  /** Bar's left edge in px from the timeline's start; `0` while the timeline has no cells. */
   barLeft: number;
+  /** Bar width in px, at least `1`; `0` while the timeline has no cells. */
   barWidth: number;
+  /** Nesting level, `0` at the root: from the `parentId` chain with `hierarchy` on, from the `sequence` path otherwise. */
   depth: number;
+  /** 1-based row number, shared by tasks packed onto one row; in the copy `onDetailChange` and `renderDetail` receive, it equals `originalOrder`. */
   order: number;
+  /** 1-based position in `sequence` order, before lanes or collapsed parents change the rows. */
   originalOrder: number;
-  /** Row with children - its dates roll up, so resize and progress editing are off and dragging moves the subtree. */
+  /** Whether the task has children while `hierarchy` is on; its dates roll up, so resize and progress editing are off and a move takes the subtree along. */
   isSummary?: boolean;
+  /** Copied through from `Task.dependencies`. */
   dependencies?: TaskDependency[];
 }
 
@@ -137,4 +142,5 @@ export interface RenderedDependency extends TaskDependency {
   fromY: number;
   toX: number;
   toY: number;
+  d: string;
 }

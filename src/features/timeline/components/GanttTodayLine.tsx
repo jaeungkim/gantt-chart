@@ -6,7 +6,6 @@ export function GanttTodayLine({ leftPx }: { leftPx: number | null }) {
     <div
       className="gantt-today-marker"
       style={{ left: `${leftPx}px` }}
-      aria-hidden="true"
     />
   );
 }
@@ -20,7 +19,6 @@ export function GanttTodayDot({ leftPx }: { leftPx: number | null }) {
     <div
       className="gantt-today-dot"
       style={{ left: `${leftPx}px` }}
-      aria-hidden="true"
     />
   );
 }

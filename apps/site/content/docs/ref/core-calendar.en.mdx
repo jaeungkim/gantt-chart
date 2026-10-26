@@ -183,4 +183,6 @@ bar still spans every weekend and holiday it covers. Shading is the separate
 `showNonWorkingDays` prop, described in [The timeline](../timeline).
 
 The calendar the `workingCalendar` prop selects is read during the bar drag, where `snapForward`
-moves the dragged edge off a non-working day. See [Working calendar](../working-calendar).
+moves the dragged edge off a non-working day. For a right resize it is passed the last instant the
+bar covers, one millisecond before the exclusive `endDate`, so an end at Saturday `00:00` stays.
+See [Working calendar](../working-calendar).

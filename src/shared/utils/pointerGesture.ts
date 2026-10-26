@@ -1,4 +1,4 @@
-// ms a finger must rest on a bar before the drag lifts
+// ms a finger must rest before the drag lifts
 export const TOUCH_LONG_PRESS_MS = 400;
 // px the finger may drift during that wait before the press reads as a scroll
 export const TOUCH_SLOP_PX = 10;

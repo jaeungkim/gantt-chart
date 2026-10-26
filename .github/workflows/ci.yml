@@ -47,6 +47,15 @@ jobs:
                 | grep -vE "^(react|react-dom|dayjs)(/.*)?$" || true)
           if [ -n "$bad" ]; then echo "unresolvable specifiers in dist/*.d.ts:"; echo "$bad"; exit 1; fi
           echo "declaration specifiers OK"
+      # A React Server Component host (Next.js App Router) runs a module on the server unless it
+      # opens with "use client", and the bundle calls createContext at module scope, which React's
+      # react-server build lacks. vite.config.ts writes the directive as a postBanner.
+      - name: Bundles must open with "use client"
+        run: |
+          for f in dist/index.js dist/index.cjs; do
+            head -n 1 "$f" | grep -qE "^['\"]use client['\"];?$" || { echo "$f does not start with \"use client\""; exit 1; }
+          done
+          echo "use client directive OK"
       # SSR safety: importing and server-rendering the built package in plain Node
       # (no DOM globals) must not touch window/document/sessionStorage.
       # A forwardRef/memo component is an object, not a function, so the first two steps

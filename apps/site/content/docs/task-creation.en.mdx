@@ -60,7 +60,9 @@ The **Add task** button sits at the foot of the task list, so it needs `showTask
 
 `addTask()` on the chart ref sends that same draft from your own toolbar or keyboard shortcut. See [Imperative API](imperative-api).
 
-A drawn range starts below the last row. Press in the blank space there, drag sideways and release. A press on a row draws nothing, whether it lands on a bar, an arrow, a handle or the row's empty part.
+A drawn range starts below the last row. Press in the blank space there, drag sideways and release. While creation is on, at least one blank row stays below the rows, even when they fill the chart.
+
+A press on a row draws nothing, whether it lands on a bar, an arrow, a handle or the row's empty part.
 
 A mouse starts drawing at once. Touch and pen need the same 400 ms hold as a bar drag, described in [Editing tasks](editing). Vertical movement is ignored. A drag shorter than 4px sends nothing, and `Escape` cancels a draw in progress.
 
@@ -84,7 +86,7 @@ With `allowTaskCreate` omitted, creation follows `readOnly`. `Task` has no `allo
 
 - `onTaskCreate` is what enables creation. `allowTaskCreate` on its own renders no button and arms no gesture.
 - `visibleStart` and `visibleEnd` give an empty chart a timeline. With no tasks and no pinned window there are no ticks to snap a range to, so no entry point produces a draft.
-- The drawing gesture needs a pointer. The **Add task** button is the keyboard path to the same draft and takes its own tab stop after the rows. No key is bound to creation. See [Keyboard and screen readers](accessibility).
-- Deletion has no pointer path. A task is removed from the keyboard.
+- The drawing gesture needs a pointer. No key is bound to creation.
+- Deletion is not built in. No gesture or key removes a task, so remove it from your own `tasks` state.
 
 See [GanttProps](ref/props) for prop definitions and [Task list and hierarchy](task-list) for the pane the button sits in.

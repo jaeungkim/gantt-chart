@@ -10,14 +10,14 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 ```
 
 모든 prop은 생략할 수 있어요. 아래 표에 나오는 타입은 모두 패키지 루트에서 내보내요. `Dayjs`,
-`ReactNode`, `React.MouseEvent`만 예외예요. 기본값 열에는 컴포넌트가 쓰는 대체 값이 들어가요.
-없음은 대체 값이 없다는 뜻이고 그 prop이 켜는 기능도 꺼진 채로 있어요.
+`ReactNode`, `React.MouseEvent`, `React.CSSProperties`만 예외예요. 기본값 열에는 컴포넌트가 쓰는
+대체 값이 들어가요. 없음은 대체 값이 없다는 뜻이고 그 prop이 켜는 기능도 꺼진 채로 있어요.
 
 ## 데이터
 
 | prop | 타입 | 기본값 | 설명 |
 |---|---|---|---|
-| `tasks` | `Task[]` | `[]` | 작업 배열이고 내용 기준으로 적용해요. 내용이 같은 새 배열은 무시해요. [작업 데이터](../task-data) 참고. |
+| `tasks` | `Task[]` | `[]` | 작업 배열이고 마지막으로 넘긴 배열과 내용을 비교해요. 내용이 같은 새 배열은 무시해요. [작업 데이터](../task-data) 참고. |
 | `onTasksChange` | `(updatedTasks: Task[]) => void` | 없음 | 편집이 확정될 때마다 배열 전체와 함께 호출돼요. [작업 편집](../editing) 참고. |
 
 ## 레이아웃과 크기
@@ -26,7 +26,10 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 |---|---|---|---|
 | `height` | `number \| string` | `600` | 차트 높이예요. px 숫자나 CSS 길이를 넘기세요. [빠른 시작](../quick-start) 참고. |
 | `width` | `number \| string` | `"100%"` | 차트 너비예요. px 숫자나 CSS 길이를 넘기세요. [빠른 시작](../quick-start) 참고. |
+| `rowHeight` | `number` | `38` | 두 패널의 모든 행 높이(px)예요. 양의 유한한 숫자가 아니면 `38`을 그대로 써요. 73px 헤더 높이는 바뀌지 않아요. [스타일링](../styling) 참고. |
+| `barHeight` | `number` | `Math.round(rowHeight * 28 / 38)` | 작업 막대의 높이(px)예요. `rowHeight - 4`를 넘지 않고 `1`보다 작아지지 않아요. [스타일링](../styling) 참고. |
 | `className` | `string` | 없음 | 컨테이너의 `gantt-container` 클래스 뒤에 붙어요. [테마](../theming) 참고. |
+| `style` | `` React.CSSProperties & { [token: `--${string}`]: string \| undefined } `` | 없음 | 컨테이너에 붙는 인라인 스타일이에요. 커스텀 속성 값은 문자열이라 `400`이 아니라 `'400px'`로 써요. `style.height`나 `style.width`를 지정하면 `height`나 `width` prop보다 우선해요. 차트가 그 뒤에 `--gantt-row-height`와 `--gantt-pane-inset`을 써서 `style`로는 이 둘을 바꿀 수 없어요. [테마](../theming) 참고. |
 
 ## 작업 목록
 
@@ -49,7 +52,7 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 | prop | 타입 | 기본값 | 설명 |
 |---|---|---|---|
 | `defaultScale` | `GanttScaleKey` | `"month"` | 차트를 만들 때 한 번 읽는 초기 배율이에요. [타임라인](../timeline) 참고. |
-| `onScaleChange` | `(scale: GanttScaleKey) => void` | 없음 | 어디에서 바꿨든 배율이 확정될 때마다 호출돼요. [타임라인](../timeline) 참고. |
+| `onScaleChange` | `(scale: GanttScaleKey) => void` | 없음 | `setScale`이나 `zoomToFit()`, Ctrl/Cmd + 휠로 배율이 바뀔 때마다 호출돼요. 마운트할 때는 호출되지 않아요. [타임라인](../timeline) 참고. |
 | `visibleStart` | `string` | 없음 | 타임라인 시작을 이 ISO 날짜에 고정해요. 생략하면 범위가 작업에 맞춰져요. [타임라인](../timeline) 참고. |
 | `visibleEnd` | `string` | 없음 | 타임라인 끝을 이 ISO 날짜에 고정해요. 생략하면 범위가 작업에 맞춰져요. [타임라인](../timeline) 참고. |
 | `showNonWorkingDays` | `boolean` | `true` | 비근무일을 음영 처리하고 휴일 이름을 보여줘요. [타임라인](../timeline) 참고. |
@@ -71,9 +74,9 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 | prop | 타입 | 기본값 | 설명 |
 |---|---|---|---|
 | `readOnly` | `boolean` | `false` | 모든 작업의 모든 제스처를 막아요. [작업 편집](../editing) 참고. |
-| `allowMove` | `boolean` | `!readOnly` | 막대 이동을 허용하고 `readOnly`보다 우선해요. [작업 편집](../editing) 참고. |
+| `allowMove` | `boolean` | `!readOnly` | 막대를 타임라인을 따라 끌어 옮기도록 허용하고 `readOnly`보다 우선해요. 요약 막대는 하위 트리 전체를 함께 옮겨요. [작업 편집](../editing) 참고. |
 | `allowResize` | `boolean` | `!readOnly` | 막대 크기 조절을 허용하고 `readOnly`보다 우선해요. [작업 편집](../editing) 참고. |
-| `allowProgressChange` | `boolean` | `!readOnly` | 진행률 핸들 드래그를 허용하고 `readOnly`보다 우선해요. [작업 편집](../editing) 참고. |
+| `allowProgressChange` | `boolean` | `!readOnly` | 기본 상세 패널의 **Progress** 슬라이더를 편집할 수 있게 하고 `readOnly`보다 우선해요. 막대에는 진행률 핸들이 없어요. [상세 패널](../detail-panel) 참고. |
 | `allowTaskCreate` | `boolean` | `!readOnly` | **Add task** 버튼과 `addTask()`, 그린 구간으로 새 작업 초안을 만들도록 허용해요. [작업 생성](../task-creation) 참고. |
 | `allowReorder` | `boolean` | `false` | 작업 목록 행을 끌어 다른 자리나 다른 부모로 옮기도록 허용해요. [행 순서 바꾸기](../reordering) 참고. |
 | `minDate` | `string` | 없음 | 막대를 끌어 놓을 수 있는 가장 이른 ISO 날짜예요. [작업 편집](../editing) 참고. |
@@ -98,7 +101,7 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 
 | prop | 타입 | 기본값 | 설명 |
 |---|---|---|---|
-| `showTooltip` | `boolean` | `true` | 툴팁과 진행률 드래그의 `%` 표시를 보여줘요. 드래그 중 눈금 행에 표시되는 날짜는 영향을 받지 않아요. [스타일링](../styling) 참고. |
+| `showTooltip` | `boolean` | `true` | 툴팁을 보여줘요. 드래그 중 눈금 행에 표시되는 날짜는 영향을 받지 않아요. [스타일링](../styling) 참고. |
 
 ## 이벤트
 
@@ -118,7 +121,7 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 | `renderDetail` | `GanttDetailRenderer` | 없음 | 고정 패널의 본문을 바꾸고 패널을 켜요. 생략하면 내장 본문을 써요. [상세 패널](../detail-panel)과 [상세 렌더러](renderers) 참고. |
 | `showDetail` | `boolean` | `renderDetail !== undefined` | 타임라인 오른쪽에 붙는 패널을 보여줘요. [상세 패널](../detail-panel) 참고. |
 | `detailTaskId` | `string \| null` | 없음 | 제어 모드로 열 작업이고 `null`이면 닫혀요. 생략하면 차트가 직접 관리해요. [상세 패널](../detail-panel) 참고. |
-| `onDetailChange` | `(task: TaskTransformed \| null) => void` | 없음 | 제어 여부와 상관없이 열고 닫을 때마다 호출돼요. [상세 패널](../detail-panel) 참고. |
+| `onDetailChange` | `(task: TaskTransformed \| null) => void` | 없음 | 제어 여부와 상관없이 클릭이나 `Escape`, ref, `renderDetail`이 받는 `close`로 패널을 열거나 닫을 때 호출돼요. [상세 패널](../detail-panel) 참고. |
 
 ## 로케일과 테마
 
@@ -137,14 +140,17 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 - `showDetail`도 같은 방식이에요. 생략하면 `renderDetail`을 넘긴 경우에만 상세 패널이 켜져요.
   패널을 켜면 `selectable`을 따로 넘기지 않는 한 행 선택도 함께 켜져요.
   [상세 패널](../detail-panel) 참고.
+- `barHeight`를 생략하면 `rowHeight`를 따라가서 기본 행 높이에서는 `28`이에요. 양의 유한한 숫자가
+  아닌 값을 넘겨도 이 기본값을 써요. 요약 막대 높이는 `Math.round(barHeight * 18 / 28)`px이고
+  최소 `1`이라 기본값에서는 `18`이에요.
 - `allowMove`와 `allowResize`, `allowProgressChange`, `allowTaskCreate`, `allowLinkCreate`,
   `allowLinkDelete`의 기본값은 `true`가 아니라 `!readOnly`예요. 같은 이름의 작업별 플래그가 차트
   쪽 설정보다 우선하고 작업의 `readOnly`는 그 둘 사이에 놓여요.
   [GanttInteractionConfig](interaction-config) 참고.
 - `allowTaskCreate`만으로는 아무것도 만들어지지 않으니 `onTaskCreate`도 함께 넘기세요. 없으면
   버튼과 제스처가 생기지 않고 `addTask()`도 아무 일도 하지 않아요.
-- `allowReorder`의 기본값은 `!readOnly`가 아니라 `false`예요. 켜기 전까지는 행 그립이 생기지 않고
-  순서 바꾸기 키도 아무 일도 하지 않아요. 작업의 `allowReorder`가 우선하고 작업의
+- `allowReorder`의 기본값은 `!readOnly`가 아니라 `false`예요. 켜기 전까지는 행 그립이 생기지
+  않아요. 작업의 `allowReorder`가 우선하고 작업의
   `readOnly: true`는 이 플래그를 막아요. 차트의 `readOnly`는 참조하지 않아요.
   [GanttInteractionConfig](interaction-config) 참고.
 - `defaultScale`은 제어 값이 아니라 초기값이에요. 차트를 만들 때 한 번만 읽어서 첫 렌더링부터 그
@@ -172,8 +178,8 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 - `GanttDependencyChange`와 `GanttTaskDraft`, `GanttDateRange`도 패키지 루트에서 내보내요. 필드는
   각 값을 받는 콜백과 함께 [의존성](../dependencies), [작업 생성](../task-creation),
   [타임라인](../timeline)에 정리돼 있어요.
-- `Dayjs`는 `dayjs` 패키지의 타입이고 `ReactNode`와 `React.MouseEvent`는 `react`의 타입이에요.
-  셋 다 이 패키지에서 다시 내보내지 않아요.
+- `Dayjs`는 `dayjs` 패키지의 타입이고 `ReactNode`와 `React.MouseEvent`, `React.CSSProperties`는
+  `react`의 타입이에요. 넷 다 이 패키지에서 다시 내보내지 않아요.
 - 차트는 툴바나 배율 선택기를 그리지 않아요. 선택기가 필요하면 호스트가 직접 그리고 ref의
   `setScale`으로 배율을 바꾸고 `onScaleChange`로 상태를 맞추세요. [타임라인](../timeline) 참고.
 - `ReactGanttChart`는 스크롤과 줌, 배율 전환, 상세 패널 열고 닫기를 위한 `GanttHandle` 타입 `ref`도

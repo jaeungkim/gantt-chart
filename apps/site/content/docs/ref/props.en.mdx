@@ -10,15 +10,15 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 ```
 
 Every prop is optional. Every type in the tables below is exported from the package root apart
-from `Dayjs`, `ReactNode` and `React.MouseEvent`. The Default column carries the value the
-component falls back to. `none` means there is no fallback and the feature the prop drives stays
-off.
+from `Dayjs`, `ReactNode`, `React.MouseEvent` and `React.CSSProperties`. The Default column
+carries the value the component falls back to. `none` means there is no fallback and the feature
+the prop drives stays off.
 
 ## Data
 
 | Prop | Type | Default | Description |
 |---|---|---|---|
-| `tasks` | `Task[]` | `[]` | The task array, compared by contents. A new array with equal contents is ignored. See [Task data](../task-data). |
+| `tasks` | `Task[]` | `[]` | The task array, compared by contents with the last array passed. A new array with equal contents is ignored. See [Task data](../task-data). |
 | `onTasksChange` | `(updatedTasks: Task[]) => void` | `none` | Fires with the whole array after any committed edit. See [Editing tasks](../editing). |
 
 ## Layout and size
@@ -27,7 +27,10 @@ off.
 |---|---|---|---|
 | `height` | `number \| string` | `600` | Chart height, a number in px or any CSS length. See [Quick start](../quick-start). |
 | `width` | `number \| string` | `"100%"` | Chart width, a number in px or any CSS length. See [Quick start](../quick-start). |
+| `rowHeight` | `number` | `38` | Height of every row in both panes, in px. Anything but a positive finite number keeps `38`. The 73px header keeps its height. See [Styling](../styling). |
+| `barHeight` | `number` | `Math.round(rowHeight * 28 / 38)` | Height of a task bar, in px. It is capped at `rowHeight - 4` and never drops below `1`. See [Styling](../styling). |
 | `className` | `string` | `none` | Appended to the container's `gantt-container` class. See [Theming](../theming). |
+| `style` | `` React.CSSProperties & { [token: `--${string}`]: string \| undefined } `` | `none` | Inline style on the container. Custom properties take strings, so write `'400px'`, not `400`. A defined `style.height` or `style.width` wins over the `height` or `width` prop. The chart writes `--gantt-row-height` and `--gantt-pane-inset` after it, so `style` cannot set those two. See [Theming](../theming). |
 
 ## Task list
 
@@ -50,7 +53,7 @@ off.
 | Prop | Type | Default | Description |
 |---|---|---|---|
 | `defaultScale` | `GanttScaleKey` | `"month"` | Scale the chart is built at, read once. See [The timeline](../timeline). |
-| `onScaleChange` | `(scale: GanttScaleKey) => void` | `none` | Fires after every committed scale change, from any source. See [The timeline](../timeline). |
+| `onScaleChange` | `(scale: GanttScaleKey) => void` | `none` | Fires after every scale change made by `setScale`, `zoomToFit()` or Ctrl/Cmd + wheel. It does not fire on mount. See [The timeline](../timeline). |
 | `visibleStart` | `string` | `none` | Pins the timeline's start to this ISO date. Omitted, the range fits the tasks. See [The timeline](../timeline). |
 | `visibleEnd` | `string` | `none` | Pins the timeline's end to this ISO date. Omitted, the range fits the tasks. See [The timeline](../timeline). |
 | `showNonWorkingDays` | `boolean` | `true` | Shades non-working days and shows holiday names. See [The timeline](../timeline). |
@@ -72,9 +75,9 @@ off.
 | Prop | Type | Default | Description |
 |---|---|---|---|
 | `readOnly` | `boolean` | `false` | Blocks every gesture on every task. See [Editing tasks](../editing). |
-| `allowMove` | `boolean` | `!readOnly` | Allows moving bars, overriding `readOnly`. See [Editing tasks](../editing). |
+| `allowMove` | `boolean` | `!readOnly` | Allows dragging bars along the timeline, overriding `readOnly`. A summary bar takes its whole subtree along. See [Editing tasks](../editing). |
 | `allowResize` | `boolean` | `!readOnly` | Allows resizing bars, overriding `readOnly`. See [Editing tasks](../editing). |
-| `allowProgressChange` | `boolean` | `!readOnly` | Allows dragging the progress handle, overriding `readOnly`. See [Editing tasks](../editing). |
+| `allowProgressChange` | `boolean` | `!readOnly` | Makes the built-in detail panel's **Progress** slider editable, overriding `readOnly`. Bars have no progress handle. See [Detail panel](../detail-panel). |
 | `allowTaskCreate` | `boolean` | `!readOnly` | Allows drafting a new task from the **Add task** button, `addTask()` or a drawn range. See [Creating tasks](../task-creation). |
 | `allowReorder` | `boolean` | `false` | Allows dragging a task-list row to a new position or a new parent. See [Reordering rows](../reordering). |
 | `minDate` | `string` | `none` | Earliest ISO date any bar may be dragged to. See [Editing tasks](../editing). |
@@ -99,7 +102,7 @@ off.
 
 | Prop | Type | Default | Description |
 |---|---|---|---|
-| `showTooltip` | `boolean` | `true` | Shows the hover card and the progress drag `%` readout. The dates written in the tick row during a drag are not affected. See [Styling](../styling). |
+| `showTooltip` | `boolean` | `true` | Shows the hover card. The dates written in the tick row during a drag are not affected. See [Styling](../styling). |
 
 ## Events
 
@@ -119,7 +122,7 @@ off.
 | `renderDetail` | `GanttDetailRenderer` | `none` | Replaces the docked panel's body and turns the panel on. Omitted, the built-in body is used. See [Detail panel](../detail-panel) and [Detail renderer](renderers). |
 | `showDetail` | `boolean` | `renderDetail !== undefined` | Shows the panel docked to the right of the timeline. See [Detail panel](../detail-panel). |
 | `detailTaskId` | `string \| null` | `none` | Controlled open task, `null` for closed. Omitted, the chart keeps its own. See [Detail panel](../detail-panel). |
-| `onDetailChange` | `(task: TaskTransformed \| null) => void` | `none` | Fires on every open and close, controlled or not. See [Detail panel](../detail-panel). |
+| `onDetailChange` | `(task: TaskTransformed \| null) => void` | `none` | Fires when a click, `Escape`, the ref or the `close` that `renderDetail` receives opens or closes the panel, controlled or not. See [Detail panel](../detail-panel). |
 
 ## Locale and theme
 
@@ -138,6 +141,9 @@ off.
 - `showDetail` works the same way. Omitted, the detail panel exists when `renderDetail` is given.
   Turning the panel on also turns row selection on, unless `selectable` is given. See
   [Detail panel](../detail-panel).
+- `barHeight` follows `rowHeight` when omitted, so it is `28` at the default row height. A value
+  that is not a positive finite number keeps that default. A summary bar is
+  `Math.round(barHeight * 18 / 28)` px tall and at least `1`, which makes it `18` by default.
 - `allowMove`, `allowResize`, `allowProgressChange`, `allowTaskCreate`, `allowLinkCreate` and
   `allowLinkDelete` default to `!readOnly`, not to `true`. A task's own flag of the same name wins
   over the chart-level one, and a task's own `readOnly` is between them. See
@@ -145,7 +151,7 @@ off.
 - `allowTaskCreate` creates nothing on its own, because `onTaskCreate` must also be given. Without
   it the button and the gesture are absent, and `addTask()` does nothing.
 - `allowReorder` defaults to `false`, not to `!readOnly`, so a chart that never sets it shows no
-  row grips, and the reorder keys do nothing. A task's own `allowReorder` wins, and a task's
+  row grips. A task's own `allowReorder` wins, and a task's
   `readOnly: true` blocks it. The chart's `readOnly` is not consulted. See
   [GanttInteractionConfig](interaction-config).
 - `defaultScale` is an initial value, not a controlled one. It is read once, when the chart is
@@ -177,8 +183,8 @@ off.
   root. Their fields are described in [Dependencies](../dependencies),
   [Creating tasks](../task-creation) and [The timeline](../timeline), next to the callback that
   receives each.
-- `Dayjs` is a `dayjs` type, and `ReactNode` and `React.MouseEvent` are `react` types. None of the
-  three is re-exported from this package.
+- `Dayjs` is a `dayjs` type, and `ReactNode`, `React.MouseEvent` and `React.CSSProperties` are
+  `react` types. None of the four is re-exported from this package.
 - The chart does not render a toolbar or a scale picker. A host that wants one renders it, drives
   it with `setScale` on the ref and updates it from `onScaleChange`. See
   [The timeline](../timeline).

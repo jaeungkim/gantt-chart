@@ -1,76 +1,50 @@
-import { useCallback, useMemo } from "react";
 import {
   GanttMoveOptions,
-  GanttMoveRejection,
-  GanttTaskMove,
   GanttTaskMoveChange,
   moveTask,
   validateMove,
 } from "core/reorder";
 import { useGanttStoreApi } from "shared/context";
 import { GanttInteractionConfig, resolveTaskInteraction, Task } from "shared/task";
+import { GanttTaskMoveApi } from "features/task-list/types";
 
 interface UseGanttTaskMoveParams {
   hierarchy: boolean;
   interaction: GanttInteractionConfig;
-  collapsedIds: ReadonlySet<string>;
   onTasksChange?: (tasks: Task[]) => void;
   onTaskMove?: (change: GanttTaskMoveChange) => boolean | void;
   // Expands a collapsed drop target, so the row that just landed in it is visible
-  onExpand?: (rowId: string) => void;
+  onExpand: (rowId: string) => void;
 }
 
-export interface GanttTaskMoveApi {
-  // Whether a move would be refused, and why - runs on every frame of a row drag
-  validate: (move: GanttTaskMove) => GanttMoveRejection | null;
-  // Applies a move, reporting whether it was committed
-  apply: (move: GanttTaskMove) => boolean;
-}
-
-// The one place a task move is validated and committed - both the row drag and the keyboard
-// bindings route through it. `onTaskMove` runs first and can veto.
+// The one place a task move is validated and committed - the row drag routes through it.
+// `onTaskMove` runs first and can veto.
 export function useGanttTaskMove({
   hierarchy,
   interaction,
-  collapsedIds,
   onTasksChange,
   onTaskMove,
   onExpand,
 }: UseGanttTaskMoveParams): GanttTaskMoveApi {
   const storeApi = useGanttStoreApi();
 
-  const options = useMemo<GanttMoveOptions>(
-    () => ({
-      hierarchy,
-      canReorder: (task: Task) =>
-        resolveTaskInteraction(task, interaction).canReorder,
-    }),
-    [hierarchy, interaction]
-  );
+  const options: GanttMoveOptions = {
+    hierarchy,
+    canReorder: (task) => resolveTaskInteraction(task, interaction).canReorder,
+  };
 
-  const validate = useCallback(
-    (move: GanttTaskMove) =>
+  return {
+    validate: (move) =>
       validateMove(storeApi.getState().rawTasks, move, options),
-    [storeApi, options]
-  );
-
-  const apply = useCallback(
-    (move: GanttTaskMove) => {
+    apply: (move) => {
       const result = moveTask(storeApi.getState().rawTasks, move, options);
-      if (!result) return false;
-      if (onTaskMove?.(result.change) === false) return false;
+      if (!result || onTaskMove?.(result.change) === false) return;
 
       storeApi.getState().setRawTasks(result.tasks);
       onTasksChange?.(result.tasks);
 
       // Dropping into a closed parent would otherwise look like the row disappeared
-      if (move.toParentId && collapsedIds.has(move.toParentId)) {
-        onExpand?.(move.toParentId);
-      }
-      return true;
+      if (move.toParentId) onExpand(move.toParentId);
     },
-    [storeApi, options, onTaskMove, onTasksChange, collapsedIds, onExpand]
-  );
-
-  return { validate, apply };
+  };
 }

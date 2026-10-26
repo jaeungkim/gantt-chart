@@ -43,17 +43,15 @@ export function ProjectChart() {
 The panel is off by default. `showDetail` renders the built-in body, and `renderDetail` turns the
 panel on by itself. An explicit `showDetail={false}` keeps it hidden either way.
 
-A click on a bar or a task list row opens the panel, and so does `Enter` or `Space` on a focused
-row. On an expandable row those keys collapse or expand the row instead. `Escape` closes the panel
-from anywhere on the page without stopping the key, so your own handlers still run. Closing
-returns focus to where it was, unless focus has since moved.
+A click on a bar or a task list row opens the panel. `Escape` closes the panel from anywhere on the
+page without stopping the key, so your own handlers still run. An `Escape` that a panel field or
+one of your handlers has already marked with `preventDefault()` leaves the panel open.
 
-Turning the panel on also turns row selection on, so the open task's row is highlighted;
+Turning the panel on also turns row selection on, so the clicked task's row is highlighted;
 `selectable={false}` keeps the panel without it. `onTaskClick` fires before the panel opens. See
 [Events](events).
 
-The panel is not a dialog, so it has no focus trap or backdrop and the chart behind it stays
-interactive. See [Keyboard and screen readers](accessibility).
+The panel is not a dialog, so it has no backdrop and the chart behind it stays interactive.
 
 ## What the built-in panel shows
 
@@ -62,38 +60,38 @@ The body puts the task name above a short field list.
 | Field | Value |
 |---|---|
 | Start, End | The dates, formatted by the current scale's tooltip format. |
-| Duration | The span between them, in whole hours under a day and whole days above. |
-| Progress | `task.progress`, clamped to 0 to 100. |
-| Depends on | The names of the tasks its `dependencies` point at, or an id that names no task. |
+| Duration | The span between them, beside the Dates caption, in whole hours under a day and whole days above. |
+| Progress | `task.progress`, clamped to 0 to 100, drawn as a bar in the task's own bar colors. |
+| Depends on | Each task its `dependencies` point at, as the link type (`FS`, `SS`, `FF`, `SF`) and the task's name, or an id that names no task. |
 
 Progress and Depends on appear only when the task has them. No other field appears and no prop
 adds a row. The captions are fixed English; see [Locale and date formats](i18n).
 
 ## Edit fields in the panel
 
-A field becomes an input where the task's flags already allow the matching gesture, because the
-panel adds no flag of its own. The name is a text input unless `readOnly` is set on the task or
-the chart.
+A field becomes an input where the task's flags already allow changing it, because the
+panel adds no flag of its own. The name is a text input unless `readOnly` is `true` on the task,
+or on the chart when the task leaves it unset.
 
 Changing a date is a resize, so Start and End are date inputs when the task can be resized. A
 summary row's dates stay text.
 
-Progress is a number input when its handle would be draggable. Duration and Depends on are derived
-and stay text. See [interaction configuration](ref/interaction-config) for precedence.
+Progress is a slider when `allowProgressChange` resolves to `true` for the task. A summary
+row's progress is the same bar without a handle. Duration and Depends on are derived and stay text. See
+[interaction configuration](ref/interaction-config) for precedence.
 
-A field commits on blur and on `Enter`. The change arrives through `onTasksChange` with the same
+A field commits on blur and on `Enter`, and the slider commits when it is released. The change arrives through `onTasksChange` with the same
 whole array a drag sends, and the panel has no callback of its own. `Escape` reverts the field and
-leaves the panel open. A blank name, an incomplete date, an end that is not after the start and an
-emptied progress field revert with no message.
+leaves the panel open. A blank name, an incomplete date and an end that is not after the start
+revert with no message.
 
 Editing a date replaces the date part and keeps the task's time of day, clamped to the same
 `minDate` and `maxDate` a drag obeys. A date input reads `YYYY-MM-DD` whatever the `locale`.
 
 ## Render your own body
 
-`renderDetail` replaces everything inside the panel. Its width, its accessible name and the focus
-handling on close stay the chart's. The close button is yours to render, and `Escape` still closes
-the panel.
+`renderDetail` replaces everything inside the panel. Its width stays the chart's. The close button
+is yours to render, and `Escape` still closes the panel.
 
 ```tsx
 <ReactGanttChart
@@ -137,7 +135,9 @@ the panel is off, and ignore an unknown id. `openDetail` reaches collapsed rows 
 
 ## Before you integrate
 
-- The open task leaving `tasks` closes the panel, and `onDetailChange` does not fire.
+- The open task leaving `tasks` closes the panel, and `onDetailChange` does not fire. Restoring
+  the task, or turning the panel off and on, leaves it closed with no callback. Only a controlled
+  `detailTaskId` reopens once it resolves.
 - A `detailTaskId` naming no task leaves the panel closed with no error, and opens it when a
   resolvable id arrives.
 - `Escape` closes the panel and leaves the row selected. Clicking empty timeline space clears the

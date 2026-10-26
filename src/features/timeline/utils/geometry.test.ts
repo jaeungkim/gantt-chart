@@ -12,8 +12,6 @@ import {
   snapDrawnRange,
 } from './geometry';
 
-// week scale: every tick is one day, 72px; coarser-scale tests reuse it as a uniform width.
-// Bare dates parse as local midnight on both sides, so assertions are timezone-independent.
 const TICK = 72;
 const ticks = (...days: string[]) => days.map((d) => ({ startDate: dayjs(d), widthPx: TICK }));
 
@@ -41,7 +39,6 @@ describe('calculateDateOffsetPx', () => {
 });
 
 describe('computeNonWorkingRanges', () => {
-  // 2025-01-01 is a Wednesday; Jan 4 (Sat) and Jan 5 (Sun) are the weekend.
   const week = ticks(
     '2025-01-01',
     '2025-01-02',
@@ -69,7 +66,6 @@ describe('computeNonWorkingRanges', () => {
     ]);
   });
 
-  // Jan 3 is the Friday before the weekend: one band would swallow the holiday's tint and name.
   it('splits a named holiday off the weekend it touches', () => {
     const withHoliday = (d: ReturnType<typeof dayjs>) =>
       d.format('YYYY-MM-DD') === '2025-01-03'
@@ -142,6 +138,14 @@ describe('createTopHeaderGroups', () => {
       { label: 'Q3 2025', widthPx: TICK },
     ]);
   });
+
+  it('merges neighbouring groups whose labels read alike', () => {
+    expect(
+      createTopHeaderGroups(ticks('2025-01-30', '2025-01-31', '2025-02-01'), 'week', {
+        formats: { week: { header: () => 'All' } },
+      }),
+    ).toMatchObject([{ label: 'All', widthPx: TICK * 3 }]);
+  });
 });
 
 describe('createTopHeaderGroups with locale options', () => {
@@ -158,7 +162,7 @@ describe('createTopHeaderGroups with locale options', () => {
 
   it('groups the week scale by week, starting on the configured day', () => {
     const week = ticks(
-      '2025-08-31', // Sunday
+      '2025-08-31',
       '2025-09-01',
       '2025-09-02',
       '2025-09-03',
@@ -168,19 +172,16 @@ describe('createTopHeaderGroups with locale options', () => {
       '2025-09-07',
     );
 
-    // Weeks starting Monday: 8/31 stands alone, then 9/1..9/7
     expect(createTopHeaderGroups(week, 'week', { firstDayOfWeek: 1 })).toMatchObject([
       { label: 'Aug 25, 2025', widthPx: 72 },
       { label: 'Sep 1, 2025', widthPx: 504 },
     ]);
 
-    // Weeks starting Sunday: 8/31..9/6, then 9/7
     expect(createTopHeaderGroups(week, 'week', { firstDayOfWeek: 0 })).toMatchObject([
       { label: 'Aug 31, 2025', widthPx: 504 },
       { label: 'Sep 7, 2025', widthPx: 72 },
     ]);
 
-    // Without the setting the week scale still groups by month
     expect(createTopHeaderGroups(week, 'week')).toMatchObject([
       { label: 'Aug 2025', widthPx: 72 },
       { label: 'Sep 2025', widthPx: 504 },
@@ -203,8 +204,8 @@ describe('computeTimelineData', () => {
       [task('a', '1', '2025-01-10', '2025-01-12')],
       'week',
     );
-    expect(bottomCells).toHaveLength(12); // 2025-01-05 .. 2025-01-16
-    expect(transformedTasks[0]).toMatchObject({ barLeft: 360, barWidth: 144 }); // 5*72, 2*72
+    expect(bottomCells).toHaveLength(12);
+    expect(transformedTasks[0]).toMatchObject({ barLeft: 360, barWidth: 144 });
     expect(computeTimelineData([], 'week')).toEqual({ bottomCells: [], transformedTasks: [] });
   });
 
@@ -214,10 +215,8 @@ describe('computeTimelineData', () => {
       'day',
     );
 
-    // 09:00 - 30h .. 12:00 + 30h, one cell every six hours
     expect(bottomCells[0].startDate.toISOString()).toBe('2025-01-09T00:00:00.000Z');
     expect(new Set(bottomCells.map((c) => c.widthPx))).toEqual(new Set([72]));
-    // 33h from the origin at 12px an hour, 3h long
     expect(transformedTasks[0]).toMatchObject({ barLeft: 396, barWidth: 36 });
   });
 
@@ -227,7 +226,6 @@ describe('computeTimelineData', () => {
       'quarter',
     );
 
-    // 2024-09 .. 2025-08, one cell a month, 4px a day
     expect(bottomCells).toHaveLength(12);
     expect(bottomCells[0].startDate.toISOString()).toBe('2024-09-01T00:00:00.000Z');
     expect(
@@ -235,7 +233,7 @@ describe('computeTimelineData', () => {
         '2025-02',
       ),
     ).toBe(28 * 4);
-    expect(transformedTasks[0]).toMatchObject({ barLeft: 648, barWidth: 112 }); // 28 days
+    expect(transformedTasks[0]).toMatchObject({ barLeft: 648, barWidth: 112 });
   });
 });
 
@@ -245,7 +243,6 @@ describe('snapDrawnRange', () => {
 
   it('snaps outwards to the day ticks the drag covered (one day a tick)', () => {
     const t = ticks('2025-01-01', '2025-01-02', '2025-01-03', '2025-01-04', '2025-01-05');
-    // inside the second tick, and inside the fourth
     expect(iso(snapDrawnRange(TICK + 8, TICK * 3 + 8, t, 'week'))).toEqual([
       dayjs('2025-01-02').format(),
       dayjs('2025-01-05').format(),
@@ -327,7 +324,7 @@ describe('originShiftPx', () => {
 
   it('returns how far the origin moved when cells are prepended', () => {
     const next = ticks('2025-01-03', '2025-01-04', '2025-01-05', '2025-01-06', '2025-01-07');
-    expect(originShiftPx(prev, next, 'week')).toBe(TICK * 2); // two cells added in front
+    expect(originShiftPx(prev, next, 'week')).toBe(TICK * 2);
   });
 
   it('returns a negative shift when leading cells disappear', () => {

@@ -1,45 +1,5 @@
 import type { GanttScaleKey, GanttTheme } from '@jaeungkim/gantt-chart';
 
-// Every switch the playground offers; mirrored into the query string (`?scale=week&holidays=1`).
-export interface Settings {
-  hierarchy: boolean;
-  showTaskList: boolean;
-  showRowNumbers: boolean;
-  readOnly: boolean;
-  allowMove: boolean;
-  allowResize: boolean;
-  allowProgressChange: boolean;
-  allowLinkCreate: boolean;
-  allowLinkDelete: boolean;
-  allowTaskCreate: boolean;
-  reorder: boolean;
-  selectable: boolean;
-  vetoLinkCreate: boolean;
-  vetoLinkDelete: boolean;
-  vetoMove: boolean;
-  scale: GanttScaleKey;
-  zoomOnWheel: boolean;
-  infiniteScroll: boolean;
-  showNonWorkingDays: boolean;
-  holidays: boolean;
-  sixDayWeek: boolean;
-  workingCalendar: boolean;
-  autoScrollOnDrag: boolean;
-  dateBounds: boolean;
-  visibleRange: boolean;
-  initialScrollTo: string;
-  showDetail: boolean;
-  customDetail: boolean;
-  controlledDetail: boolean;
-  // 'host' passes no `theme` prop at all, so the chart inherits the site's color-scheme.
-  theme: GanttTheme | 'host';
-  locale: string;
-  firstDayOfWeek: string;
-  showTooltip: boolean;
-  customFormats: boolean;
-  chartHeight: string;
-}
-
 type BooleanKey = {
   [K in keyof Settings]: Settings[K] extends boolean ? K : never;
 }[keyof Settings];
@@ -111,7 +71,7 @@ export const CONTROLS: readonly Control[] = [
   {
     key: 'readOnly',
     label: 'Read only',
-    hint: 'Freeze every gesture at once',
+    hint: 'Blocks every edit at once, except Row reorder',
     group: 'Editing',
     type: 'boolean',
   },
@@ -131,8 +91,8 @@ export const CONTROLS: readonly Control[] = [
   },
   {
     key: 'allowProgressChange',
-    label: 'Drag progress',
-    hint: 'Off blocks the progress handle outright',
+    label: 'Edit progress',
+    hint: "Off makes the detail panel's Progress read-only",
     group: 'Editing',
     type: 'boolean',
   },
@@ -146,7 +106,7 @@ export const CONTROLS: readonly Control[] = [
   {
     key: 'allowLinkDelete',
     label: 'Delete links',
-    hint: 'Select an arrow, then Delete',
+    hint: 'Click an arrow, then its ×',
     group: 'Editing',
     type: 'boolean',
   },
@@ -160,7 +120,7 @@ export const CONTROLS: readonly Control[] = [
   {
     key: 'reorder',
     label: 'Row reorder',
-    hint: 'Grip, Alt+↑↓, Ctrl/Cmd+←→',
+    hint: 'Drag a row by its grip',
     group: 'Editing',
     type: 'boolean',
   },
@@ -302,7 +262,7 @@ export const CONTROLS: readonly Control[] = [
   {
     key: 'showTooltip',
     label: 'Tooltips',
-    hint: 'Hover and drag alike',
+    hint: 'The bar hover card - drag dates in the header show either way',
     group: 'Presentation',
     type: 'boolean',
   },
@@ -321,13 +281,21 @@ export const CONTROLS: readonly Control[] = [
     type: 'select',
     options: ['fill', '640', '420'],
   },
+  {
+    key: 'rowHeight',
+    label: 'Row height',
+    hint: '`rowHeight`: 28 compact, 38 default, 48 roomy - bars scale with it',
+    group: 'Presentation',
+    type: 'select',
+    options: ['28', '38', '48'],
+  },
 ];
 
 // Every feature on, so the page shows the whole chart before a single switch is touched. Two
 // classes stay off: restrictions (`readOnly`, `dateBounds`, `visibleRange`, every `veto*`) and
-// overrides (`customDetail`, `controlledDetail`, `customFormats`), each of
+// overrides (`customDetail`, `controlledDetail`, `customFormats`, `sixDayWeek`), each of
 // which replaces a built-in behaviour rather than adding one - turning them on hides a feature.
-export const DEFAULTS: Settings = {
+export const DEFAULTS = {
   hierarchy: true,
   showTaskList: true,
   showRowNumbers: true,
@@ -343,9 +311,9 @@ export const DEFAULTS: Settings = {
   vetoLinkCreate: false,
   vetoLinkDelete: false,
   vetoMove: false,
-  // The fixture runs seven weeks; only the month scale fits all of it on screen at once, which
-  // is also what every <GanttDemo> on the site opens on.
-  scale: 'month',
+  // The fixture runs seven weeks; the month scale is the finest that fits all of it on screen at
+  // once, which is also what every <GanttDemo> on the site opens on.
+  scale: 'month' as GanttScaleKey,
   zoomOnWheel: true,
   infiniteScroll: true,
   showNonWorkingDays: true,
@@ -361,13 +329,17 @@ export const DEFAULTS: Settings = {
   showDetail: true,
   customDetail: false,
   controlledDetail: false,
-  theme: 'host',
+  // 'host' passes no `theme` prop at all, so the chart inherits the site's color-scheme.
+  theme: 'host' as GanttTheme | 'host',
   locale: 'en-US',
   firstDayOfWeek: '1',
   showTooltip: true,
   customFormats: false,
   chartHeight: 'fill',
+  rowHeight: '38',
 };
+// Every switch the playground offers; mirrored into the query string (`?scale=week&holidays=0`).
+export type Settings = typeof DEFAULTS;
 
 // Query-string settings over DEFAULTS. Reads `window` - never call on the server.
 export function readSettings(): Settings {
@@ -382,7 +354,7 @@ export function readSettings(): Settings {
       next[control.key] = raw !== '0' && raw !== 'false';
     } else if (control.options.includes(raw)) {
       // Writing through a union key wants the intersection of the value types, which is `never`;
-      // the `options` check above is what narrows `raw`.
+      // the `options` check above is what keeps `raw` valid.
       next[control.key] = raw as never;
     }
   }

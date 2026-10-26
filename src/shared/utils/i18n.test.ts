@@ -3,7 +3,6 @@ import { GanttScaleKey } from 'shared/types';
 import dayjs, { quarterOfYear, startOfQuarter, startOfWeek } from 'core/dates';
 import { resolveFormatters, resolveLabelUnit } from './i18n';
 
-// 2025-09-01 is a Monday, 15:00 UTC
 const afternoon = dayjs('2025-09-01T15:00');
 const SCALES: GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
 
@@ -28,9 +27,9 @@ describe('startOfWeek', () => {
   const wednesday = dayjs('2025-09-03T15:00');
 
   it('walks back to the configured first day of the week', () => {
-    expect(startOfWeek(wednesday).toISOString()).toBe('2025-08-31T00:00:00.000Z'); // Sunday
-    expect(startOfWeek(wednesday, 1).toISOString()).toBe('2025-09-01T00:00:00.000Z'); // Monday
-    expect(startOfWeek(wednesday, 6).toISOString()).toBe('2025-08-30T00:00:00.000Z'); // Saturday
+    expect(startOfWeek(wednesday).toISOString()).toBe('2025-08-31T00:00:00.000Z');
+    expect(startOfWeek(wednesday, 1).toISOString()).toBe('2025-09-01T00:00:00.000Z');
+    expect(startOfWeek(wednesday, 6).toISOString()).toBe('2025-08-30T00:00:00.000Z');
   });
 
   it('keeps a date that is already the first day of its week', () => {
@@ -54,7 +53,6 @@ describe('resolveLabelUnit', () => {
   it('groups the week scale by week once a first day of the week is given', () => {
     expect(resolveLabelUnit('week', { firstDayOfWeek: 1 })).toBe('week');
     expect(resolveLabelUnit('week', { firstDayOfWeek: 0 })).toBe('week');
-    // Other scales have no week grouping to switch to
     expect(resolveLabelUnit('month', { firstDayOfWeek: 1 })).toBe('month');
     expect(resolveLabelUnit('week', { locale: 'ko-KR' })).toBe('month');
   });
@@ -98,12 +96,20 @@ describe('resolveFormatters with a locale', () => {
   });
 
   it('keeps labelling in UTC whatever the locale', () => {
-    // 23:00 UTC is the next day in Seoul - the label has to stay on the cell it sits in
     const lateNight = dayjs('2025-09-01T23:00');
     expect(resolveFormatters('day', { locale: 'ko-KR' }).header(lateNight)).toBe(
       '2025년 9월 1일',
     );
     expect(resolveFormatters('day', { locale: 'ko-KR' }).tick(lateNight)).toBe('23시');
+  });
+
+  it('prints an invalid date as the built-in labels do instead of throwing', () => {
+    const invalid = dayjs('');
+    const { tooltip, edge, range } = resolveFormatters('month', { locale: 'ko-KR' });
+
+    expect(tooltip(invalid)).toBe(resolveFormatters('month').tooltip(invalid));
+    expect(edge(invalid)).toBe('Invalid Date');
+    expect(range(invalid, dayjs('2026-03-23'))).toBe('Invalid Date – 3월 23일');
   });
 
   it('falls back to the built-in labels on an unusable tag, warning once', () => {
@@ -136,8 +142,6 @@ describe('resolveFormatters with format overrides', () => {
   });
 });
 
-// The header drag readout is the only visible feedback a pointer drag produces, so the span it
-// prints has to hold up on every layer and on a range dragged backwards.
 describe('range formatter', () => {
   const start = dayjs('2026-01-15T00:00:00Z');
   const end = dayjs('2026-01-17T00:00:00Z');
@@ -147,7 +151,6 @@ describe('range formatter', () => {
   });
 
   it('merges what the two ends share when a locale is set', () => {
-    // Intl wording varies by ICU build; what matters is that the second month name is dropped
     expect(resolveFormatters('month', { locale: 'en-US' }).range(start, end)).toMatch(
       /^Jan 15\s*.\s*17$/,
     );
@@ -158,8 +161,6 @@ describe('range formatter', () => {
     expect(resolveFormatters('month', { locale: 'en-US' }).range(start, start)).toBe('Jan 15');
   });
 
-  // Some ICU builds throw on a backwards range, others merge it; either way a resize dragged
-  // past its own start must not take the readout down mid-gesture
   it('survives a range dragged backwards past its own start', () => {
     const { range } = resolveFormatters('month', { locale: 'en-US' });
     expect(() => range(end, start)).not.toThrow();
@@ -182,8 +183,6 @@ describe('range formatter', () => {
   });
 });
 
-// The readout writes one end at a time, so `edge` is what it actually calls; `range` only steps
-// in for a span whose two ends read alike. Both must follow the same three layers.
 describe('edge formatter', () => {
   const start = dayjs('2026-01-15T09:00:00Z');
   const end = dayjs('2026-01-17T17:00:00Z');
@@ -198,7 +197,6 @@ describe('edge formatter', () => {
     expect(resolveFormatters('quarter').edge(start)).toBe('Jan 2026');
   });
 
-  // The day scale's ticks are hours and its header row is the date, so the readout is the clock
   it('writes only the clock at the scale whose ticks are hours', () => {
     expect(resolveFormatters('day').edge(start)).toBe('09:00 UTC');
   });

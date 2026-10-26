@@ -1,34 +1,18 @@
 import { TaskTransformed } from "shared/task";
 import dayjs from "core/dates";
 
-/** One rendered row: one task, or several sharing a `lane` */
+/** One rendered row: one task, or several sharing a `lane`. See https://gantt.jaeungkim.com/docs/ref/rows */
 export interface GanttRow {
   /** Stable key - the ids on the row, joined with "+" */
   id: string;
+  /** The row's tasks, never empty; each one's `order` is rewritten to the 1-based row number */
   tasks: TaskTransformed[];
-  /** Indentation level, 0-based */
+  /** Indentation level, 0-based, taken from the row's first task */
   depth: number;
-  /** `aria-level`, 1-based */
-  level: number;
-  /** `aria-posinset` among the rows that share a parent */
-  posinset: number;
-  /** `aria-setsize` for that same set */
-  setsize: number;
-}
-
-/** Whether the row carries an expander: hierarchy on, and the task has children */
-export function isRowExpandable(row: GanttRow, hierarchy: boolean): boolean {
-  return hierarchy && !!row.tasks[0]?.isSummary;
-}
-
-function endOf(task: TaskTransformed): number {
-  return dayjs(task.endDate).valueOf();
 }
 
 /** Packs lane-sharing tasks onto as few rows as possible (greedy interval partitioning by start) */
 export function packLanes(tasks: TaskTransformed[]): TaskTransformed[][] {
-  if (tasks.length < 2) return tasks.length ? [[...tasks]] : [];
-
   // Ties keep the incoming order, so the packing is stable for equal starts
   const ordered = tasks
     .map((task, index) => ({ task, index }))
@@ -43,15 +27,16 @@ export function packLanes(tasks: TaskTransformed[]): TaskTransformed[][] {
 
   for (const { task } of ordered) {
     const start = dayjs(task.startDate).valueOf();
+    const end = dayjs(task.endDate).valueOf();
     // `<=` so touching bars (one starts as the last ends) still share the row
-    const slot = rowEnds.findIndex((end) => end <= start);
+    const slot = rowEnds.findIndex((rowEnd) => rowEnd <= start);
 
     if (slot === -1) {
       rows.push([task]);
-      rowEnds.push(endOf(task));
+      rowEnds.push(end);
     } else {
       rows[slot].push(task);
-      rowEnds[slot] = Math.max(rowEnds[slot], endOf(task));
+      rowEnds[slot] = Math.max(rowEnds[slot], end);
     }
   }
 
@@ -67,7 +52,6 @@ function toLaneRows(tasks: TaskTransformed[]): TaskTransformed[][] {
     if (members) members.push(task);
     else byLane.set(task.lane, [task]);
   }
-  if (!byLane.size) return tasks.map((task) => [task]);
 
   const rows: TaskTransformed[][] = [];
   const done = new Set<string>();
@@ -86,44 +70,15 @@ function toLaneRows(tasks: TaskTransformed[]): TaskTransformed[][] {
   return rows;
 }
 
-/** The row model the chart renders; every task's `order` is rewritten to its row number */
+/** The row model the chart renders */
 export function buildGanttRows(tasks: TaskTransformed[]): GanttRow[] {
-  const seeds = toLaneRows(tasks);
-
-  const ids = seeds.map((row) => row.map((task) => task.id).join("+"));
-
-  // A row's parent is the nearest row above it one level shallower
-  const parentIds: string[] = [];
-  const setsizes = new Map<string, number>();
-  const lastAtDepth: string[] = [];
-
-  seeds.forEach((row, index) => {
-    const depth = row[0].depth;
-    const parentId = depth === 0 ? "" : lastAtDepth[depth - 1] ?? "";
-    parentIds.push(parentId);
-    setsizes.set(parentId, (setsizes.get(parentId) ?? 0) + 1);
-
-    lastAtDepth[depth] = ids[index];
-    lastAtDepth.length = depth + 1;
-  });
-
-  const seen = new Map<string, number>();
-
-  return seeds.map((row, index) => {
-    const parentId = parentIds[index];
-    const posinset = (seen.get(parentId) ?? 0) + 1;
-    seen.set(parentId, posinset);
-
-    const depth = row[0].depth;
+  return toLaneRows(tasks).map((row, index) => {
     const order = index + 1;
     return {
-      id: ids[index],
+      id: row.map((task) => task.id).join("+"),
       // Only rewrapped when the row number moved, so unchanged tasks keep identity
       tasks: row.map((task) => (task.order === order ? task : { ...task, order })),
-      depth,
-      level: depth + 1,
-      posinset,
-      setsize: setsizes.get(parentId) ?? 1,
+      depth: row[0].depth,
     };
   });
 }
