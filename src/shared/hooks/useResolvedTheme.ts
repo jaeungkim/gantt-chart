@@ -6,8 +6,8 @@ const SYSTEM_DARK_QUERY = '(prefers-color-scheme: dark)';
 const canMatchMedia = () =>
   typeof window !== 'undefined' && typeof window.matchMedia === 'function';
 
-const prefersDark = () =>
-  canMatchMedia() && window.matchMedia(SYSTEM_DARK_QUERY).matches;
+const systemScheme = (): 'light' | 'dark' =>
+  canMatchMedia() && window.matchMedia(SYSTEM_DARK_QUERY).matches ? 'dark' : 'light';
 
 // `color-scheme` is the platform's own light/dark signal and it inherits, so reading it off the
 // root is how the chart follows a host that flips themes with a class - next-themes, Tailwind and
@@ -20,12 +20,12 @@ const hostScheme = (): 'light' | 'dark' => {
   const dark = used.includes('dark');
 
   // Both means "either is fine, ask the user" - the same thing `theme="system"` asks.
-  if (light && dark) return prefersDark() ? 'dark' : 'light';
+  if (light && dark) return systemScheme();
   return dark ? 'dark' : 'light';
 };
 
-// Two sources to watch: the OS setting, and the root's own class/style, which is what a host
-// theme switch actually mutates.
+// Two sources to watch: the OS setting, and the root's own class/style/data-theme, which is what
+// a host theme switch actually mutates.
 const subscribe = (onChange: () => void) => {
   if (typeof window === 'undefined') return () => {};
 
@@ -58,7 +58,7 @@ const getServerSnapshot = (): 'light' | 'dark' => 'light';
 export function useResolvedTheme(theme?: GanttTheme): 'light' | 'dark' {
   const ambient = useSyncExternalStore(
     subscribe,
-    theme === 'system' ? () => (prefersDark() ? 'dark' : 'light') : hostScheme,
+    theme === 'system' ? systemScheme : hostScheme,
     getServerSnapshot
   );
 

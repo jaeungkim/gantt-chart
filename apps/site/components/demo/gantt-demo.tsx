@@ -29,8 +29,7 @@ const PRESETS = {
   holidays: { hierarchy: true, showTaskList: true, holidays: demoHolidays },
   detail: { showTaskList: true, showDetail: true },
   // The landing page's one demo, so it turns on what the feature list claims: the hierarchy with
-  // its rolled-up summary rows, numbered rows, the working-day calendar, the detail panel and
-  // Ctrl/Cmd + wheel zoom.
+  // its rolled-up summary rows, the working-day calendar and the detail panel.
   showcase: {
     hierarchy: true,
     showTaskList: true,
@@ -43,6 +42,7 @@ const PRESETS = {
   zoom: { hierarchy: true, zoomOnWheel: true },
   locale: { hierarchy: true, showTaskList: true, locale: 'ko-KR' },
   dark: { hierarchy: true, showTaskList: true, theme: 'dark' },
+  compact: { hierarchy: true, showTaskList: true, rowHeight: 28 },
   readOnly: { hierarchy: true, showTaskList: true, readOnly: true },
 } as const satisfies Record<string, Partial<GanttProps>>;
 
@@ -64,7 +64,8 @@ export function GanttDemo({ preset = 'basic', height = 380 }: GanttDemoProps) {
         height={height}
         width="100%"
         defaultScale="month"
-        // Centred, and today sits mid-fixture, so a demo opens on the whole project
+        // Centred, and today sits mid-fixture, so a demo opens mid-project rather than on the
+        // empty weeks padded in front of the first task
         initialScrollTo="today"
         {...PRESETS[preset]}
       />

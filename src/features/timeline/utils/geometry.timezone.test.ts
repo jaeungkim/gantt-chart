@@ -6,7 +6,6 @@ import type { Task } from 'shared/task';
 import dayjs from 'core/dates';
 import { computeTimelineData, shiftByDragSteps } from './geometry';
 
-// Swaps the process time zone for the duration of fn; Node applies TZ to Date math at once.
 function withTimeZone<T>(tz: string, fn: () => T): T {
   const prev = process.env.TZ;
   process.env.TZ = tz;
@@ -30,7 +29,6 @@ const task = (startDate: string, endDate: string): Task => ({
 const widths = (t: Task, scale: GanttScaleKey) =>
   computeTimelineData([t], scale).bottomCells.map((c) => c.widthPx);
 
-// America/New_York: 2025-03-09 is 23 hours (spring DST), 2025-11-02 is 25 hours (fall DST)
 const SPRING_FORWARD = task('2025-03-08T00:00:00Z', '2025-03-10T00:00:00Z');
 const FALL_BACK = task('2025-11-01T00:00:00Z', '2025-11-03T00:00:00Z');
 
@@ -42,7 +40,6 @@ describe('timeline cells across DST boundaries (#28)', () => {
   });
 
   it('keeps sub-day cell widths uniform through a spring DST day', () => {
-    // The grid is UTC, so every cell is six hours even where the local day is 23 hours
     withTimeZone('America/New_York', () => {
       expect(new Set(widths(SPRING_FORWARD, 'day'))).toEqual(new Set([72]));
     });
@@ -55,7 +52,6 @@ describe('timeline cells across DST boundaries (#28)', () => {
   });
 
   it('sizes quarter-scale month cells by the real calendar month length', () => {
-    // quarter: dragStepUnit 'day' with 7 days, basePxPerDragStep 28 -> 4px per day
     withTimeZone('America/New_York', () => {
       const cells = computeTimelineData(
         [task('2025-02-01T00:00:00Z', '2025-07-01T00:00:00Z')],
@@ -65,9 +61,9 @@ describe('timeline cells across DST boundaries (#28)', () => {
         cells.map((c) => [c.startDate.format('YYYY-MM'), c.widthPx]),
       );
       expect(byMonth.get('2025-02')).toBe(28 * 4);
-      expect(byMonth.get('2025-03')).toBe(31 * 4); // has DST
+      expect(byMonth.get('2025-03')).toBe(31 * 4);
       expect(byMonth.get('2025-04')).toBe(30 * 4);
-      expect(byMonth.get('2025-11')).toBe(30 * 4); // has DST
+      expect(byMonth.get('2025-11')).toBe(30 * 4);
     });
   });
 });
@@ -113,7 +109,6 @@ describe('shiftByDragSteps (#28)', () => {
     expect(shiftByDragSteps(base, 3, 'month').toISOString()).toBe('2025-01-04T00:00:00.000Z');
     expect(shiftByDragSteps(base, 3, 'quarter').toISOString()).toBe('2025-01-22T00:00:00.000Z');
     expect(shiftByDragSteps(base, 3, 'year').toISOString()).toBe('2025-03-26T00:00:00.000Z');
-    // Converting a month-scale step into a fixed 30 days would not match the real month length
     expect(shiftByDragSteps(dayjs('2025-01-31T00:00:00Z'), 30, 'month').toISOString()).toBe(
       '2025-03-02T00:00:00.000Z',
     );
@@ -137,7 +132,6 @@ describe('UTC-based positioning (#84)', () => {
   });
 
   it('sticks a task on a UTC date boundary to the UTC calendar cell', () => {
-    // Starts 3/10 23:00Z -> 23/24 of the way into the "Mar 10" cell
     const { bottomCells, transformedTasks } = withTimeZone('Asia/Seoul', () =>
       computeTimelineData([boundary], 'week'),
     );
@@ -156,7 +150,6 @@ describe('UTC-based positioning (#84)', () => {
     );
     const labels = bottomCells.map((c) => GANTT_SCALE_CONFIG.week.formatTickLabel?.(c.startDate));
 
-    // The first cell is 5/27, five ticks before 6/1
     expect(bottomCells[0].startDate.toISOString()).toBe('2025-05-27T00:00:00.000Z');
     expect(labels.slice(0, 6)).toEqual(['27', '28', '29', '30', '31', '1']);
   });

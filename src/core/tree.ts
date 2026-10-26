@@ -4,21 +4,19 @@ import dayjs from "./dates";
 /** The minimum a task needs for the tree math - TaskTransformed fits as-is */
 type TaskNode = Pick<Task, "id" | "parentId">;
 
-/**
- * A normalized tree built from parentId. Orphans, self-references and cycles lose their
- * parent link and become roots, so what comes out is always acyclic.
- */
+/** A normalized tree built from `parentId`: orphans, self-references and cycles lose their parent link and become roots. See https://gantt.jaeungkim.com/docs/ref/core-tree */
 export interface TaskTree {
-  /** parent id -> child ids (in input order) */
+  /** Parent id -> child ids, in input order; a leaf has no key. */
   childIds: Map<string, string[]>;
-  /** task id -> normalized parent id (null for a root, an orphan or a cycle) */
+  /** Task id -> normalized parent id, null for a root, an orphan or a cycle. */
   parentOf: Map<string, string | null>;
-  /** task id -> depth from the root */
+  /** Task id -> depth, 0 for a root. */
   depthOf: Map<string, number>;
-  /** Root ids, in input order - the sibling list childIds has no key for */
+  /** Root ids, in input order; `childIds` has no key for this sibling list. */
   rootIds: string[];
 }
 
+/** Builds the normalized `TaskTree` from each task's `parentId`; a cut link is not reported. See https://gantt.jaeungkim.com/docs/ref/core-tree */
 export function buildTaskTree(tasks: TaskNode[]): TaskTree {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const parentOf = new Map<string, string | null>();
@@ -71,10 +69,7 @@ export function buildTaskTree(tasks: TaskNode[]): TaskTree {
   return { childIds, parentOf, depthOf, rootIds };
 }
 
-/**
- * The subtree's ids including the root itself (breadth first)
- * An id that is not in the tree yields an empty array
- */
+/** The subtree's ids, root first and breadth first; an id that is not in the tree yields an empty array. See https://gantt.jaeungkim.com/docs/ref/core-tree */
 export function collectSubtreeIds(
   tasks: TaskNode[],
   rootId: string,
@@ -116,10 +111,7 @@ export function getVisibleTasks<T extends TaskNode>(
   return tasks.filter((task) => !hasCollapsedAncestor(task.id));
 }
 
-/**
- * The tasks with every parent recomputed as a summary row: start/end always from the children
- * (deepest first, so a move travels all the way up); an explicit progress is left alone.
- */
+/** The tasks with every parent recomputed as a summary row: dates always span its children, and a missing progress becomes their duration-weighted average. See https://gantt.jaeungkim.com/docs/ref/core-tree */
 export function rollUpTasks(
   tasks: Task[],
   tree: TaskTree = buildTaskTree(tasks)
@@ -127,11 +119,10 @@ export function rollUpTasks(
   if (!tree.childIds.size) return tasks;
 
   const byId = new Map(tasks.map((task) => [task.id, task]));
+  // Deepest first, so a move travels all the way up
   const parentIds = [...tree.childIds.keys()]
-    .filter((id) => byId.has(id))
     .sort((a, b) => (tree.depthOf.get(b) ?? 0) - (tree.depthOf.get(a) ?? 0));
 
-  // Only the parents that actually changed go in here
   const rolled = new Map<string, Task>();
   const latest = (id: string) => rolled.get(id) ?? byId.get(id);
 
@@ -142,11 +133,9 @@ export function rollUpTasks(
     const children = (tree.childIds.get(parentId) ?? [])
       .map(latest)
       .filter((child): child is Task => child !== undefined);
-    if (!children.length) continue;
 
     let minStart = Infinity;
     let maxEnd = -Infinity;
-    // Progress rolls up as a duration-weighted average - undefined when no child reports one
     let weightedSum = 0;
     let totalWeight = 0;
     let plainSum = 0;
@@ -163,7 +152,8 @@ export function rollUpTasks(
       if (progress !== null) reported = true;
 
       const value = progress ?? 0;
-      const duration = Math.max(0, end - start);
+      const duration =
+        Number.isNaN(start) || Number.isNaN(end) ? 0 : Math.max(0, end - start);
       weightedSum += value * duration;
       totalWeight += duration;
       plainSum += value;

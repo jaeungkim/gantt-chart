@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useGanttStore } from "shared/context";
 import { MIN_HOLIDAY_LABEL_PX } from "shared/constants";
-import { tickAxis, tickCellAt } from "features/timeline/utils/header";
+import { tickAxis, tickCellAt } from "features/timeline/utils/tickAxis";
 import { NonWorkingRange } from "features/timeline/utils/geometry";
 
 interface GanttHolidayLabelsProps {
@@ -12,16 +12,14 @@ interface GanttHolidayLabelsProps {
 // cells it falls in give up their numerals and the name stands centred where they were, on the
 // grid, nothing floating. One name per holiday however many days it runs.
 //
-// It covers whole tick cells, not the holiday's own band - a band is a third of a cell at the
-// month scale, and blanking a third of a cell leaves a numeral sliced down the middle.
+// It covers whole tick cells, not the holiday's own band - a one-day band is a seventh of a cell
+// at the month scale, and blanking part of a cell leaves a numeral sliced down the middle.
 //
 // A band wide enough to have earned the room keeps its name up; a narrower one hands it back to
 // the ruler and writes it only while the pointer is over the holiday, which is the same gesture
 // bargain a drag makes. That is CSS on the band's own hover, so no state and no re-render.
-// The hover target is the header and only the header: the shading in the body sits under the
+// The hover target is the header and only the header: the shading in the body sits inside the
 // pointer surface that draws new tasks, and a target there would eat those gestures.
-//
-// Not aria-hidden, and hidden by opacity rather than display, so the name is announced either way.
 export default function GanttHolidayLabels({
   ranges,
 }: GanttHolidayLabelsProps) {
@@ -39,7 +37,8 @@ export default function GanttHolidayLabels({
       const last = tickCellAt(axis, range.left + range.width - 1);
       if (!first || !last) return [];
 
-      // Two names standing in one cell would print on top of each other; the earlier one keeps it.
+      // Two standing names that start in one cell would print on top of each other; the earlier
+      // one keeps it.
       // Hovered names are exclusive by definition, so only the standing ones are worth counting.
       const shown =
         range.width >= MIN_HOLIDAY_LABEL_PX && !shownCells.has(first.index);

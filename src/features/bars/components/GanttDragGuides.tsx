@@ -1,25 +1,28 @@
 import { useMemo } from "react";
 import { useGanttStore } from "shared/context";
+import type { GanttLocaleOptions } from "shared/types";
 import { resolveFormatters } from "shared/utils/i18n";
-import { tickAxis, tickCellAt } from "features/timeline/utils/header";
+import { tickAxis, tickCellAt } from "features/timeline/utils/tickAxis";
 
 // The live readout for a move or resize. It is the tick row being precise for the length of one
 // gesture: the cell each moving edge lands in writes the full date instead of its numeral, in the
-// row's own type, centred where the numeral stood - on the grid, so nothing floats. Under it the
+// row's own type, centred where the numeral stood - on the grid, so nothing floats. Over it the
 // bar's footprint - its exact span, its own radius - is tinted onto the ruler, tying the two
 // together without drawing a shape of its own around anything.
 // A move carries both edges, so it writes both. A resize writes only the edge under the pointer:
 // the other end is not changing, and a second label that never moves is one number to ignore.
 // Mounted inside `.gantt-header-wrapper`, which is sticky and `totalWidth` wide - hence no width
 // prop, no z-index, and `left` already in the same space as a bar's `barLeft`.
-// aria-hidden: the bar's own tooltip stays the live region for a pointer drag.
-export default function GanttDragGuides() {
-  const currentTask = useGanttStore((store) => store.currentTask);
+export default function GanttDragGuides({
+  localeOptions,
+}: {
+  localeOptions?: GanttLocaleOptions;
+}) {
+  const barDrag = useGanttStore((store) => store.barDrag);
   const dragOffsets = useGanttStore((store) => store.dragOffsets);
-  const dragMode = useGanttStore((store) => store.dragMode);
   const selectedScale = useGanttStore((store) => store.selectedScale);
-  const localeOptions = useGanttStore((store) => store.localeOptions);
   const bottomRowCells = useGanttStore((store) => store.bottomRowCells);
+  const transformedTasks = useGanttStore((store) => store.transformedTasks);
   const { edge, range } = useMemo(
     () => resolveFormatters(selectedScale, localeOptions),
     [selectedScale, localeOptions]
@@ -27,8 +30,12 @@ export default function GanttDragGuides() {
 
   const axis = useMemo(() => tickAxis(bottomRowCells), [bottomRowCells]);
 
-  const offset = currentTask ? dragOffsets[currentTask.id] : undefined;
-  if (!currentTask || !offset) return null;
+  const offset = barDrag ? dragOffsets[barDrag.task.id] : undefined;
+  if (!barDrag || !offset?.offsetStartDate || !offset.offsetEndDate) return null;
+  const { task: pressedTask, mode: dragMode } = barDrag;
+  // The pointerdown snapshot misses an infiniteScroll prepend, which moves every bar mid-drag
+  const currentTask =
+    transformedTasks.find((task) => task.id === pressedTask.id) ?? pressedTask;
 
   const startX = currentTask.barLeft + offset.offsetX;
   const endX = startX + currentTask.barWidth + offset.offsetWidth;
@@ -58,7 +65,7 @@ export default function GanttDragGuides() {
   })();
 
   return (
-    <div className="gantt-drag-guides" aria-hidden="true">
+    <div className="gantt-drag-guides">
       {cells.map(({ cell, label }) => (
         <div
           key={cell.index}
@@ -68,8 +75,8 @@ export default function GanttDragGuides() {
           <span>{label}</span>
         </div>
       ))}
-      {/* Last, so the tint runs to the bar's pixel edge through the cell that writes the date */}
       <div
+        // Last, so the tint runs to the bar's pixel edge through the cell that writes the date
         className="gantt-drag-footprint"
         style={{
           left: `${startX}px`,

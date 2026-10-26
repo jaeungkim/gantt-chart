@@ -3,11 +3,11 @@ title: "Editing tasks"
 description: "Let people adjust dates and progress, then choose which edits your app allows."
 ---
 
-Let people update a schedule directly on the timeline. They can move a task, resize its dates, or drag its progress handle.
+Let people update a schedule directly on the timeline. They can move a task or resize its dates.
 
 ## Connect edits to your state
 
-Pass your task state to the chart and update it through `onTasksChange`. Move, resize, and progress editing are enabled by default.
+Pass your task state to the chart and update it through `onTasksChange`. Move, resize, and progress editing are enabled by default. Progress is edited only in the [detail panel](detail-panel), which is off until you turn it on.
 
 ```tsx title="src/ProjectPlan.tsx"
 import { useState } from 'react';
@@ -26,7 +26,7 @@ export function ProjectPlan({ initialTasks }: { initialTasks: Task[] }) {
 }
 ```
 
-A completed edit sends the full next array once. Pass it back as `tasks` to keep the change. Saving to a server and applying business rules belong in your app; see [Events](events).
+A completed edit sends the full next array once, after the chart has applied it. Pass it back as `tasks` so your state holds the change too. Saving to a server and applying business rules belong in your app; see [Events](events).
 
 ## Change dates and progress
 
@@ -35,15 +35,15 @@ A completed edit sends the full next array once. Pass it back as `tasks` to keep
 | Move a task without changing its duration | Drag the middle of the bar |
 | Change its start date | Drag the left edge |
 | Change its end date | Drag the right edge |
-| Update completion | Drag the progress handle |
+| Update completion | Drag the Progress slider in the [detail panel](detail-panel) |
 
-Date edits move in steps determined by the [timeline scale](timeline). They preserve the task's time of day rather than aligning it to midnight. Resizing keeps at least one drag step of duration, so resizing a shorter task can make it longer.
+Date edits move in steps determined by the [timeline scale](timeline). They shift dates by whole steps rather than aligning them to midnight, so with a step of a day or more the time of day is kept. Resizing keeps at least one drag step of duration, so resizing a shorter task can make it longer.
 
-`Escape` does not cancel a move, resize or progress drag; the edit commits when the pointer is released.
+`Escape` does not cancel a move or resize; the edit commits when the pointer is released.
 
-With [hierarchy](task-list) enabled, moving a summary bar moves its descendants together. Its dates and progress come from its children, so those fields cannot be resized or dragged directly.
+With [hierarchy](task-list) enabled, moving a summary bar moves its descendants together. A descendant marked `readOnly` or `allowMove: false` moves too, so lock the summary to keep it in place. Its dates and progress come from its children, so those fields cannot be resized or edited directly.
 
-For precise typed values, use the [detail panel](detail-panel). Date and progress edits also have [keyboard controls](accessibility).
+For precise typed values, use the [detail panel](detail-panel).
 
 ## Choose what people can edit
 
@@ -55,12 +55,13 @@ For a viewing-only chart, start with `readOnly`:
 
 <GanttDemo preset="readOnly" />
 
-For a chart where people can report progress but cannot change dates, disable the date gestures:
+For a chart where people can report progress but cannot change dates, show the detail panel and disable the date gestures:
 
 ```tsx
 <ReactGanttChart
   tasks={tasks}
   onTasksChange={setTasks}
+  showDetail
   allowMove={false}
   allowResize={false}
 />
@@ -85,13 +86,13 @@ Use `minDate` and `maxDate` to limit moves and resizes:
 
 Each task can supply its own bounds. Moving a summary bar respects the tightest bound among its descendants. A task longer than its allowed window keeps its duration and can extend past `maxDate`.
 
-A [working calendar](working-calendar) can also snap dates to working days. Bounds apply after that snap, so a date held at a bound can fall on a non-working day. Drawn task drafts do not use these bounds.
+A [working calendar](working-calendar) can also snap dates to working days. Bounds apply after that snap, so a date held at a bound can fall on a non-working day. A drag released where it started skips both and commits nothing, even for a bar that sits outside its bounds or on a non-working day. A resize of a bar shorter than one drag step is the exception: it still lengthens the bar to at least one step. Drawn task drafts do not use these bounds.
 
 ## Use touch and larger timelines
 
 On touch screens and with a pen, hold a bar for 400 ms before dragging. A swipe scrolls the timeline. Narrow bars have no touch resize zones; use the detail panel or a more detailed scale to change their dates.
 
-Moving or resizing near the timeline's horizontal edges scrolls it automatically. Set `autoScrollOnDrag={false}` to disable this behavior. Progress editing does not auto-scroll.
+Moving or resizing near the timeline's horizontal edges scrolls it automatically. Set `autoScrollOnDrag={false}` to disable this behavior.
 
 ## Related workflows
 

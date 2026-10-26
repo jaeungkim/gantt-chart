@@ -5,7 +5,6 @@ import {
   TOUCH_SLOP_PX,
 } from './pointerGesture';
 
-// carries only the fields the helper reads
 const pointerEvent = (
   type: string,
   detail: { pointerId: number; clientX: number; clientY: number }

@@ -8,7 +8,7 @@ describe('indexHolidays', () => {
   it('takes a bare string as a day off with no label', () => {
     const { dates, byDate } = indexHolidays(['2026-01-01']);
     expect(dates).toEqual(['2026-01-01']);
-    expect(byDate.get('2026-01-01')).toEqual({ date: '2026-01-01' });
+    expect(byDate.get('2026-01-01')?.label).toBeUndefined();
   });
 
   it('expands an endDate range, inclusive of both ends', () => {
@@ -39,6 +39,18 @@ describe('indexHolidays', () => {
       { date: '2026-01-01', label: 'Something else' },
     ];
     expect(labelAt(overlapping, '2026-01-01')).toBe('New Year');
+  });
+
+  it('keys each band by its entry, so two entries that start the same day stay apart', () => {
+    const { byDate } = indexHolidays([
+      { date: '2026-12-24', label: 'Christmas Eve' },
+      { date: '2026-12-24', endDate: '2026-12-27', label: 'Shutdown' },
+    ]);
+    const keyAt = (date: string) => byDate.get(date)?.key;
+
+    expect(byDate.get('2026-12-25')?.label).toBe('Shutdown');
+    expect(keyAt('2026-12-24')).not.toBe(keyAt('2026-12-25'));
+    expect(keyAt('2026-12-25')).toBe(keyAt('2026-12-27'));
   });
 
   it('has nothing to index for undefined or an empty list', () => {

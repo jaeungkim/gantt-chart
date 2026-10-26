@@ -1,12 +1,7 @@
-import {
-  LINK_ANCHOR_ZONE,
-  LINK_DRAG_SLOP,
-  NODE_HEIGHT,
-} from "shared/constants";
+import { HEADER_HEIGHT, LINK_DRAG_SLOP } from "shared/constants";
 import { useEffect, useRef } from "react";
 import { useGanttStoreApi } from "shared/context";
 import {
-  DependencyType,
   GanttInteractionConfig,
   resolveTaskInteraction,
   Task,
@@ -18,17 +13,10 @@ import {
   resolveLinkTarget,
   validateDependency,
 } from "features/dependencies/utils/link";
-import { LinkAnchor, LinkRejection } from "shared/types";
+import { anchorPoint } from "features/dependencies/utils/arrowPath";
+import { GanttDependencyChange } from "features/dependencies/types";
+import { GanttGeometry, LinkAnchor, LinkRejection } from "shared/types";
 import { edgeScrollVelocity, timelineEdges } from "features/timeline/utils/viewport";
-
-/** The link the user drew, handed to `onDependencyCreate` before anything is committed */
-export interface GanttDependencyChange {
-  /** Task the drag started on */
-  predecessorId: string;
-  /** Task the drag was dropped on - the one whose `dependencies` gains the entry */
-  successorId: string;
-  type: DependencyType;
-}
 
 interface UseGanttLinkDragParams {
   task: TaskTransformed;
@@ -36,6 +24,7 @@ interface UseGanttLinkDragParams {
   onTasksChange?: (updatedTasks: Task[]) => void;
   // Returning false rejects the link
   onDependencyCreate?: (change: GanttDependencyChange) => boolean | void;
+  geometry: GanttGeometry;
 }
 
 // What the pointer is currently over, in the shape the draft stores it
@@ -51,21 +40,33 @@ const NO_HOVER: HoverState = {
   rejection: null,
 };
 
-// The bar the drag starts on is the predecessor, the one it lands on the successor; where it
-// lands decides the type (`resolveLinkTarget`, `linkTypeFromAnchors`). The target is arithmetic
-// on the row model, not DOM hit-testing: an overlay cannot swallow the drop and a culled row
-// still accepts one.
+// The sticky header and task list paint over the rows and bars scrolled under them
+export function isOverVisibleContent(
+  clientX: number,
+  clientY: number,
+  edges: ReturnType<typeof timelineEdges>
+): boolean {
+  return (
+    clientX >= edges.left &&
+    clientX < edges.right &&
+    clientY >= edges.top + HEADER_HEIGHT &&
+    clientY < edges.bottom
+  );
+}
+
+// The bar the drag starts on is the predecessor, the one it lands on the successor; the dot it
+// leaves and the end it lands on decide the type (`resolveLinkTarget`, `linkTypeFromAnchors`).
+// The target is arithmetic on the row model, not DOM hit-testing.
 export function useGanttLinkDrag({
   task,
   interaction,
   onTasksChange,
   onDependencyCreate,
+  geometry,
 }: UseGanttLinkDragParams) {
   const storeApi = useGanttStoreApi();
-  // Only touched inside the pointer handlers, never while rendering
+  // Only touched by event handlers and unmount cleanup, never while rendering
   const activePointerRef = useRef<number | null>(null);
-  // Tears down the running gesture, on unmount too - a bar culled mid-drag must not leave
-  // listeners and a draft behind
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => () => cleanupRef.current?.(), []);
@@ -85,45 +86,49 @@ export function useGanttLinkDrag({
       const scrollEl = handle.closest<HTMLElement>(".gantt-scroll-container");
       if (!content) return;
 
+      const sourceGone = () =>
+        !content.isConnected ||
+        !storeApi.getState().rawTasks.some((t) => t.id === task.id);
+
       const pointerId = e.pointerId;
       activePointerRef.current = pointerId;
 
       // Keeps pointerup coming when the release happens outside the window
       try {
         handle.setPointerCapture(pointerId);
-      } catch {
-        // Detached or already captured elsewhere - the document listeners still run
-      }
+      } catch {} // Detached handle or pointer already gone - the document listeners still run
 
       const startX = e.clientX;
       const startY = e.clientY;
-      // Published only once the pointer has travelled - a plain click on a dot stays a selection
+      // Published only once the pointer has travelled
       let dragging = false;
-      // The release re-resolves from here, since a scroll can move the draft's target away
       let lastX = startX;
       let lastY = startY;
 
       const previousCursor = document.body.style.cursor;
 
       const resolveHover = (clientX: number, clientY: number): HoverState => {
+        if (
+          scrollEl &&
+          !isOverVisibleContent(clientX, clientY, timelineEdges(scrollEl))
+        ) {
+          return NO_HOVER;
+        }
+
         const rect = content.getBoundingClientRect();
         const target = resolveLinkTarget(
           storeApi.getState().rowTasks,
           clientX - rect.left,
           clientY - rect.top,
-          NODE_HEIGHT,
-          LINK_ANCHOR_ZONE
+          geometry
         );
-        if (!target) return NO_HOVER;
+        if (!target || target.task.id === task.id) return NO_HOVER;
 
         const rawTasks = storeApi.getState().rawTasks;
         const raw = rawTasks.find((t) => t.id === target.task.id);
-        // A task that may not be linked is no target at all - no highlight, no drop
-        const linkable =
-          target.task.id === task.id ||
-          (raw !== undefined &&
-            resolveTaskInteraction(raw, interaction).canCreateLink);
-        if (!linkable) return NO_HOVER;
+        if (!raw || !resolveTaskInteraction(raw, interaction).canCreateLink) {
+          return NO_HOVER;
+        }
 
         return {
           hoverTaskId: target.task.id,
@@ -132,18 +137,22 @@ export function useGanttLinkDrag({
         };
       };
 
+      const from = anchorPoint(task, anchor, geometry);
+
       const publishDraft = (clientX: number, clientY: number) => {
         const rect = content.getBoundingClientRect();
         storeApi.getState().setLinkDraft({
           fromTaskId: task.id,
           fromAnchor: anchor,
+          fromX: from.x,
+          fromY: from.y,
           toX: clientX - rect.left,
           toY: clientY - rect.top,
           ...resolveHover(clientX, clientY),
         });
       };
 
-      // Without edge auto-scroll a link can only join two tasks on screen at the same time
+      // Edge auto-scroll, so a link can reach a task that is off screen when the drag starts
       let autoScrollFrame: number | null = null;
       let velocityX = 0;
       let velocityY = 0;
@@ -164,8 +173,7 @@ export function useGanttLinkDrag({
         scrollEl.scrollLeft = beforeX + velocityX;
         scrollEl.scrollTop = beforeY + velocityY;
 
-        // Nothing moved: already against that end. Stopping matters - the first and last rows
-        // sit inside the edge zone, so the loop would run for the rest of the gesture.
+        // Nothing moved: already against that end
         if (
           scrollEl.scrollLeft === beforeX &&
           scrollEl.scrollTop === beforeY
@@ -225,9 +233,7 @@ export function useGanttLinkDrag({
         document.removeEventListener("keydown", handleKeyDown);
         try {
           handle.releasePointerCapture(pointerId);
-        } catch {
-          // Already released, or the handle is gone
-        }
+        } catch {} // Throws if the pointer is already gone
       };
 
       const cancelLink = () => {
@@ -250,12 +256,12 @@ export function useGanttLinkDrag({
       function handlePointerUp(upEvent: PointerEvent) {
         if (upEvent.pointerId !== pointerId) return;
 
-        const wasDragging = dragging;
         // Re-resolved, not read off the draft: a wheel scroll with the button held moves the
         // content without firing pointermove, and the stale draft would commit the wrong task
-        const hover = wasDragging
-          ? resolveHover(upEvent.clientX, upEvent.clientY)
-          : NO_HOVER;
+        const hover =
+          dragging && !sourceGone()
+            ? resolveHover(upEvent.clientX, upEvent.clientY)
+            : NO_HOVER;
         cancelLink();
 
         if (!hover.hoverTaskId || !hover.hoverAnchor || hover.rejection) return;
@@ -266,7 +272,7 @@ export function useGanttLinkDrag({
           type: linkTypeFromAnchors(anchor, hover.hoverAnchor),
         };
 
-        // The host gets the last word before anything changes
+        // The host gets the last word before the tasks change
         if (onDependencyCreate?.(change) === false) return;
 
         const updatedTasks = addDependency(
@@ -279,7 +285,9 @@ export function useGanttLinkDrag({
         onTasksChange?.(updatedTasks);
       }
 
-      cleanupRef.current = cancelLink;
+      cleanupRef.current = () => {
+        if (sourceGone()) cancelLink();
+      };
       document.addEventListener("pointermove", handlePointerMove);
       document.addEventListener("pointerup", handlePointerUp);
       document.addEventListener("pointercancel", handlePointerCancel);

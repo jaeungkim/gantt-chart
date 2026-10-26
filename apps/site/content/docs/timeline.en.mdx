@@ -22,7 +22,7 @@ to `month`.
 | `year` | 1 quarter | 28 days | 1 | 15 months |
 
 Each step out is about four times coarser, and a header cell stays 60 to 130px wide. A `quarter` or
-`year` cell follows the calendar. The drag step is the grid a bar snaps to, covered in
+`year` cell follows the calendar. The drag step is how far a bar moves at a time, covered in
 [Editing tasks](editing).
 
 ```tsx title="ProjectChart.tsx"
@@ -50,7 +50,7 @@ export function ProjectChart() {
 ```
 
 `defaultScale` is read once at mount; later changes are ignored. `onScaleChange` reports every
-committed change, from the ref, wheel zoom, the keyboard or `zoomToFit()`, and never on mount.
+committed change, from the ref, wheel zoom or `zoomToFit()`, and never on mount.
 
 The chart draws no scale picker. Wire one to `setScale` on the ref, reading its value back from
 `onScaleChange`. See [Imperative API](imperative-api).
@@ -78,13 +78,17 @@ leaves the range.
 ## Pin or extend the range
 
 `visibleStart` and `visibleEnd` take ISO strings and pin the timeline instead of fitting it. A pinned
-start snaps back to a tick boundary; a pinned end is used as given.
+start snaps back to a tick boundary. A pinned end is not snapped, but the last cell can finish past
+it.
 
 Pin both and task dates stop affecting the layout. A task outside the window keeps its row, its bar
 clamped to the nearest edge at the minimum width.
 
 Pin one end and the other auto-fits with its padding. With no tasks and one end pinned, the chart
 renders an empty element and throws nothing.
+
+A bar that runs past a pinned edge is drawn clipped at the timeline's edge. Its clipped end can only
+be dragged inward; dragging it outward does nothing.
 
 `infiniteScroll` grows the range as people scroll, off by default. Coming within half a viewport of
 either end adds about a viewport of ticks there, up to 2000 per side.
@@ -101,12 +105,8 @@ that gesture steps one scale, wheel down to zoom out.
 The date under the cursor keeps its x position. A cursor over the task list anchors on the
 timeline's left edge, and one past the last cell cancels the zoom.
 
-Ctrl or Cmd with ArrowUp steps one scale finer and ArrowDown one coarser, needing no prop. It anchors
-on the timeline's centre and announces the new scale. See
-[Keyboard and screen readers](accessibility).
-
-Both stop at the finest and coarsest scale. Plain wheel scrolls vertically and Shift with the wheel
-horizontally, either way. `zoomToFit()` on the ref fits every rendered bar in one call, as
+Wheel zoom stops at the finest and coarsest scale. Plain wheel scrolls vertically and Shift with the
+wheel horizontally, either way. `zoomToFit()` on the ref fits every rendered bar in one call, as
 [Imperative API](imperative-api) shows.
 
 ## Shade weekends and holidays
@@ -142,11 +142,10 @@ A bare `YYYY-MM-DD` string is a day off with no name. The object form adds an in
 A name appears in the tick row only where its band is at least 44px wide, so the shutdown above is
 named and the one-day offsite is not. Hover a narrower band in the header to read it.
 
-Where two names open in the same cell, only the first is shown. Names are hidden with `opacity`
-rather than `display`, so a screen reader announces them anyway.
+Where two names open in the same cell, only the first is shown.
 
-A `color` is tinted at the weekend's weight, and a holiday band stays separate from the weekend
-beside it. One on a day already off keeps its name and colour.
+A `color` replaces the usual shade with a 14% tint, and a holiday band stays separate from the
+weekend beside it. One on a day already off keeps its name and colour.
 
 CSS on `.gantt-holiday-cell` restyles every name. `color` is the only per-holiday style, and nothing
 adds a class or an icon to one holiday.

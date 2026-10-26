@@ -1,23 +1,5 @@
-import { GanttBottomRowCell, GanttTopHeaderGroup } from 'shared/types';
+import { GanttBottomRowCell } from 'shared/types';
 import { variableAxis, type VirtualAxis } from 'shared/virtual/axis';
-
-// Merges consecutive groups carrying the same label into one wider group
-export function mergeHeaderGroups(
-  groups: GanttTopHeaderGroup[]
-): GanttTopHeaderGroup[] {
-  const merged: GanttTopHeaderGroup[] = [];
-
-  for (const group of groups) {
-    const last = merged[merged.length - 1];
-    if (last && last.label === group.label) {
-      last.widthPx += group.widthPx;
-    } else {
-      merged.push({ ...group });
-    }
-  }
-
-  return merged;
-}
 
 // The tick cells as a measured axis, in the same space as a bar's `barLeft`
 export function tickAxis(cells: GanttBottomRowCell[]): VirtualAxis {

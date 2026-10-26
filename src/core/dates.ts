@@ -7,9 +7,7 @@ dayjs.extend(utc);
  * The chart's own dayjs - always parses and displays in UTC, so the same data lands in the
  * same cells for every viewer and DST never changes a cell's width (#84, #28).
  */
-const ganttDayjs = dayjs.utc;
-
-export default ganttDayjs;
+export default dayjs.utc;
 
 /** Calendar quarter of the date, 1-4 - inlined so dayjs' quarterOfYear plugin stays out of the bundle */
 export function quarterOfYear(date: Dayjs): number {

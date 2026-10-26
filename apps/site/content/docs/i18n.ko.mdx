@@ -58,7 +58,7 @@ export function ProjectChart() {
 |---|---|---|
 | `tick` | 하단 헤더 행의 셀마다 라벨 하나 | 그 셀의 시작 날짜 |
 | `header` | 상단 헤더 행의 그룹마다 라벨 하나 | 그룹의 시작 날짜 |
-| `tooltip` | 그 밖의 모든 날짜. 호버 툴팁, 스크린 리더가 읽는 막대 이름, 상세 패널의 읽기 전용 Start와 End, 드래그 날짜 표시 | 한 번에 날짜 하나 |
+| `tooltip` | 그 밖의 모든 날짜. 호버 툴팁, 상세 패널의 읽기 전용 Start와 End, 드래그 날짜 표시 | 한 번에 날짜 하나 |
 
 슬롯은 값이 있는 첫 계층에서 각각 따로 결정돼요. `formats[scale][slot]`이 먼저이고, 그다음이 `locale`, 마지막이 내장 영어 라벨이에요. 그래서 `locale="ko-KR"`과 함께 `formats.quarter.header`를 넘겨도 `tick`과 `tooltip`은 한국어로 남아요.
 
@@ -109,16 +109,15 @@ export const formats: GanttFormatOverrides = {
 | 문자열 | 나타나는 곳 |
 |---|---|
 | `Add task` | 작업 목록 아래 버튼 |
-| `Start`, `End`, `Duration`, `Progress`, `Depends on` | 상세 패널의 필드 캡션 |
+| `Drag to reorder`, `Expand`, `Collapse` | 작업 목록의 순서 변경 그립과 접기 버튼의 접근성 이름 |
+| `Dates`, `Start`, `End`, `Progress`, `Depends on` | 상세 패널의 필드 캡션 |
 | `12h`, `3d` | 호버 툴팁과 상세 패널의 기간 축약 표기 |
-| `Gantt chart`, `Task name`, `Timeline`, `Resize task list`, `Task details`, `Close task details` | 차트와 두 열, 스플리터, 상세 패널과 닫기 버튼의 접근성 이름 |
-| `summary`, `to`, `% complete` | 막대 접근성 이름 안의 연결어 |
-| `<scale> scale` | 키보드로 배율을 바꾼 뒤 나오는 알림 |
-| `<name> deleted`, `<name> cannot be changed`, `<name> moved to 2 of 5 under <parent>` | 키보드로 편집한 뒤 나오는 알림 |
+| `Task name`, `Close` | 상세 패널의 이름 입력란과 닫기 버튼의 접근성 이름, 그리고 닫기 버튼의 툴팁(`Close`) |
+| `Finish to start`, `Start to start`, `Finish to finish`, `Start to finish` | 링크를 그리는 동안 포인터 옆에 나오는 라벨과 상세 패널의 의존 관계 배지 툴팁 |
+| `Delete link` | 링크 메뉴 × 버튼의 접근성 이름과 툴팁 |
+| `These tasks are already linked`, `That would create a circular dependency` | 링크를 끌다가 거부된 대상에 닿으면 포인터 옆에 나오는 이유 |
 
-이 문자열에서 현지화된 `tooltip` 포매터를 거치는 것은 안에 있는 날짜뿐이에요. 알림 자체는 [키보드와 스크린 리더](accessibility)에서 다뤄요.
-
-`renderDetail`은 캡션과 닫기 버튼을 포함해 상세 패널 본문 전체를 바꿔요. 그래서 그 안의 문구는 앱에서 번역할 수 있어요. 패널 자체의 접근성 이름은 영어로 남아요.
+`renderDetail`은 캡션과 닫기 버튼을 포함해 상세 패널 본문 전체를 바꿔요. 그래서 그 안의 문구는 앱에서 번역할 수 있어요.
 
 차트는 배율 선택기를 그리지 않아요. 선택기와 그 옵션 텍스트는 앱에서 만들고 번역해요. [명령형 API](imperative-api)에서 확인해요.
 
@@ -127,6 +126,6 @@ export const formats: GanttFormatOverrides = {
 - `locale`과 `formats`는 날짜를 보여주는 방식만 바꾸고 파싱 방식은 바꾸지 않아요. `startDate`와 `endDate`는 태그와 상관없이 UTC로 읽어요. [작업 데이터](task-data)에서 확인해요.
 - 위치와 라벨은 UTC이고, 현지 시각으로 그리는 prop은 없어요. 현지 시각이 필요하면 넘기기 전에 날짜 문자열을 직접 옮겨요.
 - 오른쪽에서 왼쪽으로 읽는 레이아웃은 지원하지 않아요. `dir`을 설정하지도 읽지도 않으니 앱에서 차트를 직접 뒤집어야 해요.
-- 숫자와 복수형 형식은 지원하지 않아요. `Intl.NumberFormat`, `Intl.RelativeTimeFormat`, `Intl.PluralRules`를 만들지 않아서 진행률은 숫자 뒤에 `% complete`를 붙여 읽어 줘요.
+- 숫자와 복수형 형식은 지원하지 않아요. `Intl.NumberFormat`, `Intl.RelativeTimeFormat`, `Intl.PluralRules`를 만들지 않아서 진행률은 숫자 뒤에 `%`만 붙여 표시해요.
 
 prop과 기본값은 [GanttProps](ref/props), 배율별 내장 형식 문자열은 [배율과 테마 타입](ref/scales)에서 확인해요.

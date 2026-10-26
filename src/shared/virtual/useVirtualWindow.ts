@@ -13,7 +13,7 @@ interface UseVirtualWindowParams {
 interface VirtualWindows {
   row: VirtualWindow;
   col: VirtualWindow;
-  scrollToRow: (index: number) => void;
+  sync: () => void;
 }
 
 // Both axes from one subscription, so header and bars can never disagree.
@@ -83,26 +83,7 @@ export function useVirtualWindow({
     [],
   );
 
-  const scrollToRow = useCallback(
-    (index: number) => {
-      const element = scrollRef.current;
-      if (!element || index < 0 || index >= row.count) return;
-
-      const viewport = element.clientHeight;
-      const start = row.offsetAt(index);
-      const size = row.sizeAt(index);
-      const current = element.scrollTop;
-
-      // Already in view - the shortest scroll that brings the row to the nearest edge
-      if (start >= current && start + size <= current + viewport) return;
-      const next = start < current ? start : start - viewport + size;
-
-      element.scrollTo({ top: Math.max(0, next) });
-    },
-    [scrollRef, row],
-  );
-
-  return { row: windows.row, col: windows.col, scrollToRow };
+  return { ...windows, sync };
 }
 
 function directionOf(next: number, previous: number): ScrollDirection {

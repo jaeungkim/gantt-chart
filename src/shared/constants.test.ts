@@ -1,18 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import dayjs from "core/dates";
-import {
-  DATE_FORMATS,
-  EDGE_THRESHOLD,
-  GANTT_SCALE_CONFIG,
-  PROGRESS_HANDLE_INSET,
-} from "./constants";
+import { GANTT_SCALE_CONFIG, LINK_HANDLE_REACH, resolveGeometry } from "./constants";
 
-// The dots are children of the bar, so one covering the resize grip steals its pointer. That
-// geometry is split across styles.css and this file, so check it against the shipped stylesheet.
 const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 
-// First `prop: <number>px` inside the given selector's block
 function px(selector: string, prop: string): number {
   const block = css.split(selector)[1]?.split("}")[0];
   if (!block) throw new Error(`no block for ${selector}`);
@@ -22,32 +14,88 @@ function px(selector: string, prop: string): number {
 }
 
 describe("bar-end hit areas", () => {
-  it("keeps the connector dot's hit pad off the resize grip", () => {
-    const dotWidth = px(".gantt-link-handle {", "width");
-    const dotLeft = px(".gantt-link-handle.start {", "left");
-    // inset is top/right/bottom/left; the right value reaches back toward the bar edge at x = 0.
-    const padRight = Number(
-      css
-        .split(".gantt-link-handle.start::before {")[1]
-        .split("}")[0]
-        .match(/inset:\s*-?[\d.]+px\s+(-?[\d.]+)px/)![1]
-    );
+  const dotWidth = px(".gantt-link-handle {", "width");
+  const dotHeight = px(".gantt-link-handle {", "height");
+  const dotBorder = px(".gantt-link-handle {", "border");
 
-    expect(dotLeft + dotWidth + Math.abs(padRight)).toBeLessThanOrEqual(0);
+  function declared(selector: string, prop: string): string {
+    const block = css.split(selector)[1]?.split("}")[0];
+    const value = block?.match(new RegExp(`(?:^|\\s)${prop}:\\s*([^;]+);`))?.[1].trim();
+    if (!value) throw new Error(`no ${prop} in ${selector}`);
+    return value;
+  }
+
+  // How far the pad reaches past the dot's border box, [top, right, bottom, left], on a bar this tall
+  function padReach(side: "start" | "end", barHeight = resolveGeometry().barHeight): number[] {
+    // The pad is positioned against the dot's padding box, so its % are of that box
+    const paddingBox = dotHeight - 2 * dotBorder;
+    const inset = (value: string) => {
+      const calc = value.match(/^calc\(([\d.]+)% - var\(--gantt-bar-height\) \/ 2\)$/);
+      return calc ? (Number(calc[1]) / 100) * paddingBox - barHeight / 2 : parseFloat(value);
+    };
+    return [
+      declared(".gantt-link-handle::before {", "top"),
+      declared(`.gantt-link-handle.${side}::before {`, "right"),
+      declared(".gantt-link-handle::before {", "bottom"),
+      declared(`.gantt-link-handle.${side}::before {`, "left"),
+    ].map((value) => -inset(value) - dotBorder);
+  }
+
+  it("butts the connector dot's hit pad against the bar edge", () => {
+    const startGap = -px(".gantt-link-handle.start {", "left") - dotWidth - padReach("start")[1];
+    const endGap = -px(".gantt-link-handle.end {", "right") - dotWidth - padReach("end")[3];
+
+    expect(startGap).toBe(0);
+    expect(endGap).toBe(0);
   });
 
-  it("keeps the progress dot off the resize grip at 0%", () => {
-    const handleWidth = px(".gantt-progress-handle {", "width");
-    const handleOffset = px(".gantt-progress-handle {", "margin-left");
+  it("tells lane bars how far a handle's hit pad reaches past the bar's end", () => {
+    expect(-px(".gantt-link-handle.start {", "left") + padReach("start")[3]).toBe(LINK_HANDLE_REACH);
+    expect(-px(".gantt-link-handle.end {", "right") + padReach("end")[1]).toBe(LINK_HANDLE_REACH);
+  });
 
-    // GanttBar clamps the handle's `left` to PROGRESS_HANDLE_INSET, the nearest it gets to the start.
-    expect(PROGRESS_HANDLE_INSET + handleOffset).toBeGreaterThanOrEqual(
-      EDGE_THRESHOLD
-    );
-    // ...and off the end grip
-    expect(handleWidth + handleOffset).toBeLessThanOrEqual(
-      PROGRESS_HANDLE_INSET - EDGE_THRESHOLD
-    );
+  it("spans the bar's full height with the dot's hit pad, at any bar height", () => {
+    const tall = resolveGeometry(48, 40);
+    for (const barHeight of [resolveGeometry().barHeight, tall.barHeight, tall.summaryBarHeight]) {
+      for (const side of ["start", "end"] as const) {
+        const [top, , bottom] = padReach(side, barHeight);
+        expect(dotHeight + top + bottom, `${side} pad, ${barHeight}px bar`).toBeGreaterThanOrEqual(
+          barHeight
+        );
+      }
+    }
+  });
+});
+
+describe("resolveGeometry", () => {
+  it("keeps today's geometry when nothing is set", () => {
+    expect(resolveGeometry()).toEqual({
+      rowHeight: 38,
+      barHeight: 28,
+      summaryBarHeight: 18,
+    });
+  });
+
+  it("falls back to the default for anything but a positive finite number", () => {
+    for (const bad of [NaN, Infinity, -Infinity, 0, -12, "40" as unknown as number]) {
+      expect(resolveGeometry(bad, bad)).toEqual(resolveGeometry());
+    }
+  });
+
+  it("scales the default bar with the row", () => {
+    expect(resolveGeometry(28).barHeight).toBe(21);
+    expect(resolveGeometry(76).barHeight).toBe(56);
+  });
+
+  it("caps the bar 4px under the row, never under 1px, so bars in adjacent rows never touch", () => {
+    expect(resolveGeometry(28, 28)).toMatchObject({ rowHeight: 28, barHeight: 24 });
+    expect(resolveGeometry(undefined, 50).barHeight).toBe(34);
+    expect(resolveGeometry(3).barHeight).toBe(1);
+  });
+
+  it("keeps the summary bar's share of the bar, never under 1px", () => {
+    expect(resolveGeometry(60, 56).summaryBarHeight).toBe(36);
+    expect(resolveGeometry(undefined, 0.5).summaryBarHeight).toBe(1);
   });
 });
 
@@ -60,15 +108,6 @@ describe('GANTT_SCALE_CONFIG labels', () => {
     expect(GANTT_SCALE_CONFIG.day.formatTickLabel?.(dayjs('2025-09-01T00:00'))).toBe('00');
   });
 
-  it('labels year-scale month ticks with the month, not the day of month', () => {
-    expect(GANTT_SCALE_CONFIG.year.formatTickLabel?.(afternoon)).toBe('Sep');
-    expect(GANTT_SCALE_CONFIG.week.formatTickLabel?.(afternoon)).toBe('1');
-  });
-
-  it('labels month ticks with the month, since a cell is a week and not a day', () => {
-    expect(GANTT_SCALE_CONFIG.month.formatTickLabel?.(afternoon)).toBe('Sep 1');
-  });
-
   it('labels quarter ticks with the month and the group with the quarter', () => {
     expect(GANTT_SCALE_CONFIG.quarter.formatTickLabel?.(afternoon)).toBe('Sep');
     expect(
@@ -76,17 +115,6 @@ describe('GANTT_SCALE_CONFIG labels', () => {
         GANTT_SCALE_CONFIG.quarter.formatHeaderLabel?.(dayjs(d)),
       ),
     ).toEqual(['Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025']);
-  });
-
-  it('shows the year in every header label and drag tooltip format', () => {
-    expect(GANTT_SCALE_CONFIG.day.formatHeaderLabel?.(afternoon)).toBe('Sep 1, 2025');
-    expect(GANTT_SCALE_CONFIG.week.formatHeaderLabel?.(afternoon)).toBe('Sep 2025');
-    expect(GANTT_SCALE_CONFIG.month.formatHeaderLabel?.(afternoon)).toBe('Sep 2025');
-    expect(GANTT_SCALE_CONFIG.year.formatHeaderLabel?.(afternoon)).toBe('2025');
-    expect(afternoon.format(DATE_FORMATS.day)).toBe('Sep 1, 2025 15:00 UTC');
-    expect(afternoon.format(DATE_FORMATS.week)).toBe('Sep 1, 2025');
-
-    expect(afternoon.format(DATE_FORMATS.quarter)).toBe('Sep 2025');
   });
 
   it('lists the scales finest first, so the selector reads as a zoom ladder', () => {

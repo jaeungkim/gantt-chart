@@ -1,7 +1,7 @@
 import type { VirtualItem } from "shared/virtual/window";
 import { HEADER_HEIGHT, TREE_INDENT } from "shared/constants";
 import { useGanttRowDrag } from "features/task-list/hooks/useGanttRowDrag";
-import { GanttTaskMoveApi } from "features/task-list/hooks/useGanttTaskMove";
+import { GanttTaskMoveApi } from "features/task-list/types";
 import { useRef } from "react";
 import { useGanttStore } from "shared/context";
 import {
@@ -9,8 +9,7 @@ import {
   resolveTaskInteraction,
   TaskTransformed,
 } from "shared/task";
-import { GanttFocus, rowAriaProps } from "features/interaction/utils/a11y";
-import { GanttRow, isRowExpandable } from "features/rows/utils/rows";
+import { GanttRow } from "features/rows/utils/rows";
 
 interface GanttTaskGridProps {
   // Rows on screen - collapsed subtrees are already filtered out
@@ -19,23 +18,20 @@ interface GanttTaskGridProps {
   virtualItems: VirtualItem[];
   totalHeight: number;
   width: number;
-  // Prints each row's `sequence` ("2.1") as a leading column; bands have none, so they stay blank
+  // Prints each row's `sequence` ("2.1") as a leading column
   showRowNumbers: boolean;
   hierarchy: boolean;
   collapsedIds: ReadonlySet<string>;
   onToggleCollapse: (rowId: string) => void;
-  // Which cell currently holds the chart's single tab stop
-  focus: GanttFocus;
   reorderEnabled: boolean;
-  // The same guards the bars use - a row is draggable only where the task can move
+  // The same guards the bars use - a row is draggable only where the task can be reordered
   interaction: GanttInteractionConfig;
   move: GanttTaskMoveApi;
   onRowClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
   onRowDoubleClick?: (task: TaskTransformed, event: React.MouseEvent) => void;
 }
 
-// A sticky column inside the timeline's own scroll container, so vertical scrolling cannot
-// drift. The rows are the treegrid's `row` elements and own their bars via `aria-owns`.
+// A sticky column inside the timeline's own scroll container, so vertical scrolling cannot drift
 export default function GanttTaskGrid({
   rows,
   virtualItems,
@@ -45,7 +41,6 @@ export default function GanttTaskGrid({
   hierarchy,
   collapsedIds,
   onToggleCollapse,
-  focus,
   reorderEnabled,
   interaction,
   move,
@@ -54,7 +49,7 @@ export default function GanttTaskGrid({
 }: GanttTaskGridProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const selectedTaskId = useGanttStore((store) => store.selectedTaskId);
-  const { onGripPointerDown, draft } = useGanttRowDrag({
+  const { onGripPointerDown, consumeDragClick, draft } = useGanttRowDrag({
     rows,
     virtualItems,
     bodyRef,
@@ -67,55 +62,30 @@ export default function GanttTaskGrid({
     : undefined;
 
   return (
-    <div
-      className="gantt-grid"
-      style={{ width: `${width}px` }}
-      role="presentation"
-    >
-      {/* Header - has to be exactly as tall as the timeline header or the rows shift */}
+    <div className="gantt-grid" style={{ width: `${width}px` }}>
       <div
         className="gantt-grid-header"
+        // Has to be exactly as tall as the timeline header or the rows shift
         style={{ height: `${HEADER_HEIGHT}px` }}
-        role="row"
-        aria-rowindex={1}
-      >
-        {/* No visible caption: a printed "Name" would be a hardcoded English string */}
-        <div className="gantt-grid-header-cell" role="columnheader">
-          <span className="gantt-sr-only">Task name</span>
-        </div>
-        {/* The timeline's date header is decorative, so the bar column is named here */}
-        <span className="gantt-sr-only" role="columnheader">
-          Timeline
-        </span>
-      </div>
+      />
 
       <div
         ref={bodyRef}
         className="gantt-grid-body"
         style={{ height: `${totalHeight}px` }}
-        role="rowgroup"
       >
         {virtualItems.map((virtualRow) => {
           const row = rows[virtualRow.index];
           if (!row) return null;
 
           const task = row.tasks[0];
-          const expandable = isRowExpandable(row, hierarchy);
+          const expandable = hierarchy && !!task.isSummary;
           const collapsed = collapsedIds.has(row.id);
-          const focused = focus.row === virtualRow.index;
-          const aria = rowAriaProps(row, virtualRow.index, {
-            headerOffset: 1,
-            expandable,
-            expanded: !collapsed,
-            ownedIds: row.tasks.map((member) => `task-${member.id}`),
-          });
 
           const rowStyle = {
             height: `${virtualRow.size}px`,
             transform: `translateY(${virtualRow.start}px)`,
           };
-
-          if (!task) return null;
 
           // A row that carries a whole lane names no single task to move
           const canReorder =
@@ -137,35 +107,30 @@ export default function GanttTaskGrid({
                 .filter(Boolean)
                 .join(" ")}
               style={rowStyle}
-              onClick={onRowClick && ((e) => onRowClick(task, e))}
+              onClick={
+                onRowClick &&
+                ((e) => {
+                  if (!consumeDragClick()) onRowClick(task, e);
+                })
+              }
               onDoubleClick={
                 onRowDoubleClick && ((e) => onRowDoubleClick(task, e))
               }
-              {...aria}
             >
-              <div
-                className="gantt-grid-cell"
-                title={task.name}
-                role="gridcell"
-                tabIndex={focused && focus.col === 0 ? 0 : -1}
-                data-gantt-cell={`${virtualRow.index}:0`}
-              >
-                  {/* First in the cell, so the grip sits at x=0 whatever the depth */}
+              <div className="gantt-grid-cell" title={task.name}>
                   {reorderEnabled &&
                     (canReorder ? (
+                      // First in the cell, so the grip sits at x=0 whatever the depth
                       <button
                         type="button"
                         className="gantt-grid-grip"
+                        aria-label="Drag to reorder"
                         onPointerDown={(e) => {
-                          // Grabbing the grip is not selecting the row
                           e.stopPropagation();
                           onGripPointerDown(virtualRow.index, e);
                         }}
-                        // The row is the tab stop and the drag has a keyboard equivalent
-                        tabIndex={-1}
-                        aria-hidden="true"
                       >
-                        <svg viewBox="0 0 12 12" aria-hidden="true">
+                        <svg viewBox="0 0 12 12">
                           <circle cx="4.5" cy="2.5" r="1.1" />
                           <circle cx="7.5" cy="2.5" r="1.1" />
                           <circle cx="4.5" cy="6" r="1.1" />
@@ -191,16 +156,15 @@ export default function GanttTaskGrid({
                         className={`gantt-grid-expander${
                           collapsed ? "" : " open"
                         }`}
+                        aria-label={collapsed ? "Expand" : "Collapse"}
                         onClick={(e) => {
                           // Expanding a row is not selecting it
                           e.stopPropagation();
                           onToggleCollapse(row.id);
                         }}
-                        // The row carries aria-expanded, so the toggle is not a second stop
-                        tabIndex={-1}
-                        aria-hidden="true"
+                        onDoubleClick={(e) => e.stopPropagation()}
                       >
-                        <svg viewBox="0 0 12 12" aria-hidden="true">
+                        <svg viewBox="0 0 12 12">
                           <path d="M4 2.5 L8 6 L4 9.5" />
                         </svg>
                       </button>
@@ -219,8 +183,8 @@ export default function GanttTaskGrid({
           );
         })}
 
-        {/* Where the row would land - a line between rows, or a ring around a new parent */}
         {draft && dropRow && (
+          // Where the row would land - a line between rows, or a ring around a new parent
           <div
             className={[
               "gantt-grid-drop",
@@ -240,7 +204,6 @@ export default function GanttTaskGrid({
                     marginLeft: `${draft.depth * TREE_INDENT}px`,
                   }
             }
-            aria-hidden="true"
           />
         )}
       </div>

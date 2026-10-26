@@ -78,8 +78,8 @@ The demo above is pinned to `theme="dark"`, so the site's own theme switch does 
 
 ## The custom properties
 
-All 26 tokens are declared on `.gantt-container`, not on `:root`, where they would collide with
-your app's own `--background` and `--border`. The dark block redefines 20 of them, and the 6
+All 25 tokens are declared on `.gantt-container`, not on `:root`, where they would collide with
+your app's own `--background` and `--border`. The dark block redefines 19 of them, and the 6
 marked `same` are shared.
 
 The stylesheet also sets `color-scheme` on the container, so the browser paints its scrollbars and
@@ -94,17 +94,16 @@ caret to match.
 | `--gantt-border` | `#e4e4e7` | `#27272a` | header and grid borders, scrollbar thumb |
 | `--gantt-border-subtle` | `rgba(0, 0, 0, 0.04)` | `rgba(255, 255, 255, 0.04)` | row separators |
 | `--gantt-accent` | `#3b82f6` | same | focus rings, selection, link preview |
-| `--gantt-bar-bg` | `#c7c7cd` | `#3a3a41` | a task bar |
+| `--gantt-bar-bg` | `#c7c7cd` | `#3a3a41` | a task bar and the detail panel's progress track |
 | `--gantt-bar-bg-hover` | `#b4b4bc` | `#47474f` | the same bar on hover |
 | `--gantt-bar-text` | `#18181b` | `#fafafa` | the task name inside a bar |
 | `--gantt-bar-shadow` | `none` | `none` | a bar at rest |
 | `--gantt-bar-shadow-hover` | `0 1px 2px rgba(0, 0, 0, 0.08)` | `0 1px 2px rgba(0, 0, 0, 0.4)` | a hovered bar |
 | `--gantt-bar-shadow-drag` | `0 4px 12px rgba(0, 0, 0, 0.16)` | `0 4px 12px rgba(0, 0, 0, 0.5)` | a dragged bar |
-| `--gantt-shadow-overlay` | `0 4px 16px rgba(0, 0, 0, 0.15)` | `0 8px 24px rgba(0, 0, 0, 0.55)` plus a `1px` ring | the bar tooltip |
+| `--gantt-shadow-overlay` | `0 4px 16px rgba(0, 0, 0, 0.15)` | `0 8px 24px rgba(0, 0, 0, 0.55)` plus a `1px` ring | the bar tooltip, the link menu and the link-drag label |
 | `--gantt-summary-bg` | `#dcdce0` | `#2a2a2f` | a summary row's bar |
 | `--gantt-summary-bg-hover` | `#cfcfd4` | `#35353c` | the same bar on hover |
-| `--gantt-progress-bg` | `#8e8e97` | `#6c6c76` | the progress fill on a task bar |
-| `--gantt-progress-handle` | `#52525b` | `#a1a1aa` | the progress handle border |
+| `--gantt-progress-bg` | `#8e8e97` | `#6c6c76` | the progress fill on a task bar and in the detail panel |
 | `--gantt-arrow` | `#a1a1aa` | `#71717a` | arrow stroke and arrowhead, at 45% opacity at rest |
 | `--gantt-today-marker` | `#f43f5e` | `#fb7185` | the today line and rejected states |
 | `--gantt-non-working-bg` | `rgba(0, 0, 0, 0.035)` | `rgba(255, 255, 255, 0.03)` | non-working columns |
@@ -127,13 +126,14 @@ No font is bundled or fetched. The stylesheet names Pretendard and falls through
 font, so serving it is your app's job. The base size is `13px` and is not a token.
 
 Under `prefers-reduced-motion: reduce` every transition and animation inside the container is
-forced to `0.01ms` and `scroll-behavior` to `auto`, whatever the motion tokens say. See
-[Keyboard and screen readers](accessibility).
+forced to `0.01ms` and `scroll-behavior` to `auto`, whatever the motion tokens say. The chart's own
+scrolls stop animating too: `scrollToDate`, `scrollToTask`, `scrollToToday`, and the scroll back
+after a drag that auto-scrolled but was cancelled or released without moving.
 
 ## Override a token
 
 Write the override on `.gantt-container` and load your stylesheet after the library's. One rule is
-enough for the 6 tokens the dark block leaves alone. The other 20 take two rules, because a plain
+enough for the 6 tokens the dark block leaves alone. The other 19 take two rules, because a plain
 `.gantt-container` rule at specificity `(0,1,0)` loses to the library's
 `.gantt-container[data-theme="dark"]` at `(0,2,0)` and would apply in light mode only.
 
@@ -170,15 +170,29 @@ qualified selector carries one more class than the library's, so it wins.
 }
 ```
 
+Or set the tokens inline through `style`, with no stylesheet. Each value is a string, units
+included, such as `'400px'`. The type takes no number.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  style={{ '--gantt-bar-bg': '#dbeafe', '--gantt-detail-width': '400px' }}
+/>
+```
+
+An inline value beats the library's `[data-theme="dark"]` rule, so it applies in both themes.
+
 ## Before you integrate
 
 - `GanttTheme` is the union `'light' | 'dark' | 'system'`. There is no `tokens` prop, theme object,
   exported palette or theme provider.
 - `theme` is not validated. An unknown value produces no warning and behaves like an omitted prop.
-- Geometry is not tokenized. `--gantt-row-height` is written inline from a JS constant, so a
-  stylesheet override loses to it.
-- The detail panel's slide is a plain `200ms` the motion tokens do not drive, and the dependency
-  delete glyph's stroke is hardcoded white, the only color a token cannot reach.
+- Geometry is not tokenized. Rows and bars take their size from the `rowHeight` and `barHeight`
+  props, as [Styling](styling) shows. The chart writes `--gantt-row-height` and
+  `--gantt-bar-height` inline from those props, so an override from a stylesheet or `style` loses.
+- The detail panel's slide is a plain `200ms` the motion tokens do not drive. The faint black
+  shadows on its date fields and slider thumb are hardcoded, the only colors a token cannot reach.
 - RTL is not supported. Nothing reads or sets `dir`, and the stylesheet uses physical properties
   throughout.
 

@@ -23,7 +23,7 @@
   "files": [
     "dist"
   ],
-  "description": "An open-source React Gantt chart for interactive project planning. Drag tasks, connect dependencies, and organize nested timelines with working calendars, keyboard editing, virtualization, and light and dark themes.",
+  "description": "An open-source React Gantt chart for interactive project planning. Drag tasks, connect dependencies, and organize nested timelines with working calendars, virtualization, and light and dark themes.",
   "keywords": [
     "gantt",
     "gantt-chart",
@@ -32,9 +32,6 @@
     "react",
     "timeline",
     "virtualized",
-    "accessibility",
-    "a11y",
-    "treegrid",
     "headless"
   ],
   "author": "jaeungkim",
@@ -68,7 +65,7 @@
     "@microsoft/api-extractor": "^7.55.2",
     "@types/node": "^22.20.1",
     "@types/react": "^19.2.18",
-    "@vitejs/plugin-react": "^5.2.0",
+    "@types/react-dom": "^19.3.0",
     "eslint": "^10.9.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.5",

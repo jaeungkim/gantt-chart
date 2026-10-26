@@ -56,14 +56,15 @@ Lanes group tasks across the list, regardless of `parentId`. Use a distinct lane
 
 ## Select tasks on a shared row
 
-The task list shows the first task by start date, followed by a `+N` badge for the other tasks. Clicking that list entry selects the first task. Click an individual bar to select another member, or use [keyboard navigation](accessibility).
+The task list shows the first task by start date, followed by a `+N` badge for the other tasks. Clicking that list entry selects the first task. Click an individual bar to select another member.
 
-Dependencies still connect individual tasks. See [Dependencies](dependencies) for creating and editing links.
+Dependencies still connect individual tasks. See [Dependencies](dependencies) for drawing and deleting links.
 
 ## Before you integrate
 
 - A lane is a layout grouping, not a labeled resource section. The lane string is not shown, and there is no API for empty lanes or lane headers.
 - Rows containing multiple tasks cannot be dragged to reorder them or used as reorder targets. See [Reordering rows](reordering).
+- Connector dots can overlap where bars on a shared row sit close together; see [Dependencies](dependencies) for when a start dot appears.
 - Avoid combining summary tasks into shared rows. Hierarchy collapse works with task ids, while a shared row represents several tasks.
 - Validate dates before rendering. Invalid dates can prevent tasks from sharing a row as expected.
 

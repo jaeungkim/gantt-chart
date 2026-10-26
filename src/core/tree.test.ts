@@ -24,7 +24,6 @@ const task = (
   ...extra,
 });
 
-// root > a (a1, a2), b
 const nested = () => [
   task('root', null),
   task('a', 'root'),
@@ -76,7 +75,6 @@ describe('buildTaskTree', () => {
   });
 
   it('breaks a parentId cycle instead of hanging', () => {
-    // a -> b -> c -> a: all three must drop to roots or the render walks forever
     const cyclic = [task('a', 'b'), task('b', 'c'), task('c', 'a')];
 
     const tree = buildTaskTree(cyclic);
@@ -195,7 +193,6 @@ describe('rollUpTasks', () => {
   });
 
   it('weights rolled-up progress by child duration', () => {
-    // 10 days at 100% + 30 days at 0% -> 25%
     const rolled = rollUpTasks([
       task('p', null),
       task('c1', 'p', '2025-01-01', '2025-01-11', { progress: 100 }),
@@ -203,6 +200,19 @@ describe('rollUpTasks', () => {
     ]);
 
     expect(rolled[0].progress).toBe(25);
+  });
+
+  it('gives a child with an unparseable date zero weight', () => {
+    for (const [start, end] of [['', ''], ['2025-01-05', '']]) {
+      const rolled = rollUpTasks([
+        task('p', null),
+        task('c1', 'p', '2025-01-01', '2025-01-11', { progress: 100 }),
+        task('c2', 'p', '2025-01-11', '2025-02-10', { progress: 0 }),
+        task('u', 'p', start, end),
+      ]);
+
+      expect(rolled[0].progress).toBe(25);
+    }
   });
 
   it('keeps an explicit parent progress', () => {

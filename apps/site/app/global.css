@@ -2,7 +2,6 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
-/* Layered so fumadocs' tokens outrank it - it paints the same custom-property names on :root/.dark. */
 @import '@jaeungkim/gantt-chart/style.css' layer(gantt);
 
 /* Tailwind derives --default-font-family from --font-sans, moving the whole shell onto Pretendard.
@@ -33,8 +32,8 @@
   }
 }
 
-/* The panel's own scrollbars. Left native they paint a light track straight down the dark
-   surface, which is the seam that made the console read as a webpage rather than a tool. */
+/* The panel's own scrollbars. Left native they paint their own track straight down the panel,
+   which is the seam that made the console read as a webpage rather than a tool. */
 .console-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.18) transparent;

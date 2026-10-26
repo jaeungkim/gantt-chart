@@ -2,12 +2,18 @@ import dayjs from "core/dates";
 import type { Holiday } from "shared/types";
 
 const FORMAT = "YYYY-MM-DD";
-// A typo'd `endDate` - 2026 written 2099 - must not expand into a decade of strings
+// A typo'd `endDate` - 2026 written 2099 - must not expand into decades of strings
 const MAX_HOLIDAY_DAYS = 366;
 
+interface HolidayBand {
+  key: string;
+  label?: string;
+  color?: string;
+}
+
 interface HolidayIndex {
-  /** Every day a holiday covers, `YYYY-MM-DD` -> the holiday covering it */
-  byDate: Map<string, Holiday>;
+  /** Every day a holiday covers, `YYYY-MM-DD` -> the band of the holiday covering it */
+  byDate: Map<string, HolidayBand>;
   /** The same days, flat - what `createWorkingCalendar` takes */
   dates: string[];
 }
@@ -23,23 +29,25 @@ export function indexHolidays(
 ): HolidayIndex {
   if (!holidays?.length) return EMPTY;
 
-  const byDate = new Map<string, Holiday>();
+  const byDate = new Map<string, HolidayBand>();
 
-  for (const entry of holidays) {
+  for (const [index, entry] of holidays.entries()) {
     const holiday = typeof entry === "string" ? { date: entry } : entry;
     const start = dayjs(holiday.date);
     if (!start.isValid()) continue;
 
     const end = holiday.endDate ? dayjs(holiday.endDate) : start;
-    // A backwards or absurd range collapses to the single start day rather than throwing
+    // A backwards or unparseable range collapses to the single start day rather than throwing
     const span =
       end.isValid() && !end.isBefore(start, "day")
         ? Math.min(end.diff(start, "day"), MAX_HOLIDAY_DAYS - 1)
         : 0;
 
+    // keyed by entry, not by date, so two entries that start the same day stay separate bands
+    const band = { key: `holiday-${index}`, label: holiday.label, color: holiday.color };
     for (let day = 0; day <= span; day++) {
       const key = start.add(day, "day").format(FORMAT);
-      if (!byDate.has(key)) byDate.set(key, holiday);
+      if (!byDate.has(key)) byDate.set(key, band);
     }
   }
 

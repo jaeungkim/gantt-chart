@@ -8,7 +8,7 @@ through callbacks of their own. Wire them into your state to keep your app and t
 
 ## Receive every edit
 
-A drag, a keyboard edit and a detail panel field all commit the same way. The chart writes the
+A drag and a detail panel field both commit the same way. The chart writes the
 result into its own copy of the tasks, then calls `onTasksChange` once with the whole array.
 
 ```tsx title="ProjectChart.tsx"
@@ -61,11 +61,15 @@ send the request. An optimistic update is the default.
 />
 ```
 
-The revert is a second `setTasks` with the array you held before. The `tasks` prop wins whenever
-its contents differ from what the chart holds, so the bar returns to where it was.
+The revert is a second `setTasks` with the array you held before. The `tasks` prop wins when its
+contents differ from the array the chart last received. Here that array is `next`, so the bar
+returns to where it was.
 
 The chart recognizes the array it just handed you when it comes back as `tasks`, so the ordinary
 controlled loop leaves the drag result on screen.
+
+A handler that skips `setTasks(next)` cannot revert, since the pre-edit array is still the last one
+the chart received. See [Task data](task-data).
 
 Nothing is stored or sent for you. Persistence is your app's job.
 
@@ -80,22 +84,31 @@ Selection has no fixed default. Passing `onTaskSelect` turns it on, and so does 
 panel on. `selectable` overrides both in either direction. With `selectable={false}` the selection
 path exits before your handler, so `onTaskSelect` is never called.
 
-`onTaskSelect` fires only when the selected id changes, so clicking the selected row fires
-`onTaskClick` alone. Clicking the empty timeline clears the selection and fires
+`onTaskSelect` fires only when the selected id changes, so clicking the selected row does not
+fire it again. Clicking the empty timeline clears the selection and fires
 `onTaskSelect(null)`; clicking there again fires nothing. The task list's empty area and the date
 header leave the selection alone.
 
 The chart drops the click that closes a bar drag, so a finished drag fires no `onTaskClick`. The
 flag it checks is set only when the snapped step count changed, so a press that never moved is
-still a click. Task list rows carry no such flag, and pressing the reorder grip fires
-`onTaskClick` and selects the row either way. The collapse control stops its own click, so
-expanding a row never selects it.
+still a click.
+
+A finished draw drops its closing click too, so it fires only `onTaskCreate` and leaves the
+selection and the detail panel alone. A draw shorter than 4px is still a click on the empty
+timeline.
+
+A row drag that ends in a valid drop also drops its closing click, even when `onTaskMove` vetoes
+the move. A finished reorder fires no `onTaskClick`, selects nothing and opens no panel. A grip
+press that drops nowhere valid is still a click on its row.
+
+The collapse control and the connector dots stop their own clicks, so expanding a row or starting
+a link fires no `onTaskClick` and selects nothing.
 
 There is no click count debounce, so single click work runs twice before a double click opens
 your editor.
 
 `onDetailChange` fires on every open and close, in controlled and uncontrolled mode alike, for
-gestures and ref calls only. Setting `detailTaskId` yourself fires nothing, and a task removed
+gestures, ref calls and the `close` that `renderDetail` receives only. Setting `detailTaskId` yourself fires nothing, and a task removed
 from `tasks` closes its panel without firing it.
 
 ## Cancel a change before it lands
@@ -109,18 +122,19 @@ and the change commits; validate on the server in your save flow. The payloads a
 [Dependencies](dependencies) and [Reordering rows](reordering).
 
 Dates and progress have no callback of this kind. A rule that every edit must satisfy is enforced
-after the fact, in `onTasksChange`.
+after the fact, in `onTasksChange`. Rejecting such an edit outright takes a remount with a new
+`key`.
 
 ## Before you integrate
 
 - Selection is one internal id. There is no multi-select and no `selectedTaskId` prop, so track it
   from `onTaskSelect`.
-- Context menu, hover and focus have no callback, and right click is not reported. Add your own
+- Context menu and hover have no callback, and right click is not reported. Add your own
   listener and read `data-task-id` off the event target.
 - Drag lifecycle callbacks do not exist. There is no `onDragStart`, `onDragMove` or `onDragEnd`,
   and `onTasksChange` fires at the end of a gesture.
 - A bar drag the browser cancels, through a scroll takeover or a second finger, reverts and fires
-  nothing. A progress drag canceled the same way commits and fires `onTasksChange`.
+  nothing.
 
 ## Callback summary
 
@@ -129,7 +143,7 @@ after the fact, in `onTasksChange`.
 | A click on a bar or its row | `onTaskClick`, `onTaskSelect`, then `onDetailChange` when the panel is on | no |
 | A double click on a bar or its row | `onTaskClick` twice, then `onTaskDoubleClick` | no |
 | A click on the empty timeline | `onTaskSelect(null)`, and `onDetailChange(null)` when the panel was open | no |
-| A move, a resize, a progress drag, a keyboard edit or a panel field edit | `onTasksChange` | no |
+| A move, a resize or a panel field edit | `onTasksChange` | no |
 | A row dragged to a new slot or parent | `onTaskMove`, then `onTasksChange` | yes |
 | A dependency arrow drawn or deleted | `onDependencyCreate` or `onDependencyDelete`, then `onTasksChange` | yes |
 | A task added from the button, the ref or a drawn range | `onTaskCreate` | the chart writes nothing |

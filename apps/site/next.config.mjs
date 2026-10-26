@@ -24,14 +24,17 @@ const devAliases = {
 
 const isDev = process.env.NODE_ENV === 'development';
 
-/** @type {import('next').NextConfig} */
 export default withMDX({
   reactStrictMode: true,
-  // Bottom-left is the playground console button, bottom-right is Agentation; top-right is free.
   devIndicators: { position: 'top-right' },
   turbopack: {
     // Turbopack does not resolve outside its root, and in dev the library source is two up.
     root: repoRoot,
     ...(isDev ? { resolveAlias: devAliases } : {}),
   },
+  // The accessibility page is deleted, but the README npm shows for 1.5.1 still links to it
+  redirects: async () => [
+    { source: '/docs/accessibility', destination: '/docs/introduction', permanent: false },
+    { source: '/ko/docs/accessibility', destination: '/ko/docs/introduction', permanent: false },
+  ],
 });

@@ -1,35 +1,17 @@
 import { RefObject, useCallback, useMemo } from "react";
-import { NODE_HEIGHT } from "shared/constants";
-import { GanttBottomRowCell } from "shared/types";
-import { fixedAxis, variableAxis } from "shared/virtual/axis";
+import { GanttBottomRowCell, GanttGeometry } from "shared/types";
+import { fixedAxis } from "shared/virtual/axis";
 import { useVirtualWindow } from "shared/virtual/useVirtualWindow";
 import { virtualItemsOf, windowBounds } from "shared/virtual/window";
-import type { VirtualItem } from "shared/virtual/window";
+import { GanttVirtualization } from "features/timeline/types";
+import { tickAxis } from "features/timeline/utils/tickAxis";
 
 interface UseGanttVirtualizationParams {
-  /** Number of rows on screen - not the task count, since a lane can share one row */
+  /** Number of rows in the chart - not the task count, since a lane can share one row */
   rowCount: number;
   bottomRowCells: GanttBottomRowCell[];
   scrollRef: RefObject<HTMLDivElement | null>;
-}
-
-export interface GanttVirtualization {
-  /** Rows to render, already positioned */
-  virtualRows: VirtualItem[];
-  /** Height of all rows, culled ones included - the scrollable content height */
-  totalHeight: number;
-  /** Time cells to render, already positioned */
-  virtualCells: VirtualItem[];
-  /** Width of all cells, culled ones included - the scrollable content width */
-  totalWidth: number;
-  /** Width of the cells skipped before the first rendered one (px) */
-  leadingCellPx: number;
-  /** Vertical bounds of the row window (px) - what the arrows cull against */
-  rowStartPx: number;
-  rowEndPx: number;
-  /** Horizontal culling, shared by the header, the bars and the arrows */
-  isBarVisible: (barLeft: number, barWidth: number) => boolean;
-  scrollToRow: (index: number) => void;
+  geometry: GanttGeometry;
 }
 
 // Call once at the top and hand the result down: header, rows, bars and arrows must cull
@@ -38,15 +20,17 @@ export function useGanttVirtualization({
   rowCount,
   bottomRowCells,
   scrollRef,
+  geometry,
 }: UseGanttVirtualizationParams): GanttVirtualization {
-  const rowAxis = useMemo(() => fixedAxis(rowCount, NODE_HEIGHT), [rowCount]);
-
-  const colAxis = useMemo(
-    () => variableAxis(bottomRowCells.length, (i) => bottomRowCells[i].widthPx),
-    [bottomRowCells]
+  const { rowHeight } = geometry;
+  const rowAxis = useMemo(
+    () => fixedAxis(rowCount, rowHeight),
+    [rowCount, rowHeight]
   );
 
-  const { row, col, scrollToRow } = useVirtualWindow({
+  const colAxis = useMemo(() => tickAxis(bottomRowCells), [bottomRowCells]);
+
+  const { row, col, sync } = useVirtualWindow({
     scrollRef,
     row: rowAxis,
     col: colAxis,
@@ -78,6 +62,6 @@ export function useGanttVirtualization({
     rowStartPx,
     rowEndPx,
     isBarVisible,
-    scrollToRow,
+    syncWindow: sync,
   };
 }

@@ -1,20 +1,18 @@
 import { Dayjs } from "dayjs";
-import { NODE_HEIGHT } from "shared/constants";
-import { useRef, useState } from "react";
-import { GanttBottomRowCell, GanttScaleKey } from "shared/types";
+import { useEffect, useRef, useState } from "react";
+import { GanttBottomRowCell, GanttGeometry, GanttScaleKey } from "shared/types";
 import { useGanttStoreApi } from "shared/context";
 import { armPointerGesture, suppressTouchScroll } from "shared/utils/pointerGesture";
 import { calculateDateOffsetPx, snapDrawnRange } from "features/timeline/utils/geometry";
+import { GanttTaskDraft } from "features/bars/types";
 
 // Below this many px the gesture is a click, not a drawn range
 const MIN_DRAW_PX = 4;
 
-/** The task the user drew, handed to `onTaskCreate` - nothing is committed by the chart */
-export interface GanttTaskDraft {
-  /** UTC ISO string, snapped to the current scale */
-  startDate: string;
-  endDate: string;
-}
+const toDraft = (range: { startDate: Dayjs; endDate: Dayjs }): GanttTaskDraft => ({
+  startDate: range.startDate.toISOString(),
+  endDate: range.endDate.toISOString(),
+});
 
 // The draft an "add task" click proposes: one tick long at `now`, or at the first tick when
 // `now` is outside the rendered timeline. Null while there are no cells.
@@ -25,12 +23,7 @@ export function defaultTaskDraft(
 ): GanttTaskDraft | null {
   const px = calculateDateOffsetPx(now, timelineTicks, scaleKey) ?? 0;
   const range = snapDrawnRange(px, px, timelineTicks, scaleKey);
-  if (!range) return null;
-
-  return {
-    startDate: range.startDate.toISOString(),
-    endDate: range.endDate.toISOString(),
-  };
+  return range ? toDraft(range) : null;
 }
 
 // px, timeline content coordinates
@@ -45,12 +38,16 @@ interface UseGanttDrawCreateParams {
   // Rows on screen - the blank region below starts under them
   rowCount: number;
   onTaskCreate?: (draft: GanttTaskDraft) => void;
+  geometry: GanttGeometry;
 }
 
-// The blank region under the last row is one draw target, pinned there; a press on a row is
-// not a draw, since the bar, handles and arrows run their own gestures.
-export function drawSlotTopPx(offsetY: number, rowCount: number): number | null {
-  const topPx = rowCount * NODE_HEIGHT;
+// The blank region under the last row is one draw target, pinned there; a press on a row is not a draw
+export function drawSlotTopPx(
+  offsetY: number,
+  rowCount: number,
+  geometry: GanttGeometry
+): number | null {
+  const topPx = rowCount * geometry.rowHeight;
   return offsetY < topPx ? null : topPx;
 }
 
@@ -60,14 +57,27 @@ export function useGanttDrawCreate({
   enabled,
   rowCount,
   onTaskCreate,
+  geometry,
 }: UseGanttDrawCreateParams) {
   const storeApi = useGanttStoreApi();
   const [ghost, setGhost] = useState<DrawGhost | null>(null);
   const activePointerRef = useRef<number | null>(null);
   // Abort for a touch press still waiting to become a draw
   const pendingGestureRef = useRef<(() => void) | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
+  const drewRef = useRef(false);
+
+  useEffect(
+    () => () => {
+      pendingGestureRef.current?.();
+      cleanupRef.current?.();
+    },
+    []
+  );
 
   const onDrawPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // a draw released off the content sends its click elsewhere, so the flag can outlive it
+    drewRef.current = false;
     if (!enabled || !e.isPrimary || e.button !== 0) return;
     if (activePointerRef.current !== null) return;
     // Empty space only - bars, arrows and handles run their own gestures
@@ -100,7 +110,7 @@ export function useGanttDrawCreate({
   ) => {
     const startRect = content.getBoundingClientRect();
     const originX = startClientX - startRect.left;
-    const topPx = drawSlotTopPx(startClientY - startRect.top, rowCount);
+    const topPx = drawSlotTopPx(startClientY - startRect.top, rowCount, geometry);
     if (topPx === null) return;
     activePointerRef.current = pointerId;
     // touch-action is fixed when the gesture starts, so panning must be stopped separately
@@ -143,6 +153,7 @@ export function useGanttDrawCreate({
       detachListeners();
       releaseTouchScroll?.();
       activePointerRef.current = null;
+      cleanupRef.current = null;
       setGhost(null);
     };
 
@@ -159,22 +170,26 @@ export function useGanttDrawCreate({
       if (upEvent.pointerId !== pointerId) return;
 
       const x = upEvent.clientX - content.getBoundingClientRect().left;
-      const range = Math.abs(x - originX) >= MIN_DRAW_PX ? rangeAt(x) : null;
+      drewRef.current = Math.abs(x - originX) >= MIN_DRAW_PX;
+      const range = drewRef.current ? rangeAt(x) : null;
       endDraw();
 
-      if (!range) return;
-
-      onTaskCreate?.({
-        startDate: range.startDate.toISOString(),
-        endDate: range.endDate.toISOString(),
-      });
+      if (range) onTaskCreate?.(toDraft(range));
     };
 
+    // A chart unmounted mid-draw drops the draw rather than propose a task from its release
+    cleanupRef.current = endDraw;
     document.addEventListener("pointermove", handlePointerMove);
     document.addEventListener("pointerup", handlePointerUp);
     document.addEventListener("pointercancel", handlePointerCancel);
     document.addEventListener("keydown", handleKeyDown);
   };
 
-  return { onDrawPointerDown, ghost };
+  const consumeDrawClick = (): boolean => {
+    if (!drewRef.current) return false;
+    drewRef.current = false;
+    return true;
+  };
+
+  return { onDrawPointerDown, consumeDrawClick, ghost };
 }

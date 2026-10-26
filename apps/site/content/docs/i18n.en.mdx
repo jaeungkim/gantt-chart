@@ -58,7 +58,7 @@ A well-formed but unknown tag such as `"xx-YY"` does not throw. `Intl` uses the 
 |---|---|---|
 | `tick` | one label per cell in the bottom header row | that cell's start date |
 | `header` | one label per group in the top header row | the group's start date |
-| `tooltip` | every other date: the hover card, the bar names a screen reader reads, the read-only Start and End in the detail panel, and the drag readout | one date at a time |
+| `tooltip` | every other date: the hover card, the read-only Start and End in the detail panel, and the drag readout | one date at a time |
 
 Each slot resolves on its own, from the first layer that fills it: `formats[scale][slot]`, then `locale`, then the built-in English label. So `formats.quarter.header` beside `locale="ko-KR"` leaves `tick` and `tooltip` in Korean.
 
@@ -109,16 +109,15 @@ The three props reach dates only. Every other string the chart renders is hardco
 | String | Where it appears |
 |---|---|
 | `Add task` | the button under the task list |
-| `Start`, `End`, `Duration`, `Progress`, `Depends on` | the detail panel's field captions |
+| `Drag to reorder`, `Expand`, `Collapse` | the accessible names of the task list's reorder grip and collapse control |
+| `Dates`, `Start`, `End`, `Progress`, `Depends on` | the detail panel's field captions |
 | `12h`, `3d` | the duration shorthand in the hover card and the panel |
-| `Gantt chart`, `Task name`, `Timeline`, `Resize task list`, `Task details`, `Close task details` | the accessible names of the chart, its two columns, the splitter, the panel and its close button |
-| `summary`, `to`, `% complete` | the connectives inside every bar's accessible name |
-| `<scale> scale` | the announcement after a keyboard scale change |
-| `<name> deleted`, `<name> cannot be changed`, `<name> moved to 2 of 5 under <parent>` | the announcements after a keyboard edit |
+| `Task name`, `Close` | the accessible names of the detail panel's name input and close button, and the close button's tooltip (`Close`) |
+| `Finish to start`, `Start to start`, `Finish to finish`, `Start to finish` | the label beside the pointer while a link is drawn, and the tooltips on the detail panel's dependency badges |
+| `Delete link` | the accessible name and tooltip of the link menu's × button |
+| `These tasks are already linked`, `That would create a circular dependency` | the reason shown beside the pointer on a rejected link target |
 
-Only the dates inside those strings go through the localized `tooltip` formatter. The announcements themselves are in [Keyboard and screen readers](accessibility).
-
-`renderDetail` replaces the panel's whole body, captions and close button included, so your app can translate that text. The panel's own accessible name stays English.
+`renderDetail` replaces the panel's whole body, captions and close button included, so your app can translate that text.
 
 The chart renders no scale picker, so your app writes and translates its option text. See [Imperative API](imperative-api).
 
@@ -127,6 +126,6 @@ The chart renders no scale picker, so your app writes and translates its option 
 - `locale` and `formats` change how a date is displayed, never how one is parsed. `startDate` and `endDate` are read as UTC whatever the tag, as [Task data](task-data) describes.
 - Positions and labels are UTC, and no prop renders them in local time. Shift your own date strings before passing them in.
 - Right-to-left layout is unsupported. Nothing sets or reads `dir`, so a right-to-left app mirrors the chart itself.
-- Number and plural formatting are absent. `Intl.NumberFormat`, `Intl.RelativeTimeFormat` and `Intl.PluralRules` are never constructed, so progress is announced as a raw number followed by `% complete`.
+- Number and plural formatting are absent. `Intl.NumberFormat`, `Intl.RelativeTimeFormat` and `Intl.PluralRules` are never constructed, so progress prints as a raw number followed by `%`.
 
 Props and defaults: [GanttProps](ref/props). The built-in format string for each scale is in [Scale and theme types](ref/scales).

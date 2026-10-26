@@ -76,8 +76,8 @@ OS만 따라가게 하려면 `'system'`을 넘겨요. 페이지의 `color-scheme
 
 ## 커스텀 속성
 
-토큰 26개는 모두 `:root`가 아니라 `.gantt-container`에 선언돼요. `:root`에 두면 앱의
-`--background`나 `--border`와 충돌하기 때문이에요. 다크 블록은 그중 20개를 다시 정의하고, 표에
+토큰 25개는 모두 `:root`가 아니라 `.gantt-container`에 선언돼요. `:root`에 두면 앱의
+`--background`나 `--border`와 충돌하기 때문이에요. 다크 블록은 그중 19개를 다시 정의하고, 표에
 같음으로 적은 6개는 두 테마가 함께 써요.
 
 스타일시트는 컨테이너에 `color-scheme`도 설정해서 브라우저가 스크롤바와 캐럿을 테마에 맞게 칠해요.
@@ -91,17 +91,16 @@ OS만 따라가게 하려면 `'system'`을 넘겨요. 페이지의 `color-scheme
 | `--gantt-border` | `#e4e4e7` | `#27272a` | 헤더와 그리드 테두리, 스크롤바 thumb |
 | `--gantt-border-subtle` | `rgba(0, 0, 0, 0.04)` | `rgba(255, 255, 255, 0.04)` | 행 구분선 |
 | `--gantt-accent` | `#3b82f6` | 같음 | 포커스 링, 선택 표시, 링크 미리보기 |
-| `--gantt-bar-bg` | `#c7c7cd` | `#3a3a41` | 작업 막대 |
+| `--gantt-bar-bg` | `#c7c7cd` | `#3a3a41` | 작업 막대와 상세 패널의 진행률 트랙 |
 | `--gantt-bar-bg-hover` | `#b4b4bc` | `#47474f` | 같은 막대의 호버 |
 | `--gantt-bar-text` | `#18181b` | `#fafafa` | 막대 안의 작업 이름 |
 | `--gantt-bar-shadow` | `none` | `none` | 평소 상태의 막대 |
 | `--gantt-bar-shadow-hover` | `0 1px 2px rgba(0, 0, 0, 0.08)` | `0 1px 2px rgba(0, 0, 0, 0.4)` | 호버된 막대 |
 | `--gantt-bar-shadow-drag` | `0 4px 12px rgba(0, 0, 0, 0.16)` | `0 4px 12px rgba(0, 0, 0, 0.5)` | 드래그 중인 막대 |
-| `--gantt-shadow-overlay` | `0 4px 16px rgba(0, 0, 0, 0.15)` | `0 8px 24px rgba(0, 0, 0, 0.55)`에 `1px` 링 추가 | 막대 툴팁 |
+| `--gantt-shadow-overlay` | `0 4px 16px rgba(0, 0, 0, 0.15)` | `0 8px 24px rgba(0, 0, 0, 0.55)`에 `1px` 링 추가 | 막대 툴팁, 링크 메뉴, 링크 드래그 라벨 |
 | `--gantt-summary-bg` | `#dcdce0` | `#2a2a2f` | 요약 행의 막대 |
 | `--gantt-summary-bg-hover` | `#cfcfd4` | `#35353c` | 같은 막대의 호버 |
-| `--gantt-progress-bg` | `#8e8e97` | `#6c6c76` | 작업 막대의 진행률 채움 |
-| `--gantt-progress-handle` | `#52525b` | `#a1a1aa` | 진행률 핸들 테두리 |
+| `--gantt-progress-bg` | `#8e8e97` | `#6c6c76` | 작업 막대와 상세 패널의 진행률 채움 |
 | `--gantt-arrow` | `#a1a1aa` | `#71717a` | 화살표 선과 화살촉, 평소에는 불투명도 45% |
 | `--gantt-today-marker` | `#f43f5e` | `#fb7185` | 오늘 선과 거부된 상태 |
 | `--gantt-non-working-bg` | `rgba(0, 0, 0, 0.035)` | `rgba(255, 255, 255, 0.03)` | 비근무일 열 |
@@ -123,13 +122,14 @@ OS만 따라가게 하려면 `'system'`을 넘겨요. 페이지의 `color-scheme
 폰트로 넘어가니 폰트 제공은 앱의 몫이에요. 기본 크기는 `13px`이고 토큰이 아니에요.
 
 `prefers-reduced-motion: reduce` 아래에서는 컨테이너 안의 모든 트랜지션과 애니메이션이 `0.01ms`로,
-`scroll-behavior`는 `auto`로 강제돼요. 모션 토큰을 어떻게 설정했든 마찬가지예요.
-[키보드와 스크린 리더](accessibility)에서 확인해요.
+`scroll-behavior`는 `auto`로 강제돼요. 모션 토큰을 어떻게 설정했든 마찬가지예요. 차트가 직접 하는
+스크롤도 애니메이션 없이 이동해요. `scrollToDate`, `scrollToTask`, `scrollToToday`, 그리고 자동
+스크롤한 드래그가 취소되거나 움직이지 않고 끝났을 때 되돌아가는 스크롤이 여기에 해당해요.
 
 ## 토큰 덮어쓰기
 
 덮어쓸 값은 `.gantt-container`에 선언하고 스타일시트는 라이브러리 스타일시트 뒤에 불러오세요. 다크
-블록이 다시 정의하지 않는 토큰 6개는 규칙 하나로 충분해요. 나머지 20개는 규칙 두 개가 필요해요.
+블록이 다시 정의하지 않는 토큰 6개는 규칙 하나로 충분해요. 나머지 19개는 규칙 두 개가 필요해요.
 `.gantt-container`만 쓴 규칙은 명시도가 `(0,1,0)`이라 `(0,2,0)`인
 `.gantt-container[data-theme="dark"]`에 밀려 라이트 모드에서만 적용되기 때문이에요.
 
@@ -166,15 +166,29 @@ OS만 따라가게 하려면 `'system'`을 넘겨요. 페이지의 `color-scheme
 }
 ```
 
+스타일시트 없이 `style`로 토큰을 인라인으로 넣어도 돼요. 값은 `'400px'`처럼 단위까지 넣은
+문자열로 넘겨요. 타입이 숫자를 받지 않아요.
+
+```tsx
+<ReactGanttChart
+  tasks={tasks}
+  onTasksChange={setTasks}
+  style={{ '--gantt-bar-bg': '#dbeafe', '--gantt-detail-width': '400px' }}
+/>
+```
+
+인라인 값은 라이브러리의 `[data-theme="dark"]` 규칙보다 우선해서 두 테마에 모두 적용돼요.
+
 ## 적용 전에 확인하기
 
 - `GanttTheme`은 `'light' | 'dark' | 'system'` 유니온이에요. `tokens` prop, 테마 객체, 내보내는
   기본 팔레트, 테마 프로바이더는 없어요.
 - `theme` 값은 검증하지 않아요. 알 수 없는 값을 넘겨도 경고 없이 생략한 것처럼 동작해요.
-- 지오메트리는 토큰이 아니에요. `--gantt-row-height`는 컴포넌트가 JS 상수를 인라인으로 쓰기 때문에
-  스타일시트로 덮어써도 밀려요.
-- 상세 패널의 슬라이드는 모션 토큰과 무관한 고정 `200ms`이고, 의존성 삭제 글리프의 선은 흰색으로
-  하드코딩돼 있어요. 토큰이 닿지 않는 유일한 색이에요.
+- 지오메트리는 토큰이 아니에요. 행과 막대의 크기는 `rowHeight`와 `barHeight` prop이 정하고,
+  [스타일링](styling)에서 다뤄요. 차트가 이 값으로 `--gantt-row-height`와 `--gantt-bar-height`를
+  인라인으로 쓰기 때문에 스타일시트나 `style`로 덮어써도 둘 다 밀려요.
+- 상세 패널의 슬라이드는 모션 토큰과 무관한 고정 `200ms`예요. 날짜 입력란과 슬라이더 손잡이의 옅은
+  검정 그림자는 하드코딩돼 있어요. 토큰이 닿지 않는 유일한 색이에요.
 - RTL은 지원하지 않아요. `dir`을 읽거나 설정하지 않고 스타일시트는 전부 물리 속성을 써요.
 
 props와 기본값은 [GanttProps](ref/props)에 있어요.

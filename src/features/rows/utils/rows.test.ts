@@ -86,11 +86,7 @@ describe('buildGanttRows', () => {
     const rows = buildGanttRows(tasks);
 
     expect(rows.map((row) => row.id)).toEqual(['a', 'b']);
-    // The very objects handed in - no re-wrapping when the row numbers already match
     expect(rows[0].tasks[0]).toBe(tasks[0]);
-    expect(rows.map((row) => row.level)).toEqual([1, 1]);
-    expect(rows.map((row) => row.setsize)).toEqual([2, 2]);
-    expect(rows.map((row) => row.posinset)).toEqual([1, 2]);
   });
 
   it('returns nothing for no tasks', () => {
@@ -104,7 +100,6 @@ describe('buildGanttRows', () => {
       task('c', '2025-01-02', '2025-01-04', { lane: 'team', order: 9 }),
     ]);
 
-    // a and b pack onto row 1, c is pushed onto row 2
     expect(rows[0].tasks.map((t) => t.order)).toEqual([1, 1]);
     expect(rows[1].tasks[0].order).toBe(2);
   });
@@ -122,7 +117,6 @@ describe('buildGanttRows', () => {
       ['c'],
       ['solo'],
     ]);
-    // Every task on a shared row reports that row's number
     expect(rows[0].tasks.map((t) => t.order)).toEqual([1, 1]);
     expect(rows[2].tasks[0].order).toBe(3);
   });
@@ -134,20 +128,5 @@ describe('buildGanttRows', () => {
     ]);
 
     expect(rows.map((row) => row.id)).toEqual(['a+b']);
-  });
-});
-
-describe('buildGanttRows with hierarchy', () => {
-  it('numbers depth-derived siblings', () => {
-    const rows = buildGanttRows([
-      task('a', '2025-01-01', '2025-01-02', { depth: 0 }),
-      task('a1', '2025-01-01', '2025-01-02', { depth: 1 }),
-      task('a2', '2025-01-01', '2025-01-02', { depth: 1 }),
-      task('b', '2025-01-01', '2025-01-02', { depth: 0 }),
-    ]);
-
-    expect(rows.map((row) => row.posinset)).toEqual([1, 1, 2, 2]);
-    expect(rows.map((row) => row.setsize)).toEqual([2, 2, 2, 2]);
-    expect(rows.map((row) => row.level)).toEqual([1, 2, 2, 1]);
   });
 });

@@ -4,29 +4,32 @@
 import { Task } from "./types";
 import { buildTaskTree, collectSubtreeIds, TaskTree } from "./tree";
 
-/** Where a task is going: a parent, and a slot among that parent's children */
+/** Where a task is going: a parent, and a slot among that parent's children. See https://gantt.jaeungkim.com/docs/ref/core-tree */
 export interface GanttTaskMove {
+  /** The task to move; its subtree moves with it. */
   taskId: string;
-  /** New parent, null for the root level */
+  /** New parent, null for the root level. */
   toParentId: string | null;
-  /** Slot among the new parent's children, counted in the list as it stands after the move */
+  /** Slot among the new parent's children, counted in the list as it stands after the move; out-of-range values clamp. */
   toIndex: number;
 }
 
-/** The move that was applied - `toIndex` for an index-based API, `afterId`/`beforeId` for a position-based one */
+/** The move as applied, with the clamped `toIndex`; `afterId`/`beforeId` give the same slot for a position-based API. See https://gantt.jaeungkim.com/docs/ref/core-tree */
 export interface GanttTaskMoveChange extends GanttTaskMove {
+  /** Parent before the move, null for the root level. */
   fromParentId: string | null;
+  /** Slot among that parent's children before the move. */
   fromIndex: number;
-  /** Sibling the task now follows - null when it is the first child */
+  /** Sibling the task now follows; null when it is the first child. */
   afterId: string | null;
-  /** Sibling the task now precedes - null when it is the last child */
+  /** Sibling the task now precedes; null when it is the last child. */
   beforeId: string | null;
 }
 
 /** Where a drop lands relative to the row under the pointer */
 export type GanttDropMode = "before" | "after" | "child";
 
-/** Why a move was refused - null from `validateMove` means it is allowed */
+/** Why a move was refused; `validateMove` returns null for an allowed one. See https://gantt.jaeungkim.com/docs/ref/core-tree */
 export type GanttMoveRejection =
   | "unknown-task"
   | "unknown-parent"
@@ -35,10 +38,11 @@ export type GanttMoveRejection =
   | "reparent-disabled"
   | "no-op";
 
+/** Options `validateMove` and `moveTask` share. See https://gantt.jaeungkim.com/docs/ref/core-tree */
 export interface GanttMoveOptions {
-  /** Whether the parentId hierarchy is on - off, depth comes from `sequence` and a reparent is refused */
+  /** Whether the `parentId` hierarchy is on; off, depth comes from `sequence` and a reparent is refused. */
   hierarchy: boolean;
-  /** Whether this task may be moved at all - left out, every task may */
+  /** Whether this task may be moved at all; `false` is refused as `"read-only"`, and left out, every task may. */
   canReorder?: (task: Task) => boolean;
 }
 
@@ -55,7 +59,12 @@ function parseSequence(sequence: string): number[] {
   return sequence.split(".").map(Number);
 }
 
-/** Sort tasks by their sequence hierarchy - row order comes from this and nothing else */
+// splice's own integer conversion (NaN to 0, fractions truncated), done once so every check agrees.
+function clampIndex(index: number, length: number): number {
+  return Math.min(Math.max(Math.trunc(index) || 0, 0), length);
+}
+
+/** Sorts a copy of the tasks by `sequence`, comparing segments as numbers; this is the chart's row order before lanes pack rows. See https://gantt.jaeungkim.com/docs/ref/core-tree */
 export function sortTasksBySequence<T extends Pick<Task, "sequence">>(
   tasks: T[]
 ): T[] {
@@ -73,7 +82,6 @@ export function sortTasksBySequence<T extends Pick<Task, "sequence">>(
   });
 }
 
-/** The parent's id and the ordered sibling lists a move is applied to */
 interface Forest {
   /** parent id (null key held as "") -> child ids, in row order */
   children: Map<string, string[]>;
@@ -126,7 +134,6 @@ function buildForest(
 
 const NO_IDS: readonly string[] = [];
 
-/** Reads the ordered forest the moves below are counted against */
 export function buildTaskOrder(tasks: Task[], hierarchy: boolean): TaskOrder {
   const { children, parentOf } = buildForest(
     sortTasksBySequence(tasks),
@@ -168,7 +175,7 @@ export function moveForDrop(
   };
 }
 
-/** Whether a move can be applied, and why not when it cannot - runs on every frame of a row drag */
+/** Whether a move can be applied: null when it can, otherwise the reason it cannot. See https://gantt.jaeungkim.com/docs/ref/core-tree */
 export function validateMove(
   tasks: Task[],
   move: GanttTaskMove,
@@ -178,8 +185,7 @@ export function validateMove(
   const task = byId.get(move.taskId);
   if (!task) return "unknown-task";
 
-  const parent = move.toParentId ? byId.get(move.toParentId) : null;
-  if (move.toParentId && !parent) return "unknown-parent";
+  if (move.toParentId && !byId.has(move.toParentId)) return "unknown-parent";
 
   if (options.canReorder && !options.canReorder(task)) return "read-only";
 
@@ -201,22 +207,27 @@ export function validateMove(
 
   const siblings = children.get(fromParentId ?? ROOT) ?? [];
   const fromIndex = siblings.indexOf(task.id);
-  if (move.toParentId === fromParentId && move.toIndex === fromIndex) {
+  if (
+    move.toParentId === fromParentId &&
+    clampIndex(move.toIndex, siblings.length - 1) === fromIndex
+  ) {
     return "no-op";
   }
 
   return null;
 }
 
-/**
- * Applies a move, renumbering every sequence from the resulting row order; `parentId` is rewritten
- * on the moved task only. Null when refused (`validateMove` says why); unchanged tasks keep identity.
- */
+/** Applies a move, renumbering every `sequence` from the row order that results; null when `validateMove` refuses it. See https://gantt.jaeungkim.com/docs/ref/core-tree */
 export function moveTask(
   tasks: Task[],
   move: GanttTaskMove,
   options: GanttMoveOptions
-): { tasks: Task[]; change: GanttTaskMoveChange } | null {
+): {
+  /** Every task in input order; unchanged ones keep their identity, and only the moved task's `parentId` can change. */
+  tasks: Task[];
+  /** The move as applied. */
+  change: GanttTaskMoveChange;
+} | null {
   if (validateMove(tasks, move, options)) return null;
 
   const sorted = sortTasksBySequence(tasks);
@@ -226,14 +237,12 @@ export function moveTask(
   const fromKey = fromParentId ?? ROOT;
   const toKey = move.toParentId ?? ROOT;
 
-  const fromSiblings = [...(children.get(fromKey) ?? [])];
+  const fromSiblings = children.get(fromKey) ?? [];
   const fromIndex = fromSiblings.indexOf(move.taskId);
   fromSiblings.splice(fromIndex, 1);
-  children.set(fromKey, fromSiblings);
 
-  const toSiblings =
-    toKey === fromKey ? fromSiblings : [...(children.get(toKey) ?? [])];
-  const toIndex = Math.min(Math.max(move.toIndex, 0), toSiblings.length);
+  const toSiblings = children.get(toKey) ?? [];
+  const toIndex = clampIndex(move.toIndex, toSiblings.length);
   toSiblings.splice(toIndex, 0, move.taskId);
   children.set(toKey, toSiblings);
 

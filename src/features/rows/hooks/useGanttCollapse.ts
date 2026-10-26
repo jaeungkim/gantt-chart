@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 interface UseGanttCollapseParams {
   /** Controlled list - given, this is what the chart shows */
@@ -9,7 +9,7 @@ interface UseGanttCollapseParams {
 }
 
 interface GanttCollapseState {
-  /** Ids of every collapsed parent and group header */
+  /** Ids of every collapsed parent */
   collapsedIds: ReadonlySet<string>;
   /** Collapses an expanded row and expands a collapsed one */
   toggle: (rowId: string) => void;
@@ -29,33 +29,18 @@ export function useGanttCollapse({
   const collapsed = collapsedIds ?? uncontrolled;
   const collapsedSet = useMemo(() => new Set(collapsed), [collapsed]);
 
-  // Controlled mode: the screen only moves once the prop comes back changed
-  const commit = useCallback(
-    (next: string[]) => {
-      if (collapsedIds === undefined) setUncontrolled(next);
-      onCollapsedChange?.(next);
-    },
-    [collapsedIds, onCollapsedChange]
-  );
+  const toggle = (rowId: string) => {
+    const next = collapsed.includes(rowId)
+      ? collapsed.filter((id) => id !== rowId)
+      : [...collapsed, rowId];
+    // Controlled mode: the screen only moves once the prop comes back changed
+    if (collapsedIds === undefined) setUncontrolled(next);
+    onCollapsedChange?.(next);
+  };
 
-  const toggle = useCallback(
-    (rowId: string) => {
-      commit(
-        collapsed.includes(rowId)
-          ? collapsed.filter((id) => id !== rowId)
-          : [...collapsed, rowId]
-      );
-    },
-    [collapsed, commit]
-  );
-
-  const expand = useCallback(
-    (rowId: string) => {
-      if (!collapsed.includes(rowId)) return;
-      commit(collapsed.filter((id) => id !== rowId));
-    },
-    [collapsed, commit]
-  );
+  const expand = (rowId: string) => {
+    if (collapsed.includes(rowId)) toggle(rowId);
+  };
 
   return { collapsedIds: collapsedSet, toggle, expand };
 }

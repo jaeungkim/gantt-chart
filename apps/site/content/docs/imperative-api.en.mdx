@@ -67,6 +67,8 @@ export function GanttToolbar() {
 
 The ref is `null` until the chart mounts, so optional-chain every call. The buttons keep no state of their own, because each method reads the chart's current state when it runs. Type declarations are in [GanttHandle](ref/handle).
 
+One handler can chain calls. Call a scroll method after `setScale` or `zoomToFit()` in the same tick and it lands on the scale the zoom leaves. Called before the zoom, it survives only a zoom that changes the scale, and `zoomToFit()` picks the scale itself.
+
 ## Scroll the timeline
 
 `scrollToDate` and `scrollToToday` move the horizontal axis only. `scrollToTask` moves both axes, and it centres the row vertically only when that row is off screen.
@@ -76,7 +78,7 @@ ganttRef.current?.scrollToDate('2026-09-01', { smooth: false, align: 'start' });
 ganttRef.current?.scrollToTask('build');
 ```
 
-Every scroll method takes the same options. `smooth` animates unless you pass the literal `false`. `align` centres the target unless you pass the literal `'start'`, which puts it at the left edge of the timeline area.
+Every scroll method takes the same options. `smooth` animates unless you pass the literal `false` or the user prefers reduced motion. `align` centres the target unless you pass the literal `'start'`, which puts it at the left edge of the timeline area.
 
 Centring measures the viewport with the pinned task list pane subtracted. Horizontally, `scrollToTask` targets the bar's left edge under `align: 'start'` and the bar's midpoint otherwise. `align` has no vertical effect, and both targets clamp at `0`.
 
@@ -84,13 +86,13 @@ Every scroll method returns with no error and no console output. An out-of-range
 
 `scrollToTask` searches the rendered rows, so a task under a collapsed parent stays out of reach until you expand it.
 
-The first scroll needs no ref. `initialScrollTo` takes `"today"` or a date string and scrolls there once after the first render, and later data updates leave the scroll alone.
+The first scroll needs no ref. `initialScrollTo` takes `"today"` or a date string and scrolls there once, as soon as the timeline renders. Later data updates leave the scroll alone.
 
 ## Keep the picker in sync
 
 `setScale` writes the scale and keeps the date at the centre of the timeline in place. `onScaleChange` reports every committed change back. Point a native `<select>` at both, as the example above does, and the select needs no state of its own.
 
-Wheel zoom, the keyboard shortcuts and `zoomToFit()` all report through `onScaleChange`, so the select follows them with no extra wiring. Your app writes the option text, so those labels translate with the rest of your interface. See [Locale and date formats](i18n).
+Wheel zoom and `zoomToFit()` both report through `onScaleChange`, so the select follows them with no extra wiring. Your app writes the option text, so those labels translate with the rest of your interface. See [Locale and date formats](i18n).
 
 ## Fit the whole project
 
@@ -102,7 +104,7 @@ The fit is measured against each scale's average pixels per millisecond, which i
 
 `zoomToFit()` takes no options and its scroll is always instant. It returns with no error when there are no tasks, no mounted chart, or no usable start and end date.
 
-There is no `zoomIn` or `zoomOut`. Step through your own array of the five scale keys with `setScale`, or leave stepping to the wheel and keyboard shortcuts described in [The timeline](timeline).
+There is no `zoomIn` or `zoomOut`. Step through your own array of the five scale keys with `setScale`, or leave stepping to the wheel zoom described in [The timeline](timeline).
 
 ## Open panels and add tasks
 
@@ -113,6 +115,8 @@ There is no `zoomIn` or `zoomOut`. Step through your own array of the five scale
 `addTask()` is the only member that concerns data. It builds the same draft as the **Add task** button, one tick long at today, and passes it to `onTaskCreate`. It writes nothing, so the row appears when your handler adds the task to `tasks`.
 
 Without `onTaskCreate`, or with creation turned off, `addTask()` does nothing and again needs no guard. See [Creating tasks](task-creation).
+
+To open the panel on a task you just added, call `openDetail` from a `useEffect` in the component that renders the chart. The panel opens once the chart has rendered the task, and `onDetailChange` fires then. A call in the same handler as `setTasks`, in a `useLayoutEffect` of that commit, or in a `useEffect` of a component that comes before the chart in the React tree is ignored, because the chart does not hold the task yet.
 
 ## Before you integrate
 

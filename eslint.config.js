@@ -8,10 +8,8 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 // The layers, as in TanStack Table's table-core: core <- shared <- features <- the root modules.
-// Each block below fences one layer off from the ones above it. Everything under src/ that
-// src/core may not reach for is read off disk, so a new folder or root module is covered the day
-// it appears. FOLDERS uses `<folder>/**` rather than `<folder>/*` because features/ nests
-// `<feature>/components/`, `hooks/` and `utils/` beneath it.
+// The src/ blocks below each fence one layer off from the ones above it. The folders and root
+// modules src/core may not reach for are read off disk, so a new one is covered the day it appears.
 const SRC = readdirSync(fileURLToPath(new URL("src", import.meta.url)), {
   withFileTypes: true,
 });
@@ -20,29 +18,19 @@ const FOLDERS = SRC.filter(
   (entry) => entry.isDirectory() && entry.name !== "core"
 ).map((entry) => entry.name);
 
-// Gantt, props, index, useGanttSelectors. Both spellings: imports here are bare through
-// `baseUrl: "src"`, so `from "props"` is the form a core file would actually write, and `../*`
-// alone would sail straight past it.
 const ROOT_MODULES = SRC.filter(
   (entry) => entry.isFile() && /\.tsx?$/.test(entry.name) && !entry.name.endsWith(".d.ts")
 ).map((entry) => entry.name.replace(/\.tsx?$/, ""));
 
 export default tseslint.config(
   // `eslint .` walks the whole workspace, so anything generated has to be listed here.
-  { ignores: ["dist", "**/dist/**", "**/.next/**", "**/.source/**"] },
+  { ignores: ["dist", "**/.next/**", "**/.source/**"] },
   {
     files: ["**/*.{ts,tsx,js,jsx}"],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
       parser: tseslint.parser,
-      parserOptions: {
-        ecmaVersion: 2020,
-        sourceType: "module",
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
     },
     plugins: {
       "react-hooks": reactHooks,
@@ -58,18 +46,14 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
 
-      // v7 flags pre-existing latest-ref patterns in the drag hooks; warn until refactored.
       "react-hooks/refs": "warn",
 
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
-      "no-unused-vars": "off", // Let TypeScript handle this
-      "no-undef": "off", // Let TypeScript handle this
+      // Let TypeScript handle these two
+      "no-unused-vars": "off",
+      "no-undef": "off",
+      "no-empty": ["error", { allowEmptyCatch: true }],
     },
-  },
-  {
-    // The barrel re-exports the core's functions alongside the component.
-    files: ["src/index.ts"],
-    rules: { "react-refresh/only-export-components": "off" },
   },
   {
     // Route files export generateStaticParams/generateMetadata alongside the page component.
@@ -77,7 +61,7 @@ export default tseslint.config(
     rules: { "react-refresh/only-export-components": "off" },
   },
   {
-    // src/core must stay Node-runnable; the folders and root modules below are read off src/.
+    // src/core must stay Node-runnable.
     files: ["src/core/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
@@ -93,12 +77,12 @@ export default tseslint.config(
                 "zustand",
                 "zustand/*",
                 "@tanstack/*",
-                // Read off disk rather than typed out: a new folder is covered the day it
-                // appears, instead of the day someone remembers to add it here.
                 ...FOLDERS.flatMap((folder) => [`${folder}/**`, `**/${folder}/**`]),
                 // The root modules are React and prop-surface code; core may not reach up into
-                // them either. `../*` stays as the catch-all for everything else one level up
-                // (`../shared`, `../styles.css`).
+                // them either. Both spellings: imports are bare through `baseUrl: "src"`, so
+                // `from "props"` is the form a core file would actually write, and `../*` alone
+                // would sail straight past it. `../*` stays as the catch-all for everything else
+                // one level up (`../shared`, `../styles.css`).
                 ...ROOT_MODULES.flatMap((m) => [m, `../${m}`]),
                 "../*",
               ],

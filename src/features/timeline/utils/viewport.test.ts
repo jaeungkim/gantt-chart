@@ -59,7 +59,6 @@ describe('stepScale', () => {
 
 describe('pxPerMs', () => {
   it('matches the width the timeline actually builds for a tick', () => {
-    // A day at week scale is one 4 x 18px tick; at month scale a seventh of a 126px week
     expect(pxPerMs('week') * DAY_MS).toBeCloseTo(72, 6);
     expect(pxPerMs('month') * DAY_MS).toBeCloseTo(18, 6);
     expect(pxPerMs('day') * 3_600_000).toBeCloseTo(12, 6);
@@ -76,7 +75,6 @@ describe('pxPerMs', () => {
 
 describe('fitScale', () => {
   it('picks the finest scale whose width still fits', () => {
-    // 30 days needs 30 * 32 = 960px at month scale, 30 * 216 = 6480px at week scale
     expect(fitScale(30 * DAY_MS, 1000)).toBe('month');
     expect(fitScale(30 * DAY_MS, 7000)).toBe('week');
   });
@@ -167,7 +165,6 @@ describe('edgeScrollVelocity', () => {
   });
 
   it('never lets the two zones cover more than the viewport', () => {
-    // 40px wide against the 48px threshold - each zone stops at half, so the midpoint is quiet
     expect(edgeScrollVelocity(20, 0, 40)).toBe(0);
     expect(edgeScrollVelocity(0, 0, 0)).toBe(0);
   });
@@ -200,7 +197,6 @@ describe('extendRangeForScroll', () => {
     const first = extendRangeForScroll({ ...base, scrollLeft: 100 });
     expect(first).not.toBeNull();
 
-    // The origin moved, so the compensation puts scrollLeft past the added width
     const addedPx = first!.before * base.pxPerTick;
     expect(
       extendRangeForScroll({
@@ -256,7 +252,6 @@ describe('dateAtOffsetPx', () => {
   });
 
   it('interpolates inside a tick', () => {
-    // Half of the 2 Jan cell is midday
     expect(dateAtOffsetPx(48, janTicks, 'week')!.toISOString()).toBe(
       '2025-01-02T12:00:00.000Z',
     );
@@ -308,7 +303,6 @@ describe('computeTimelineData range extension', () => {
       ),
     ).toBe(10);
 
-    // The bar keeps its date, so it shifts by the ticks added in front (a week cell = 4 steps)
     const shift = 10 * 4 * GANTT_SCALE_CONFIG.week.basePxPerDragStep;
     expect(extended.transformedTasks[0].barLeft).toBeCloseTo(
       plain.transformedTasks[0].barLeft + shift,

@@ -52,17 +52,22 @@ The first letter names the predecessor's edge; the second names the successor's 
 
 These are scheduling meanings, not date constraints enforced by the chart. Your app decides whether the dates satisfy the relationship.
 
+Each arrow leaves the predecessor's start or finish sideways, away from the bar. Its head enters the successor's start from the left (`FS`, `SS`) or its finish from the right (`FF`, `SF`).
+
 ## Draw a link
 
 1. Hover or select the predecessor bar to reveal its connector dots.
-2. Drag from its start or finish dot to the successor's row.
-3. Release near the successor's start or finish. The preview shows the link type before you release.
+2. Drag from its start or finish dot. A dashed line follows the pointer.
+3. Move onto the successor bar or within 24px of either end. The line turns solid and a label shows the link type.
+4. Release to create the link.
 
-The whole destination row accepts the drop. Its finish zone is near the bar's right edge and extends to the right; the rest counts as start. In a lane containing several bars, the nearest bar receives the link.
+Where you release decides the type. The finish zone is the last third of the bar, at most 24px, plus the 24px to its right. The rest of the bar and the 24px to its left count as start. Releasing anywhere else creates nothing. In a lane containing several bars, the nearest bar within reach receives the link.
 
 The timeline scrolls when you drag near its edges. Press `Escape` to cancel. On touch devices without hover, the connector dots remain visible.
 
-Drawing rejects self-links, duplicate links between the same ordered pair, and circular dependencies. A rejected target shows a reason and does not change the data. Those checks apply to drawing only; validate imported dependencies in your app.
+In a lane, a start dot within 26px of the previous bar appears only while you hover its own bar, never on selection or touch. While it shows, it covers the previous bar's end. To resize that end, move off the hovered bar first, then approach the end from elsewhere. A hovered bar also rises above the next bar, so its finish dot stays reachable when the two touch. On touch, neither dot between two touching bars can be pressed.
+
+Drawing rejects duplicate links between the same ordered pair and circular dependencies, and the source bar is never a target. A rejected target shows the reason in red and does not change the data. Those checks apply to drawing only; validate imported dependencies in your app.
 
 ## Save or reject changes
 
@@ -78,22 +83,24 @@ Keep `onTasksChange` connected to your state to retain created and deleted links
 />
 ```
 
-Returning exactly `false` from `onDependencyCreate` cancels the change. `onDependencyDelete` works the same way. These guards do not await promises; perform server validation in your application's save flow.
+Returning exactly `false` from `onDependencyCreate` cancels the change. `onDependencyDelete` works the same way, and a rejected delete leaves the arrow selected with its menu open. These guards do not await promises; perform server validation in your application's save flow.
 
 Use `allowLinkCreate` and `allowLinkDelete` to control whether links can be edited. Disabling creation on a task blocks both incoming and outgoing links. Deletion permission belongs to the successor, which owns the entry.
 
 See [props](ref/props) for callback signatures and [interaction configuration](ref/interaction-config) for permission precedence.
 
-## Remove or change a link
+## Remove a link
 
-Click an arrow, then click its delete button. You can also press `Delete` or `Backspace` after selecting it; `Escape` clears the selection.
+Click an arrow to select it. It turns accent-colored, and a small menu with one delete button (×) opens at the click point.
 
-If a task bar still has keyboard focus, the delete key can also delete that task. Use the arrow's delete button to avoid that overlap. See [keyboard controls](accessibility).
+The delete button removes the link. Clicking anywhere else closes the menu and clears the selection. An arrow is clickable only when its successor allows link deletion.
 
-To change a link's type, update its entry in your `tasks` array. There is no built-in type editor. Keep one entry per predecessor and successor pair: deletion removes all entries for that pair, even if their types differ.
+There is no way to change a link's type in place. Delete the link and draw it again: the dot you start from sets the type's first letter, and where you release sets the second. You can also edit the entry's `type` in your `tasks` array.
+
+Keep one entry per predecessor and successor pair. A deletion removes every entry for that pair, even if their types differ.
 
 ## When an arrow is missing
 
 Both tasks must be visible for their arrow to render. Filtering out a task or collapsing its parent hides the arrow without removing the dependency. An entry referring to an unknown task id is also skipped.
 
-Link creation requires a pointer. There is no keyboard flow for creating a link or selecting an arrow, and arrows cannot be selected as a group. Routes are automatic and may cross other bars.
+Arrows cannot be selected as a group. Routes are automatic and may cross other bars.

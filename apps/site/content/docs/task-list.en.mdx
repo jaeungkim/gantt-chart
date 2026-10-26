@@ -48,9 +48,9 @@ A task with children becomes a summary row. Its displayed dates span the earlies
 
 If the parent has no `progress`, the chart calculates it from the children's progress, weighted by duration. Set the parent's `progress` explicitly to use your own value.
 
-Dragging a summary bar moves its descendants together. Summary bars cannot be resized or have their progress dragged. See [Editing tasks](editing) for drag behavior and [Tree helpers](ref/core-tree) for the calculation rules.
+Dragging a summary bar moves its descendants together. Summary bars cannot be resized, and their progress is read-only in the built-in [detail panel](detail-panel). See [Editing tasks](editing) for drag behavior and [Tree helpers](ref/core-tree) for the calculation rules.
 
-`sequence` still controls row order. With hierarchy on, `parentId` controls depth; with it off, the dots in `sequence` provide indentation only. Keep the two fields consistent when preparing [task data](task-data).
+`sequence` still controls row order. With hierarchy on, `parentId` controls depth; with it off, the dots in `sequence` provide indentation only. A path whose parent path has no row, such as `2.1` with no `2`, is then drawn as a root. Keep the two fields consistent when preparing [task data](task-data).
 
 ## Collapse sections
 
@@ -89,7 +89,7 @@ Add `showRowNumbers` to display outline numbers such as `1.2` beside names.
 
 <GanttDemo preset="rowNumbers" />
 
-Drag the splitter to resize the pane, or double-click it to fit visible task names. The splitter also supports arrow keys and Enter. Width is local state and resets when the chart remounts; there is no width prop or change callback.
+Drag the splitter to resize the pane, or double-click it to fit visible task names. Both keep the width between 120 and 800px, but never so wide that less than 40px of timeline stays beside the pane. Width is local state that starts at 220px and resets when the chart remounts; there is no width prop or change callback.
 
 The pane shows task names and optional outline numbers. Put additional fields and editors in a [detail panel](detail-panel). To let users add tasks from the pane's footer, connect [task creation](task-creation).
 
@@ -99,4 +99,4 @@ The pane shows task names and optional outline numbers. Put additional fields an
 - Keep summary tasks out of shared [lanes](lanes). A packed row represents several tasks and does not provide a reliable summary collapse target.
 - Collapse controls require `hierarchy`. Task names are not inline-editable, and the pane has no custom column, sorting, or filtering API.
 
-See [GanttProps](ref/props) for prop definitions and [Keyboard and screen readers](accessibility) for navigation.
+See [GanttProps](ref/props) for prop definitions.

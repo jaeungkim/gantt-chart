@@ -1,9 +1,9 @@
 import type { VirtualAxis } from 'shared/virtual/axis';
 
-// Below this count the axis reports itself unvirtualized and returns its whole range.
+// At or below this count the axis returns its whole range.
 export const MIN_VIRTUAL_COUNT = 24;
 
-// Rows kept beyond each edge so a scroll lands on already-mounted content.
+// Items kept beyond each edge so a scroll lands on already-mounted content.
 export const OVERSCAN = 5;
 
 export interface VirtualWindow {
@@ -11,12 +11,6 @@ export interface VirtualWindow {
   start: number;
   /** Last index to render, inclusive - `-1` when the axis is empty */
   end: number;
-  /** Pixels before `start` */
-  padStart: number;
-  /** Pixels after `end` */
-  padEnd: number;
-  /** False when the whole axis is being rendered */
-  virtualized: boolean;
 }
 
 export interface VirtualItem {
@@ -28,13 +22,7 @@ export interface VirtualItem {
 export type ScrollDirection = -1 | 0 | 1;
 
 export function fullWindow(count: number): VirtualWindow {
-  return {
-    start: 0,
-    end: count - 1,
-    padStart: 0,
-    padEnd: 0,
-    virtualized: false,
-  };
+  return { start: 0, end: count - 1 };
 }
 
 export function windowOf(
@@ -45,7 +33,6 @@ export function windowOf(
   direction: ScrollDirection = 0,
 ): VirtualWindow {
   if (
-    axis.count === 0 ||
     axis.count <= MIN_VIRTUAL_COUNT ||
     viewport <= 0 ||
     axis.total <= viewport
@@ -61,13 +48,7 @@ export function windowOf(
   const start = Math.max(0, axis.indexAt(head) - before);
   const end = Math.min(axis.count - 1, axis.indexAt(head + viewport) + after);
 
-  return {
-    start,
-    end,
-    padStart: axis.offsetAt(start),
-    padEnd: Math.max(0, axis.total - axis.offsetAt(end + 1)),
-    virtualized: true,
-  };
+  return { start, end };
 }
 
 export function virtualItemsOf(
@@ -76,19 +57,16 @@ export function virtualItemsOf(
 ): VirtualItem[] {
   const items: VirtualItem[] = [];
   for (let index = window.start; index <= window.end; index += 1) {
-    const start = axis.offsetAt(index);
-    const size = axis.sizeAt(index);
-    items.push({ index, start, size });
+    items.push({ index, start: axis.offsetAt(index), size: axis.sizeAt(index) });
   }
   return items;
 }
 
-// What horizontal culling compares against.
+// What culling compares against.
 export function windowBounds(
   axis: VirtualAxis,
   window: VirtualWindow,
 ): { startPx: number; endPx: number } {
-  if (window.end < window.start) return { startPx: 0, endPx: 0 };
   return {
     startPx: axis.offsetAt(window.start),
     endPx: axis.offsetAt(window.end + 1),
@@ -96,11 +74,5 @@ export function windowBounds(
 }
 
 export function sameWindow(a: VirtualWindow, b: VirtualWindow): boolean {
-  return (
-    a.start === b.start &&
-    a.end === b.end &&
-    a.virtualized === b.virtualized &&
-    a.padStart === b.padStart &&
-    a.padEnd === b.padEnd
-  );
+  return a.start === b.start && a.end === b.end;
 }

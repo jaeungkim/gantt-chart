@@ -4,7 +4,7 @@ description: "차트의 트리 계산과 달력 계산을 Node, 워커, 테스�
 ---
 
 차트가 쓰는 트리 계산과 행 순서 계산, 달력 계산은 React도 스타일시트도 DOM도 필요 없는 순수
-함수예요. 서버에서 그대로 실행하면 리포트와 차트가 같은 날짜를 내놓아요.
+함수예요. Node 스크립트나 워커, 테스트에서 그대로 실행하면 리포트와 차트가 같은 날짜를 내놓아요.
 
 ## 헬퍼 가져오기
 
@@ -19,8 +19,13 @@ import { buildTaskTree, rollUpTasks, createWorkingCalendar } from '@jaeungkim/ga
 `createWorkingCalendar`가 전부예요. 런타임 의존성은 `dayjs`와 `utc` 플러그인뿐이에요.
 
 `/core` 서브패스는 없어요. 패키지가 선언하는 진입점은 `.`, `./style.css`, `./package.json`이고,
-React 컴포넌트까지 담은 번들 하나로 배포돼요. `react`와 `react-dom`은 빌드에서 빠지니
-`rollUpTasks`만 가져오는 Node 스크립트에도 둘(`^18` 또는 `^19`)이 설치돼 있어야 해요.
+React 컴포넌트까지 담은 번들 하나로 배포돼요. `react`는 번들에 들어 있지 않고 번들을 불러올 때
+함께 로드돼요. 그래서 `rollUpTasks`만 가져오는 Node 스크립트에도 `react`(`^18` 또는 `^19`)가
+설치돼 있어야 해요.
+
+번들은 `"use client"` 지시어로 시작해요. Next.js App Router 같은 환경의 React 서버 컴포넌트나
+라우트 핸들러에서는 가져온 이름이 모두 클라이언트 참조로 들어와요. 그래서 거기서는 헬퍼를 호출할
+수 없어요. 일반 Node 스크립트와 워커, 테스트는 영향을 받지 않아요.
 
 ## 트리 롤업하기
 
@@ -51,7 +56,12 @@ const tasks: Task[] = [
 const calendar = createWorkingCalendar({ holidays: ['2025-06-06'] });
 
 for (const task of rollUpTasks(tasks, buildTaskTree(tasks))) {
-  const days = calendar.daysBetween(dayjs.utc(task.startDate), dayjs.utc(task.endDate));
+  const start = dayjs.utc(task.startDate);
+  const end = dayjs.utc(task.endDate);
+  const days =
+    calendar.daysBetween(start, end) +
+    Number(calendar.isWorkingDay(start)) -
+    Number(calendar.isWorkingDay(end));
   console.log(task.id, task.startDate.slice(0, 10), task.endDate.slice(0, 10), `${days}wd`, task.progress);
 }
 ```
@@ -67,6 +77,10 @@ B 2025-06-05 2025-06-10 2wd 40
 `P`는 `2025-06-03`에 끝난다고 적혀 있었지만 `2025-06-10`에 끝나는 값으로 돌아와요. 입력에 없던
 `progress` 63도 함께 붙어요. 다시 쓰인 부모는 완전한 ISO 문자열로 돌아오고, 롤업이 건드리지 않은
 행은 넘긴 문자열을 그대로 유지해요.
+
+`daysBetween`은 출발한 날은 세지 않고 도착한 날은 세요. 날짜만 적은 `endDate`는 그날을 막대에
+넣지 않아요. 그래서 반복문은 시작일을 다시 더하고 종료일은 빼요. 이 보정이 없으면 평범한 주에서
+월요일부터 토요일까지인 작업이 근무일 5일이 아니라 4일로 세져요.
 
 `tree` 인자는 선택 사항이고 기본값이 새 `buildTaskTree(tasks)`라서 반복문 안에서 호출하면 매번
 트리를 다시 만들어요. 요약 행이 무엇을 덮어쓰는지는 [작업 목록과 계층 구조](task-list)에, 롤업
@@ -99,9 +113,9 @@ const result = moveTask(tasks, { taskId: 'B', toParentId: null, toIndex: 0 }, { 
 if (result) await save(result.tasks);
 ```
 
-`moveTask`는 경로가 바뀐 작업의 번호를 다시 매기고 `parentId`는 옮긴 작업에만 다시 써요. 자리가
-그대로인 작업은 객체 동일성을 유지해요. 차트 안의 행 드래그는 [행 순서 바꾸기](reordering)에서
-다뤄요.
+`moveTask`는 `parentId`를 옮긴 작업에만 다시 써요. 이동 뒤 트리 안 자리와 맞지 않는 `sequence`는
+그 작업을 옮겼든 아니든 모두 다시 매겨요. 나머지 작업은 객체 동일성을 유지해요. 차트 안의 행 드래그는
+[행 순서 바꾸기](reordering)에서 다뤄요.
 
 ## 적용 전에 확인하기
 

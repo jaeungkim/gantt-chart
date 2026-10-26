@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 type BarKind = 'bar' | 'summary';
 
 interface Bar {
-  // Both ends are a percentage of the frame's full width.
+  // Both ends are a percentage of the timeline column's width.
   from: number;
   to: number;
   kind?: BarKind;
@@ -210,7 +210,7 @@ function SketchRow({ row }: { row: Row }) {
   );
 }
 
-// Percentages of days off the frame's first day; the spans match the code sample on the concepts page.
+// Percentages of days off the frame's first day.
 const day42 = (d: number) => (d / 42) * 100;
 
 type Lang = 'en' | 'ko';

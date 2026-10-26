@@ -23,7 +23,6 @@ const task = (
   ...extra,
 });
 
-// p1 (1) > a (1.1), b (1.2);  p2 (2) > c (2.1)
 const nested = (): Task[] => [
   task('p1', null, '1'),
   task('a', 'p1', '1.1'),
@@ -38,7 +37,6 @@ const flat = (): Task[] => [
   task('z', null, '3'),
 ];
 
-// Rendered order, each row as "<sequence> <id>"
 const layout = (tasks: Task[]) =>
   sortTasksBySequence(tasks).map((t) => `${t.sequence} ${t.id}`);
 
@@ -96,7 +94,6 @@ describe('validateMove', () => {
   });
 
   it('allows a same-parent move while hierarchy is off, whatever parentId says', () => {
-    // p's parentId points back at a; hierarchy off, only the sequence path counts
     const tasks = [
       task('p', 'a', '1'),
       task('a', null, '1.1'),
@@ -177,7 +174,6 @@ describe('moveTask', () => {
       '1.2 a',
       '1.3 b',
     ]);
-    // Only the moved task's parent link is rewritten; c still hangs off p2
     expect(result!.tasks.find((t) => t.id === 'c')?.parentId).toBe('p2');
   });
 
@@ -190,6 +186,17 @@ describe('moveTask', () => {
 
     expect(layout(result!.tasks)).toEqual(['1 a', '2 p1', '2.1 b', '3 p2', '3.1 c']);
     expect(result!.tasks.find((t) => t.id === 'a')?.parentId).toBeNull();
+  });
+
+  it('nests a task under a parent that has no children yet', () => {
+    const result = moveTask(
+      nested(),
+      { taskId: 'b', toParentId: 'a', toIndex: 0 },
+      ON,
+    );
+
+    expect(layout(result!.tasks)).toEqual(['1 p1', '1.1 a', '1.1.1 b', '2 p2', '2.1 c']);
+    expect(result!.change).toMatchObject({ afterId: null, beforeId: null });
   });
 
   it('keeps the identity of tasks whose path did not change', () => {
@@ -219,7 +226,6 @@ describe('moveTask', () => {
   });
 
   it('reads depth off the sequence path when hierarchy is off', () => {
-    // parentId is absent, so "1.2" is a child of "1" by its path alone
     const tasks = [
       task('p', null, '1'),
       task('one', null, '1.1'),
@@ -233,7 +239,6 @@ describe('moveTask', () => {
     );
 
     expect(layout(result!.tasks)).toEqual(['1 p', '1.1 two', '1.2 one']);
-    // Nothing re-parented, so parentId is left exactly as the host had it
     expect(result!.tasks.every((t) => t.parentId === null)).toBe(true);
   });
 
@@ -253,6 +258,27 @@ describe('moveTask', () => {
     ]);
     expect(result!.change.toIndex).toBe(2);
     expect(result!.change.beforeId).toBeNull();
+  });
+
+  it('refuses an out-of-range index that clamps onto the current slot', () => {
+    for (const move of [
+      { taskId: 'z', toParentId: null, toIndex: 99 },
+      { taskId: 'x', toParentId: null, toIndex: -1 },
+      { taskId: 'x', toParentId: null, toIndex: NaN },
+    ]) {
+      expect(validateMove(flat(), move, OFF)).toBe('no-op');
+      expect(moveTask(flat(), move, OFF)).toBeNull();
+    }
+  });
+
+  it('truncates a fractional index and reads NaN as 0', () => {
+    const half = moveTask(flat(), { taskId: 'x', toParentId: null, toIndex: 1.5 }, OFF);
+    const nan = moveTask(flat(), { taskId: 'z', toParentId: null, toIndex: NaN }, OFF);
+
+    expect(layout(half!.tasks)).toEqual(['1 y', '2 x', '3 z']);
+    expect(half!.change).toMatchObject({ toIndex: 1, afterId: 'y', beforeId: 'z' });
+    expect(layout(nan!.tasks)).toEqual(['1 z', '2 x', '3 y']);
+    expect(nan!.change).toMatchObject({ toIndex: 0, afterId: null, beforeId: 'x' });
   });
 
   it('moves a task down among its own siblings', () => {
@@ -294,7 +320,6 @@ describe('buildTaskOrder', () => {
   });
 
   it('reads them off the sequence path when hierarchy is off', () => {
-    // parentId is null everywhere, so only the path says who is whose child
     const tasks = [
       task('p', null, '1'),
       task('one', null, '1.1'),
@@ -339,7 +364,6 @@ describe('moveForDrop', () => {
   });
 
   it('gives up the slot it vacates when travelling down its own list', () => {
-    // a is at 0; dropping it after b must be index 1 of [b], not 2 of [a, b]
     expect(moveForDrop(order(), 'a', 'b', 'after')).toEqual({
       taskId: 'a',
       toParentId: 'p1',
@@ -356,7 +380,6 @@ describe('moveForDrop', () => {
   });
 
   it('appends into its own parent without counting itself twice', () => {
-    // a is already a child of p1, so "last child" is index 1 of [b], not 2
     expect(moveForDrop(order(), 'a', 'p1', 'child')).toEqual({
       taskId: 'a',
       toParentId: 'p1',

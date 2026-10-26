@@ -11,7 +11,7 @@ const MS_PER_UNIT: Record<'minute' | 'hour' | 'day' | 'week', number> = {
   week: 604_800_000,
 };
 
-// Approximate: exact for fixed-duration ticks, close enough for month ticks (28-31 days)
+// Exact at every scale, month ticks included - cells are sized by their length in drag steps
 export function pxPerMs(scale: GanttScaleKey): number {
   const { basePxPerDragStep, dragStepUnit, dragStepAmount } =
     GANTT_SCALE_CONFIG[scale];

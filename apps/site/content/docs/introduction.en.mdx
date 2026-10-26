@@ -8,12 +8,12 @@ It provides the timeline and editing interactions; your app supplies the task da
 
 ## What you can build
 
-Users can move tasks, adjust dates and progress, and connect tasks with dependency arrows.
+Users can drag tasks to new dates, edit progress in a detail panel, and connect tasks with dependency arrows.
 Group work into project phases with [hierarchy](task-list), or place multiple bars on a row with [lanes](lanes).
 
 The chart includes five timeline scales, working-day shading, optional working-calendar snapping,
-and light and dark themes. Rows and time cells are virtualized to limit how much is rendered at once.
-[Keyboard editing](accessibility) supports common task operations, with documented accessibility gaps.
+light and dark themes, and adjustable row and bar heights.
+Rows and time cells are virtualized to limit how much is rendered at once.
 
 Try these features in the [playground](/playground), or follow [Quick start](quick-start)
 to add the chart to your app.
@@ -32,7 +32,7 @@ You also choose the controls around the chart.
 Use the [ref API](imperative-api) for a scale picker, a Today button or navigation to a task.
 Use the [detail panel](detail-panel) for editing task fields.
 
-## Is it a fit for your project?
+## Check the fit
 
 The package supports React 18 and 19 and includes TypeScript types.
 It is MIT licensed and can be used in commercial projects.
@@ -43,8 +43,11 @@ Consider these boundaries when planning an integration:
   See [Dependencies](dependencies).
 - Lanes group bars visually. Resource allocation, workload balancing and cost calculations are not included.
 - There is no built-in PDF, image or spreadsheet export, or dedicated print layout.
-- Date labels can be localized. Built-in interface text and announcements remain English, and RTL layout is not supported.
-  See [Locale and date formats](i18n) and [Keyboard and screen readers](accessibility).
+- Date labels can be localized. Built-in interface text remains English, and RTL layout is not supported.
+  See [Locale and date formats](i18n).
+- Bars and rows take no keyboard focus, and every drag needs a pointer.
+  The chart sets no ARIA roles and makes no screen reader announcements.
+  The task list's grip and expander buttons, the detail panel's name field and close button, and the link menu's delete button carry English `aria-label`s.
 
 For data operations outside the chart, the package also exports [tree and calendar helpers](headless-core).
 

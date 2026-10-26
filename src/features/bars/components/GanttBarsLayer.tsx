@@ -1,19 +1,18 @@
 import type { VirtualItem } from "shared/virtual/window";
 import GanttBar from "features/bars/components/GanttBar";
-import { GanttDependencyChange } from "features/dependencies/hooks/useGanttLinkDrag";
-import { GanttBarOptions } from "shared/types";
+import { GanttDependencyChange } from "features/dependencies/types";
+import { GanttBarOptions, GanttGeometry, LinkAnchor } from "shared/types";
 import type { WorkingCalendar } from "core/calendar";
-import { GanttInteractionConfig } from "shared/task";
-import { GanttFocus } from "features/interaction/utils/a11y";
+import { GanttInteractionConfig, TaskTransformed } from "shared/task";
 import { GanttRow } from "features/rows/utils/rows";
+import { useShallow } from "zustand/shallow";
+import { useGanttStore } from "shared/context";
+import { LINK_HANDLE_REACH, MIN_RESIZABLE_WIDTH } from "shared/constants";
 
 interface GanttBarsLayerProps {
   rows: GanttRow[];
   virtualItems: VirtualItem[];
-  /** Cells before the bars on a row - the bar's column is this plus its lane */
-  gridColumnCount: number;
-  focus: GanttFocus;
-  /** Horizontal culling, shared with the header so the two cannot disagree */
+  /** Horizontal culling from the same window as the header, so the two cannot disagree */
   isBarVisible: (barLeft: number, barWidth: number) => boolean;
   options: GanttBarOptions;
   interaction: GanttInteractionConfig;
@@ -21,55 +20,82 @@ interface GanttBarsLayerProps {
   calendar?: WorkingCalendar;
   autoScrollOnDrag: boolean;
   onDependencyCreate?: (change: GanttDependencyChange) => boolean | void;
+  geometry: GanttGeometry;
 }
 
-// One bar per lane.
+const drawnEnd = (task: TaskTransformed) =>
+  task.barLeft + Math.max(task.barWidth, MIN_RESIZABLE_WIDTH);
+
+// A start handle's pad reaches back over the previous lane neighbour, painted above that neighbour's edge.
+// An end pad never needs this: the next neighbour paints above it until its own bar is hovered.
+function crowdedAnchors(lane: TaskTransformed[], i: number): LinkAnchor[] {
+  const prev = lane[i - 1];
+  return prev && lane[i].barLeft - drawnEnd(prev) < LINK_HANDLE_REACH ? ["start"] : [];
+}
+
 export default function GanttBarsLayer({
   rows,
   virtualItems,
-  gridColumnCount,
-  focus,
   isBarVisible,
   options,
   interaction,
   calendar,
   autoScrollOnDrag,
   onDependencyCreate,
+  geometry,
 }: GanttBarsLayerProps) {
-  return virtualItems.flatMap((virtualRow) => {
+  // Unmounting a bar mid-drag drops the bar from under the pointer and cancels a touch drag
+  const draggedIds = useGanttStore(
+    useShallow((store) => Object.keys(store.dragOffsets))
+  );
+  const held = useGanttStore((store) => store.barDrag?.task);
+
+  const barWrap = (
+    task: TaskTransformed,
+    start: number,
+    size: number,
+    crowded: LinkAnchor[] = []
+  ) => (
+    // styles.css lifts this wrapper's z-index while its bar has a tooltip or is being dragged (test-guarded)
+    <div
+      key={task.id}
+      className="gantt-bar-wrap"
+      style={{
+        height: `${size - 1}px`,
+        transform: `translateY(${start}px)`,
+      }}
+    >
+      <GanttBar
+        currentTask={task}
+        options={options}
+        interaction={interaction}
+        calendar={calendar}
+        autoScrollOnDrag={autoScrollOnDrag}
+        onDependencyCreate={onDependencyCreate}
+        geometry={geometry}
+        crowded={crowded}
+      />
+    </div>
+  );
+
+  const bars = virtualItems.flatMap((virtualRow) => {
     const row = rows[virtualRow.index];
     if (!row) return [];
 
-    return row.tasks.map((task, laneIndex) => {
-      if (!isBarVisible(task.barLeft, task.barWidth)) return null;
-
-      const col = gridColumnCount + laneIndex;
-
-      return (
-        // styles.css lifts this wrapper's z-index while its bar has a tooltip or is being
-        // dragged; any opaque stacking context here would trap the subtree (test-guarded).
-        <div
-          key={task.id}
-          className="gantt-bar-wrap"
-          style={{
-            height: `${virtualRow.size - 1}px`,
-            transform: `translateY(${virtualRow.start}px)`,
-          }}
-        >
-          <GanttBar
-            currentTask={task}
-            options={options}
-            interaction={interaction}
-            calendar={calendar}
-            autoScrollOnDrag={autoScrollOnDrag}
-            onDependencyCreate={onDependencyCreate}
-            tabIndex={
-              focus.row === virtualRow.index && focus.col === col ? 0 : -1
-            }
-            cellCoord={`${virtualRow.index}:${col}`}
-          />
-        </div>
-      );
-    });
+    return row.tasks.map((task, i) =>
+      draggedIds.includes(task.id) || isBarVisible(task.barLeft, task.barWidth)
+        ? barWrap(task, virtualRow.start, virtualRow.size, crowdedAnchors(row.tasks, i))
+        : null
+    );
   });
+
+  const heldIndex = held ? held.order - 1 : -1;
+  const heldTask = rows[heldIndex]?.tasks.find((task) => task.id === held?.id);
+  const first = virtualItems[0]?.index ?? 0;
+  const last = virtualItems[virtualItems.length - 1]?.index ?? -1;
+  if (!heldTask || (heldIndex >= first && heldIndex <= last)) return bars;
+
+  // Kept in row order, so React never moves the held bar's node as the window slides past it
+  const heldBar = barWrap(heldTask, heldIndex * geometry.rowHeight, geometry.rowHeight);
+  return heldIndex < first ? [heldBar, ...bars] : [...bars, heldBar];
 }

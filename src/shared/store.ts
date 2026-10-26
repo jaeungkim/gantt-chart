@@ -2,20 +2,23 @@ import {
   GanttBottomRowCell,
   GanttDragMode,
   GanttDragOffset,
-  GanttLocaleOptions,
   GanttScaleKey,
   LinkAnchor,
   LinkRejection,
 } from "shared/types";
 import { Task, TaskTransformed } from "shared/task";
 import { GanttDropMode, GanttMoveRejection, GanttTaskMove } from "core/reorder";
+import { collectSubtreeIds } from "core/tree";
+import { GANTT_SCALE_CONFIG } from "shared/constants";
 import { createStore } from "zustand";
 
 // Live state of a dependency drag - pointer px is in the timeline content's space
-interface GanttLinkDraft {
+export interface GanttLinkDraft {
   /** Task the drag started on - it becomes the predecessor */
   fromTaskId: string;
   fromAnchor: LinkAnchor;
+  fromX: number;
+  fromY: number;
   /** Current pointer position */
   toX: number;
   toY: number;
@@ -36,7 +39,7 @@ export interface GanttReorderDraft {
   mode: GanttDropMode;
   /** Indent the indicator is drawn at, in tree levels */
   depth: number;
-  /** The move this drop would commit - null when there is nothing valid under the pointer */
+  /** The move this drop would commit */
   move: GanttTaskMove | null;
   /** Why the drop is refused - null when it would be accepted */
   rejection: GanttMoveRejection | null;
@@ -54,18 +57,15 @@ export interface GanttState {
   rowTasks: TaskTransformed[];
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
-  currentTask: TaskTransformed | null;
-  /** Which gesture the running bar drag is - null when none. The readout dims the anchored end. */
-  dragMode: GanttDragMode | null;
+  /** The running bar drag and which gesture it is - null when none */
+  barDrag: { task: TaskTransformed; mode: GanttDragMode } | null;
   dragOffsets: Record<string, GanttDragOffset>;
   transformedTasks: TaskTransformed[];
-  /** Locale and label formats - undefined means the built-in English labels */
-  localeOptions: GanttLocaleOptions | undefined;
   /** Dependency drag in progress - null when none is running */
   linkDraft: GanttLinkDraft | null;
   /** Row drag in progress - null when none is running */
   reorderDraft: GanttReorderDraft | null;
-  /** Arrow the user clicked, so Delete knows what to remove */
+  /** Arrow the user clicked, so the link menu's delete knows what to remove */
   selectedDependency: GanttDependencyRef | null;
   /** The selected row, or null - drives the highlight on the bar and on its grid row */
   selectedTaskId: string | null;
@@ -73,9 +73,7 @@ export interface GanttState {
   hoveredTaskId: string | null;
 
   setSelectedScale: (scale: GanttScaleKey) => void;
-  setLocaleOptions: (options: GanttLocaleOptions | undefined) => void;
-  setCurrentTask: (task: TaskTransformed | null) => void;
-  setDragMode: (mode: GanttDragMode | null) => void;
+  setBarDrag: (barDrag: GanttState["barDrag"]) => void;
   setSelectedTaskId: (taskId: string | null) => void;
   setHoveredTaskId: (taskId: string | null) => void;
   setRawTasks: (rawTasks: Task[]) => void;
@@ -95,6 +93,16 @@ export interface GanttState {
 
 export type GanttStoreApi = ReturnType<typeof createGanttStore>;
 
+// Content key for the tasks prop. A list that cannot be serialized (a cycle, a BigInt) gets a
+// fresh symbol, which equals nothing, so it always counts as changed instead of throwing.
+export function snapshotTasks(tasks: Task[]): string | symbol {
+  try {
+    return JSON.stringify(tasks);
+  } catch {
+    return Symbol();
+  }
+}
+
 // One store per Gantt instance - a module singleton would make two charts share task and drag state.
 export function createGanttStore(initialScale: GanttScaleKey = "month") {
   return createStore<GanttState>()((set, get) => ({
@@ -102,23 +110,21 @@ export function createGanttStore(initialScale: GanttScaleKey = "month") {
     transformedTasks: [],
     rowTasks: [],
     bottomRowCells: [],
-    selectedScale: initialScale,
-    currentTask: null,
-    dragMode: null,
+    selectedScale: Object.prototype.hasOwnProperty.call(
+      GANTT_SCALE_CONFIG,
+      initialScale
+    )
+      ? initialScale
+      : "month",
+    barDrag: null,
     dragOffsets: {},
-    localeOptions: undefined,
     linkDraft: null,
     reorderDraft: null,
     selectedDependency: null,
     selectedTaskId: null,
     hoveredTaskId: null,
 
-    setCurrentTask: (task) => set({ currentTask: task }),
-
-    setDragMode: (mode) => {
-      if (get().dragMode === mode) return;
-      set({ dragMode: mode });
-    },
+    setBarDrag: (barDrag) => set({ barDrag }),
 
     setLinkDraft: (draft) => set({ linkDraft: draft }),
 
@@ -132,14 +138,8 @@ export function createGanttStore(initialScale: GanttScaleKey = "month") {
           : { selectedDependency: dependency }
       ),
 
-    setLocaleOptions: (options) => set({ localeOptions: options }),
+    setSelectedTaskId: (taskId) => set({ selectedTaskId: taskId }),
 
-    setSelectedTaskId: (taskId) => {
-      if (get().selectedTaskId === taskId) return;
-      set({ selectedTaskId: taskId });
-    },
-
-    // Guarded: without it a pointer moving inside one bar re-renders the arrow layer every event
     setHoveredTaskId: (taskId) => {
       if (get().hoveredTaskId === taskId) return;
       set({ hoveredTaskId: taskId });
@@ -154,7 +154,7 @@ export function createGanttStore(initialScale: GanttScaleKey = "month") {
 
     syncTasksFromProps: (raw) =>
       set((state) =>
-        JSON.stringify(state.rawTasks) === JSON.stringify(raw)
+        snapshotTasks(state.rawTasks) === snapshotTasks(raw)
           ? state
           : { rawTasks: raw }
       ),
@@ -163,7 +163,6 @@ export function createGanttStore(initialScale: GanttScaleKey = "month") {
     setTransformedTasks: (tasks) => set({ transformedTasks: tasks }),
     setRowTasks: (tasks) => set({ rowTasks: tasks }),
 
-    // Runs every drag frame - one store update even when a whole subtree moves
     setDragOffsets: (offsets) =>
       set((state) => ({
         dragOffsets: { ...state.dragOffsets, ...offsets },
@@ -182,17 +181,23 @@ export function createGanttStore(initialScale: GanttScaleKey = "month") {
         return removed ? { dragOffsets: rest } : state;
       }),
 
-    // Keeps an in-progress drag's offset, so a drag started right after a drop is not swept away.
+    // Keeps an in-progress drag's offsets, so a drag started right after a drop is not swept away.
     clearAllDragOffsets: () =>
       set((state) => {
-        const activeId = state.currentTask?.id;
         const keys = Object.keys(state.dragOffsets);
         if (!keys.length) return state;
-        if (!activeId || !state.dragOffsets[activeId]) {
-          return { dragOffsets: {} };
+        const task = state.barDrag?.task;
+        // the in-flight drag's members, picked as useGanttBarDrag does: a summary moves its subtree
+        const liveIds = !task
+          ? []
+          : task.isSummary
+            ? collectSubtreeIds(state.rawTasks, task.id)
+            : [task.id];
+        const kept: Record<string, GanttDragOffset> = {};
+        for (const id of liveIds) {
+          if (state.dragOffsets[id]) kept[id] = state.dragOffsets[id];
         }
-        if (keys.length === 1) return state;
-        return { dragOffsets: { [activeId]: state.dragOffsets[activeId] } };
+        return Object.keys(kept).length === keys.length ? state : { dragOffsets: kept };
       }),
   }));
 }

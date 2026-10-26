@@ -49,7 +49,7 @@ export interface TaskDependency {
 | Field | Type | Required | Meaning | Read when |
 |---|---|---|---|---|
 | `targetId` | `string` | yes | Id of the predecessor. An id that is not in `tasks` is skipped without an arrow or a warning. Nothing checks for a self link, so a task carrying its own id draws an arrow back onto its row. | always |
-| `type` | `DependencyType` | yes | Which bar edge of each task the link anchors to. A value outside the four draws no arrow. In a DEV build the chart also logs a `console.warn` once per distinct value. | always |
+| `type` | `DependencyType` | yes | Which bar edge of each task the link anchors to. A value outside the four draws no arrow and logs nothing. | always |
 
 See [Dependencies](../dependencies) for how arrows are drawn, selected and deleted.
 
@@ -63,7 +63,7 @@ export interface Task {
   endDate: string;
   parentId: string | null;
   sequence: string;
-  /** Progress 0-100 (%) - omitted means no progress display */
+  /** Progress 0-100 (%), clamped to that range; omitted means no progress display, except on a summary row, which rolls it up from its children. */
   progress?: number;
   /** Bar color (any CSS color) - progress fill and hover shade derive from it; omitted, the `--gantt-*` tokens decide */
   color?: string;
@@ -78,11 +78,11 @@ export interface Task {
   allowMove?: boolean;
   /** Allows/blocks resizing this task - overrides both `readOnly` settings */
   allowResize?: boolean;
-  /** Allows/blocks dragging this task's progress handle - overrides both `readOnly` settings */
+  /** Allows/blocks editing this task's progress in the built-in detail panel - overrides both `readOnly` settings */
   allowProgressChange?: boolean;
-  /** Allows/blocks starting a dependency drag from this task - overrides both `readOnly` settings */
+  /** Allows/blocks drawing a dependency that touches this task - overrides both `readOnly` settings */
   allowLinkCreate?: boolean;
-  /** Allows/blocks deleting a dependency this task owns - overrides both `readOnly` settings */
+  /** Allows/blocks selecting and deleting a dependency this task owns - overrides both `readOnly` settings */
   allowLinkDelete?: boolean;
   /** Allows/blocks dragging this row to a new position or parent - opt-in, off unless this or the chart's `allowReorder` turns it on */
   allowReorder?: boolean;
@@ -124,8 +124,8 @@ export interface TaskTransformed extends Task {
 | every `Task` field | as declared on `Task` | copied through unchanged | always |
 | `barLeft` | `number` | px from the timeline origin. `0` when the timeline has no cells | always |
 | `barWidth` | `number` | px, clamped to a minimum of `1`. `0` only when the timeline has no cells | always |
-| `depth` | `number` | `parentId` chain depth with `hierarchy` on, dot count in `sequence` otherwise | always |
-| `order` | `number` | 1-based row number after lane packing | always |
+| `depth` | `number` | `parentId` chain depth with `hierarchy` on. Otherwise the depth of the `sequence` path, where a path whose parent path has no row, such as `'2.1'` with no `'2'`, counts as a root | always |
+| `order` | `number` | 1-based row number after collapsing and lane packing, so tasks packed onto one row share it. The copy `onDetailChange` and `renderDetail` receive holds `originalOrder` here instead | always |
 | `originalOrder` | `number` | the 1-based index in the sequence-sorted array, before the `order` rewrite | always |
 | `isSummary` | `boolean` | `true` when the task has children. Always `false` with `hierarchy` off. Typed optional, written on every task. | always |
 
@@ -138,14 +138,16 @@ export interface TaskTransformed extends Task {
 exported either.
 
 The chart runs no validation on `Task`. Required fields, date parsing, id uniqueness and the input
-`progress` range all go unchecked. In a DEV build the chart warns once for an unrecognized
-`DependencyType`. That warning is the only runtime check in the model.
+`progress` range all go unchecked. An unrecognized `DependencyType` only loses its arrow, and
+nothing is logged.
 
 Layout calls `sequence.split('.')`, so a task built by hand without `sequence` throws. No other
 missing field throws.
 
 Dates go in as anything `dayjs.utc()` parses. They come back as `Dayjs.toISOString()`, in the form
-`YYYY-MM-DDTHH:mm:ss.sssZ`. The chart has no local time zone mode.
+`YYYY-MM-DDTHH:mm:ss.sssZ`. A move writes back a date that does not parse, such as `''`, as it
+was. A resize can drag such an end only inward from the timeline's edge, and writes the date it is
+dropped on. The chart has no local time zone mode.
 
 Related pages: [GanttProps](props), [GanttInteractionConfig](interaction-config),
 [Task data](../task-data).

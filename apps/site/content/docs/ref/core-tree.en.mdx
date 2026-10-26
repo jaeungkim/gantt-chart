@@ -158,7 +158,7 @@ The input is the full `Task`, not `TaskNode`. `startDate`, `endDate` and `progre
 |---|---|
 | `startDate` | Always `min(child startDate)`. The parent's own value is discarded. |
 | `endDate` | Always `max(child endDate)`. The parent's own value is discarded. |
-| `progress` | `parent.progress ?? rollUpProgress(children)`. An explicit value is kept, including `0`, and is not clamped. |
+| `progress` | `parent.progress` when it is set, otherwise the roll-up of the children below. An explicit value is kept, including `0`, and is not clamped. |
 | everything else | Copied through unchanged. |
 
 Both dates are re-serialized with `dayjs(ms).toISOString()`. A child's `'2025-03-04'` comes back
@@ -172,14 +172,15 @@ A parent whose children have no parseable `startDate` or no parseable `endDate` 
 ### Progress roll-up
 
 This runs only when the parent has no `progress`. Each child is weighted by its duration in
-milliseconds, `endDate` minus `startDate`, floored at `0`.
+milliseconds, `endDate` minus `startDate`, floored at `0`. A child whose `startDate` or `endDate`
+does not parse weighs `0`.
 
 | Rule | Value |
 |---|---|
 | Child `progress` | Clamped to `0` to `100` before weighting. |
 | Missing or non-numeric child `progress` | Counts as `0` and does not count as a reported value. |
 | No child reports a `progress` | `undefined`. The parent keeps `progress: undefined`. |
-| Every child has zero duration | A plain mean over the child count. |
+| Every child weighs `0` | A plain mean over the child count. |
 | Result | Rounded with `Math.round` to an integer percent. |
 
 Ten days at 100% plus thirty days at 0% gives `25`. Two children with zero duration at 100% and
@@ -196,7 +197,7 @@ Ten days at 100% plus thirty days at 0% gives `25`. Two children with zero durat
 ## sortTasksBySequence
 
 ```ts
-/** Sort tasks by their sequence hierarchy - row order comes from this and nothing else */
+/** Sorts a copy of the tasks by `sequence`, comparing segments as numbers; this is the chart's row order before lanes pack rows. */
 export function sortTasksBySequence<T extends Pick<Task, "sequence">>(
   tasks: T[]
 ): T[]
@@ -225,7 +226,7 @@ export interface GanttTaskMove {
 |---|---|---|
 | `taskId` | `string` | The task to move. Its whole subtree moves with it. |
 | `toParentId` | `string \| null` | The new parent, or `null` for the root level. Passing the current parent reorders among siblings. |
-| `toIndex` | `number` | Slot among the new parent's children, counted after the moved subtree has been lifted out. An out-of-range value is clamped into the list, not refused. |
+| `toIndex` | `number` | Slot among the new parent's children, counted after the moved subtree has been lifted out. A fraction is truncated toward zero and `NaN` reads as `0`, so `1.5` is slot `1`. An out-of-range value is then clamped into the list, not refused. |
 
 ## GanttTaskMoveChange
 
@@ -249,9 +250,9 @@ export interface GanttTaskMoveChange extends GanttTaskMove {
 | `afterId` | The sibling the task follows after the move, `null` when it is first. |
 | `beforeId` | The sibling the task precedes after the move, `null` when it is last. |
 
-`toIndex` on the change is the clamped index that was used, not the requested one. `toParentId`
-with `toIndex` suits an API that takes an index. `afterId` and `beforeId` suit an API that takes
-a neighbouring id. Both are read from the same result, so they cannot disagree.
+`toIndex` on the change is the truncated, clamped index that was used, not the requested one.
+`toParentId` with `toIndex` suits an API that takes an index. `afterId` and `beforeId` suit an API
+that takes a neighbouring id. Both are read from the same result, so they cannot disagree.
 [Reordering rows](../reordering) covers `onTaskMove`.
 
 ## GanttMoveOptions
@@ -265,7 +266,7 @@ export interface GanttMoveOptions {
 
 | Field | Required | Description |
 |---|---|---|
-| `hierarchy` | yes | On, sibling lists come from `parentId`, normalized the way `buildTaskTree` normalizes it. Off, depth comes from `sequence` alone and sibling lists come from the path. A move that changes the parent is refused. |
+| `hierarchy` | yes | On, sibling lists come from `parentId`, normalized the way `buildTaskTree` normalizes it. Off, depth comes from `sequence` alone and sibling lists come from the path. A path whose parent path has no row, such as `'2.1'` with no `'2'`, is a root, both for the depth the chart draws and for moves. A move that changes the parent is refused. |
 | `canReorder` | no | Whether a task may move. Omitted, every task may. The chart passes `resolveTaskInteraction(task, config).canReorder`. See [GanttInteractionConfig](interaction-config). |
 
 ## GanttMoveRejection
@@ -290,7 +291,7 @@ export type GanttMoveRejection =
 | `'read-only'` | `options.canReorder` returned `false` for the task. |
 | `'reparent-disabled'` | `options.hierarchy` is `false` and the move changes the parent. |
 | `'cycle'` | `move.toParentId` is inside the moved task's own subtree, the task itself included. Checked only when `hierarchy` is on, because a move never rewrites `parentId` otherwise. |
-| `'no-op'` | The task is already that parent's child at that index. |
+| `'no-op'` | The task is already that parent's child at that index. The index is truncated and clamped first, so `99` on the last child, or `-1` or `NaN` on the first, is a no-op. |
 
 ## validateMove
 
@@ -327,19 +328,25 @@ export function moveTask(
 `moveTask` returns `null` for any move that `validateMove` refuses. Call `validateMove` first to
 get the reason.
 
-`sequence` is a path. Its length is the depth and its last segment the slot among siblings, so no
-key fits between `"1.1"` and `"1.2"`. `moveTask` renumbers instead. It rearranges the forest,
-walks it depth first in row order and gives every task the path it renders at. `parentId` is
-rewritten on the moved task only. Its children keep pointing at it, so the subtree moves untouched.
+`sequence` is a path whose last segment is the slot among siblings, so no key fits between `"1.1"`
+and `"1.2"`. `moveTask` renumbers instead. It rearranges the forest, walks it depth first in row
+order and gives every task the path of its place in the forest. `parentId` is rewritten on the
+moved task only. Its children keep pointing at it, so the subtree moves untouched.
+
+The renumbering reaches tasks the move did not touch. Gaps close, so roots numbered `1`, `3` and
+`7` come back numbered `1` to `3`. With `hierarchy` off, a path whose parent path has no row, such
+as `'2.1'` with no `'2'`, already renders as a root and comes back with a root path. With
+`hierarchy` on, a `sequence` that disagrees with `parentId` comes back under its parent, so that row
+can change place.
 
 | Field | Changed on |
 |---|---|
-| `sequence` | Every task whose path in the tree changed. |
+| `sequence` | Every task whose `sequence` differs from its path in the forest after the move, moved or not. |
 | `parentId` | The moved task only, and only when `options.hierarchy` is on. |
 | everything else | No task. Dates, progress and dependencies are copied through. |
 
 A task whose `sequence` and `parentId` are both unchanged is returned as the same object, so a
-host diffing by identity sees only the tasks that moved. The array itself is always new. Its
+host diffing by identity sees only the tasks that changed. The array itself is always new. Its
 element order is the input order, not the new row order. Sort it with `sortTasksBySequence` to
 render it.
 
@@ -396,8 +403,8 @@ moved!.change.beforeId;                           // 'p' - c2 landed above it
   `@jaeungkim/gantt-chart`. The chart calls it internally. A host
   drives the same behaviour through the `collapsedIds` and `defaultCollapsedIds` props, described
   in [Task list and hierarchy](../task-list).
-- `TaskNode` and `rollUpProgress` are internal and not exported from the package root. This page
-  names them only to describe the signatures above.
+- `TaskNode` is internal and not exported from the package root. This page names it only to
+  describe the signatures above.
 - All six functions are pure and never mutate their input. `buildTaskTree` returns a new
   `TaskTree` on every call, and `collectSubtreeIds`, `sortTasksBySequence` and `moveTask` a new
   array. Only `rollUpTasks` can return the array instance it was given.

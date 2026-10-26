@@ -4,7 +4,8 @@ import type { ReactNode } from 'react';
 
 const SITE = 'https://gantt.jaeungkim.com';
 
-// `metadataBase` makes the relative OG image path absolute; without it social previews are blank.
+// `metadataBase` makes the relative OG image paths absolute. Without it Next guesses the host:
+// localhost, or a Vercel deployment URL.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: {
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
     template: '%s | @jaeungkim/gantt-chart',
   },
   description:
-    'Virtualized React Gantt chart with five timeline scales, four dependency types, a working-day calendar, and keyboard and screen-reader support.',
+    'Virtualized React Gantt chart with five timeline scales, four dependency types, and a working-day calendar.',
   openGraph: {
     type: 'website',
     siteName: '@jaeungkim/gantt-chart',

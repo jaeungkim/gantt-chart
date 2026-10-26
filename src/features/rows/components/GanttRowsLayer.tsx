@@ -1,26 +1,18 @@
 import type { VirtualItem } from "shared/virtual/window";
-import { rowAriaProps } from "features/interaction/utils/a11y";
-import { GanttRow, isRowExpandable } from "features/rows/utils/rows";
+import { GanttRow } from "features/rows/utils/rows";
 
 interface GanttRowsLayerProps {
   rows: GanttRow[];
   virtualItems: VirtualItem[];
-  /** With the task list pane on screen the stripes carry no ARIA; without it they are the rows */
-  ownedByTaskList: boolean;
-  hierarchy: boolean;
-  collapsedIds: ReadonlySet<string>;
 }
 
 /** The row stripes behind the bars */
 export default function GanttRowsLayer({
   rows,
   virtualItems,
-  ownedByTaskList,
-  hierarchy,
-  collapsedIds,
 }: GanttRowsLayerProps) {
   return (
-    <div className="gantt-rows" role="presentation">
+    <div className="gantt-rows">
       {virtualItems.map((virtualRow) => {
         const row = rows[virtualRow.index];
         if (!row) return null;
@@ -31,22 +23,8 @@ export default function GanttRowsLayer({
           transform: `translateY(${virtualRow.start}px)`,
         };
 
-        const aria = ownedByTaskList
-          ? ({ "aria-hidden": "true" } as const)
-          : rowAriaProps(row, virtualRow.index, {
-              headerOffset: 0,
-              expandable: isRowExpandable(row, hierarchy),
-              expanded: !collapsedIds.has(row.id),
-              ownedIds: row.tasks.map((task) => `task-${task.id}`),
-            });
-
         return (
-          <div
-            key={`row-${row.id}`}
-            className="gantt-task-row"
-            style={style}
-            {...aria}
-          />
+          <div key={`row-${row.id}`} className="gantt-task-row" style={style} />
         );
       })}
     </div>

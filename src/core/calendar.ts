@@ -1,22 +1,24 @@
 import type { Dayjs } from 'dayjs';
 
-/** Day arithmetic that can skip non-working days. */
+/** Day arithmetic that can skip non-working days. See https://gantt.jaeungkim.com/docs/ref/core-calendar */
 export interface WorkingCalendar {
-  /** False for the default calendar (every day counts) */
+  /** False for the default calendar (every day counts). */
   readonly skipsNonWorkingDays: boolean;
+  /** Whether the date counts as a working day; always true for the default calendar. */
   isWorkingDay(date: Dayjs): boolean;
-  /** Moves `days` days forward (or backward), skipping non-working days */
+  /** Moves `days` days forward (or backward), skipping non-working days. */
   addDays(date: Dayjs, days: number): Dayjs;
   /** Days from `from` to `to`, counted the same way `addDays` moves. Signed. */
   daysBetween(from: Dayjs, to: Dayjs): number;
-  /** The date itself when it is a working day, otherwise the next one (time of day kept) */
+  /** The date itself when it is a working day, otherwise the next one (time of day kept). */
   snapForward(date: Dayjs): Dayjs;
 }
 
+/** Which days `createWorkingCalendar` counts as working. See https://gantt.jaeungkim.com/docs/ref/core-calendar */
 export interface WorkingCalendarOptions {
-  /** Working weekdays as UTC day numbers, 0 = Sunday (default Mon-Fri) */
+  /** Working weekdays as UTC day numbers, 0 = Sunday (default Mon-Fri). */
   workingWeekdays?: number[];
-  /** Non-working dates as UTC `YYYY-MM-DD` strings */
+  /** Non-working dates as UTC `YYYY-MM-DD` strings, matched exactly (default none). */
   holidays?: string[];
 }
 
@@ -39,7 +41,7 @@ function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
     const step = days > 0 ? 1 : -1;
     let remaining = Math.abs(days);
     let cursor = date;
-    let guard = Math.abs(days) + MAX_SKIP * Math.abs(days);
+    let guard = remaining + MAX_SKIP * remaining;
 
     while (remaining > 0) {
       cursor = cursor.add(step, DAY);
@@ -55,7 +57,6 @@ function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
     const b = to.startOf(DAY);
     const plain = b.diff(a, DAY);
     if (!isOff || plain === 0) return plain;
-    // Guard against absurd data rather than walking a century one day at a time
     if (Math.abs(plain) > MAX_SPAN) return plain;
 
     const sign = plain > 0 ? 1 : -1;
@@ -88,10 +89,10 @@ function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
   };
 }
 
-/** The default calendar: every day counts, so arithmetic through it is plain calendar arithmetic. */
+/** The default calendar: every day counts, so arithmetic through it is plain calendar arithmetic. See https://gantt.jaeungkim.com/docs/ref/core-calendar */
 export const CALENDAR_DAYS: WorkingCalendar = build(null);
 
-/** A calendar that skips weekends and holidays, configured like the chart's non-working-day shading. */
+/** A calendar that skips weekends and holidays (default Mon-Fri, no holidays). See https://gantt.jaeungkim.com/docs/ref/core-calendar */
 export function createWorkingCalendar(
   options: WorkingCalendarOptions = {}
 ): WorkingCalendar {

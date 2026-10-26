@@ -1,9 +1,17 @@
 import { readFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import dayjs from "core/dates";
+import { GanttStoreContext } from "shared/context";
+import { createGanttStore } from "shared/store";
+import type { Task } from "shared/task";
+import { computeTimelineData } from "features/timeline/utils/geometry";
+import GanttDragGuides from "./GanttDragGuides";
 
-// Nothing at runtime ties the readout's top/height to the header row heights - these assertions do
 const css = readFileSync("src/styles.css", "utf8");
-const guides = readFileSync("src/features/bars/components/GanttDragGuides.tsx", "utf8");
+const tokens = readFileSync("src/tokens.css", "utf8");
+const guides =readFileSync("src/features/bars/components/GanttDragGuides.tsx", "utf8");
 const gantt = readFileSync("src/Gantt.tsx", "utf8");
 
 function block(selector: string): string {
@@ -61,7 +69,6 @@ describe("drag readout mounts in the header", () => {
     expect(wrapper).toBeGreaterThan(-1);
     const mount = gantt.indexOf("<GanttDragGuides");
     expect(mount).toBeGreaterThan(wrapper);
-    // ...and before the content layer starts, i.e. still inside the header wrapper
     expect(mount).toBeLessThan(gantt.indexOf("gantt-content", wrapper));
   });
 });
@@ -91,7 +98,6 @@ describe("drag readout is the tick row being precise, not a panel on it", () => 
     }
   });
 
-  // The footprint is the one shape on the axis: a tint of the foreground, no edge, no accent
   it("tints the footprint from the foreground and draws no edge around it", () => {
     const background = declaration(".gantt-drag-footprint", "background");
     expect(background).toContain("color-mix(");
@@ -112,8 +118,7 @@ describe("drag readout is the tick row being precise, not a panel on it", () => 
     ]) {
       expect(css).not.toContain(selector);
     }
-    expect(css).not.toContain("--gantt-drag-band");
-    // Cell-anchored, so nothing pins and nothing is measured
+    expect(css + tokens).not.toContain("--gantt-drag-band");
     expect(block(".gantt-drag-cell")).not.toContain("sticky");
     expect(guides).not.toContain("useRef");
     expect(guides).not.toContain("useLayoutEffect");
@@ -148,5 +153,58 @@ describe("drag readout writes the cell the moving edge lands in", () => {
     expect(guides.indexOf("gantt-drag-footprint")).toBeGreaterThan(
       guides.indexOf("gantt-drag-cell")
     );
+  });
+});
+
+describe("drag readout follows the bar when the timeline grows at the front mid-drag", () => {
+  const tasks: Task[] = [
+    {
+      id: "a",
+      name: "A",
+      parentId: null,
+      sequence: "1",
+      startDate: "2026-03-20T00:00:00Z",
+      endDate: "2026-03-23T00:00:00Z",
+    },
+  ];
+
+  it("writes the footprint and the date cell where GanttBar draws the bar now", () => {
+    const store = createGanttStore("week");
+    // A server render reads the initial state, so point it at the live one
+    store.getInitialState = store.getState;
+    // useGanttTimelineSync: an infiniteScroll prepend re-transforms every task, keeping the offset
+    const sync = (prependedTicks: number) => {
+      const data = computeTimelineData(tasks, "week", undefined, false, {
+        before: prependedTicks,
+        after: 0,
+      });
+      store.getState().setBottomRowCells(data.bottomCells);
+      store.getState().setTransformedTasks(data.transformedTasks);
+      return data.transformedTasks[0];
+    };
+
+    const pressed = sync(0);
+    store.getState().setBarDrag({ task: pressed, mode: "bar" });
+    store.getState().setDragOffsets({
+      a: {
+        offsetX: -144,
+        offsetWidth: 0,
+        offsetStartDate: dayjs(pressed.startDate).subtract(2, "day"),
+        offsetEndDate: dayjs(pressed.endDate).subtract(2, "day"),
+      },
+    });
+    const now = sync(14);
+    expect(now.barLeft).toBeGreaterThan(pressed.barLeft);
+
+    const html = renderToStaticMarkup(
+      createElement(GanttStoreContext.Provider, { value: store }, createElement(GanttDragGuides))
+    );
+    const drawnLeft = now.barLeft - 144;
+    expect(html).toContain(`class="gantt-drag-footprint" style="left:${drawnLeft}px`);
+    const [, cellLeft, cellWidth] = html.match(
+      /class="gantt-drag-cell" style="left:(-?[\d.]+)px;width:([\d.]+)px/
+    )!.map(Number);
+    expect(drawnLeft).toBeGreaterThanOrEqual(cellLeft);
+    expect(drawnLeft).toBeLessThan(cellLeft + cellWidth);
   });
 });

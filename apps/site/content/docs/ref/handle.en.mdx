@@ -21,7 +21,7 @@ import type {
 ## `GanttHandle`
 
 ```ts
-/** Imperative API exposed through the ref */
+/** Imperative API exposed through the ref. */
 export interface GanttHandle
   extends GanttScrollApi,
     GanttDetailApi,
@@ -51,19 +51,19 @@ Every method except `getScrollElement` returns `void`.
 ## `GanttScrollApi`
 
 ```ts
-/** Imperative scroll and zoom API */
+/** The scroll and zoom methods of `GanttHandle`, the object a chart `ref` receives. */
 export interface GanttScrollApi {
-  /** Scroll horizontally to a given date */
+  /** Scrolls horizontally to a date; a date outside the rendered timeline is ignored. */
   scrollToDate: (date: string | Date | Dayjs, options?: GanttScrollOptions) => void;
-  /** Scroll horizontally to today */
+  /** Scrolls horizontally to the current time; ignored while today is outside the rendered timeline. */
   scrollToToday: (options?: GanttScrollOptions) => void;
-  /** Scroll horizontally and vertically to a given task */
+  /** Scrolls to a task's bar, and vertically only when its row is off screen; a task no row shows, such as one under a collapsed parent, is ignored. */
   scrollToTask: (taskId: string, options?: GanttScrollOptions) => void;
-  /** Switches the scale, keeping the centre date centred; an unknown key is ignored */
+  /** Switches the scale, keeping the centre date centred; an unknown key is ignored. */
   setScale: (scale: GanttScaleKey) => void;
-  /** Switches to the finest scale the whole project fits at and scrolls it into view (no-op with no tasks) */
+  /** Switches to the finest scale the rendered tasks fit at and pins the earliest start to the left edge; no-op with no tasks. */
   zoomToFit: () => void;
-  /** The scroll container DOM node (null when unavailable) */
+  /** Returns the chart's scroll container element, or `null` while the chart is not mounted. */
   getScrollElement: () => HTMLDivElement | null;
 }
 ```
@@ -78,11 +78,11 @@ internal and not exported.
 ## `GanttDetailApi`
 
 ```ts
-/** Opening and closing the detail panel from outside the chart */
+/** Opening and closing the detail panel from outside the chart. */
 export interface GanttDetailApi {
-  /** Opens the detail panel on a task; unknown ids and a panel-less chart (no `renderDetail`/`showDetail`) are ignored */
+  /** Opens the detail panel on a task; unknown ids and a panel-less chart (no `renderDetail`/`showDetail`) are ignored. */
   openDetail: (taskId: string) => void;
-  /** Closes the detail panel */
+  /** Closes the detail panel; a no-op while it is already closed. */
   closeDetail: () => void;
 }
 ```
@@ -95,9 +95,9 @@ to `openDetail` needs no guard.
 ## `GanttTaskCreateApi`
 
 ```ts
-/** Proposing a new task from outside the chart */
+/** Proposing a new task from outside the chart. */
 export interface GanttTaskCreateApi {
-  /** Sends a one-tick draft at today to `onTaskCreate`, as the "Add task" button does; no-op without `onTaskCreate` or with `allowTaskCreate` false */
+  /** Sends a one-tick draft at today (the first tick while today is off the timeline) to `onTaskCreate`, as the "Add task" button does; no-op without it, on an empty timeline, or while `allowTaskCreate` resolves false. */
   addTask: () => void;
 }
 ```
@@ -111,25 +111,25 @@ turns creation off.
 ## `GanttScrollOptions`
 
 ```ts
-/** Options for the scrollTo* methods */
+/** Options for `scrollToDate`, `scrollToToday` and `scrollToTask`. */
 export interface GanttScrollOptions {
-  /** Whether to animate the scroll (default true) */
+  /** Animates the scroll (default `true`); `false`, or a user preference for reduced motion, makes it instant. */
   smooth?: boolean;
-  /** Where the target lands inside the viewport (default 'center') */
+  /** Where the target lands horizontally: the left edge of the timeline area, or its centre (default `"center"`). */
   align?: "start" | "center";
 }
 ```
 
 | Field | Type | Default | Effect |
 |---|---|---|---|
-| `smooth` | `boolean` | `true` | `false` scrolls with `behavior: "auto"`. Any other value, `undefined` included, animates with `behavior: "smooth"`. |
+| `smooth` | `boolean` | `true` | `false` scrolls with `behavior: "auto"`. Any other value, `undefined` included, animates with `behavior: "smooth"`, except under `prefers-reduced-motion: reduce`, where every call scrolls with `"auto"`. |
 | `align` | `"start" \| "center"` | `"center"` | `"start"` puts the target at the left edge of the timeline area. `"center"` centres it in the timeline area, measured against the width that remains beside the task list pane. |
 
 Horizontal targets are clamped with `Math.max(0, ...)`, so a target left of the timeline origin
 scrolls to `0`.
 
 `align` applies to the horizontal axis only. When `scrollToTask` scrolls vertically, it always
-centres the row.
+centres the row in the area below the sticky header.
 
 [Imperative API](../imperative-api) shows the handle attached to a toolbar.
 
@@ -152,6 +152,8 @@ below returns without throwing and without a console warning.
 | `zoomToFit` | `tasks` is empty, or the scroll container is not mounted | no scale change, no scroll |
 | `getScrollElement` | the chart is not mounted | `null` |
 | `openDetail` | the id names no task in `tasks` | no open |
+| `openDetail` | the task was just added, and the call runs in the same handler as the `setTasks` that adds it, in a `useLayoutEffect` of that commit, or in a `useEffect` of that commit in a component that comes before the chart in the React tree | no open, because the chart does not hold the task yet |
+| `openDetail` | the task was just added, and the call runs in a `useEffect` of that commit in the component that renders the chart, or in any later commit | the panel opens once the chart has rendered the task, and `onDetailChange` fires then |
 | `openDetail` | the panel is off, with neither `renderDetail` nor `showDetail` turning it on | no open |
 | `closeDetail` | the panel is off, or already closed | nothing, and no `onDetailChange` |
 | `addTask` | `onTaskCreate` is not given, `allowTaskCreate` is `false`, or `readOnly` is set without an overriding `allowTaskCreate` | no draft, no callback |
@@ -163,7 +165,7 @@ below returns without throwing and without a console warning.
   identity. `getScrollElement` reads the ref on each call, so a handle captured earlier returns
   the current element.
 - `scrollToDate` and `scrollToToday` never change `scrollTop`. Only `scrollToTask` scrolls
-  vertically, and only when the target row is outside the viewport.
+  vertically, and only when the target row is not wholly visible below the sticky header.
 - No prop sets the scale after mount. `setScale` sets an exact scale from code. `defaultScale` is
   read once when the store is created, so a later change to it is ignored.
 - The chart renders no scale picker. A picker in your app calls `setScale`. The `onScaleChange`
@@ -171,7 +173,13 @@ below returns without throwing and without a console warning.
 - `zoomToFit` takes no `GanttScrollOptions`. Its scroll is instant, with no animation.
 - `zoomToFit` tries the five scales in the order `day`, `week`, `month`, `quarter`, `year`, and
   falls back to `year` when the project fits none of them. See [The timeline](../timeline).
-- Row height for the vertical `scrollToTask` math is a fixed 38px.
+- A scroll method called in the same tick as a `setScale` or `zoomToFit` that changes the scale,
+  before or after it, lands on the new scale. The chart runs it against that scale once it has
+  rendered, after the zoom's own anchor, so the scroll wins. A `setScale` given the current key,
+  or a `zoomToFit` that fits at the current scale, scrolls at once instead. That cancels or
+  overrides a scroll method called before it in the same tick, so call the scroll after the zoom.
+- The vertical `scrollToTask` math uses the `rowHeight` prop (38px by default) and the height of
+  the scroll container left below the 73px sticky header.
 - `openDetail` resolves the id against every task, collapsed rows included. `scrollToTask` needs
   the row to be rendered. Collapsing a parent hides the row without closing the panel that
   describes it.

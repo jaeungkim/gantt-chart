@@ -1,12 +1,34 @@
-import { GanttScaleConfig, GanttScaleKey } from 'shared/types';
+import { GanttGeometry, GanttScaleConfig, GanttScaleKey } from 'shared/types';
 import { quarterOfYear } from 'core/dates';
 
-export const NODE_HEIGHT = 38;
-// Bar height (px), centred in the NODE_HEIGHT row - connector dots, progress handle and grips sit inside it
-export const BAR_HEIGHT = 28;
+const DEFAULT_ROW_HEIGHT = 38;
+const DEFAULT_BAR_HEIGHT = 28;
 // A summary row's bar is thinner than a task's - the shape is what says "roll-up", so the
 // cue survives a per-task `color` that repaints the fill
-export const SUMMARY_BAR_HEIGHT = 18;
+const SUMMARY_BAR_RATIO = 18 / 28;
+
+// The props are a trust boundary: anything but a positive finite number keeps the default
+const positiveOr = (value: number | undefined, fallback: number) =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : fallback;
+
+export function resolveGeometry(
+  rowHeight?: number,
+  barHeight?: number,
+): GanttGeometry {
+  const row = positiveOr(rowHeight, DEFAULT_ROW_HEIGHT);
+  const defaultBar = Math.round((row * DEFAULT_BAR_HEIGHT) / DEFAULT_ROW_HEIGHT);
+  // Leaves a gap above and below every bar for the row rule and the arrows' back-route lanes
+  const bar = Math.max(1, Math.min(positiveOr(barHeight, defaultBar), row - 4));
+
+  return {
+    rowHeight: row,
+    barHeight: bar,
+    summaryBarHeight: Math.max(1, Math.round(bar * SUMMARY_BAR_RATIO)),
+  };
+}
+
 // 44 top group + 28 bottom cell + 1 border (px) - the grid header matches it
 export const HEADER_HEIGHT = 73;
 // Grid pane width limits (px)
@@ -21,8 +43,6 @@ export const TIMELINE_SHIFT_BUFFER = 5;
 export const MIN_LABEL_INSIDE_WIDTH = 56;
 // Size of the resize edge hit area (px)
 export const EDGE_THRESHOLD = 8;
-// Keeps the 10px progress dot clear of the resize grip at 0% and 100% (px)
-export const PROGRESS_HANDLE_INSET = EDGE_THRESHOLD + 5;
 // Resize edge hit area for touch and pen (px) - the 44px guideline on the one axis a bar can grow along
 export const TOUCH_EDGE_THRESHOLD = 44;
 // Below this bar width there is no edge resizing and the whole bar is the move handle (px)
@@ -34,11 +54,13 @@ export const MIN_TOUCH_RESIZABLE_WIDTH = TOUCH_EDGE_THRESHOLD * 3;
 export const LINK_ANCHOR_ZONE = 24;
 // Pointer travel before a press on a connector dot becomes a link drag (px)
 export const LINK_DRAG_SLOP = 4;
+// How far a link handle's hit pad reaches past the bar's end in styles.css
+export const LINK_HANDLE_REACH = 26;
 
 // Dwell before the hover card opens (ms) - the card covers the arrow layer, so transit must not open it
 export const HOVER_CARD_DELAY_MS = 450;
 
-// Date format per scale (tooltip and drag guides) - the chart is UTC, spelled out only where time shows
+// Date format per scale (tooltip) - the chart is UTC, spelled out only where time shows
 export const DATE_FORMATS: Record<GanttScaleKey, string> = {
   day: 'MMM D, YYYY HH:mm [UTC]',
   week: 'MMM D, YYYY',
@@ -59,18 +81,18 @@ export const RANGE_FORMATS: Record<GanttScaleKey, string> = {
   year: 'MMM YYYY',
 };
 
-// A holiday's name is written over its band, so a band too narrow to hold a word writes nothing
-// and leaves the tint to mark the day. One day is 72px at the week scale and 18px at the month
-// scale, so this is also what decides that names appear on one and not the other.
+// A holiday band narrower than this writes its name only on hover and leaves the tint to mark
+// the day. One day is 72px at the week scale and 18px at the month scale, so this is also what
+// decides that names stay up on one and not the other.
 export const MIN_HOLIDAY_LABEL_PX = 44;
 
-// The zoom ladder, finest first - declaration order is the ladder, each step out 4x the last
-// in px per calendar day (288-72-18-4-1). Zooming out coarsens `unitPerTick` so a header cell
+// The zoom ladder, finest first - declaration order is the ladder, each step out ~4x the last
+// in px per calendar day (288-72-18-4-1). Zooming out coarsens the tick so a header cell
 // stays ~60-130px rather than shrinking.
 // `dragStepUnit` must divide a tick evenly, or createBottomRowCells truncates the cell width.
 export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
   day: {
-    // Quarter-day cells - the only scale that draws a task shorter than a day at its true length
+    // Quarter-day cells
     labelUnit: 'day',
     tickUnit: 'hour',
     unitPerTick: 6,
@@ -93,7 +115,7 @@ export const GANTT_SCALE_CONFIG: Record<GanttScaleKey, GanttScaleConfig> = {
     formatHeaderLabel: (d) => d.format('MMM YYYY'),
   },
   month: {
-    // Week cells - a day cell would be 18px here, too narrow for a date or an edge grab
+    // Week cells - a day cell would be 18px here, too narrow for a date
     labelUnit: 'month',
     tickUnit: 'day',
     unitPerTick: 7,

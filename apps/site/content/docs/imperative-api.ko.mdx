@@ -67,6 +67,8 @@ export function GanttToolbar() {
 
 차트가 마운트되기 전까지 ref는 `null`이라 호출마다 옵셔널 체이닝을 써요. 버튼은 상태를 갖지 않아요. 메서드가 호출되는 순간의 차트 상태를 읽기 때문이에요. 타입 선언은 [GanttHandle](ref/handle)에 있어요.
 
+한 핸들러에서 여러 메서드를 이어서 불러도 돼요. 같은 틱에서 스크롤 메서드를 `setScale`이나 `zoomToFit()` 뒤에 부르면 줌이 정한 배율에 맞춰 스크롤돼요. 줌보다 앞에서 부른 스크롤은 줌이 배율을 바꿀 때만 남고, `zoomToFit()`은 배율을 스스로 골라요.
+
 ## 타임라인 스크롤하기
 
 `scrollToDate`와 `scrollToToday`는 가로축만 움직여요. `scrollToTask`는 두 축을 모두 움직이고, 행이 화면 밖에 있을 때만 세로로 행을 가운데에 놓아요.
@@ -76,7 +78,7 @@ ganttRef.current?.scrollToDate('2026-09-01', { smooth: false, align: 'start' });
 ganttRef.current?.scrollToTask('build');
 ```
 
-스크롤 메서드는 모두 같은 옵션을 받아요. `smooth`는 리터럴 `false`를 넘길 때만 애니메이션을 꺼요. `align`은 리터럴 `'start'`를 넘길 때만 타임라인 영역의 왼쪽 끝에 맞추고, 그 외에는 가운데에 맞춰요.
+스크롤 메서드는 모두 같은 옵션을 받아요. `smooth`는 리터럴 `false`를 넘기거나 사용자가 동작 줄이기를 설정했을 때만 애니메이션을 꺼요. `align`은 리터럴 `'start'`를 넘길 때만 타임라인 영역의 왼쪽 끝에 맞추고, 그 외에는 가운데에 맞춰요.
 
 가운데에 맞출 때는 뷰포트 너비에서 고정된 작업 목록 패널을 뺀 영역을 기준으로 재요. `scrollToTask`는 가로로 `align: 'start'`면 막대의 왼쪽 끝을, 그 외에는 막대의 중간을 맞춰요. `align`은 세로축에 영향을 주지 않고, 두 경우 모두 목표 위치가 `0`보다 작아지지 않아요.
 
@@ -84,13 +86,13 @@ ganttRef.current?.scrollToTask('build');
 
 `scrollToTask`는 렌더링된 행에서만 찾아서, 접힌 부모 아래의 작업은 펼치기 전까지 닿지 않아요.
 
-첫 스크롤에는 ref가 필요 없어요. `initialScrollTo`에 `"today"`나 날짜 문자열을 넘기면 첫 렌더링 뒤에 그 위치로 한 번 이동하고, 이후 데이터가 바뀌어도 스크롤은 그대로예요.
+첫 스크롤에는 ref가 필요 없어요. `initialScrollTo`에 `"today"`나 날짜 문자열을 넘기면 타임라인이 처음 그려질 때 그 위치로 한 번 이동해요. 이후 데이터가 바뀌어도 스크롤은 그대로예요.
 
 ## 배율 선택기 동기화하기
 
 `setScale`은 타임라인 가운데 날짜를 그대로 두고 배율을 바꿔요. `onScaleChange`는 확정된 변경을 다시 알려줘요. 위 예제처럼 네이티브 `<select>`를 둘에 연결하면 select는 자체 상태가 필요 없어요.
 
-휠 줌과 키보드 단축키, `zoomToFit()`도 모두 `onScaleChange`로 알려주니 select가 추가 코드 없이 따라와요. option 텍스트는 앱이 직접 쓰니 라벨도 나머지 화면과 함께 번역해요. 자세한 내용은 [로케일과 날짜 형식](i18n)에서 확인해요.
+휠 줌과 `zoomToFit()`도 `onScaleChange`로 알려주니 select가 추가 코드 없이 따라와요. option 텍스트는 앱이 직접 쓰니 라벨도 나머지 화면과 함께 번역해요. 자세한 내용은 [로케일과 날짜 형식](i18n)에서 확인해요.
 
 ## 프로젝트 전체 보기
 
@@ -100,7 +102,7 @@ ganttRef.current?.scrollToTask('build');
 
 `zoomToFit()`은 옵션을 받지 않고 스크롤은 항상 즉시 일어나요. 작업이 없거나 차트가 마운트되지 않았거나 쓸 수 있는 시작일과 종료일이 없으면 오류 없이 반환해요.
 
-`zoomIn`과 `zoomOut`은 없어요. 배율 키 5개를 담은 배열을 직접 만들어 `setScale`로 한 단계씩 옮기거나, [타임라인](timeline)에서 설명하는 휠과 키보드 단축키에 맡겨요.
+`zoomIn`과 `zoomOut`은 없어요. 배율 키 5개를 담은 배열을 직접 만들어 `setScale`로 한 단계씩 옮기거나, [타임라인](timeline)에서 설명하는 휠 줌에 맡겨요.
 
 ## 패널 열고 작업 추가하기
 
@@ -111,6 +113,8 @@ ganttRef.current?.scrollToTask('build');
 `addTask()`는 화면이 아니라 데이터에 관한 유일한 멤버예요. **Add task** 버튼과 같은 초안을 만들어 `onTaskCreate`에 넘겨요. 초안은 오늘 위치의 눈금 하나예요. 아무것도 쓰지 않으니 행은 핸들러가 그 작업을 `tasks`에 넣을 때 생겨요.
 
 `onTaskCreate`가 없거나 생성이 꺼져 있으면 `addTask()`도 아무 일도 하지 않아요. 이 버튼에도 가드는 필요 없어요. 자세한 내용은 [작업 생성](task-creation)에서 확인해요.
+
+방금 추가한 작업으로 패널을 열려면 차트를 렌더링하는 컴포넌트의 `useEffect`에서 `openDetail`을 호출해요. 패널은 차트가 그 작업을 렌더링한 뒤에 열리고, `onDetailChange`도 그때 발생해요. `setTasks`를 부른 핸들러 안이나 그 커밋의 `useLayoutEffect`, React 트리에서 차트보다 앞에 오는 컴포넌트의 `useEffect`에서 부르면 차트가 아직 그 작업을 갖고 있지 않아서 무시돼요.
 
 ## 적용 전에 확인하기
 
