@@ -1,0 +1,104 @@
+.gantt-container,
+.gantt-container *,
+.gantt-container *::before,
+.gantt-container *::after {
+  box-sizing: border-box;
+}
+
+.gantt-container {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--gantt-background);
+  font-family: var(--gantt-font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gantt-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.gantt-main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.gantt-scroll-container {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.gantt-body {
+  display: flex;
+  align-items: stretch;
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.gantt-timeline {
+  position: relative;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+}
+
+.gantt-scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gantt-border) transparent;
+}
+
+.gantt-scroll-container::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.gantt-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gantt-scroll-container::-webkit-scrollbar-thumb {
+  background: var(--gantt-border);
+  border-radius: 5px;
+  border: 2px solid var(--gantt-background);
+}
+
+.gantt-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: var(--gantt-muted-foreground);
+}
+
+.gantt-scroll-container::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.gantt-content {
+  position: relative;
+  min-width: 100%;
+  background: var(--gantt-background);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gantt-container *,
+  .gantt-container *::before,
+  .gantt-container *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.gantt-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}

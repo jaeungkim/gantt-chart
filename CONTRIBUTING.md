@@ -73,10 +73,10 @@ A feature can be read or deleted in one place instead of four parallel trees.
 | `src/features/task-list/` | the left pane: the grid, its columns and its splitter, plus row reordering. |
 | `src/features/selection/` | task selection. |
 | `src/features/detail/` | the task detail panel. |
-| `src/` (root) | `Gantt.tsx` composes the features, `useGanttSelectors.ts` is the store subscription it renders from, `props.ts` is the public prop surface and the ref handle, `index.ts` is the package barrel, `styles.css` is the published stylesheet and `tokens.css` holds its tokens. |
+| `src/` (root) | `Gantt.tsx` composes the features, `useGanttSelectors.ts` is the store subscription it renders from, `props.ts` is the public prop surface and the ref handle, `index.ts` is the package barrel, `styles.css` is the published stylesheet, `tokens.css` holds its tokens and `Gantt.css` styles the shell `Gantt.tsx` renders. |
 
 Inside a feature, files are split again by what they are: `components/`, `hooks/` and `utils/`,
-plus a `types.ts` for the types other files import. A feature has only the ones it needs.
+plus a `types.ts` for the types other files import and a `<feature>.css` for its styles. A feature has only the ones it needs.
 `selection/` has only `hooks/`, and `bars/` has no `utils/`. `timeline/` uses all four. Each hook
 in a `hooks/` folder has its own file, named after it. The listing below leaves some files out.
 
@@ -85,7 +85,7 @@ src/features/timeline/
   components/  GanttChartHeader.tsx  GanttTodayLine.tsx  GanttNonWorkingLayer.tsx
   hooks/       useGanttTimelineSync.ts  useGanttScrollApi.ts  useGanttVirtualization.ts
   utils/       geometry.ts  transform.ts  tickAxis.ts  viewport.ts
-  types.ts
+  types.ts  timeline.css
 ```
 
 `src/core/` stays flat, one cohesive module rather than a feature. `src/shared/` keeps its five
@@ -107,8 +107,8 @@ the file that declares it:
 | `src/shared/task.ts` | `TaskTransformed` and `GanttInteractionConfig` |
 | `src/core/types.ts` | `Task`, `TaskDependency` and `DependencyType` |
 | `src/core/calendar.ts`, `tree.ts`, `reorder.ts` | the headless functions, each beside the types it takes and returns |
-| `src/styles.css` | the stylesheet published as `@jaeungkim/gantt-chart/style.css` |
-| `src/tokens.css` | the `--gantt-*` tokens and their dark values. `styles.css` imports it on its first line and Vite inlines it, so the package still ships one stylesheet. |
+| `src/styles.css` | the stylesheet published as `@jaeungkim/gantt-chart/style.css`. It holds only `@import`s: `tokens.css`, `Gantt.css`, then each feature's `<feature>.css`. Vite inlines them, so the package still ships one stylesheet. The import order is the cascade, so a new feature file goes where its rules must win ties. |
+| `src/tokens.css` | the `--gantt-*` tokens and their dark values |
 
 `dist/index.d.ts` is bundled into one file, so no internal path reaches a consumer. Moving a public
 type changes its line in `index.ts` and its row here, and nothing a consumer sees.

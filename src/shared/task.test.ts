@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   normalizeProgress,
@@ -6,6 +5,7 @@ import {
   resolveTaskInteraction,
   type Task,
 } from './task';
+import { stylesheet } from './utils/stylesheet.test-utils';
 
 const task = (overrides: Partial<Task> = {}): Task => ({
   id: 'a',
@@ -146,7 +146,7 @@ describe('resolveTaskColors', () => {
 });
 
 describe('the bar label reads the derived color', () => {
-  const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+  const css = stylesheet;
 
   it('falls back to the theme token when the task has no color', () => {
     expect(css).toContain(

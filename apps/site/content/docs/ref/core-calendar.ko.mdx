@@ -16,9 +16,8 @@ import {
 } from '@jaeungkim/gantt-chart';
 ```
 
-이 메서드들이 주고받는 `Dayjs` 값은 패키지의 런타임 의존성인 `dayjs`에서 와요.
-`@jaeungkim/gantt-chart`는 `dayjs`를 다시 내보내지 않아요. `dayjs`에서 직접 가져와 UTC 모드로
-넘기세요.
+이 메서드들은 네이티브 `Date` 값을 주고받고 UTC로 읽어요. 패키지에는 런타임 의존성이 없어서
+날짜 라이브러리 없이 호출할 수 있어요.
 
 ## `createWorkingCalendar`
 
@@ -45,7 +44,7 @@ export function createWorkingCalendar(
 export interface WorkingCalendarOptions {
   /** 근무 요일을 UTC 요일 번호로. 0은 일요일이에요 (기본값 월~금) */
   workingWeekdays?: number[];
-  /** 비근무일을 UTC `YYYY-MM-DD` 문자열로 */
+  /** 비근무일을 UTC `YYYY-MM-DD` 문자열로. 정확히 같을 때만 걸려요 (기본값 없음) */
   holidays?: string[];
 }
 ```
@@ -53,7 +52,7 @@ export interface WorkingCalendarOptions {
 | 옵션 | 타입 | 기본값 | 의미 |
 |---|---|---|---|
 | `workingWeekdays` | `number[]` | `[1, 2, 3, 4, 5]` (월요일부터 금요일까지) | UTC 요일 번호예요. `0`은 일요일이고 배열에 없는 날은 비근무일이에요 |
-| `holidays` | `string[]` | `[]` | UTC `YYYY-MM-DD` 문자열이에요. `date.format('YYYY-MM-DD')` 결과와 문자열이 정확히 같을 때만 걸려요 |
+| `holidays` | `string[]` | `[]` | UTC `YYYY-MM-DD` 문자열이에요. `date.toISOString().slice(0, 10)` 결과와 문자열이 정확히 같을 때만 걸려요 |
 
 ## `CALENDAR_DAYS`
 
@@ -72,13 +71,14 @@ export const CALENDAR_DAYS: WorkingCalendar
 export interface WorkingCalendar {
   /** 기본 달력에서는 false예요 (모든 날을 세요) */
   readonly skipsNonWorkingDays: boolean;
-  isWorkingDay(date: Dayjs): boolean;
+  /** 근무일인지 알려줘요. 기본 달력에서는 항상 true예요 */
+  isWorkingDay(date: Date): boolean;
   /** 비근무일을 건너뛰며 `days`만큼 앞으로(또는 뒤로) 옮겨요 */
-  addDays(date: Dayjs, days: number): Dayjs;
+  addDays(date: Date, days: number): Date;
   /** `from`에서 `to`까지의 일수예요. `addDays`가 움직이는 방식대로 세고, 부호가 있어요 */
-  daysBetween(from: Dayjs, to: Dayjs): number;
+  daysBetween(from: Date, to: Date): number;
   /** 근무일이면 그 날짜 그대로, 아니면 다음 근무일이에요 (시각은 유지) */
-  snapForward(date: Dayjs): Dayjs;
+  snapForward(date: Date): Date;
 }
 ```
 
@@ -91,12 +91,12 @@ export interface WorkingCalendar {
 | 멤버 | 시그니처 | `CALENDAR_DAYS` | 근무일 달력 |
 |---|---|---|---|
 | `skipsNonWorkingDays` | `readonly boolean` | `false` | `true` |
-| `isWorkingDay` | `(date: Dayjs) => boolean` | 항상 `true` | 요일과 휴일 검사를 통과하면 `true` |
-| `addDays` | `(date: Dayjs, days: number) => Dayjs` | `date.add(days, 'day')` | 달력 하루씩 옮기면서 근무일에서만 남은 일수를 줄여요. 시각은 유지돼요 |
-| `daysBetween` | `(from: Dayjs, to: Dayjs) => number` | `to.startOf('day').diff(from.startOf('day'), 'day')` | 하루씩 걸으며 지나간 근무일 수만 세어요. 출발한 날은 세지 않아요 |
-| `snapForward` | `(date: Dayjs) => Dayjs` | `date`를 그대로 반환해요 | `date` 당일이나 그 뒤의 첫 근무일이고 시각은 유지돼요 |
+| `isWorkingDay` | `(date: Date) => boolean` | 항상 `true` | 요일과 휴일 검사를 통과하면 `true` |
+| `addDays` | `(date: Date, days: number) => Date` | `days` × 86,400,000 ms 뒤의 새 `Date` | 달력 하루씩 옮기면서 근무일에서만 남은 일수를 줄여요. 시각은 유지돼요 |
+| `daysBetween` | `(from: Date, to: Date) => number` | 양끝을 UTC 자정으로 내린 뒤의 UTC 일수 차이 | 하루씩 걸으며 지나간 근무일 수만 세어요. 출발한 날은 세지 않아요 |
+| `snapForward` | `(date: Date) => Date` | 같은 `date` 객체를 그대로 반환해요 | `date` 당일이나 그 뒤의 첫 근무일이고 시각은 유지돼요 |
 
-`daysBetween`은 날짜 단위로 비교해요. 양끝에 `startOf('day')`를 부르니 같은 날짜의 두 시각은
+`daysBetween`은 날짜 단위로 비교해요. 양끝을 UTC 자정으로 내리니 같은 UTC 날짜의 두 시각은
 `0`만큼 떨어져 있어요.
 
 근무일에서 출발하면 `addDays`와 `daysBetween`은 정확히 서로의 역이라
@@ -109,7 +109,7 @@ export interface WorkingCalendar {
 2025년 6월 기준이에요. 2일은 월요일, 6일은 금요일, 7일과 8일은 주말, 9일은 그다음
 월요일이에요. `workweek`은 `createWorkingCalendar()`이고 `withHoliday`는
 `createWorkingCalendar({ holidays: ['2025-06-09'] })`예요. 날짜는 짧게 문자열로 적었어요.
-각각 `dayjs.utc(...)`를 뜻해요.
+각각 `new Date('2025-06-06')`이나 `new Date('2025-06-06T14:30Z')` 같은 UTC `Date`를 뜻해요.
 
 | 호출 | 결과 |
 |---|---|
@@ -129,14 +129,10 @@ export interface WorkingCalendar {
 ## 예제
 
 ```ts
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
 import { createWorkingCalendar } from '@jaeungkim/gantt-chart';
 
-dayjs.extend(utc);
-
 const calendar = createWorkingCalendar({ holidays: ['2025-06-09'] });
-calendar.addDays(dayjs.utc('2025-06-06'), 1).toISOString(); // 2025-06-10T00:00:00.000Z
+calendar.addDays(new Date('2025-06-06'), 1).toISOString(); // 2025-06-10T00:00:00.000Z
 ```
 
 패키지에서 달력 인자를 받는 것은 하나도 없어요. 차트는 `workingCalendar`, `workingWeekdays`,
@@ -145,13 +141,16 @@ calendar.addDays(dayjs.utc('2025-06-06'), 1).toISOString(); // 2025-06-10T00:00:
 
 ## 제약
 
-`src/core/calendar.ts`는 `Dayjs` 타입만 가져오고 dayjs 자체는 가져오지 않아요. 요일은
-`date.day()`로 읽고 휴일은 `date.format('YYYY-MM-DD')` 결과와 비교해요. 그래서 둘 다 넘긴
-`Dayjs` 인스턴스의 모드를 그대로 따라요.
+`src/core/calendar.ts`는 날짜 라이브러리를 가져오지 않아요. 하루는 UTC 기준 86,400,000 ms이고,
+요일은 `date.getUTCDay()`로 읽고, 휴일은 `date.toISOString().slice(0, 10)` 결과와 비교해요.
+`Date`를 어느 시간대에서 만들었든 모든 검사는 UTC로 읽어요.
 
-차트 안에서는 항상 UTC예요. 코어가 달력에 건네는 날짜는 모두 `src/core/dates.ts`가 `dayjs.utc`로
-만들어요. 로컬 모드 `Dayjs`는 로컬 요일과 로컬 `YYYY-MM-DD`를 읽어요. 그러니 위 예제처럼 UTC
-모드 인스턴스를 넘기세요.
+로컬 시각으로 만든 `Date`는 UTC 날짜가 달라질 수 있어요. 서울에서
+`new Date(2025, 5, 7, 0, 30)`은 로컬로는 토요일이지만 UTC로는 금요일 `15:30`이라서 근무일로
+세요. 원하는 날짜를 얻으려면 `Date.UTC`나 ISO 문자열로 만드세요.
+
+`addDays`는 항상 새 `Date`를 반환해요. `snapForward`는 `date`가 이미 근무일이면 같은 객체를
+반환해요.
 
 근무일이 하나도 없는 달력도 결과를 반환해요. `addDays`는 요청한 하루마다 367걸음의
 예산을 받고 예산이 떨어지면 평범한 달력 날짜로 물러나요. `snapForward`는 366번 시도한 뒤 입력을

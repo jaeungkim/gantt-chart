@@ -229,7 +229,7 @@ export function useGanttBarDrag(
       if (calendar?.skipsNonWorkingDays) {
         const anchor =
           mode === "right" ? newEndDate.subtract(1, "millisecond") : newStartDate;
-        const snapped = calendar.snapForward(anchor);
+        const snapped = dayjs(calendar.snapForward(anchor.toDate()));
         snapDays = snapped.diff(anchor, "day");
 
         if (mode === "left" && snapped.valueOf() >= newEndDate.valueOf()) {

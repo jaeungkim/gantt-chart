@@ -1,9 +1,9 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import dayjs from "core/dates";
+import { stylesheet } from "./utils/stylesheet.test-utils";
 import { GANTT_SCALE_CONFIG, LINK_HANDLE_REACH, resolveGeometry } from "./constants";
 
-const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+const css = stylesheet;
 
 function px(selector: string, prop: string): number {
   const block = css.split(selector)[1]?.split("}")[0];

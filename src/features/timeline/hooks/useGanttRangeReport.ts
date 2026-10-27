@@ -23,6 +23,6 @@ export function useGanttRangeReport(
     if (key === reportedRef.current) return;
 
     reportedRef.current = key;
-    report(range);
+    report({ start: range.start.toDate(), end: range.end.toDate() });
   }, [bottomRowCells, scaleRef, reportRef]);
 }

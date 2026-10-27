@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { stylesheet } from "shared/utils/stylesheet.test-utils";
 
-const css = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
+const css = stylesheet;
 
 function declaration(selector: string, property: string): string | undefined {
   const start = css.indexOf(`\n${selector} {`);

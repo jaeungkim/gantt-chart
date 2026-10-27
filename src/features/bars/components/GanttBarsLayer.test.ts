@@ -7,13 +7,14 @@ import { GanttStoreContext } from "shared/context";
 import { createGanttStore, type GanttStoreApi } from "shared/store";
 import type { TaskTransformed } from "shared/task";
 import type { GanttBarOptions } from "shared/types";
+import { stylesheet } from "shared/utils/stylesheet.test-utils";
 import type { VirtualItem } from "shared/virtual/window";
 import type { GanttRow } from "features/rows/utils/rows";
 import GanttBarsLayer from "./GanttBarsLayer";
 
 const layer = readFileSync("src/features/bars/components/GanttBarsLayer.tsx", "utf8");
 const bar = readFileSync("src/features/bars/components/GanttBar.tsx", "utf8");
-const css = readFileSync("src/styles.css", "utf8");
+const css = stylesheet;
 
 describe("bar wrapper stacking", () => {
   it("keeps the class the lift rules select", () => {

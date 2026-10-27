@@ -1,0 +1,28 @@
+.gantt-rows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.gantt-task-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  border-bottom: 1px solid var(--gantt-border-subtle);
+}
+
+.gantt-content,
+.gantt-grid-body {
+  flex: 1 0 auto;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--gantt-row-height) - 1px),
+    var(--gantt-border-subtle) calc(var(--gantt-row-height) - 1px),
+    var(--gantt-border-subtle) var(--gantt-row-height)
+  );
+}

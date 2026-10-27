@@ -47,14 +47,14 @@ export interface GanttScaleConfig {
   formatHeaderLabel: (date: Dayjs) => string;
 }
 
-/** Replaces one scale's labels; each function gets a UTC-mode `Dayjs`, and a slot left out keeps the locale or built-in label. See https://gantt.jaeungkim.com/docs/ref/scales */
+/** Replaces one scale's labels; each function gets a `Date` to read in UTC, and a slot left out keeps the locale or built-in label. See https://gantt.jaeungkim.com/docs/ref/scales */
 export interface GanttScaleFormat {
   /** Bottom header row, one label per cell. */
-  tick?: (date: Dayjs) => string;
+  tick?: (date: Date) => string;
   /** Top header row, one label per group; neighbouring groups that get the same label merge into one cell. */
-  header?: (date: Dayjs) => string;
+  header?: (date: Date) => string;
   /** Every other date the chart prints: the bar's hover card, the header's drag readout and the detail panel's read-only Start and End. */
-  tooltip?: (date: Dayjs) => string;
+  tooltip?: (date: Date) => string;
 }
 
 /** The `formats` prop: label overrides per scale, which win over `locale` and the built-in labels. See https://gantt.jaeungkim.com/docs/ref/scales */
@@ -100,10 +100,10 @@ export interface GanttTopHeaderGroup {
 
 /** The span the timeline renders, as `onRangeChange` reports it. See https://gantt.jaeungkim.com/docs/timeline */
 export interface GanttDateRange {
-  /** Start of the first cell, a UTC-mode `Dayjs`. */
-  start: Dayjs;
+  /** Start of the first cell. */
+  start: Date;
   /** End of the last cell, exclusive: the instant a next cell would start. */
-  end: Dayjs;
+  end: Date;
 }
 
 export interface GanttRangeExtension {

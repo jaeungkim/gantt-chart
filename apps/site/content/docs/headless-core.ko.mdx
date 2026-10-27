@@ -16,7 +16,7 @@ import { buildTaskTree, rollUpTasks, createWorkingCalendar } from '@jaeungkim/ga
 
 헤드리스로 쓸 수 있는 항목은 함수와 값 8개예요. `buildTaskTree`, `collectSubtreeIds`,
 `rollUpTasks`, `sortTasksBySequence`, `validateMove`, `moveTask`, `CALENDAR_DAYS`,
-`createWorkingCalendar`가 전부예요. 런타임 의존성은 `dayjs`와 `utc` 플러그인뿐이에요.
+`createWorkingCalendar`가 전부예요. 패키지에는 런타임 의존성이 없고, 달력은 평범한 `Date` 값을 받아요.
 
 `/core` 서브패스는 없어요. 패키지가 선언하는 진입점은 `.`, `./style.css`, `./package.json`이고,
 React 컴포넌트까지 담은 번들 하나로 배포돼요. `react`는 번들에 들어 있지 않고 번들을 불러올 때
@@ -33,16 +33,12 @@ React 컴포넌트까지 담은 번들 하나로 배포돼요. `react`는 번들
 모두 모아요. `rollUpTasks`는 차트가 그리는 요약 행의 날짜와 진행률을 그대로 반환해요.
 
 ```ts title="report.ts"
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
 import {
   buildTaskTree,
   createWorkingCalendar,
   rollUpTasks,
   type Task,
 } from '@jaeungkim/gantt-chart';
-
-dayjs.extend(utc);
 
 const tasks: Task[] = [
   { id: 'P', name: 'Phase 1', parentId: null, sequence: '1',
@@ -56,8 +52,8 @@ const tasks: Task[] = [
 const calendar = createWorkingCalendar({ holidays: ['2025-06-06'] });
 
 for (const task of rollUpTasks(tasks, buildTaskTree(tasks))) {
-  const start = dayjs.utc(task.startDate);
-  const end = dayjs.utc(task.endDate);
+  const start = new Date(task.startDate);
+  const end = new Date(task.endDate);
   const days =
     calendar.daysBetween(start, end) +
     Number(calendar.isWorkingDay(start)) -

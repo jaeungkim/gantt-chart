@@ -113,24 +113,24 @@ chart writes the readout and why the shorter strings drop the year are in
  */
 export interface GanttScaleFormat {
   /** Bottom header row - one label per tick */
-  tick?: (date: Dayjs) => string;
+  tick?: (date: Date) => string;
   /** Top header row - one label per group */
-  header?: (date: Dayjs) => string;
+  header?: (date: Date) => string;
   /**
    * Every date the chart writes as a single date: the bar's hover tooltip, the header's drag guide
    * labels (through `edge` and `range`, which follow this slot), and the detail panel's Start and
    * End where they are not editable - an editable date is a native `<input type="date">` and never
    * reaches a formatter.
    */
-  tooltip?: (date: Dayjs) => string;
+  tooltip?: (date: Date) => string;
 }
 ```
 
 | Field | Type | Required | Applies to |
 |---|---|---|---|
-| `tick` | `(date: Dayjs) => string` | no | one label per tick, bottom header row |
-| `header` | `(date: Dayjs) => string` | no | one label per group, top header row |
-| `tooltip` | `(date: Dayjs) => string` | no | every date off the header rows: the hover tooltip and the built-in detail panel's dates where they are not editable |
+| `tick` | `(date: Date) => string` | no | one label per tick, bottom header row |
+| `header` | `(date: Date) => string` | no | one label per group, top header row |
+| `tooltip` | `(date: Date) => string` | no | every date off the header rows: the hover tooltip and the built-in detail panel's dates where they are not editable |
 
 The three slots are resolved independently. Supplying `header` alone leaves `tick` and `tooltip` on
 the `locale` or built-in labels.
@@ -212,5 +212,6 @@ How the three slots resolve, what each formatter receives, and the identity rule
 - `GanttScaleFormat` functions must return a `string`. There is no `ReactNode` escape hatch, and no
   prop replaces a header cell. A header cell is text. Style one with CSS on `.gantt-top-group` and
   `.gantt-bottom-cell`.
-- The chart's UTC `dayjs` instance is not exported from the package. An override that needs the same
-  instance imports `dayjs` and its `utc` plugin directly.
+- Each slot receives a native `Date`, not a `Dayjs`. Read it with the `getUTC*` getters or
+  `Intl.DateTimeFormat` with `timeZone: 'UTC'`. An override that wants dayjs installs it and wraps the
+  date with `dayjs.utc(d)`; the package does not export its own copy.

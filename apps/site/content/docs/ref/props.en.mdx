@@ -10,7 +10,7 @@ import { ReactGanttChart, type GanttProps } from '@jaeungkim/gantt-chart';
 ```
 
 Every prop is optional. Every type in the tables below is exported from the package root apart
-from `Dayjs`, `ReactNode`, `React.MouseEvent` and `React.CSSProperties`. The Default column
+from `ReactNode`, `React.MouseEvent` and `React.CSSProperties`. The Default column
 carries the value the component falls back to. `none` means there is no fallback and the feature
 the prop drives stays off.
 
@@ -129,7 +129,7 @@ the prop drives stays off.
 | Prop | Type | Default | Description |
 |---|---|---|---|
 | `locale` | `string` | `none` | BCP 47 tag for every date label. Omitted, the built-in English labels are used. See [Locale and date formats](../i18n). |
-| `formats` | `GanttFormatOverrides` | `none` | Per-scale `tick`, `header` and `tooltip` label overrides. Omitted, the locale's labels are used. See [Locale and date formats](../i18n). |
+| `formats` | `GanttFormatOverrides` | `none` | Per-scale `tick`, `header` and `tooltip` label overrides. Each gets a `Date` to read in UTC. Omitted, the locale's labels are used. See [Locale and date formats](../i18n). |
 | `firstDayOfWeek` | `number` | `none` | Groups the week scale's top header, `0` is Sunday and `6` is Saturday. Omitted, week grouping is off. See [Locale and date formats](../i18n). |
 | `theme` | `GanttTheme` | `none` | `'light'`, `'dark'` or `'system'`. Omitted, the host page's `color-scheme` decides. See [Theming](../theming). |
 
@@ -183,8 +183,8 @@ the prop drives stays off.
   root. Their fields are described in [Dependencies](../dependencies),
   [Creating tasks](../task-creation) and [The timeline](../timeline), next to the callback that
   receives each.
-- `Dayjs` is a `dayjs` type, and `ReactNode`, `React.MouseEvent` and `React.CSSProperties` are
-  `react` types. None of the four is re-exported from this package.
+- `ReactNode`, `React.MouseEvent` and `React.CSSProperties` are `react` types. None of the three
+  is re-exported from this package.
 - The chart does not render a toolbar or a scale picker. A host that wants one renders it, drives
   it with `setScale` on the ref and updates it from `onScaleChange`. See
   [The timeline](../timeline).

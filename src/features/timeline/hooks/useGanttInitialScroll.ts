@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import dayjs from "core/dates";
 import { GanttBottomRowCell } from "shared/types";
 import { GanttScrollApi } from "features/timeline/types";
 
@@ -15,7 +14,7 @@ export function useGanttInitialScroll(
     if (!bottomRowCells.length) return;
 
     doneRef.current = true;
-    const target = initialScrollTo === "today" ? dayjs() : initialScrollTo;
+    const target = initialScrollTo === "today" ? new Date() : initialScrollTo;
     scrollApi.scrollToDate(target, { smooth: false });
   }, [initialScrollTo, bottomRowCells, scrollApi]);
 }

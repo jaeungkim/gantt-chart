@@ -71,9 +71,11 @@ import type { GanttFormatOverrides } from '@jaeungkim/gantt-chart';
 export const formats: GanttFormatOverrides = {
   quarter: {
     header: (d) => {
-      // The Dayjs is in UTC mode, so d.month() is 0 to 11 in UTC
-      const fiscalMonth = (d.month() + 9) % 12;
-      const fiscalYear = d.month() >= 3 ? d.year() : d.year() - 1;
+      // Read the Date in UTC, so the month is 0 to 11 in UTC
+      const month = d.getUTCMonth();
+      const year = d.getUTCFullYear();
+      const fiscalMonth = (month + 9) % 12;
+      const fiscalYear = month >= 3 ? year : year - 1;
       return `FY${fiscalYear} Q${Math.floor(fiscalMonth / 3) + 1}`;
     },
   },
@@ -82,9 +84,9 @@ export const formats: GanttFormatOverrides = {
 
 `formats={formats}`로 넘겨요. `header` 슬롯은 그룹의 시작 날짜를 받으니 이 재정의 함수는 항상 1월, 4월, 7월, 10월만 봐요.
 
-포매터에 넘어오는 `Dayjs`는 UTC 모드예요. `d.format('HH:mm')`, `d.year()`, `d.month()`, `d.day()`가 모두 UTC 값을 반환해요. 현지 시각으로 바꾸는 포매터는 자기 셀과 어긋나는 라벨을 만들어요.
+포매터에 넘어오는 `Date`는 UTC로 읽어야 해요. `getUTCFullYear()`, `getUTCMonth()`, `getUTCDay()`를 쓰거나 `Intl.DateTimeFormat`에 `timeZone: 'UTC'`를 넘기세요. 현지 시각으로 읽는 포매터는 자기 셀과 어긋나는 라벨을 만들어요.
 
-`locale`은 dayjs까지 닿지 않아서 `d.format('MMMM')`은 태그와 상관없이 `September`를 반환해요.
+`locale`은 포매터까지 닿지 않아요. 라벨이 태그를 따라야 하면 포매터 안에서 `Intl.DateTimeFormat`에 직접 넘기세요.
 
 `formats`는 모듈 스코프에 선언하거나 `useMemo`로 감싸요. 렌더링마다 새 객체 리터럴을 만들면 라벨 뒤의 포매터를 전부 다시 만들고, 차트는 이 상황을 경고하지 않아요.
 
