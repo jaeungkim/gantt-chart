@@ -9,7 +9,6 @@ const library = readdirSync(SRC, { recursive: true, encoding: 'utf8' })
   .map((file) => readFileSync(new URL(file, SRC), 'utf8'))
   .join('\n');
 
-// A key a hint can name, and what the chart's source must check to honor it
 const KEYS: [RegExp, RegExp][] = [
   [/\bDelete\b/, /["']Delete["']/],
   [/\bBackspace\b/, /["']Backspace["']/],

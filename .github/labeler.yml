@@ -1,4 +1,3 @@
-# actions/labeler config. One criterion per label. Labels must already exist in the repo.
 enhancement:
   - head-branch: ['^feat/', '^feature/']
 
@@ -8,7 +7,6 @@ bug:
 skip-changelog:
   - head-branch: ['^release/', '^chore/', '^ci/']
 
-# Markdown-only PRs. The docs pages are .mdx, so both extensions have to match.
 documentation:
   - changed-files:
       - all-globs-to-all-files: '**/*.{md,mdx}'

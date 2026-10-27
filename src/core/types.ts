@@ -1,5 +1,3 @@
-// The task data model. `src/shared/task.ts` re-exports these and adds the render-side types.
-
 /** Which bar ends a dependency joins, the predecessor's first: F is finish, S is start. See https://gantt.jaeungkim.com/docs/ref/task */
 export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
 
@@ -55,7 +53,6 @@ export interface Task {
   maxDate?: string;
 }
 
-/** Normalizes progress into the 0-100 range; null when the value is missing or invalid */
 export function normalizeProgress(progress: number | undefined): number | null {
   if (typeof progress !== 'number' || Number.isNaN(progress)) return null;
   return Math.min(100, Math.max(0, progress));

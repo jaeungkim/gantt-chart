@@ -15,12 +15,10 @@ export default async function Layout({
   children: ReactNode;
 }) {
   const { lang } = await params;
-  // Next renders this layout alongside [lang]/layout, so an unknown lang reaches it too
   const tree = source.pageTree[lang];
   if (!tree) notFound();
   const options = baseOptions(lang);
 
-  // HomeLayout wraps docs too so the navbar keeps one shape; the header slot adds the mobile nav.
   return (
     <HomeLayout {...options} slots={{ container: HomeContainer }}>
       <DocsLayout

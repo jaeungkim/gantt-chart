@@ -12,7 +12,6 @@ import { fixedAxis } from "shared/virtual/axis";
 import { virtualItemsOf, windowOf } from "shared/virtual/window";
 
 const ROW = resolveGeometry().rowHeight;
-// height={380} less the 34px Add task footer and the 10px horizontal scrollbar
 const CLIENT_HEIGHT = 336;
 
 type RowDrag = ReturnType<typeof useGanttRowDrag>;
@@ -45,13 +44,11 @@ function mountDrag(count: number, scrollTop: number) {
     windowOf(axis, scrollTop, CLIENT_HEIGHT)
   );
 
-  // Client y of the chart's top edge; a page scroll moves it, and the body with it
   const page = { chartTop: 0 };
   const container = {
     clientHeight: CLIENT_HEIGHT,
     getBoundingClientRect: () => ({ top: page.chartTop }),
   };
-  // The body sits under the sticky header and scrolls with the container
   const body = {
     closest: () => container,
     getBoundingClientRect: () => ({

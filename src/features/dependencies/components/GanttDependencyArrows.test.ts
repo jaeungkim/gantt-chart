@@ -34,7 +34,6 @@ describe("clearing the selected link", () => {
 
   it("keeps it only for this chart's own arrows and menu, even inside a shadow root", () => {
     expect(clearSelection).toContain("event.composedPath()");
-    // A class match also hits every other chart's arrows and menu on the page
     expect(clearSelection).not.toContain("closest");
   });
 });
@@ -69,7 +68,6 @@ describe("two entries for one pair of tasks", () => {
       ]),
     ];
     const store = createGanttStore("month");
-    // A server render reads the initial state, so point it at the live one
     store.getInitialState = store.getState;
     store.getState().setSelectedDependency({ sourceId: "b", targetId: "a" });
     const virtual = {

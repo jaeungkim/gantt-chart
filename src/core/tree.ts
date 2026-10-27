@@ -24,7 +24,6 @@ export function buildTaskTree(tasks: TaskNode[]): TaskTree {
   const depthOf = new Map<string, number>();
   const rootIds: string[] = [];
 
-  // Meeting an already-passed node while walking up means a cycle; every node is recorded, so this ends.
   const resolveParent = (task: TaskNode): string | null => {
     const parentId = task.parentId;
     if (!parentId || parentId === task.id || !byId.has(parentId)) return null;
@@ -78,7 +77,6 @@ export function collectSubtreeIds(
   if (!tree.parentOf.has(rootId)) return [];
 
   const ids = [rootId];
-  // Acyclic by construction, so appending children needs no visited set
   for (let i = 0; i < ids.length; i++) {
     const children = tree.childIds.get(ids[i]);
     if (children) ids.push(...children);
@@ -86,10 +84,6 @@ export function collectSubtreeIds(
   return ids;
 }
 
-/**
- * The tasks left after dropping any task with a collapsed ancestor
- * Input order is preserved (row order is decided by the sequence sort)
- */
 export function getVisibleTasks<T extends TaskNode>(
   tasks: T[],
   collapsedIds: Iterable<string>,
@@ -119,7 +113,6 @@ export function rollUpTasks(
   if (!tree.childIds.size) return tasks;
 
   const byId = new Map(tasks.map((task) => [task.id, task]));
-  // Deepest first, so a move travels all the way up
   const parentIds = [...tree.childIds.keys()]
     .sort((a, b) => (tree.depthOf.get(b) ?? 0) - (tree.depthOf.get(a) ?? 0));
 
@@ -160,7 +153,6 @@ export function rollUpTasks(
     }
     if (!Number.isFinite(minStart) || !Number.isFinite(maxEnd)) continue;
 
-    // With only zero-duration children there is no weight, so fall back to a plain average
     const percent =
       totalWeight > 0 ? weightedSum / totalWeight : plainSum / children.length;
 

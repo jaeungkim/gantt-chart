@@ -2,8 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GanttDemo } from '@/components/demo/gantt-demo';
 
-// The card order. Each href is also the key its copy is filed under, so a card can never
-// end up pointing at a page other than the one its text describes.
 const FEATURES = [
   '/docs/editing',
   '/docs/dependencies',
@@ -13,7 +11,6 @@ const FEATURES = [
   '/docs/theming',
 ] as const;
 
-// The landing page is a translation pair like every docs page: en and ko move together.
 const COPY = {
   en: {
     heroTitle: 'Bring interactive project planning to your React app.',

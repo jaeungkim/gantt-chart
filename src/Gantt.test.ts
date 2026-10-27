@@ -1,11 +1,10 @@
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import Gantt from "./Gantt";
 import type { GanttProps } from "./props";
 
-// Inline style React writes on the first element whose class starts with `className`.
 const styleOf = (props: GanttProps, className: string) => {
   const html = renderToStaticMarkup(createElement(Gantt, props));
   return new RegExp(`class="${className}[^"]*"[^>]*style="([^"]*)"`).exec(html)?.[1];
@@ -69,9 +68,10 @@ describe("theme tokens", () => {
   it("writes a token string with its unit, and refuses a unitless number", () => {
     const style: GanttProps["style"] = {
       "--gantt-detail-width": "400px",
-      // @ts-expect-error React writes a number token without a unit, which no token accepts
-      "--gantt-accent": 400,
     };
+    expectTypeOf<number>().not.toExtend<
+      NonNullable<GanttProps["style"]>["--gantt-accent"]
+    >();
     expect(styleOf({ style }, "gantt-container")).toContain("--gantt-detail-width:400px");
   });
 });

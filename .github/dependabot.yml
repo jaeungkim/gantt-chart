@@ -1,20 +1,14 @@
 version: 2
 updates:
-  # Security updates only, as MUI runs it. Everything but dayjs is build tooling, and dayjs is
-  # bundled into dist/, so a bump reaches users only once a release ships it. Advisory fixes still
-  # open PRs: security updates are switched on in the repo settings and have their own fixed limit,
-  # which this 0 does not touch. A merged dayjs security fix needs a release; tooling moves by hand.
-  - package-ecosystem: npm # covers pnpm lockfiles
+  - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly # required key; unused while version updates are off
+      interval: weekly
     open-pull-requests-limit: 0
-    labels: [dependencies] # override the default (dependencies + javascript); security PRs use it too
+    labels: [dependencies]
 
-  # Version updates stay on here. pnpm/action-setup is pinned to a commit SHA, and GitHub raises
-  # no security alert for a SHA-pinned action, so without these the pin would never move.
   - package-ecosystem: github-actions
-    directory: / # scans .github/workflows
+    directory: /
     schedule:
       interval: weekly
     cooldown:

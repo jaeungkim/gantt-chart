@@ -7,15 +7,12 @@ import { GanttVirtualization } from "features/timeline/types";
 import { tickAxis } from "features/timeline/utils/tickAxis";
 
 interface UseGanttVirtualizationParams {
-  /** Number of rows in the chart - not the task count, since a lane can share one row */
   rowCount: number;
   bottomRowCells: GanttBottomRowCell[];
   scrollRef: RefObject<HTMLDivElement | null>;
   geometry: GanttGeometry;
 }
 
-// Call once at the top and hand the result down: header, rows, bars and arrows must cull
-// against the same window or one ends up a frame ahead of another.
 export function useGanttVirtualization({
   rowCount,
   bottomRowCells,

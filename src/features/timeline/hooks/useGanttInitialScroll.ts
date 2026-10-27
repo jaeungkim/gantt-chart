@@ -3,7 +3,6 @@ import dayjs from "core/dates";
 import { GanttBottomRowCell } from "shared/types";
 import { GanttScrollApi } from "features/timeline/types";
 
-/** Scrolls to `initialScrollTo` once, when the timeline first becomes ready */
 export function useGanttInitialScroll(
   initialScrollTo: "today" | string | undefined,
   bottomRowCells: GanttBottomRowCell[],

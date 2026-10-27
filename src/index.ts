@@ -27,7 +27,6 @@ export type { GanttDependencyChange } from './features/dependencies/types';
 export type { GanttTaskDraft } from './features/bars/types';
 export type { GanttRow } from './features/rows/utils/rows';
 
-// Headless core - no React, no DOM. Usable on a server or in a worker.
 export {
   CALENDAR_DAYS,
   createWorkingCalendar,

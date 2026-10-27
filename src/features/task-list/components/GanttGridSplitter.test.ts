@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_GRID_WIDTH } from "shared/constants";
 import GanttGridSplitter from "./GanttGridSplitter";
 
-// `.gantt-main`, the splitter's parent, in a <ReactGanttChart width={600} showTaskList /> chart
 const CHART_WIDTH = 600;
 const main = { clientWidth: CHART_WIDTH };
 
@@ -12,7 +11,6 @@ interface SplitterProps {
   onDoubleClick: (event: unknown) => void;
 }
 
-// The splitter uses no hooks, so calling it returns its element.
 const render = (width: number, onWidthChange: (width: number) => void = () => {}) =>
   (GanttGridSplitter({ width, onWidthChange }) as unknown as { props: SplitterProps }).props;
 

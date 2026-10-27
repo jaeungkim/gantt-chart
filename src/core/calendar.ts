@@ -23,15 +23,12 @@ export interface WorkingCalendarOptions {
 }
 
 const DAY = 'day';
-/** A calendar with no working day at all would loop forever - bail out past this many steps */
-const MAX_SKIP = 366;
-/** Upper bound on the day-by-day walk in daysBetween (~50 years) */
-const MAX_SPAN = 18_263;
+const MAX_NON_WORKING_RUN = 366;
+const MAX_COUNTED_SPAN_DAYS = 18_263;
 
 const HOLIDAY_FORMAT = 'YYYY-MM-DD';
 const DEFAULT_WORKING_WEEKDAYS = [1, 2, 3, 4, 5];
 
-// `isOff` null means every day is a working day (the default calendar).
 function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
   const isWorkingDay = isOff ? (date: Dayjs) => !isOff(date) : () => true;
 
@@ -41,12 +38,11 @@ function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
     const step = days > 0 ? 1 : -1;
     let remaining = Math.abs(days);
     let cursor = date;
-    let guard = remaining + MAX_SKIP * remaining;
+    let guard = remaining + MAX_NON_WORKING_RUN * remaining;
 
     while (remaining > 0) {
       cursor = cursor.add(step, DAY);
       if (isWorkingDay(cursor)) remaining--;
-      // Degenerate calendar (nothing is a working day) - fall back to plain days
       if (guard-- <= 0) return date.add(days, DAY);
     }
     return cursor;
@@ -57,7 +53,7 @@ function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
     const b = to.startOf(DAY);
     const plain = b.diff(a, DAY);
     if (!isOff || plain === 0) return plain;
-    if (Math.abs(plain) > MAX_SPAN) return plain;
+    if (Math.abs(plain) > MAX_COUNTED_SPAN_DAYS) return plain;
 
     const sign = plain > 0 ? 1 : -1;
     let cursor = sign > 0 ? a : b;
@@ -67,7 +63,6 @@ function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
       cursor = cursor.add(1, DAY);
       if (isWorkingDay(cursor)) count++;
     }
-    // Not `count * sign` - that hands back -0 for a backwards span of no working days
     return count === 0 ? 0 : count * sign;
   };
 
@@ -80,7 +75,7 @@ function build(isOff: ((date: Dayjs) => boolean) | null): WorkingCalendar {
     snapForward(date) {
       if (!isOff || isWorkingDay(date)) return date;
       let cursor = date;
-      for (let i = 0; i < MAX_SKIP; i++) {
+      for (let i = 0; i < MAX_NON_WORKING_RUN; i++) {
         cursor = cursor.add(1, DAY);
         if (isWorkingDay(cursor)) return cursor;
       }

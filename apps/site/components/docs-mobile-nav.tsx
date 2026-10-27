@@ -2,7 +2,6 @@
 
 import { useNotebookLayout } from 'fumadocs-ui/layouts/notebook';
 
-// `HomeLayout` already renders the navbar; this header only adds the mobile page-tree trigger.
 export function DocsMobileNav() {
   const { slots } = useNotebookLayout();
   const SidebarTrigger = slots.sidebar.trigger;

@@ -10,10 +10,8 @@ export interface GanttScrollOptions {
   align?: "start" | "center";
 }
 
-/** A date pinned at a fixed distance from the timeline's visible left edge */
 export interface GanttZoomAnchor {
   date: Dayjs;
-  /** px from the left edge of the timeline area (the task list pane excluded) */
   viewportX: number;
 }
 
@@ -34,20 +32,13 @@ export interface GanttScrollApi {
 }
 
 export interface GanttVirtualization {
-  /** Rows to render, already positioned */
   virtualRows: VirtualItem[];
-  /** Height of all rows, culled ones included */
   totalHeight: number;
-  /** Time cells to render, already positioned */
   virtualCells: VirtualItem[];
-  /** Width of all cells, culled ones included */
   totalWidth: number;
-  /** Width of the cells skipped before the first rendered one (px) */
   leadingCellPx: number;
-  /** Vertical bounds of the row window (px) - what the arrows cull against */
   rowStartPx: number;
   rowEndPx: number;
-  /** Horizontal culling, shared by the bars and the arrows */
   isBarVisible: (barLeft: number, barWidth: number) => boolean;
   syncWindow: () => void;
 }

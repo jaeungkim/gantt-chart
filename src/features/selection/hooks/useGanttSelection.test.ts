@@ -3,7 +3,6 @@ import { createGanttStore } from "shared/store";
 import type { TaskTransformed } from "shared/task";
 import { useGanttSelection } from "./useGanttSelection";
 
-// No DOM here: the hook runs as a plain call, with its layout effect inline
 const hooks = vi.hoisted(() => ({ store: null as unknown }));
 
 vi.mock("react", async (importOriginal) => {
@@ -20,7 +19,6 @@ const a = { id: "a" } as TaskTransformed;
 const onTaskSelect = vi.fn();
 
 describe("turning selection off", () => {
-  // Gantt.tsx passes selectable: true while the panel is on, and undefined once it is off
   it.each([
     ["selectable turns false", { selectable: false, onTaskSelect }],
     ["the detail panel that turned it on turns off", { selectable: undefined }],

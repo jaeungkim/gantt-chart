@@ -4,8 +4,6 @@ interface GanttNonWorkingLayerProps {
   ranges: NonWorkingRange[];
 }
 
-// Weekend/holiday shading. A holiday's colour is mixed down to a tint rather than painted, so it
-// reads as the same kind of mark as the weekend shade.
 export default function GanttNonWorkingLayer({
   ranges,
 }: GanttNonWorkingLayerProps) {

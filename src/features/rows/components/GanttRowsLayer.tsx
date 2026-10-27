@@ -6,7 +6,6 @@ interface GanttRowsLayerProps {
   virtualItems: VirtualItem[];
 }
 
-/** The row stripes behind the bars */
 export default function GanttRowsLayer({
   rows,
   virtualItems,
@@ -18,7 +17,6 @@ export default function GanttRowsLayer({
         if (!row) return null;
 
         const style = {
-          // border-box, so the 1px border sits inside the height
           height: `${virtualRow.size}px`,
           transform: `translateY(${virtualRow.start}px)`,
         };

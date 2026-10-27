@@ -8,7 +8,6 @@ export type GanttTheme = 'light' | 'dark' | 'system';
 /** Timeline zoom level, listed finest first; the chart starts at `'month'` unless `defaultScale` names another. See https://gantt.jaeungkim.com/docs/ref/scales */
 export type GanttScaleKey = 'day' | 'week' | 'month' | 'quarter' | 'year';
 
-// Unit the top header row groups by - 'quarter' has no dayjs equivalent, see core/dates
 export type GanttLabelUnit =
   | 'hour'
   | 'day'
@@ -17,22 +16,17 @@ export type GanttLabelUnit =
   | 'quarter'
   | 'year';
 
-// Which end of a bar a link attaches to
 export type LinkAnchor = 'start' | 'end';
 
-// Why a proposed link cannot be created
 export type LinkRejection = 'self' | 'duplicate' | 'cycle';
 
-// What a bar drag is doing - moving the whole bar, or resizing one edge
 export type GanttDragMode = 'bar' | 'left' | 'right';
 
-// Window a bar may be dragged within - either end may be left open
 export interface GanttDragBounds {
   min?: Dayjs;
   max?: Dayjs;
 }
 
-// Fixed timeline window, replacing the auto-fit to the task dates
 export interface GanttVisibleRange {
   start?: Dayjs;
   end?: Dayjs;
@@ -42,8 +36,6 @@ export interface GanttScaleConfig {
   labelUnit: GanttLabelUnit;
   tickUnit: 'minute' | 'hour' | 'day' | 'week' | 'month';
   unitPerTick: number;
-  // Boundary the first cell snaps to, so week columns do not open on an arbitrary
-  // weekday. Only meaningful for `unitPerTick > 1`.
   tickAlign?: GanttLabelUnit;
 
   dragStepUnit: 'minute' | 'hour' | 'day' | 'week';
@@ -70,24 +62,17 @@ export type GanttFormatOverrides = Partial<
   Record<GanttScaleKey, GanttScaleFormat>
 >;
 
-/** Everything that decides how a date turns into a label */
 export interface GanttLocaleOptions {
-  /** BCP 47 tag handed to `Intl.DateTimeFormat`, e.g. `'ko-KR'` (default: the built-in English labels) */
   locale?: string;
   formats?: GanttFormatOverrides;
-  /** First day of the week, 0 = Sunday .. 6 = Saturday (only affects week grouping) */
   firstDayOfWeek?: number;
 }
 
-// The label formatters resolved for one scale. `range` is not a slot of its own: it is
-// derived from the same layer that filled `tooltip`, and writes the header drag readout's two
-// ends as one label when they land in one cell.
 export interface GanttFormatters {
   tick: (date: Dayjs) => string;
   header: (date: Dayjs) => string;
   tooltip: (date: Dayjs) => string;
   range: (start: Dayjs, end: Dayjs) => string;
-  /** One end of a dragged range, at the readout's precision - `range` merged both ends */
   edge: (date: Dayjs) => string;
 }
 
@@ -121,8 +106,6 @@ export interface GanttDateRange {
   end: Dayjs;
 }
 
-// Extra ticks the rendered range carries beyond the tasks' span, in ticks of the
-// current scale - grows on scrolling past an edge, reset when the scale changes
 export interface GanttRangeExtension {
   before: number;
   after: number;
@@ -145,9 +128,7 @@ export interface GanttBarOptions {
   onTasksChange?: (updatedTasks: Task[]) => void;
   onTaskActivate?: (task: TaskTransformed, event: ReactMouseEvent) => void;
   onTaskDoubleClick?: (task: TaskTransformed, event: ReactMouseEvent) => void;
-  // Hover card, on unless explicitly turned off
   showTooltip?: boolean;
-  // Resolved once by the chart - a bar formats its own dates with it
   tooltip: GanttFormatters['tooltip'];
 }
 

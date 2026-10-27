@@ -6,17 +6,14 @@ import { accumulateZoom, INITIAL_ZOOM_ACCUMULATOR, stepScale } from "features/ti
 import { GanttZoomAnchor } from "features/timeline/types";
 
 interface UseGanttWheelZoomParams {
-  /** Off (the default `zoomOnWheel`), ctrl/cmd + wheel is left to the browser */
   enabled: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   selectedScale: GanttScaleKey;
   bottomRowCells: GanttBottomRowCell[];
-  /** Width of the pinned task list, which the timeline's own left edge starts after */
   viewportInsetPx: number;
   zoomTo: (scale: GanttScaleKey, anchor: GanttZoomAnchor) => void;
 }
 
-/** Ctrl/Cmd + wheel steps through the scale ladder, keeping the date under the cursor */
 export function useGanttWheelZoom({
   enabled,
   scrollRef,
@@ -38,7 +35,6 @@ export function useGanttWheelZoom({
     let accumulator = INITIAL_ZOOM_ACCUMULATOR;
 
     const handleWheel = (event: WheelEvent) => {
-      // Plain wheel still scrolls vertically and Shift+wheel horizontally
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
 
@@ -53,7 +49,6 @@ export function useGanttWheelZoom({
       const nextScale = stepScale(scaleRef.current, step);
       if (nextScale === scaleRef.current) return;
 
-      // Cursor x inside the timeline area; over the pinned task list it clamps to the left edge
       const rect = scrollEl.getBoundingClientRect();
       const inset = insetRef.current;
       const viewportX =
@@ -72,7 +67,6 @@ export function useGanttWheelZoom({
       zoomTo(nextScale, { date, viewportX });
     };
 
-    // Non-passive: preventDefault has to stop the browser's own ctrl+wheel page zoom
     scrollEl.addEventListener("wheel", handleWheel, { passive: false });
     return () => scrollEl.removeEventListener("wheel", handleWheel);
   }, [enabled, zoomTo, scrollRef, scaleRef, cellsRef, insetRef]);

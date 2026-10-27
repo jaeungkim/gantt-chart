@@ -30,12 +30,9 @@ interface TimelineData {
   transformedTasks: TaskTransformed[];
 }
 
-/** The identity of a day that is off with nothing else said about it - no name, no colour. */
 export const OFF_DAY_KEY = "off";
 
-/** What one non-working day is, as far as the shading is concerned. */
 export interface NonWorkingDay {
-  /** Adjacent days merge only when this matches - a named holiday must not fuse with a Saturday */
   key: string;
   label?: string;
   color?: string;
@@ -48,7 +45,6 @@ export interface NonWorkingRange {
   color?: string;
 }
 
-// How far the timeline origin moved, in px - add to scrollLeft to keep the viewed date in place.
 export function originShiftPx(
   prevTicks: GanttBottomRowCell[],
   nextTicks: GanttBottomRowCell[],
@@ -61,14 +57,11 @@ export function originShiftPx(
   const diff = prevOrigin.valueOf() - nextOrigin.valueOf();
   if (diff === 0) return 0;
 
-  // Previous origin later = cells were added in front
   if (diff > 0) return calculateDateOffsetPx(prevOrigin, nextTicks, scaleKey) ?? 0;
 
-  // Previous origin earlier = leading cells disappeared
   return -(calculateDateOffsetPx(nextOrigin, prevTicks, scaleKey) ?? 0);
 }
 
-// Merges non-working days into px ranges. Day and hour tick units only.
 export function computeNonWorkingRanges(
   timelineTicks: GanttBottomRowCell[],
   scaleKey: GanttScaleKey,
@@ -77,7 +70,6 @@ export function computeNonWorkingRanges(
   const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];
   if (tickUnit !== "day" && tickUnit !== "hour") return [];
 
-  // An hour-unit cell never straddles midnight, so only day-unit cells are split
   const daysPerTick = tickUnit === "day" ? unitPerTick : 1;
 
   const ranges: NonWorkingRange[] = [];
@@ -110,7 +102,6 @@ export function computeNonWorkingRanges(
   return ranges;
 }
 
-// Moves a date by N drag steps. Adds the scale's unit as-is - via minutes it drifts an hour at DST.
 export function shiftByDragSteps(
   date: Dayjs,
   steps: number,
@@ -120,7 +111,6 @@ export function shiftByDragSteps(
   return date.add(steps * dragStepAmount, dragStepUnit);
 }
 
-// Distance between two dates in px at the scale's drag resolution; inverse of shiftByDragSteps.
 export function pxBetweenDates(
   from: Dayjs,
   to: Dayjs,
@@ -131,7 +121,6 @@ export function pxBetweenDates(
   return (to.diff(from, dragStepUnit, true) / dragStepAmount) * basePxPerDragStep;
 }
 
-// Parses the bound props into dayjs, or null when neither end is set
 export function toDragBounds(
   min: string | undefined,
   max: string | undefined
@@ -140,7 +129,6 @@ export function toDragBounds(
   return { min: min ? dayjs(min) : undefined, max: max ? dayjs(max) : undefined };
 }
 
-// Clamps a dragged bar into its window; "bar" keeps its length (min wins), an edge stays >= 1 step.
 export function clampDragDates(
   mode: GanttDragMode,
   startDate: Dayjs,
@@ -196,9 +184,6 @@ interface MoveMember {
   bounds: GanttDragBounds;
 }
 
-// The moving tasks that have a window of their own, with the dates they started at. Each one
-// resolves its own bounds, so a descendant constrains a subtree move too - a pointer drag clamps
-// against this list.
 export function collectMoveMembers(
   rawTasks: Task[],
   movingIds: Set<string>,
@@ -211,8 +196,6 @@ export function collectMoveMembers(
   for (const task of rawTasks) {
     if (!movingIds.has(task.id)) continue;
 
-    // The target's own bounds are resolved by the caller; it also uses the dates on screen,
-    // which for a summary are the ones rolled up from its children
     const isTarget = task.id === target.id;
     const member = resolveTaskInteraction(task, interaction);
     const own = isTarget ? bounds : toDragBounds(member.minDate, member.maxDate);
@@ -228,7 +211,6 @@ export function collectMoveMembers(
   return members;
 }
 
-// Largest shared move keeping every member inside its own window; stays between 0 and requestedMs.
 export function clampMoveDelta(
   members: MoveMember[],
   requestedMs: number,
@@ -256,7 +238,6 @@ export function clampMoveDelta(
   return delta;
 }
 
-// Px offset of a date along the timeline; null when the date is outside the range.
 export function calculateDateOffsetPx(
   date: Dayjs,
   timelineTicks: GanttBottomRowCell[],
@@ -283,7 +264,6 @@ export function calculateDateOffsetPx(
   return null;
 }
 
-// Date at a px offset - inverse of calculateDateOffsetPx; null when outside the rendered range.
 export function dateAtOffsetPx(
   offsetPx: number,
   timelineTicks: GanttBottomRowCell[],
@@ -307,7 +287,6 @@ export function dateAtOffsetPx(
   return null;
 }
 
-// First and last moment the rendered ticks cover; null for an empty timeline.
 export function timelineRange(
   timelineTicks: GanttBottomRowCell[],
   scaleKey: GanttScaleKey
@@ -326,12 +305,10 @@ export function timelineRange(
 interface DrawnRange {
   startDate: Dayjs;
   endDate: Dayjs;
-  // px box of the snapped range - the ghost bar
   leftPx: number;
   widthPx: number;
 }
 
-// Snaps a drawn px range (from the timeline's left edge) outwards to whole ticks, min one tick wide.
 export function snapDrawnRange(
   startPx: number,
   endPx: number,
@@ -354,7 +331,6 @@ export function snapDrawnRange(
   };
 }
 
-// Earliest start and latest end across the tasks; both are invalid when no task carries a date.
 export function findDateRangeFromTasks(
   tasks: Task[]
 ): { minDate: Dayjs; maxDate: Dayjs } {
@@ -390,7 +366,6 @@ function createBottomRowCells(
   } = config;
 
   const cells: GanttBottomRowCell[] = [];
-  // A multi-tick cell must open on the boundary it is named after, else week columns start midweek
   let current = config.tickAlign
     ? groupStartDate(rangeStart, config.tickAlign)
     : rangeStart.startOf(tickUnit);
@@ -413,7 +388,6 @@ function createBottomRowCells(
   return cells;
 }
 
-// First moment of the group a cell belongs to; 'quarter' is not a dayjs unit - see core/dates.
 function groupStartDate(
   date: Dayjs,
   labelUnit: GanttLabelUnit,
@@ -432,7 +406,6 @@ export function createTopHeaderGroups(
   const labelUnit = resolveLabelUnit(selectedScale, localeOptions);
   const { header } = resolveFormatters(selectedScale, localeOptions);
 
-  // Group on the label: neighbours a custom header labels alike share one cell.
   const groups: GanttTopHeaderGroup[] = [];
   for (const cell of bottomCells) {
     const label = header(
@@ -449,8 +422,6 @@ export function createTopHeaderGroups(
   return groups;
 }
 
-// Builds bottomCells + transformedTasks. A pinned `visibleRange` edge is used verbatim; an open one
-// auto-fits to the task dates (rolled up under `hierarchy`), buffered and widened by `extension`.
 export function computeTimelineData(
   rawTasks: Task[],
   selectedScale: GanttScaleKey,
@@ -461,7 +432,6 @@ export function computeTimelineData(
   const fixedStart = visibleRange?.start;
   const fixedEnd = visibleRange?.end;
 
-  // Without tasks there is nothing to fit to, so only a fully pinned window can be drawn
   if (!rawTasks.length && !(fixedStart && fixedEnd)) {
     return { bottomCells: [], transformedTasks: [] };
   }

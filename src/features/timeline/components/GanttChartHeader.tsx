@@ -12,7 +12,6 @@ interface GanttChartHeaderProps {
   bottomRowCells: GanttBottomRowCell[];
   selectedScale: GanttScaleKey;
   width: number;
-  // Chart's window; the bottom cells come from it (top-group labels are CSS-sticky)
   virtual: GanttVirtualization;
   localeOptions?: GanttLocaleOptions;
 }
@@ -29,7 +28,6 @@ function GanttChartHeader({
     [selectedScale, localeOptions]
   );
 
-  // `leadingCellPx` sizes the spacer for the skipped leading cells - keeps the flex flow intact.
   const { virtualCells, leadingCellPx } = virtual;
 
   const topGroups = useMemo(

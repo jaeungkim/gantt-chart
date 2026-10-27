@@ -1,7 +1,5 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 
-// One navbar for the whole site: the landing page and every docs page spread these same options.
-// The two internal links are the only translatable strings here; npm and the GitHub icon are names.
 const NAV = {
   en: { playground: 'Playground', docs: 'Documentation' },
   ko: { playground: '플레이그라운드', docs: '문서' },

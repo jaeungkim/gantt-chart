@@ -11,7 +11,7 @@ export default defineConfig({
     }),
   ],
   build: {
-    copyPublicDir: false, // public/ holds README artwork only
+    copyPublicDir: false,
     lib: {
       entry: 'src/index.ts',
       fileName: (format) => (format === 'es' ? 'index.js' : 'index.cjs'),
@@ -19,7 +19,6 @@ export default defineConfig({
     },
     rolldownOptions: {
       external: ['react', 'react-dom', 'react/jsx-runtime'],
-      // RSC hosts must load the bundle as a client module. postBanner lands after minification.
       output: { postBanner: '"use client";' },
     },
   },

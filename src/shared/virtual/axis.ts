@@ -1,12 +1,8 @@
-// One scrollable axis. Every size is known before paint, so no measure-on-paint pass is needed.
 export interface VirtualAxis {
   count: number;
-  /** Size of the whole axis (px) */
   total: number;
   sizeAt: (index: number) => number;
-  /** Pixels before `index` starts */
   offsetAt: (index: number) => number;
-  /** Index of the item covering `px`, clamped to the axis */
   indexAt: (px: number) => number;
 }
 
@@ -22,7 +18,6 @@ export function fixedAxis(count: number, size: number): VirtualAxis {
   };
 }
 
-// Prefix-sum table, rebuilt per data change; O(log n) lookups.
 export function variableAxis(
   count: number,
   sizeAt: (index: number) => number,

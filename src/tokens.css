@@ -1,7 +1,4 @@
-/* Tokens are scoped to .gantt-container, not :root, where they would collide with the host's. */
 .gantt-container {
-  /* Declared next to the tokens so UA chrome - scrollbars, form controls, the caret - is painted
-     to match instead of staying light on a dark chart. */
   color-scheme: light;
 
   --gantt-detail-width: 320px;
@@ -21,11 +18,9 @@
   --gantt-bar-bg: #c7c7cd;
   --gantt-bar-bg-hover: #b4b4bc;
   --gantt-bar-text: #18181b;
-  /* Flat at rest: the shadow is an event - a hairline on hover, a real lift only while dragging. */
   --gantt-bar-shadow: none;
   --gantt-bar-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.08);
   --gantt-bar-shadow-drag: 0 4px 12px rgba(0, 0, 0, 0.16);
-  /* Floating surfaces - a light panel on dark needs an edge, hence the ring in the dark value. */
   --gantt-shadow-overlay: 0 4px 16px rgba(0, 0, 0, 0.15);
 
   --gantt-arrow: #a1a1aa;
@@ -46,8 +41,6 @@
   --gantt-transition-normal: 200ms ease;
 }
 
-/* `data-theme` is always written by the component - see useResolvedTheme, which takes the prop
-   when there is one and otherwise follows the host page's own `color-scheme`. */
 .gantt-container[data-theme="dark"] {
   color-scheme: dark;
 

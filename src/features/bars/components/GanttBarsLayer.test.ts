@@ -93,7 +93,6 @@ function renderLayer(
   prepare: (store: GanttStoreApi) => void = () => {}
 ) {
   const store = createGanttStore("month");
-  // A server render reads the initial state, so point it at the live one
   store.getInitialState = store.getState;
   prepare(store);
   return renderToStaticMarkup(
@@ -116,7 +115,6 @@ function renderLayer(
 describe("a bar mid-drag stays mounted", () => {
   const tasks = Array.from({ length: 30 }, (_, i) => task(`t${i}`, i + 1));
   const rows = tasks.map((t) => ({ id: t.id, tasks: [t], depth: 0 }));
-  // The column window once auto-scroll reached scrollLeft 1386: it starts past the 600..690 slot
   const isBarVisible = (left: number, width: number) =>
     left + width >= 756 && left <= 3654;
 
@@ -152,7 +150,6 @@ describe("a bar mid-drag stays mounted", () => {
 });
 
 describe("lane neighbours keep their own edges", () => {
-  // Every rule whose selector list names `selector`, inside `within` (the whole sheet by default)
   const rules = (selector: string, within = css) =>
     [...within.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)]
       .filter(([, selectors]) => selectors.split(",").map((s) => s.trim()).includes(selector))
@@ -172,7 +169,6 @@ describe("lane neighbours keep their own edges", () => {
       tasks: [task("a", 1, 666, 54), task("b", 1, 720), task("c", 1, 900)],
     };
     const html = renderLayer([lane], rowWindow(0, 0), () => true);
-    // An end pad is painted under the next neighbour, so it never takes that neighbour's edge
     expect(handles(html, "a")).toEqual(["start", "end"]);
     expect(handles(html, "b")).toEqual(["start crowded", "end"]);
     expect(handles(html, "c")).toEqual(["start", "end"]);

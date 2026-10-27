@@ -5,8 +5,6 @@ type BooleanKey = {
 }[keyof Settings];
 type SelectKey = Exclude<keyof Settings, BooleanKey>;
 
-// The scale ladder, finest first. The package exports no constant for it, and two controls read
-// it now: the console's own row and the toolbar select above the chart.
 export const SCALES: readonly GanttScaleKey[] = ['day', 'week', 'month', 'quarter', 'year'];
 
 export const GROUPS = ['Data', 'Editing', 'Timeline', 'Presentation'] as const;
@@ -291,10 +289,6 @@ export const CONTROLS: readonly Control[] = [
   },
 ];
 
-// Every feature on, so the page shows the whole chart before a single switch is touched. Two
-// classes stay off: restrictions (`readOnly`, `dateBounds`, `visibleRange`, every `veto*`) and
-// overrides (`customDetail`, `controlledDetail`, `customFormats`, `sixDayWeek`), each of
-// which replaces a built-in behaviour rather than adding one - turning them on hides a feature.
 export const DEFAULTS = {
   hierarchy: true,
   showTaskList: true,
@@ -311,8 +305,6 @@ export const DEFAULTS = {
   vetoLinkCreate: false,
   vetoLinkDelete: false,
   vetoMove: false,
-  // The fixture runs seven weeks; the month scale is the finest that fits all of it on screen at
-  // once, which is also what every <GanttDemo> on the site opens on.
   scale: 'month' as GanttScaleKey,
   zoomOnWheel: true,
   infiniteScroll: true,
@@ -323,13 +315,10 @@ export const DEFAULTS = {
   autoScrollOnDrag: true,
   dateBounds: false,
   visibleRange: false,
-  // Centred, and the fixture is built so today sits mid-project - the whole span lands on
-  // screen at the month scale, which anchoring to the fixture's first day does not.
   initialScrollTo: 'today',
   showDetail: true,
   customDetail: false,
   controlledDetail: false,
-  // 'host' passes no `theme` prop at all, so the chart inherits the site's color-scheme.
   theme: 'host' as GanttTheme | 'host',
   locale: 'en-US',
   firstDayOfWeek: '1',
@@ -338,10 +327,8 @@ export const DEFAULTS = {
   chartHeight: 'fill',
   rowHeight: '38',
 };
-// Every switch the playground offers; mirrored into the query string (`?scale=week&holidays=0`).
 export type Settings = typeof DEFAULTS;
 
-// Query-string settings over DEFAULTS. Reads `window` - never call on the server.
 export function readSettings(): Settings {
   const params = new URLSearchParams(window.location.search);
   const next = { ...DEFAULTS };
@@ -353,8 +340,6 @@ export function readSettings(): Settings {
     if (control.type === 'boolean') {
       next[control.key] = raw !== '0' && raw !== 'false';
     } else if (control.options.includes(raw)) {
-      // Writing through a union key wants the intersection of the value types, which is `never`;
-      // the `options` check above is what keeps `raw` valid.
       next[control.key] = raw as never;
     }
   }
@@ -362,7 +347,6 @@ export function readSettings(): Settings {
   return next;
 }
 
-// Mirror the non-default settings back into the URL, so the current view is linkable.
 export function writeSettings(settings: Settings): void {
   const params = new URLSearchParams(window.location.search);
 
@@ -372,7 +356,6 @@ export function writeSettings(settings: Settings): void {
       params.delete(control.key);
       continue;
     }
-    // Several rows default to on, so a non-default value can be `false`.
     params.set(control.key, typeof value === 'boolean' ? (value ? '1' : '0') : value);
   }
 

@@ -24,24 +24,19 @@ import { LINK_TYPE_TITLE } from "features/dependencies/utils/link";
 
 interface GanttDetailPanelProps {
   task: TaskTransformed;
-  /** Every task, so a dependency's target id can be printed by name */
   tasks: TaskTransformed[];
   scale: GanttScaleKey;
   tooltip: GanttFormatters["tooltip"];
-  /** Gates which built-in fields take input */
   interaction?: GanttInteractionConfig;
   onClose: () => void;
   onTasksChange?: (updatedTasks: Task[]) => void;
-  /** Replaces the body; the panel element itself, and its width, stay the chart's */
   render?: GanttDetailRenderer;
-  /** False while the panel slides shut - the slide lives in flex-basis, see .gantt-detail */
   open: boolean;
 }
 
 interface DetailInputProps {
   className: string;
   type: "text" | "date";
-  /** The store's value */
   value: string;
   commit: (value: string) => void;
   "aria-label"?: string;
@@ -50,7 +45,6 @@ interface DetailInputProps {
 function useDraft<T>(value: T) {
   const [draft, setDraft] = useState(value);
 
-  // The store value wins whenever it changes - a landed commit, or a drag that moved the task
   const [lastValue, setLastValue] = useState(value);
   if (lastValue !== value) {
     setLastValue(value);
@@ -60,13 +54,11 @@ function useDraft<T>(value: T) {
   return [draft, setDraft] as const;
 }
 
-// Commits on blur and Enter; Escape reverts the draft without closing the panel
 function DetailInput({ value, commit, ...rest }: DetailInputProps) {
   const [draft, setDraft] = useDraft(value);
 
   const submit = () => {
     if (draft !== value) commit(draft);
-    // A landed commit echoes back through `value`; a refused one leaves this as the revert
     setDraft(value);
   };
 
@@ -78,7 +70,6 @@ function DetailInput({ value, commit, ...rest }: DetailInputProps) {
       onBlur={submit}
       onKeyDown={(event) => {
         if (event.key === "Enter") {
-          // Commits the field only, not a host <form> the chart sits in
           event.preventDefault();
           submit();
         }
@@ -92,7 +83,6 @@ function DetailInput({ value, commit, ...rest }: DetailInputProps) {
   );
 }
 
-// The slider wears the task's own bar colors, so it reads as the bar it edits
 function ProgressField({
   value,
   editable,
@@ -106,7 +96,6 @@ function ProgressField({
 }) {
   const [draft, setDraft] = useDraft(value);
 
-  // One commit per gesture: a drag or a held arrow key lands once, on release
   const submit = () => {
     if (draft !== value) commit(String(draft));
   };
@@ -146,8 +135,6 @@ function ProgressField({
   );
 }
 
-/** The docked panel on the right */
-// A sibling of `.gantt-main`, not a layer over it, so width-based scroll and zoom math stays correct.
 export default function GanttDetailPanel({
   task,
   tasks,
@@ -162,15 +149,11 @@ export default function GanttDetailPanel({
   const storeApi = useGanttStoreApi();
   const closeRef = useLatestRef(onClose);
 
-  // Subscribed once: a host render between listeners would otherwise swap it out mid-dispatch
   useEffect(() => {
-    // A field marks its own Escape handled: stopPropagation cannot shield a listener on React's root
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !event.defaultPrevented) closeRef.current();
     };
 
-    // Document-level: focus can sit on <body> or outside the chart, where a React handler on the
-    // chart's own tree would never see the keydown.
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
   }, [closeRef]);
@@ -196,7 +179,6 @@ export default function GanttDetailPanel({
   const progress = normalizeProgress(task.progress);
   const start = dayjs(task.startDate);
   const end = dayjs(task.endDate);
-  // Predecessors by name; an id naming no task falls back to the id itself
   const dependencies = (task.dependencies ?? []).map((dep) => ({
     ...dep,
     name: tasks.find((entry) => entry.id === dep.targetId)?.name ?? dep.targetId,

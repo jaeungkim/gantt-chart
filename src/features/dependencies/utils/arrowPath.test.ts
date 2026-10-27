@@ -158,7 +158,6 @@ describe('buildDependencies', () => {
     const css = readFileSync('src/styles.css', 'utf8');
     const halfStroke =
       Number(css.match(/\.gantt-dependency-arrow \{[^}]*stroke-width:\s*([\d.]+)/)![1]) / 2;
-    // CSS centres each bar in its row, above the row's 1px bottom rule
     const barBox = (order: number, { rowHeight, barHeight }: GanttGeometry) => {
       const top = (order - 1) * rowHeight + (rowHeight - 1 - barHeight) / 2;
       return { top, bottom: top + barHeight };

@@ -1,4 +1,3 @@
-// Edit rules for the built-in detail panel body - pure, so they test without a DOM.
 import { Dayjs } from "dayjs";
 import dayjs from "core/dates";
 import {
@@ -12,13 +11,10 @@ export type DetailEditableField = "name" | "startDate" | "endDate" | "progress";
 
 interface DetailEditability {
   name: boolean;
-  /** One flag for both dates - changing either one is a resize */
   dates: boolean;
   progress: boolean;
 }
 
-// The panel adds no flags of its own: dates follow `canResize` (so summary rows stay plain text),
-// progress follows `canChangeProgress`. The name has no gesture, so only the readOnly rungs speak.
 export function resolveDetailEditability(
   task: Task & { isSummary?: boolean },
   config?: GanttInteractionConfig
@@ -31,7 +27,6 @@ export function resolveDetailEditability(
   };
 }
 
-// Replaces the date part of `iso`, keeping its time-of-day; null when `value` is not a full date
 function mergeDatePart(iso: string, value: string): Dayjs | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const merged = dayjs(`${value}T${dayjs(iso).format("HH:mm:ss.SSS")}`);
@@ -44,7 +39,6 @@ const clampToBounds = (date: Dayjs, min?: string, max?: string): Dayjs => {
   return date;
 };
 
-/** Turns one field's raw input into a patch; null means the value cannot commit and the field reverts */
 export function resolveFieldPatch(
   task: Task,
   field: DetailEditableField,
@@ -55,7 +49,6 @@ export function resolveFieldPatch(
     case "name":
       return value.trim() === "" ? null : { name: value };
     case "progress": {
-      // `Number('')` is 0, so an emptied field must revert before the cast
       const progress =
         value.trim() === "" ? null : normalizeProgress(Number(value));
       return progress === null ? null : { progress };
@@ -68,7 +61,6 @@ export function resolveFieldPatch(
       const clamped = clampToBounds(edited, minDate, maxDate);
       const start = field === "startDate" ? clamped : dayjs(task.startDate);
       const end = field === "endDate" ? clamped : dayjs(task.endDate);
-      // Same rule as a resize drag, which clamps instead: the bar never folds over
       if (!end.isAfter(start)) return null;
 
       return { [field]: clamped.toISOString() };

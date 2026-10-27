@@ -12,7 +12,6 @@ type El = ReactElement<Record<string, unknown>>;
 const isEl = (node: unknown): node is El =>
   typeof node === "object" && node !== null && "props" in node;
 
-// Root-first chain of elements down to the first one `match` accepts
 function pathTo(
   node: unknown,
   match: (el: El) => boolean,
@@ -30,7 +29,6 @@ function pathTo(
   return match(node) ? here : pathTo(node.props.children, match, here);
 }
 
-// React's bubble phase: target first, then up, until stopPropagation()
 function dispatch(path: El[], handler: "onClick" | "onDoubleClick") {
   let stopped = false;
   const event = {
@@ -85,7 +83,6 @@ function renderGrid(overrides: Partial<GridProps> = {}) {
   };
 
   let tree: unknown = null;
-  // Real hooks and store; the grid's element tree is kept to walk its handlers
   function Capture({ onRender }: { onRender: (grid: ReactElement) => void }) {
     const grid = GanttTaskGrid(props);
     onRender(grid);
@@ -142,7 +139,6 @@ describe("row click after a reorder", () => {
       reorderEnabled: true,
       interaction: { allowReorder: true },
     });
-    // A server render attaches no refs, so the body's geometry is set by hand
     const body = pick(byClass("gantt-grid-body"));
     (body.props.ref as { current: unknown }).current = {
       closest: () => null,

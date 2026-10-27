@@ -1,23 +1,17 @@
 import { useMemo, useState } from "react";
 
 interface UseGanttCollapseParams {
-  /** Controlled list - given, this is what the chart shows */
   collapsedIds?: string[];
-  /** Uncontrolled seed; later changes are ignored */
   defaultCollapsedIds?: string[];
   onCollapsedChange?: (collapsedIds: string[]) => void;
 }
 
 interface GanttCollapseState {
-  /** Ids of every collapsed parent */
   collapsedIds: ReadonlySet<string>;
-  /** Collapses an expanded row and expands a collapsed one */
   toggle: (rowId: string) => void;
-  /** Expands a row, doing nothing when it is already open */
   expand: (rowId: string) => void;
 }
 
-/** Which rows are collapsed - `collapsedIds` hands the decision to the host, otherwise the chart keeps the list */
 export function useGanttCollapse({
   collapsedIds,
   defaultCollapsedIds,
@@ -33,7 +27,6 @@ export function useGanttCollapse({
     const next = collapsed.includes(rowId)
       ? collapsed.filter((id) => id !== rowId)
       : [...collapsed, rowId];
-    // Controlled mode: the screen only moves once the prop comes back changed
     if (collapsedIds === undefined) setUncontrolled(next);
     onCollapsedChange?.(next);
   };

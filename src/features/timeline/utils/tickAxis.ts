@@ -1,14 +1,10 @@
 import { GanttBottomRowCell } from 'shared/types';
 import { variableAxis, type VirtualAxis } from 'shared/virtual/axis';
 
-// The tick cells as a measured axis, in the same space as a bar's `barLeft`
 export function tickAxis(cells: GanttBottomRowCell[]): VirtualAxis {
   return variableAxis(cells.length, (index) => cells[index].widthPx);
 }
 
-// The cell `x` falls in: its index, left edge and width. A value exactly on a boundary belongs to
-// the cell that starts there (the tick marks the instant that cell begins), and a value off either
-// end to the first or last cell. Null only for an empty ruler.
 export function tickCellAt(
   axis: VirtualAxis,
   x: number

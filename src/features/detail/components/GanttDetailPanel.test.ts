@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TaskTransformed } from "shared/task";
 import GanttDetailPanel from "./GanttDetailPanel";
 
-// No DOM here: the panel runs as plain function calls under stub hooks
 const hooks = vi.hoisted(() => ({
   slots: [] as unknown[],
   cursor: 0,
@@ -16,7 +15,6 @@ vi.mock("react", async (importOriginal) => {
     if (!(k in hooks.slots)) hooks.slots[k] = init();
     return hooks.slots[k] as T;
   };
-  // Re-runs only when its deps change, cleaning up the previous run first, as a commit does
   const effect = (create: () => void | (() => void), deps?: unknown[]) => {
     const cell = slot(
       () => ({}) as { deps?: unknown[]; cleanup?: void | (() => void) }
@@ -86,7 +84,6 @@ function render(props: Partial<Props>): HostElement[] {
   return elements;
 }
 
-// The DOM's dispatch: a listener removed mid-dispatch is skipped, one added mid-dispatch waits
 function stubDocument() {
   let listeners: ((event: Event) => void)[] = [];
   const doc = {
@@ -96,7 +93,6 @@ function stubDocument() {
     removeEventListener: (_: string, fn: (event: Event) => void) => {
       listeners = listeners.filter((entry) => entry !== fn);
     },
-    // Walks the list as it stood when dispatch began; add and remove replace it
     dispatchEvent: (event: Event) => {
       for (const fn of listeners) if (listeners.includes(fn)) fn(event);
     },
@@ -108,8 +104,6 @@ function stubDocument() {
 const keydown = (key: string) =>
   Object.assign(new Event("keydown", { cancelable: true }), { key });
 
-// Next's App Router hydrates on `document`, so React's delegated listener shares the node
-// with the panel's own and is registered before any effect runs
 function documentRoot(doc: ReturnType<typeof stubDocument>) {
   const root = { focused: undefined as HostElement | undefined };
   doc.addEventListener("keydown", (event) => {
@@ -144,7 +138,6 @@ describe("Escape", () => {
   it("still closes the panel when a host listener re-renders the chart mid-dispatch", () => {
     const doc = stubDocument();
     const onClose = vi.fn();
-    // A host Escape handler that sets state: React flushes that render between listeners
     doc.addEventListener("keydown", () => render({ onClose: () => onClose() }));
     render({ onClose: () => onClose() });
 

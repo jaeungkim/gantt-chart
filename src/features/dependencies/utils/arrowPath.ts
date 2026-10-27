@@ -5,7 +5,6 @@ import { GanttGeometry, LinkAnchor } from "shared/types";
 import { linkTypeFromAnchors } from "features/dependencies/utils/link";
 import type { GanttVirtualization } from "features/timeline/types";
 
-// Live offset of a task the running bar drag moves, a summary's subtree included (0 otherwise)
 interface DragOffset {
   offsetX: number;
   offsetWidth: number;
@@ -22,7 +21,6 @@ const STUB = 12;
 const APPROACH = 12;
 const RADIUS = 5;
 
-// Predecessor end to successor end: FS right/left, SS left/left, FF right/right, SF left/right
 const TYPE_ANCHORS = new Map<string, [LinkAnchor, LinkAnchor]>([
   ["FS", ["end", "start"]],
   ["SS", ["start", "start"]],
@@ -33,7 +31,6 @@ const TYPE_ANCHORS = new Map<string, [LinkAnchor, LinkAnchor]>([
 const rowCenter = (task: TaskTransformed, { rowHeight }: GanttGeometry) =>
   (task.order - 1) * rowHeight + rowHeight / 2;
 
-// Where one end of a bar sits, in content coordinates
 export function anchorPoint(
   task: TaskTransformed,
   anchor: LinkAnchor,
@@ -42,7 +39,6 @@ export function anchorPoint(
   toward = 0
 ): Point {
   const left = task.barLeft + offset.offsetX;
-  // GanttBar never draws a bar narrower than this, so milestones link at their visible edges
   const width = Math.max(
     task.barWidth + offset.offsetWidth,
     MIN_RESIZABLE_WIDTH
@@ -57,8 +53,6 @@ export function anchorPoint(
   };
 }
 
-// MS Project's routing: out of the predecessor's end, one vertical, then in through the
-// successor's end from outside. When no single vertical fits, double back through the row gap.
 function route(
   from: Point,
   out: 1 | -1,
@@ -127,7 +121,6 @@ export function roundedPath(points: Point[]): string {
   return `${d} L ${last.x} ${last.y}`;
 }
 
-// null means an unknown type, arrow skipped
 function arrowGeometry(
   predecessor: TaskTransformed,
   successor: TaskTransformed,
@@ -136,15 +129,11 @@ function arrowGeometry(
   depType: string,
   geometry: GanttGeometry
 ) {
-  // Tasks are consumer-supplied data, so an unknown type can arrive at runtime
   const anchors = TYPE_ANCHORS.get(depType);
   if (!anchors) return null;
 
   const [fromAnchor, toAnchor] = anchors;
-  // Each end takes the quarter of its bar facing the other row, so an arrow into an edge and one
-  // out of it part ways instead of sharing a point; within one row both ends stay centred
   const toward = Math.sign(successor.order - predecessor.order);
-  // Both ends have to apply their own drag offset for the arrow to follow the bars
   const from = anchorPoint(
     predecessor,
     fromAnchor,
@@ -153,7 +142,6 @@ function arrowGeometry(
     toward
   );
   const to = anchorPoint(successor, toAnchor, geometry, successorOffset, -toward);
-  // Mid-gap between the bar's edge and the row rule; the bar sits centred above that 1px rule
   const { rowHeight, barHeight } = geometry;
   const barCenter = (predecessor.order - 1) * rowHeight + (rowHeight - 1) / 2;
   const laneY =
@@ -176,7 +164,6 @@ function arrowGeometry(
   };
 }
 
-// Over an armed edge the drag shows the very arrow a release commits; elsewhere a line to the cursor
 export function linkPreview(
   draft: GanttLinkDraft,
   taskById: Map<string, TaskTransformed>,
@@ -200,7 +187,6 @@ export function linkPreview(
       geometry
     );
 
-  // draft.fromX/fromY date from pointerdown; an infiniteScroll prepend may have moved the source
   const from = source
     ? anchorPoint(source, draft.fromAnchor, geometry)
     : { x: draft.fromX, y: draft.fromY };
@@ -214,10 +200,8 @@ export function linkPreview(
   );
 }
 
-// Slack for arrow culling - the elbowed path runs a little past the endpoints (px)
 const ARROW_BLEED = 32;
 
-// Bounding box of both endpoints, so an arrow crossing the viewport with both ends off-screen draws
 export function isArrowVisible(
   dep: Pick<RenderedDependency, "fromX" | "fromY" | "toX" | "toY">,
   viewport: Pick<GanttVirtualization, "rowStartPx" | "rowEndPx" | "isBarVisible">
@@ -231,7 +215,6 @@ export function isArrowVisible(
   return viewport.isBarVisible(left, right - left);
 }
 
-// The index doubles as the iteration source and the lookup table (insertion order = task order)
 export function buildDependencies(
   taskById: Map<string, TaskTransformed>,
   liveOffsets: Record<string, DragOffset>,

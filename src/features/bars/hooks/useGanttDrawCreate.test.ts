@@ -11,7 +11,6 @@ import {
   useGanttDrawCreate,
 } from "features/bars/hooks/useGanttDrawCreate";
 
-// Effects never run under renderToString, so each is kept for a test that mounts and unmounts
 const effects = vi.hoisted(() => [] as (() => void | (() => void))[]);
 vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),

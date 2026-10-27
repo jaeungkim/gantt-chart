@@ -25,9 +25,7 @@ describe("bar-end hit areas", () => {
     return value;
   }
 
-  // How far the pad reaches past the dot's border box, [top, right, bottom, left], on a bar this tall
   function padReach(side: "start" | "end", barHeight = resolveGeometry().barHeight): number[] {
-    // The pad is positioned against the dot's padding box, so its % are of that box
     const paddingBox = dotHeight - 2 * dotBorder;
     const inset = (value: string) => {
       const calc = value.match(/^calc\(([\d.]+)% - var\(--gantt-bar-height\) \/ 2\)$/);

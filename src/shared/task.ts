@@ -1,4 +1,3 @@
-// The data model lives in the headless core; this module adds the render-side types.
 export { normalizeProgress } from 'core/types';
 export type {
   DependencyType,
@@ -43,11 +42,8 @@ interface ResolvedTaskInteraction {
   maxDate?: string;
 }
 
-// Module scope so the default argument keeps a stable identity
 const NO_INTERACTION_CONFIG: GanttInteractionConfig = {};
 
-// Precedence: `task.allowX` > `task.readOnly` > `config.allowX` > `config.readOnly` > allowed.
-// Reordering is the exception: its floor is `false`, so only an explicit flag turns it on.
 export function resolveTaskInteraction(
   task: Task & { isSummary?: boolean },
   config: GanttInteractionConfig = NO_INTERACTION_CONFIG
@@ -84,14 +80,12 @@ export function resolveTaskInteraction(
   };
 }
 
-// Chart-wide only - no entry point starts on a task, so there is no per-task rung
 export function canCreateTasks(
   config: GanttInteractionConfig = NO_INTERACTION_CONFIG
 ): boolean {
   return config.allowTaskCreate ?? !config.readOnly;
 }
 
-// CSS custom properties a colored bar sets - an empty object leaves the theme tokens deciding
 interface TaskColorVars {
   '--gantt-bar-color'?: string;
   '--gantt-bar-color-hover'?: string;
@@ -107,12 +101,6 @@ export function resolveTaskColors(color: string | undefined): TaskColorVars {
     '--gantt-bar-color': base,
     '--gantt-bar-color-hover': `color-mix(in srgb, ${base} 86%, #000)`,
     '--gantt-progress-color': `color-mix(in srgb, ${base} 62%, #000)`,
-    // Black or white, whichever the bar color can carry: `l` is the color's own lightness, and
-    // dividing by the threshold then multiplying by -infinity clamps to one end or the other.
-    // 0.5637 is cbrt(0.1791), the OKLab lightness of the relative luminance where black and white
-    // tie on WCAG contrast. Anything higher (MUI ships 0.7 for its own palette) picks white on
-    // mid-tone colors that read better in black; measured, 0.7 gets 8 of 18 sample colors wrong.
-    // Done in CSS, not here, because `var(--brand)` is a legal color and JS cannot read its lightness.
     '--gantt-bar-text-color': `oklch(from ${base} clamp(0, (l / 0.5637 - 1) * -infinity, 1) 0 h)`,
   };
 }
@@ -136,7 +124,6 @@ export interface TaskTransformed extends Task {
 }
 
 export interface RenderedDependency extends TaskDependency {
-  // Id of the successor that owns this dependency - `targetId` is the predecessor
   sourceId: string;
   fromX: number;
   fromY: number;

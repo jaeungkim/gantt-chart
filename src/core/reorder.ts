@@ -1,6 +1,3 @@
-// Moving a task to a new parent or slot. Row order comes from `sequence`, a path ("2.1" is the
-// first child of "2") that cannot be split, so a move renumbers instead of inserting a key.
-// Structural validation only; whether a task may move at all arrives as `canReorder`.
 import { Task } from "./types";
 import { buildTaskTree, collectSubtreeIds, TaskTree } from "./tree";
 
@@ -26,7 +23,6 @@ export interface GanttTaskMoveChange extends GanttTaskMove {
   beforeId: string | null;
 }
 
-/** Where a drop lands relative to the row under the pointer */
 export type GanttDropMode = "before" | "after" | "child";
 
 /** Why a move was refused; `validateMove` returns null for an allowed one. See https://gantt.jaeungkim.com/docs/ref/core-tree */
@@ -46,20 +42,15 @@ export interface GanttMoveOptions {
   canReorder?: (task: Task) => boolean;
 }
 
-/** The sibling lists a move is measured against - `toIndex` is counted against exactly these */
 interface TaskOrder {
-  /** Normalized parent of each task - null for a root, an orphan or a cycle */
   parentOf: ReadonlyMap<string, string | null>;
-  /** One parent's children in row order; pass null for the root list */
   childrenOf: (parentId: string | null) => readonly string[];
 }
 
-/** Splits "1.10" into [1, 10] so the segments compare as numbers, not as text */
 function parseSequence(sequence: string): number[] {
   return sequence.split(".").map(Number);
 }
 
-// splice's own integer conversion (NaN to 0, fractions truncated), done once so every check agrees.
 function clampIndex(index: number, length: number): number {
   return Math.min(Math.max(Math.trunc(index) || 0, 0), length);
 }
@@ -83,16 +74,12 @@ export function sortTasksBySequence<T extends Pick<Task, "sequence">>(
 }
 
 interface Forest {
-  /** parent id (null key held as "") -> child ids, in row order */
   children: Map<string, string[]>;
   parentOf: Map<string, string | null>;
 }
 
 const ROOT = "";
 
-// The ordered forest a move rearranges. `hierarchy` on, the parent link is the one `buildTaskTree`
-// normalized; off, it is the sequence path ("2.1" hangs off whoever holds "2"), which no tree models.
-// Pass `tree` in to reuse a build the caller already paid for.
 function buildForest(
   sorted: Task[],
   hierarchy: boolean,
@@ -102,7 +89,6 @@ function buildForest(
   const children = new Map<string, string[]>();
 
   if (hierarchy) {
-    // Copied, not aliased - a caller's forest is handed out and rearranged, the tree is not
     for (const [id, parent] of (tree ?? buildTaskTree(sorted)).parentOf) {
       parentOf.set(id, parent);
     }
@@ -116,7 +102,6 @@ function buildForest(
     for (const task of sorted) {
       const cut = task.sequence.lastIndexOf(".");
       const prefix = cut === -1 ? null : task.sequence.slice(0, cut);
-      // A prefix with no task of its own ("1.1" without a "1") has nothing to hang off
       const parentId = prefix ? (idBySequence.get(prefix) ?? null) : null;
       parentOf.set(task.id, parentId === task.id ? null : parentId);
     }
@@ -146,10 +131,6 @@ export function buildTaskOrder(tasks: Task[], hierarchy: boolean): TaskOrder {
   };
 }
 
-/**
- * The move a drop on `targetId` would make: `before`/`after` make it a sibling, `child`
- * appends it. Says nothing about whether the move is allowed - that is `validateMove`.
- */
 export function moveForDrop(
   order: TaskOrder,
   taskId: string,
@@ -165,7 +146,6 @@ export function moveForDrop(
       ? siblings.length
       : siblings.indexOf(targetId) + (mode === "after" ? 1 : 0);
 
-  // `toIndex` is counted after the dragged task is lifted out, so moving down its own list loses a slot
   const fromIndex = siblings.indexOf(taskId);
 
   return {
@@ -198,8 +178,6 @@ export function validateMove(
     return "reparent-disabled";
   }
 
-  // A node cannot become its own descendant - the subtree is where it would land.
-  // Hierarchy off, the parent never changes and parentId is not read at all.
   if (options.hierarchy && move.toParentId) {
     const subtree = new Set(collectSubtreeIds(sorted, task.id, tree));
     if (subtree.has(move.toParentId)) return "cycle";
@@ -246,7 +224,6 @@ export function moveTask(
   toSiblings.splice(toIndex, 0, move.taskId);
   children.set(toKey, toSiblings);
 
-  // Depth-first in row order, so the path each task gets is the path it renders at
   const sequenceOf = new Map<string, string>();
   const walk = (key: string, prefix: string) => {
     const ids = children.get(key) ?? [];

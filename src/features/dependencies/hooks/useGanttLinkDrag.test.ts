@@ -8,7 +8,6 @@ import type { Task, TaskTransformed } from "shared/task";
 import { isOverVisibleContent, useGanttLinkDrag } from "./useGanttLinkDrag";
 
 describe("isOverVisibleContent", () => {
-  // A scroll container at (0, 100)-(1100, 700) with a 220px task list pinned on its left
   const edges = { left: 220, right: 1100, top: 100, bottom: 700 };
   const over = (x: number, y: number) => isOverVisibleContent(x, y, edges);
   const headerBottom = edges.top + HEADER_HEIGHT;
@@ -36,7 +35,6 @@ const geometry = resolveGeometry();
 const GRID = 220;
 const BOX = { left: 0, top: 100, right: 1100, bottom: 700 };
 
-// Renders the real hook for Task 14's handles, then drives the drag through document events
 function mountLink(scrollTop: number, scrollLeft: number, sourceIndex = 13) {
   const raw: Task[] = Array.from({ length: 30 }, (_, i) => ({
     id: `t${i + 1}`,
@@ -101,13 +99,11 @@ function mountLink(scrollTop: number, scrollLeft: number, sourceIndex = 13) {
   const pointer = (type: string, clientX: number, clientY: number) =>
     doc.dispatchEvent(Object.assign(new Event(type), { pointerId: 1, clientX, clientY }));
 
-  // The client point over the middle of a row's bar
   const over = (index: number) => ({
     x: BOX.left + GRID - scrollLeft + rows[index].barLeft + 60,
     y: BOX.top + HEADER_HEIGHT - scrollTop + index * geometry.rowHeight + geometry.rowHeight / 2,
   });
 
-  // Drags from the source's end dot and returns the draft shown just before release
   const drag = (to: { x: number; y: number }) => {
     const src = over(sourceIndex);
     api.startLink("end")({
@@ -144,9 +140,7 @@ describe("releasing a link drag", () => {
   type Link = ReturnType<typeof mountLink>;
 
   it.each([
-    // 63px down the header, over Task 10 scrolled 380px under it
     ["the date header", 380, 0, (l: Link) => ({ x: l.over(9).x, y: BOX.top + 63 })],
-    // Over the task list, with the bars scrolled 1000px under it
     ["the task list", 0, 1000, (l: Link) => ({ x: BOX.left + 100, y: l.over(12).y })],
   ])("links nothing over %s, though a bar is scrolled under it", (_, top, left, at) => {
     const link = mountLink(top, left);

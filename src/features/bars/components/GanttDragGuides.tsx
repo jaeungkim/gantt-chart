@@ -4,15 +4,6 @@ import type { GanttLocaleOptions } from "shared/types";
 import { resolveFormatters } from "shared/utils/i18n";
 import { tickAxis, tickCellAt } from "features/timeline/utils/tickAxis";
 
-// The live readout for a move or resize. It is the tick row being precise for the length of one
-// gesture: the cell each moving edge lands in writes the full date instead of its numeral, in the
-// row's own type, centred where the numeral stood - on the grid, so nothing floats. Over it the
-// bar's footprint - its exact span, its own radius - is tinted onto the ruler, tying the two
-// together without drawing a shape of its own around anything.
-// A move carries both edges, so it writes both. A resize writes only the edge under the pointer:
-// the other end is not changing, and a second label that never moves is one number to ignore.
-// Mounted inside `.gantt-header-wrapper`, which is sticky and `totalWidth` wide - hence no width
-// prop, no z-index, and `left` already in the same space as a bar's `barLeft`.
 export default function GanttDragGuides({
   localeOptions,
 }: {
@@ -33,7 +24,6 @@ export default function GanttDragGuides({
   const offset = barDrag ? dragOffsets[barDrag.task.id] : undefined;
   if (!barDrag || !offset?.offsetStartDate || !offset.offsetEndDate) return null;
   const { task: pressedTask, mode: dragMode } = barDrag;
-  // The pointerdown snapshot misses an infiniteScroll prepend, which moves every bar mid-drag
   const currentTask =
     transformedTasks.find((task) => task.id === pressedTask.id) ?? pressedTask;
 
@@ -44,8 +34,6 @@ export default function GanttDragGuides({
   const endCell = tickCellAt(axis, endX);
   if (!startCell || !endCell) return null;
 
-  // Two edges in one cell are one label, and `range` is what knows how to write it - merging
-  // what the ends share under a locale, or collapsing them when they read alike.
   const cells = (() => {
     if (dragMode === "left")
       return [{ cell: startCell, label: edge(offset.offsetStartDate) }];
@@ -76,7 +64,6 @@ export default function GanttDragGuides({
         </div>
       ))}
       <div
-        // Last, so the tint runs to the bar's pixel edge through the cell that writes the date
         className="gantt-drag-footprint"
         style={{
           left: `${startX}px`,

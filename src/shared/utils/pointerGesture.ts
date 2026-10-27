@@ -1,6 +1,4 @@
-// ms a finger must rest before the drag lifts
 export const TOUCH_LONG_PRESS_MS = 400;
-// px the finger may drift during that wait before the press reads as a scroll
 export const TOUCH_SLOP_PX = 10;
 
 interface PointerGestureStart {
@@ -10,7 +8,6 @@ interface PointerGestureStart {
   clientY: number;
 }
 
-// Mouse starts at once; touch/pen wait out a long press within the slop. Returns the abort, null for mouse.
 export function armPointerGesture(
   start: PointerGestureStart,
   onStart: (clientX: number, clientY: number) => void,
@@ -21,7 +18,6 @@ export function armPointerGesture(
     return null;
   }
 
-  // Lift from where the finger ended up, not where it landed, so the first drag step is not skewed
   let currentX = start.clientX;
   let currentY = start.clientY;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -42,7 +38,6 @@ export function armPointerGesture(
       Math.abs(moveEvent.clientX - start.clientX) +
       Math.abs(moveEvent.clientY - start.clientY);
 
-    // Past the slop the browser is panning, not the user pressing - let it scroll
     if (drift > TOUCH_SLOP_PX) {
       cancel();
       return;
@@ -69,7 +64,6 @@ export function armPointerGesture(
   return cancel;
 }
 
-// Bars stay pannable, so scroll is blocked with preventDefault - which needs a non-passive listener.
 export function suppressTouchScroll(): () => void {
   const block = (event: Event) => event.preventDefault();
   document.addEventListener('touchmove', block, { passive: false });
