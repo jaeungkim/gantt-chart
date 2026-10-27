@@ -6,7 +6,6 @@ import { armPointerGesture, suppressTouchScroll } from "shared/utils/pointerGest
 import { calculateDateOffsetPx, snapDrawnRange } from "features/timeline/utils/geometry";
 import { GanttTaskDraft } from "features/bars/types";
 
-// Below this many px the gesture is a click, not a drawn range
 const MIN_DRAW_PX = 4;
 
 const toDraft = (range: { startDate: Dayjs; endDate: Dayjs }): GanttTaskDraft => ({
@@ -14,8 +13,6 @@ const toDraft = (range: { startDate: Dayjs; endDate: Dayjs }): GanttTaskDraft =>
   endDate: range.endDate.toISOString(),
 });
 
-// The draft an "add task" click proposes: one tick long at `now`, or at the first tick when
-// `now` is outside the rendered timeline. Null while there are no cells.
 export function defaultTaskDraft(
   now: Dayjs,
   timelineTicks: GanttBottomRowCell[],
@@ -26,7 +23,6 @@ export function defaultTaskDraft(
   return range ? toDraft(range) : null;
 }
 
-// px, timeline content coordinates
 interface DrawGhost {
   leftPx: number;
   widthPx: number;
@@ -35,13 +31,11 @@ interface DrawGhost {
 
 interface UseGanttDrawCreateParams {
   enabled: boolean;
-  // Rows on screen - the blank region below starts under them
   rowCount: number;
   onTaskCreate?: (draft: GanttTaskDraft) => void;
   geometry: GanttGeometry;
 }
 
-// The blank region under the last row is one draw target, pinned there; a press on a row is not a draw
 export function drawSlotTopPx(
   offsetY: number,
   rowCount: number,
@@ -51,8 +45,6 @@ export function drawSlotTopPx(
   return offsetY < topPx ? null : topPx;
 }
 
-// Draws a new task under the last row; the snapped range is handed to `onTaskCreate` and
-// never committed by the chart.
 export function useGanttDrawCreate({
   enabled,
   rowCount,
@@ -62,7 +54,6 @@ export function useGanttDrawCreate({
   const storeApi = useGanttStoreApi();
   const [ghost, setGhost] = useState<DrawGhost | null>(null);
   const activePointerRef = useRef<number | null>(null);
-  // Abort for a touch press still waiting to become a draw
   const pendingGestureRef = useRef<(() => void) | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
   const drewRef = useRef(false);
@@ -76,22 +67,17 @@ export function useGanttDrawCreate({
   );
 
   const onDrawPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // a draw released off the content sends its click elsewhere, so the flag can outlive it
     drewRef.current = false;
     if (!enabled || !e.isPrimary || e.button !== 0) return;
     if (activePointerRef.current !== null) return;
-    // Empty space only - bars, arrows and handles run their own gestures
     if (e.target !== e.currentTarget) return;
 
-    // A press given up to a scroll leaves its abort behind - clear it before arming the next
     pendingGestureRef.current?.();
     pendingGestureRef.current = null;
 
     const content = e.currentTarget;
     const pointerId = e.pointerId;
 
-    // Same rule as a bar drag: a mouse draws at once, a finger has to rest first so a swipe
-    // across the blank space still scrolls the timeline
     pendingGestureRef.current = armPointerGesture(
       { pointerType: e.pointerType, pointerId, clientX: e.clientX, clientY: e.clientY },
       (clientX, clientY) => {
@@ -113,7 +99,6 @@ export function useGanttDrawCreate({
     const topPx = drawSlotTopPx(startClientY - startRect.top, rowCount, geometry);
     if (topPx === null) return;
     activePointerRef.current = pointerId;
-    // touch-action is fixed when the gesture starts, so panning must be stopped separately
     const releaseTouchScroll =
       pointerType === "mouse" ? null : suppressTouchScroll();
 
@@ -125,7 +110,6 @@ export function useGanttDrawCreate({
     const handlePointerMove = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== pointerId) return;
 
-      // Re-read the rect every frame - the container may have been scrolled mid-drag
       const x = moveEvent.clientX - content.getBoundingClientRect().left;
       if (Math.abs(x - originX) < MIN_DRAW_PX) {
         setGhost(null);
@@ -177,7 +161,6 @@ export function useGanttDrawCreate({
       if (range) onTaskCreate?.(toDraft(range));
     };
 
-    // A chart unmounted mid-draw drops the draw rather than propose a task from its release
     cleanupRef.current = endDraw;
     document.addEventListener("pointermove", handlePointerMove);
     document.addEventListener("pointerup", handlePointerUp);

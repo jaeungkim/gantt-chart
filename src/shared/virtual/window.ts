@@ -1,15 +1,11 @@
 import type { VirtualAxis } from 'shared/virtual/axis';
 
-// At or below this count the axis returns its whole range.
 export const MIN_VIRTUAL_COUNT = 24;
 
-// Items kept beyond each edge so a scroll lands on already-mounted content.
 export const OVERSCAN = 5;
 
 export interface VirtualWindow {
-  /** First index to render */
   start: number;
-  /** Last index to render, inclusive - `-1` when the axis is empty */
   end: number;
 }
 
@@ -40,7 +36,6 @@ export function windowOf(
     return fullWindow(axis.count);
   }
 
-  // Overscan doubles toward the edge about to be exposed.
   const before = overscan + (direction < 0 ? overscan : 0);
   const after = overscan + (direction > 0 ? overscan : 0);
 
@@ -62,7 +57,6 @@ export function virtualItemsOf(
   return items;
 }
 
-// What culling compares against.
 export function windowBounds(
   axis: VirtualAxis,
   window: VirtualWindow,

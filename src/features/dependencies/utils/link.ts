@@ -9,8 +9,6 @@ export const LINK_TYPE_TITLE: Record<DependencyType, string> = {
   SF: "Start to finish",
 };
 
-// Predecessor's end first, successor's second: end -> start is FS, start -> start SS,
-// end -> end FF, start -> end SF
 export function linkTypeFromAnchors(
   from: LinkAnchor,
   to: LinkAnchor
@@ -19,15 +17,11 @@ export function linkTypeFromAnchors(
   return `${letter(from)}${letter(to)}` as DependencyType;
 }
 
-// The task a link drag is over, and the end of it the link would land on
 interface LinkTarget {
   task: TaskTransformed;
   anchor: LinkAnchor;
 }
 
-// On a lane row the horizontally nearest bar wins. `LINK_ANCHOR_ZONE` is how far from the finish
-// still counts as the finish, capped at a third of the bar; the rest is the start, so a loose drop
-// from a finish dot makes FS.
 export function resolveLinkTarget(
   rowTasks: TaskTransformed[],
   contentX: number,
@@ -43,7 +37,6 @@ export function resolveLinkTarget(
     Math.max(candidate.barWidth, MIN_RESIZABLE_WIDTH);
 
   for (const candidate of rowTasks) {
-    // `order` is the task's row number, rewritten by the row model (1-based)
     if (candidate.order - 1 !== rowIndex) continue;
 
     const left = candidate.barLeft;
@@ -63,13 +56,9 @@ export function resolveLinkTarget(
   const width = drawnWidth(task);
   const edge = Math.min(LINK_ANCHOR_ZONE, width / 3);
 
-  // Right of the bar is past `right - edge` too, so dropping beyond the finish is a finish
   return { task, anchor: contentX > left + width - edge ? "end" : "start" };
 }
 
-// null means the link may be created. `task.dependencies` lists predecessors, so the entry
-// lands on the successor; the walk goes up the predecessor chain and `seen` keeps a cycle
-// already in the data from spinning.
 export function validateDependency(
   tasks: Task[],
   predecessorId: string,
@@ -101,14 +90,12 @@ export function validateDependency(
   return null;
 }
 
-// Human-readable reason, shown on the drag preview
 export const LINK_REJECTION_LABEL: Record<LinkRejection, string> = {
   self: "Cannot link a task to itself",
   duplicate: "These tasks are already linked",
   cycle: "That would create a circular dependency",
 };
 
-// The tasks with one dependency added to the successor
 export function addDependency(
   tasks: Task[],
   predecessorId: string,
@@ -128,7 +115,6 @@ export function addDependency(
   );
 }
 
-// The tasks with every dependency on the predecessor removed from the successor
 export function removeDependency(
   tasks: Task[],
   predecessorId: string,

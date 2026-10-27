@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 
-// No DOM here: the real view runs under a one-component hooks runtime
 const hooks = vi.hoisted(() => ({
   slots: [] as unknown[],
   cursor: 0,
@@ -72,7 +71,6 @@ vi.stubGlobal('document', {
 
 const press = (key: string) => keydown.forEach((listener) => listener({ key }));
 
-// Renders once, then runs the effects that render scheduled, the way a commit does
 function render(): Element {
   hooks.cursor = 0;
   hooks.effects = [];
@@ -154,7 +152,6 @@ describe('console mirrors', () => {
   const stat = (tree: Element, term: string) =>
     (find(tree, (element) => element.key === term)!.props.children as Element[])[1].props.children;
 
-  // The chart reports a click on t5: selected, and its panel open
   function openT5(): Element {
     const tree = mount();
     fire(chart(tree), 'onTaskSelect', { id: 't5' });

@@ -1,5 +1,3 @@
-# Auto-labels PRs from branch prefix / changed files (.github/labeler.yml).
-# Labels pick the section in auto-generated release notes (.github/release.yml).
 name: Labeler
 
 on:
@@ -13,8 +11,6 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/labeler@v7
-      # A conventional-commit `!` (feat!: / refactor(scope)!:) has no branch prefix, so it is read
-      # from the title. The label files the PR under "Breaking changes" in generated release notes.
       - name: Label breaking changes from the PR title
         if: contains(github.event.pull_request.title, '!:')
         env:

@@ -16,7 +16,6 @@ interface VirtualWindows {
   sync: () => void;
 }
 
-// Both axes from one subscription, so header and bars can never disagree.
 export function useVirtualWindow({
   scrollRef,
   row,
@@ -60,7 +59,6 @@ export function useVirtualWindow({
     });
   }, [sync]);
 
-  // Layout effect: the element exists only after commit; an axis change re-measures here.
   useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element) return;

@@ -18,7 +18,6 @@ import { createGanttStore, type GanttStoreApi } from "shared/store";
 import type { Task, TaskTransformed } from "shared/task";
 import type { GanttBottomRowCell, GanttScaleKey } from "shared/types";
 
-// react-dom's client reads window.event, also from work it schedules after a test ends
 (globalThis as { window?: unknown }).window ??= globalThis;
 
 const geometry = resolveGeometry();
@@ -88,7 +87,6 @@ function mountApi(
       { value: store },
       createElement(Probe, {
         box,
-        // the store's own cells, as Gantt.tsx passes them; a server render only sees initial state
         bottomRowCells: store.getState().bottomRowCells,
         onApi: (next) => (api = next),
       })
@@ -98,7 +96,6 @@ function mountApi(
 }
 
 describe("scrollToTask under the sticky header", () => {
-  // The header covers the top HEADER_HEIGHT px of the scroll box, so rows show only in this band
   const band = (box: ReturnType<typeof scrollBox>) => ({
     top: box.scrollTop,
     bottom: box.scrollTop + box.clientHeight - HEADER_HEIGHT,
@@ -136,7 +133,6 @@ describe("setScale", () => {
 describe("scroll animation", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  // Month ticks around today, so scrollToToday has somewhere to go
   function scrollAll(prefersReducedMotion: boolean) {
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: prefersReducedMotion && query === "(prefers-reduced-motion: reduce)",
@@ -180,7 +176,6 @@ describe("a scroll call in the same tick as a scale change", () => {
     sequence: String(i + 1),
   }));
 
-  // Smooth scrolls land frames later, and any later scroll aborts one in flight (CSSOM View)
   function animatedBox() {
     let left = 0;
     let top = 0;
@@ -211,7 +206,6 @@ describe("a scroll call in the same tick as a scale change", () => {
   }
   type Box = ReturnType<typeof animatedBox>;
 
-  // The hooks Gantt.tsx chains for the handle, minus the DOM
   function Chart({
     scrollRef,
     onApi,
@@ -254,7 +248,6 @@ describe("a scroll call in the same tick as a scale change", () => {
   });
 
   function mount() {
-    // react-dom's client also reads the container's document, which node lacks
     const doc: Record<string, unknown> = {
       nodeType: 9,
       activeElement: null,
@@ -293,7 +286,6 @@ describe("a scroll call in the same tick as a scale change", () => {
       )
     );
 
-    // Park the month view on Jun 4, away from every target below
     const { bottomRowCells } = store.getState();
     box.scrollLeft =
       calculateDateOffsetPx(dayjs("2026-06-04"), bottomRowCells, "month")! -
@@ -301,7 +293,6 @@ describe("a scroll call in the same tick as a scale change", () => {
     return { store, box, api: () => api };
   }
 
-  // Lets the scale change render, then the smooth scrolls still in flight land
   const settle = async (box: Box) => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     box.land();
@@ -374,7 +365,6 @@ describe("a scroll call in the same tick as a scale change", () => {
     const { store, box, api } = mount();
     const kept = api();
 
-    // A task edit hands the store new cells, though the range is unchanged
     store.getState().setRawTasks([...tasks]);
     await settle(box);
     kept.scrollToDate("2026-07-20", { smooth: false });

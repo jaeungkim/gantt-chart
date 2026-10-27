@@ -3,23 +3,18 @@ import type { CSSProperties } from 'react';
 type BarKind = 'bar' | 'summary';
 
 interface Bar {
-  // Both ends are a percentage of the timeline column's width.
   from: number;
   to: number;
   kind?: BarKind;
   label?: string;
-  // Draws a finish-to-start connector from the preceding bar.
   arrow?: boolean;
 }
 
 interface Row {
   name: string;
-  // Indent steps in the task list, 0 for a top-level row.
   depth?: number;
   kind?: 'summary';
-  // The `+n` chip shown when a row carries more than one task.
   chip?: string;
-  // 1-based index into `notes`.
   note?: number;
   bars?: Bar[];
 }
@@ -31,7 +26,6 @@ interface SketchSpec {
   rows: Row[];
   paneLabel: string;
   caption: string;
-  // Legend entries, in badge order.
   notes: string[];
 }
 
@@ -40,7 +34,6 @@ const BAR_STYLE: Record<BarKind, CSSProperties> = {
   summary: { background: 'var(--gantt-summary-bg, #64748b)', height: 10, borderRadius: 3 },
 };
 
-// Legend copy carries only `code spans`, so a split beats pulling in a parser.
 function richText(text: string) {
   return text.split('`').map((part, i) =>
     i % 2 === 1 ? (
@@ -210,7 +203,6 @@ function SketchRow({ row }: { row: Row }) {
   );
 }
 
-// Percentages of days off the frame's first day.
 const day42 = (d: number) => (d / 42) * 100;
 
 type Lang = 'en' | 'ko';

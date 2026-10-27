@@ -8,18 +8,6 @@ interface GanttHolidayLabelsProps {
   ranges: NonWorkingRange[];
 }
 
-// A named holiday writes its name in the tick row, the way a dragged edge writes its date: the
-// cells it falls in give up their numerals and the name stands centred where they were, on the
-// grid, nothing floating. One name per holiday however many days it runs.
-//
-// It covers whole tick cells, not the holiday's own band - a one-day band is a seventh of a cell
-// at the month scale, and blanking part of a cell leaves a numeral sliced down the middle.
-//
-// A band wide enough to have earned the room keeps its name up; a narrower one hands it back to
-// the ruler and writes it only while the pointer is over the holiday, which is the same gesture
-// bargain a drag makes. That is CSS on the band's own hover, so no state and no re-render.
-// The hover target is the header and only the header: the shading in the body sits inside the
-// pointer surface that draws new tasks, and a target there would eat those gestures.
 export default function GanttHolidayLabels({
   ranges,
 }: GanttHolidayLabelsProps) {
@@ -32,14 +20,11 @@ export default function GanttHolidayLabels({
     return ranges.flatMap((range) => {
       if (!range.label) return [];
 
+      const lastPixelOfBand = range.left + range.width - 1;
       const first = tickCellAt(axis, range.left);
-      // The band's last pixel, so one ending exactly on a boundary does not claim the next cell
-      const last = tickCellAt(axis, range.left + range.width - 1);
+      const last = tickCellAt(axis, lastPixelOfBand);
       if (!first || !last) return [];
 
-      // Two standing names that start in one cell would print on top of each other; the earlier
-      // one keeps it.
-      // Hovered names are exclusive by definition, so only the standing ones are worth counting.
       const shown =
         range.width >= MIN_HOLIDAY_LABEL_PX && !shownCells.has(first.index);
       if (shown) shownCells.add(first.index);
@@ -50,7 +35,6 @@ export default function GanttHolidayLabels({
           shown,
           left: range.left,
           width: range.width,
-          // Relative to the band, which is what the hover target is positioned at
           cellLeft: first.left - range.left,
           cellWidth: last.left + last.width - first.left,
         },

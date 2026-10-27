@@ -16,14 +16,13 @@ import { TOUCH_LONG_PRESS_MS } from "shared/utils/pointerGesture";
 import { computeTimelineData } from "features/timeline/utils/geometry";
 import { useGanttBarDrag } from "./useGanttBarDrag";
 
-// Effects never run under renderToString, so each is kept for a test that mounts and unmounts
 const effects = vi.hoisted(() => [] as (() => void | (() => void))[]);
 vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),
   useEffect: (create: () => void | (() => void)) => void effects.push(create),
 }));
 
-const STEP_PX = GANTT_SCALE_CONFIG.month.basePxPerDragStep; // one day
+const STEP_PX = GANTT_SCALE_CONFIG.month.basePxPerDragStep;
 
 const task = (id: string, startDate: string, endDate: string): Task => ({
   id,
@@ -39,7 +38,6 @@ interface BarSetup {
   interaction?: GanttInteractionConfig;
   range?: GanttVisibleRange;
   hierarchy?: boolean;
-  // The scroll container the bar sits in; auto-scroll runs only with one
   scrollEl?: object;
 }
 
@@ -63,7 +61,6 @@ function Probe(props: {
   return null;
 }
 
-// Renders the real hook once for its handlers, against a real store at the month scale.
 function mountBar(tasks: Task[], id: string, setup: BarSetup = {}) {
   const store = createGanttStore("month");
   const { bottomCells, transformedTasks } = computeTimelineData(
@@ -145,7 +142,6 @@ afterEach(() => {
 });
 
 describe("working-calendar right resize", () => {
-  // The docs' WorkWeekChart: Mon to Fri with Fri 2026-09-25 off; audit covers Tue to Thu.
   const calendar = createWorkingCalendar({ holidays: ["2026-09-25"] });
   const audit = task("audit", "2026-09-01", "2026-09-04");
 
@@ -180,7 +176,6 @@ describe("the click after a drag", () => {
     fire(end, bar.middle + 2 * STEP_PX);
   };
 
-  // A browser sends no click after a touch drag, so the next tap is the first click.
   const tap = (bar: ReturnType<typeof mountBar>) => {
     bar.press(bar.middle, "touch", 2);
     fire("pointerup", bar.middle, 2);
@@ -215,7 +210,6 @@ describe("the click after a drag", () => {
 });
 
 describe("resizing a bar clipped by a pinned window", () => {
-  // Month ticks are whole weeks, so this window draws 2026-03-01 to 2026-05-03.
   const range = { start: dayjs("2026-03-01"), end: dayjs("2026-04-30") };
 
   it("commits the start under the dragged edge, not the hidden start shifted", () => {
@@ -296,7 +290,6 @@ describe("dragging a bar whose stored dates do not parse", () => {
     const bar = mountBar(openEnded, "x");
     drag(bar, bar.rightEdge, -3);
 
-    // The timeline is drawn to 2026-11-08, where the open end is drawn.
     expect(bar.committed().endDate).toBe("2026-11-05T00:00:00.000Z");
   });
 });
@@ -304,7 +297,6 @@ describe("dragging a bar whose stored dates do not parse", () => {
 describe("dragging back to the press point", () => {
   const saturday = task("sat", "2026-09-05", "2026-09-09");
 
-  // Returns the start the bar and the header readout show just before release.
   const outAndBack = (bar: ReturnType<typeof mountBar>, x: number) => {
     bar.press(x);
     fire("pointermove", x + STEP_PX);
@@ -331,7 +323,6 @@ describe("dragging back to the press point", () => {
 });
 
 describe("undoing a cancelled drag's auto-scroll", () => {
-  // Returns the behavior the cancel scrolls back with, after one frame of auto-scroll
   const undoBehavior = (reduceMotion: boolean) => {
     vi.stubGlobal("window", {
       matchMedia: (query: string) => ({
@@ -354,9 +345,10 @@ describe("undoing a cancelled drag's auto-scroll", () => {
 
     const bar = mountBar([task("plan", "2025-01-06", "2025-01-16")], "plan", { scrollEl });
     bar.press(bar.middle);
-    fire("pointermove", 995); // in the right edge's auto-scroll zone
+    const inRightAutoScrollZone = 995;
+    fire("pointermove", inRightAutoScrollZone);
     frame?.(0);
-    fire("pointercancel", 995);
+    fire("pointercancel", inRightAutoScrollZone);
     return undo.map((options) => options.behavior);
   };
 

@@ -1,9 +1,6 @@
 import { useShallow } from "zustand/react/shallow";
 import { useGanttStore } from "shared/context";
 
-// Store state the chart component itself renders with; anything one feature needs is
-// subscribed to by that feature's hook. dragOffsets is excluded on purpose - it changes every
-// drag frame and would re-render the whole chart.
 export function useGanttSelectors() {
   return useGanttStore(
     useShallow((state) => ({

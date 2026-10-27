@@ -28,7 +28,6 @@ const TASKS: Task[] = Array.from({ length: 40 }, (_, i) => ({
 
 type Zoom = (scale: GanttScaleKey, anchor: GanttZoomAnchor) => void;
 
-// The hooks in Gantt.tsx's order: the window syncs before the scroll compensation runs
 function Chart({
   scrollRef,
   onRender,
@@ -59,7 +58,6 @@ function Chart({
   return null;
 }
 
-// react-dom's client reads window.event, also from work it schedules after a test ends
 (globalThis as { window?: unknown }).window ??= globalThis;
 
 let root: Root | null = null;
@@ -69,7 +67,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// No scroll events fire here, so only a sync in the same layout pass can move the window
 function mount() {
   vi.stubGlobal(
     "ResizeObserver",
@@ -78,7 +75,6 @@ function mount() {
       disconnect() {}
     }
   );
-  // react-dom's client also reads the container's document, which node lacks
   const doc: Record<string, unknown> = {
     nodeType: 9,
     activeElement: null,
@@ -129,7 +125,6 @@ function mount() {
 
 const rendered = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-// The tick cells the last render produced must span the viewport the scroll now shows
 function coversViewport(virtual: GanttVirtualization, scrollLeft: number) {
   const first = virtual.virtualCells[0];
   const last = virtual.virtualCells[virtual.virtualCells.length - 1];

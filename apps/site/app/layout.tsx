@@ -4,8 +4,6 @@ import type { ReactNode } from 'react';
 
 const SITE = 'https://gantt.jaeungkim.com';
 
-// `metadataBase` makes the relative OG image paths absolute. Without it Next guesses the host:
-// localhost, or a Vercel deployment URL.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: {

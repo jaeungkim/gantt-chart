@@ -159,7 +159,7 @@ describe('edgeScrollVelocity', () => {
     expect(edgeScrollVelocity(30, 0, 1000)).toBeLessThan(0);
   });
 
-  it('caps at EDGE_SCROLL_MAX_SPEED past the edge', () => {
+  it('caps at EDGE_SCROLL_MAX_PX_PER_FRAME past the edge', () => {
     expect(edgeScrollVelocity(1200, 0, 1000)).toBe(22);
     expect(edgeScrollVelocity(-200, 0, 1000)).toBe(-22);
   });

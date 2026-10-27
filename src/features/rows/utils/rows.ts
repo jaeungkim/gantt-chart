@@ -11,9 +11,7 @@ export interface GanttRow {
   depth: number;
 }
 
-/** Packs lane-sharing tasks onto as few rows as possible (greedy interval partitioning by start) */
 export function packLanes(tasks: TaskTransformed[]): TaskTransformed[][] {
-  // Ties keep the incoming order, so the packing is stable for equal starts
   const ordered = tasks
     .map((task, index) => ({ task, index }))
     .sort((a, b) => {
@@ -28,7 +26,6 @@ export function packLanes(tasks: TaskTransformed[]): TaskTransformed[][] {
   for (const { task } of ordered) {
     const start = dayjs(task.startDate).valueOf();
     const end = dayjs(task.endDate).valueOf();
-    // `<=` so touching bars (one starts as the last ends) still share the row
     const slot = rowEnds.findIndex((rowEnd) => rowEnd <= start);
 
     if (slot === -1) {
@@ -43,7 +40,6 @@ export function packLanes(tasks: TaskTransformed[]): TaskTransformed[][] {
   return rows;
 }
 
-// Groups the tasks that carry a `lane` onto shared rows, in first-appearance order
 function toLaneRows(tasks: TaskTransformed[]): TaskTransformed[][] {
   const byLane = new Map<string, TaskTransformed[]>();
   for (const task of tasks) {
@@ -70,13 +66,11 @@ function toLaneRows(tasks: TaskTransformed[]): TaskTransformed[][] {
   return rows;
 }
 
-/** The row model the chart renders */
 export function buildGanttRows(tasks: TaskTransformed[]): GanttRow[] {
   return toLaneRows(tasks).map((row, index) => {
     const order = index + 1;
     return {
       id: row.map((task) => task.id).join("+"),
-      // Only rewrapped when the row number moved, so unchanged tasks keep identity
       tasks: row.map((task) => (task.order === order ? task : { ...task, order })),
       depth: row[0].depth,
     };

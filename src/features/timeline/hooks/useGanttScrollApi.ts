@@ -19,9 +19,7 @@ interface UseGanttScrollApiParams {
   bottomRowCells: GanttBottomRowCell[];
   transformedTasks: TaskTransformed[];
   selectedScale: GanttScaleKey;
-  /** Width of the pinned task list - centering measures against the narrowed viewport */
   viewportInsetPx: number;
-  /** Switches scale and puts `anchor.date` at `anchor.viewportX` */
   zoomTo: (scale: GanttScaleKey, anchor: GanttZoomAnchor) => void;
   geometry: GanttGeometry;
 }
@@ -30,7 +28,6 @@ type ScrollCall = (
   scroll: Pick<GanttScrollApi, "scrollToDate" | "scrollToTask">
 ) => void;
 
-// An explicit "smooth" overrides the stylesheet's reduced-motion rule, so honour it here
 export function scrollBehavior(options?: GanttScrollOptions): ScrollBehavior {
   const reduceMotion =
     typeof window !== "undefined" &&
@@ -40,8 +37,6 @@ export function scrollBehavior(options?: GanttScrollOptions): ScrollBehavior {
   return options?.smooth === false || reduceMotion ? "auto" : "smooth";
 }
 
-// Dates outside the timeline and unknown task ids are ignored silently, so calling while
-// data is still loading does not throw.
 export function useGanttScrollApi({
   scrollRef,
   bottomRowCells,
@@ -61,7 +56,6 @@ export function useGanttScrollApi({
       const px = calculateDateOffsetPx(dayjs(date), bottomRowCells, selectedScale);
       if (!el || px === null) return;
 
-      // "start" needs no correction: at scrollLeft 0 the origin already sits right of the pane
       const target =
         options?.align === "start"
           ? px
@@ -83,10 +77,7 @@ export function useGanttScrollApi({
       const el = scrollRef.current;
       if (!el) return;
 
-      // Vertical: move only when the row is off screen. `order` is the row number, so
-      // shared lanes are accounted for.
       const rowTop = (task.order - 1) * rowHeight;
-      // The sticky header covers the top of the scroll box
       const visibleHeight = el.clientHeight - HEADER_HEIGHT;
       const outOfView =
         rowTop < el.scrollTop ||
@@ -115,10 +106,8 @@ export function useGanttScrollApi({
     [scrollToDateNow, scrollToTaskNow]
   );
 
-  // The last committed render, so a handle kept across renders still compares against it
   const renderedRef = useLatestRef({ selectedScale, bottomRowCells, scrollNow });
 
-  // A scale change re-renders after the call that made it; until then cells and rows are stale
   const isCurrent = useCallback(() => {
     const state = storeApi.getState();
     return (
@@ -127,7 +116,6 @@ export function useGanttScrollApi({
     );
   }, [storeApi, renderedRef]);
 
-  // This tick's scroll calls, replayed once a scale change from the same tick has rendered
   const callsRef = useRef<ScrollCall[]>([]);
 
   const request = useCallback(
@@ -169,7 +157,6 @@ export function useGanttScrollApi({
 
   const setScale = useCallback(
     (scale: GanttScaleKey) => {
-      // A JS caller can hand in anything, and an unknown key throws further down
       if (!Object.prototype.hasOwnProperty.call(GANTT_SCALE_CONFIG, scale)) return;
 
       const el = scrollRef.current;
@@ -180,7 +167,6 @@ export function useGanttScrollApi({
         ? dateAtOffsetPx(el.scrollLeft + viewportX, bottomRowCells, selectedScale)
         : null;
 
-      // Nothing on screen to anchor to - switch without one rather than invent a date
       if (!date) {
         setSelectedScale(scale);
         return;
@@ -204,7 +190,6 @@ export function useGanttScrollApi({
     const { minDate, maxDate } = findDateRangeFromTasks(transformedTasks);
     if (!minDate.isValid() || !maxDate.isValid()) return;
 
-    // First moment pinned to the left edge, at the scale the whole span fits that width
     zoomTo(fitScale(maxDate.diff(minDate), el.clientWidth - viewportInsetPx), {
       date: minDate,
       viewportX: 0,

@@ -14,13 +14,11 @@ describe('docs layout', () => {
     await expect(layout('ko')).resolves.toBeTruthy();
   });
 
-  // DocsPage renders the page's main, so HomeLayout's container must not wrap it in another
   it('gives HomeLayout a container that is not a second main', async () => {
     const { props } = await layout('en');
     expect(props.slots.container({ children: null }).type).toBe('div');
   });
 
-  // Next renders this layout alongside [lang]/layout, so it meets an unknown lang too
   it('is a 404 for a lang with no page tree, instead of handing DocsLayout undefined', async () => {
     await expect(layout('x.y')).rejects.toMatchObject({
       digest: 'NEXT_HTTP_ERROR_FALLBACK;404',

@@ -9,9 +9,6 @@ const canMatchMedia = () =>
 const systemScheme = (): 'light' | 'dark' =>
   canMatchMedia() && window.matchMedia(SYSTEM_DARK_QUERY).matches ? 'dark' : 'light';
 
-// `color-scheme` is the platform's own light/dark signal and it inherits, so reading it off the
-// root is how the chart follows a host that flips themes with a class - next-themes, Tailwind and
-// fumadocs all write it there. A media query cannot see that choice, only the OS behind it.
 const hostScheme = (): 'light' | 'dark' => {
   if (typeof document === 'undefined') return 'light';
 
@@ -19,13 +16,10 @@ const hostScheme = (): 'light' | 'dark' => {
   const light = used.includes('light');
   const dark = used.includes('dark');
 
-  // Both means "either is fine, ask the user" - the same thing `theme="system"` asks.
   if (light && dark) return systemScheme();
   return dark ? 'dark' : 'light';
 };
 
-// Two sources to watch: the OS setting, and the root's own class/style/data-theme, which is what
-// a host theme switch actually mutates.
 const subscribe = (onChange: () => void) => {
   if (typeof window === 'undefined') return () => {};
 
@@ -44,17 +38,8 @@ const subscribe = (onChange: () => void) => {
   };
 };
 
-// Server renders light: the host's color-scheme is only readable once there is a document. A host
-// that themes before paint (next-themes' blocking script) is already correct on the first client
-// render, so only static HTML shows the light frame.
 const getServerSnapshot = (): 'light' | 'dark' => 'light';
 
-/**
- * Resolves the `theme` prop to the value written to `data-theme`.
- *
- * 'light' / 'dark' are taken as given, 'system' asks the OS, and no prop at all follows the
- * host page's `color-scheme`.
- */
 export function useResolvedTheme(theme?: GanttTheme): 'light' | 'dark' {
   const ambient = useSyncExternalStore(
     subscribe,

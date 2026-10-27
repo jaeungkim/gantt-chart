@@ -19,8 +19,6 @@ import {
   type Settings,
 } from '@/components/playground/controls';
 
-// The fixture's own span. Read off `demoTasks` rather than the live `tasks` state, so dragging a
-// bar out to the edge does not drag the bounds along with it.
 const FIXTURE_START = demoTasks.reduce(
   (first, task) => (task.startDate < first ? task.startDate : first),
   demoTasks[0].startDate
@@ -33,41 +31,28 @@ const FIXTURE_END = demoTasks.reduce(
 const shift = (iso: string, days: number) =>
   new Date(Date.parse(iso) + days * 86_400_000).toISOString().slice(0, 10);
 
-// A fresh array every render would make the chart recompute its non-working days each time.
 const SIX_DAY_WEEK = [1, 2, 3, 4, 5, 6];
 
-// One override per slot, on two scales - enough to see `formats` beat both the locale and the
-// built-in labels. `d` arrives in UTC mode, so `.format()` needs no conversion.
 const DEMO_FORMATS: GanttFormatOverrides = {
   day: {
     tick: (d) => d.format('D ddd'),
     header: (d) => d.format('MMMM YYYY').toUpperCase(),
     tooltip: (d) => d.format('YYYY/MM/DD HH:mm'),
   },
-  // With `firstDayOfWeek` always set here, the week scale ticks in days and groups in weeks, so the
-  // override that reads as a week goes on the header, not the tick.
   week: { header: (d) => `week of ${d.format('D MMM')}` },
 };
 
-// The console floats over the chart, so it follows the chart's own overlay language rather than
-// the site's card: one step lifted off the chart background (#fafafa -> white, #09090b -> zinc
-// 900), a hairline ring, and a shadow that does the separating. `dark:` here is fumadocs' `.dark`
-// class, not the media query, so both follow the site's theme switch rather than the OS.
 const HAIRLINE = 'border-black/[0.07] dark:border-white/[0.08]';
 
 const SURFACE = `border bg-white dark:bg-[#18181b] ${HAIRLINE}`;
 
 const PANEL = `${SURFACE} rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05),0_18px_44px_-14px_rgba(0,0,0,0.3)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.55),0_22px_52px_-16px_rgba(0,0,0,0.85)]`;
 
-// The action buttons and the selects are the same tinted fill, so none needs its own colour: black
-// at 2-6% in light, white at 3-8% in dark.
 const FILL =
   'bg-black/[0.02] hover:bg-black/[0.06] dark:bg-white/[0.03] dark:hover:bg-white/[0.08]';
 
 const FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-console-accent/45';
 
-// The two icon controls at the strip's right end. Same 28px box and 8px radius as the buttons
-// and the select beside them, so the row has one rhythm rather than a round object bolted on.
 const ICON_ACTION =
   `grid size-7 shrink-0 cursor-pointer place-items-center rounded-lg text-fd-muted-foreground transition-[background-color,color] duration-150 hover:bg-black/[0.06] hover:text-fd-foreground dark:hover:bg-white/[0.08] ${FOCUS}`;
 
@@ -76,19 +61,13 @@ const ACTION =
 
 const HEADING = 'text-[10px] font-semibold uppercase tracking-[0.09em] text-fd-muted-foreground';
 
-// Every stat and control row is a fixed 32px, so a switch row and a select row come out the same
-// height.
 const ROW = 'flex h-8 items-center justify-between gap-3 text-[12.5px] text-fd-foreground';
 
 const DIVIDER = `border-t ${HAIRLINE}`;
 
-// The track is a sibling of the transparent input, so `peer-checked` drives both it and the knob
-// it paints with `::after`.
 const SWITCH =
   'relative h-4 w-7 shrink-0 rounded-full bg-black/[0.18] transition-colors duration-200 after:absolute after:left-[2px] after:top-[2px] after:size-3 after:rounded-full after:bg-white after:shadow-[0_1px_2px_rgba(0,0,0,0.3)] after:transition-transform after:duration-200 peer-checked:bg-console-accent peer-checked:after:translate-x-3 peer-focus-visible:ring-2 peer-focus-visible:ring-console-accent/45 dark:bg-white/20';
 
-// Split from its width so the strip can carry a narrower one on small screens; a scale key is a
-// short word.
 const SELECT_BASE =
   `h-7 cursor-pointer rounded-lg border px-2 text-[12px] text-fd-foreground transition-colors duration-150 ${HAIRLINE} ${FILL} ${FOCUS}`;
 
@@ -113,25 +92,18 @@ const Icon = ({ children, className = 'size-4' }: { children: ReactNode; classNa
 export function PlaygroundView() {
   const ref = useRef<GanttHandle>(null);
   const [fullscreen, setFullscreen] = useState(false);
-  // Seeded straight from the query string - this module never renders on the server.
   const [settings, setSettings] = useState<Settings>(readSettings);
   const [tasks, setTasks] = useState<Task[]>(demoTasks);
   const [selected, setSelected] = useState<TaskTransformed | null>(null);
   const [range, setRange] = useState<string>('-');
-  // Collapse is controlled outright: the chevrons write back through `onCollapsedChange`, into the
-  // same state the two buttons below set.
   const [collapsed, setCollapsed] = useState<string[]>([]);
-  // Tracked whether or not `controlledDetail` is on - off, it only feeds the console.
   const [detailId, setDetailId] = useState<string | null>(null);
-  // Both click callbacks land here: a double click reports last, over the two clicks under it.
   const [click, setClick] = useState('-');
   const [mounts, setMounts] = useState(0);
   useEffect(() => writeSettings(settings), [settings]);
-  // An overlay pinned over the viewport, not requestFullscreen, so the exit control stays visible.
   useEffect(() => {
     if (!fullscreen) return;
     const close = (e: KeyboardEvent) => {
-      // The open detail panel takes this Escape for itself; the next one leaves fullscreen
       if (e.key === 'Escape' && !document.querySelector('.gantt-detail-open')) setFullscreen(false);
     };
     document.addEventListener('keydown', close);
@@ -143,13 +115,10 @@ export function PlaygroundView() {
     };
   }, [fullscreen]);
 
-  // Handing the chart the scale it is already on is a no-op, so a scale change that came from
-  // the chart does not loop.
   useEffect(() => {
     ref.current?.setScale(settings.scale);
   }, [settings.scale]);
 
-  // A remounted chart starts with nothing selected and no panel, so the console's copies restart too
   const remount = () => {
     setMounts((count) => count + 1);
     setSelected(null);
@@ -158,7 +127,6 @@ export function PlaygroundView() {
 
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setSettings((current) => ({ ...current, [key]: value }));
-    // `initialScrollTo` is read once, at mount, so the row only means anything on a remount.
     if (key === 'initialScrollTo' || key === 'controlledDetail') remount();
   };
 
@@ -169,7 +137,6 @@ export function PlaygroundView() {
     remount();
   };
 
-  // Only rows that actually have children collapse.
   const parentIds = tasks
     .filter((task) => tasks.some((child) => child.parentId === task.id))
     .map((task) => task.id);
@@ -178,7 +145,6 @@ export function PlaygroundView() {
 
   const first = tasks.find((task) => task.parentId !== null) ?? tasks[0];
 
-  // `scrollToToday()` no-ops off-range; both sides stay UTC `YYYY-MM-DD` so the string compare holds.
   const [rangeStart, rangeEnd] = range.split(' .. ');
   const today = new Date().toISOString().slice(0, 10);
   const todayInRange = Boolean(rangeEnd) && rangeStart <= today && today <= rangeEnd;
@@ -186,7 +152,6 @@ export function PlaygroundView() {
     ? undefined
     : 'Today is outside the rendered range, so scrollToToday() is a documented no-op';
 
-  // `readOnly` blocks creation too, so both copies of the button follow both switches.
   const canCreate = settings.allowTaskCreate && !settings.readOnly;
   const createHint = canCreate
     ? undefined
@@ -225,7 +190,6 @@ export function PlaygroundView() {
   );
 
   return (
-    // 3.5rem is HomeLayout's `h-14` navbar; z-50 clears Fumadocs' sticky nav, which sits at z-40.
     <div
       className={
         fullscreen
@@ -234,10 +198,6 @@ export function PlaygroundView() {
       }
     >
       <div
-        // The verbs a viewer presses many times a session, lifted out of the console: the two view
-        // methods that need no fixture id, task creation, and the scale. Every switch stays in the
-        // console - a strip of switches is just a second console. Painted on the chart's own ground
-        // rather than the site's card, which would read as a band above the chart's header.
         data-testid="toolbar"
         className={`relative flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b bg-[#fafafa] px-3 py-1.5 dark:bg-[#09090b] ${HAIRLINE}`}
       >
@@ -245,7 +205,6 @@ export function PlaygroundView() {
         {fitButton}
         {addTaskButton}
         <select
-          // Writes the same `settings.scale` the console's row does, so the two cannot disagree.
           data-testid="toolbar-scale"
           aria-label="Timeline scale"
           className={`${SELECT_BASE} ml-auto w-[4.75rem] sm:w-[7.5rem]`}
@@ -261,7 +220,6 @@ export function PlaygroundView() {
 
         <details data-testid="console" className="group/console">
           <summary
-            // Native <details>: the controls stay in the DOM while closed.
             data-testid="console-toggle"
             title="Console"
             aria-label="Toggle the console"
@@ -277,13 +235,6 @@ export function PlaygroundView() {
 
           <div
             data-testid="console-panel"
-            // Anchored to the strip, not the toggle: the <details> is unpositioned, so this lands on
-            // the strip's right gutter, capped by what the window leaves below it - the navbar, the
-            // strip and a gap at either end.
-            // `overflow-clip`, not `hidden`: a hidden box is still a scroll container, and focus
-            // could scroll the whole panel out of its own frame with no scrollbar to bring it
-            // back. Clipping leaves .console-scroll as the only scroller, which is the one the
-            // rows live in.
             className={`absolute right-3 top-[calc(100%+0.5rem)] z-[1000] flex max-h-[min(40rem,calc(100svh-8rem))] w-[21rem] max-w-[calc(100vw-2rem)] origin-top-right cursor-auto touch-auto select-text flex-col overflow-clip text-[12.5px] motion-safe:animate-console-in ${PANEL}`}
           >
             <header
@@ -319,8 +270,6 @@ export function PlaygroundView() {
                   Scroll to {first?.id}
                 </button>
                 <button
-                  // The one handle member with no gesture behind it: the scroll node itself,
-                  // for whatever the chart does not do for you.
                   type="button"
                   className={ACTION}
                   title="getScrollElement().scrollTo({ left: 0 })"
@@ -352,7 +301,6 @@ export function PlaygroundView() {
                 <button
                   type="button"
                   className={ACTION}
-                  // Collapsing needs summary rows, and there is nothing to collapse without them.
                   disabled={!settings.hierarchy || !parentIds.length}
                   title={settings.hierarchy ? undefined : 'Turn hierarchy on first'}
                   onClick={() => setCollapsed(parentIds)}
@@ -375,8 +323,6 @@ export function PlaygroundView() {
 
               <dl data-testid="stats" className="pb-3">
                 {(
-                  // The header already carries the task count and the scale, so this holds only
-                  // what it does not repeat - and reads as more rows rather than a second layout.
                   [
                     ['Selected', selected?.id ?? '-'],
                     ['Last click', click],
@@ -393,8 +339,6 @@ export function PlaygroundView() {
               </dl>
 
               {GROUPS.map((group) => (
-                // Open by default; collapsing a group is how the wall of switches gets down to
-                // the handful a given experiment needs.
                 <details
                   key={group}
                   open
@@ -411,8 +355,6 @@ export function PlaygroundView() {
                   <div className="pb-2.5">
                     {CONTROLS.filter((control) => control.group === group).map((control) =>
                       control.type === 'boolean' ? (
-                        // The hint is the row's tooltip, not a second line - two lines a switch
-                        // turned the panel into prose you had to scroll past to reach a control.
                         <label
                           key={control.key}
                           className={`${ROW} relative cursor-pointer`}
@@ -422,9 +364,6 @@ export function PlaygroundView() {
                           <input
                             data-testid={control.key}
                             type="checkbox"
-                            // Transparent over the whole row rather than `sr-only`: the browser
-                            // reveals the box it focuses, and a 1px clipped one told it the row was
-                            // already on screen - tabbing landed on switches nobody could see.
                             className="peer absolute inset-0 cursor-pointer opacity-0"
                             checked={settings[control.key]}
                             onChange={(e) => update(control.key, e.target.checked)}
@@ -479,8 +418,6 @@ export function PlaygroundView() {
 
       <div className="min-h-0 flex-1">
         <div
-          // The chart's own box, under the strip: the height row sizes it and the rest of the
-          // column is what "fill" fills.
           className="bg-fd-card"
           style={{
             height: settings.chartHeight === 'fill' ? '100%' : `${settings.chartHeight}px`,
@@ -492,7 +429,6 @@ export function PlaygroundView() {
             tasks={tasks}
             onTasksChange={setTasks}
             onTaskCreate={(draft) => {
-              // The chart adds nothing itself - the host appends the row.
               setTasks((current) => [
                 ...current,
                 {
@@ -512,13 +448,10 @@ export function PlaygroundView() {
             onRangeChange={(next) =>
               setRange(`${next.start.format('YYYY-MM-DD')} .. ${next.end.format('YYYY-MM-DD')}`)
             }
-            // Each veto returns false, which is the documented "reject it" answer - the gesture runs,
-            // the chart draws it, and then nothing is applied.
             onDependencyCreate={settings.vetoLinkCreate ? () => false : undefined}
             onDependencyDelete={settings.vetoLinkDelete ? () => false : undefined}
             onTaskMove={settings.vetoMove ? () => false : undefined}
             readOnly={settings.readOnly}
-            // An explicit `allow*` beats `readOnly`, so these six pass only their off state.
             allowMove={settings.allowMove ? undefined : false}
             allowResize={settings.allowResize ? undefined : false}
             allowProgressChange={settings.allowProgressChange ? undefined : false}
@@ -528,8 +461,6 @@ export function PlaygroundView() {
             allowReorder={settings.reorder}
             minDate={settings.dateBounds ? FIXTURE_START : undefined}
             maxDate={settings.dateBounds ? FIXTURE_END : undefined}
-            // A fortnight past the tasks either side, so a pinned range reads apart from the
-            // auto-fit one.
             visibleStart={settings.visibleRange ? shift(FIXTURE_START, -14) : undefined}
             visibleEnd={settings.visibleRange ? shift(FIXTURE_END, 14) : undefined}
             height="100%"
@@ -557,17 +488,13 @@ export function PlaygroundView() {
             }
             detailTaskId={settings.controlledDetail ? detailId : undefined}
             onDetailChange={(task) => setDetailId(task?.id ?? null)}
-            // Seeded from the console, so a remount lands on the scale the console is showing
-            // instead of snapping back to the default.
             defaultScale={settings.scale}
             initialScrollTo={(() => {
               if (settings.initialScrollTo === 'none') return undefined;
               if (settings.initialScrollTo === 'today') return 'today';
               return DEMO_ANCHOR;
             })()}
-            // Keeps the console's `scale` row honest when ctrl+wheel or zoomToFit moves the scale.
             onScaleChange={(scale) => update('scale', scale)}
-            // 'host' means "no prop" - the chart then inherits the site's color-scheme.
             theme={settings.theme === 'host' ? undefined : settings.theme}
             locale={settings.locale}
             firstDayOfWeek={Number(settings.firstDayOfWeek)}

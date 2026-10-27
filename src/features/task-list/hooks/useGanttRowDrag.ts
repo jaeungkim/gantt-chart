@@ -11,19 +11,14 @@ import { armPointerGesture, suppressTouchScroll } from "shared/utils/pointerGest
 
 interface UseGanttRowDragParams {
   rows: GanttRow[];
-  // The rendered window - a row scrolled out of it cannot be a drop target
   virtualItems: VirtualItem[];
   bodyRef: RefObject<HTMLDivElement | null>;
   hierarchy: boolean;
   move: GanttTaskMoveApi;
 }
 
-// How much of a row's height counts as "drop above it" / "drop below it"
 const EDGE_BAND = 0.25;
 
-// Drops are resolved by arithmetic on the virtual items, not DOM hit-testing: the rows are
-// absolutely positioned and anything painted over one would swallow the drop. Every frame
-// publishes a draft carrying the move and the core's rejection, so a blocked drop can show.
 export function useGanttRowDrag({
   rows,
   virtualItems,
@@ -33,13 +28,10 @@ export function useGanttRowDrag({
 }: UseGanttRowDragParams) {
   const storeApi = useGanttStoreApi();
   const draft = useGanttStore((store) => store.reorderDraft);
-  // The listeners outlive the render that attached them, and a mid-drag scroll rewrites the window
   const rowsRef = useLatestRef(rows);
   const virtualItemsRef = useLatestRef(virtualItems);
   const moveRef = useLatestRef(move);
-  // Aborts a touch long press that has not lifted yet
   const pendingRef = useRef<(() => void) | null>(null);
-  // Tears down the running drag - also on unmount, so no listeners or draft are left behind
   const cleanupRef = useRef<(() => void) | null>(null);
   const reorderedRef = useRef(false);
 
@@ -57,15 +49,12 @@ export function useGanttRowDrag({
     pointerType: string,
     element: HTMLElement
   ) => {
-    // Nothing commits until the release, so the sibling lists are read once, not per frame
     const order = buildTaskOrder(storeApi.getState().rawTasks, hierarchy);
 
-    // Capture throws if the pointer is already gone; pointerup/pointercancel below still tear the drag down
     try {
       element.setPointerCapture(pointerId);
     } catch {}
 
-    // Rows let touch scroll the pane, so the scroll is held off by hand for this drag
     const releaseTouchScroll =
       pointerType === "mouse" ? null : suppressTouchScroll();
     const previousCursor = document.body.style.cursor;
@@ -74,7 +63,6 @@ export function useGanttRowDrag({
     const scrollEl = bodyRef.current?.closest<HTMLElement>(
       ".gantt-scroll-container"
     );
-    // Rows under the sticky header or past the bottom edge are rendered but hidden
     const inView = (clientY: number) => {
       if (!scrollEl) return true;
       const { top } = scrollEl.getBoundingClientRect();
@@ -87,7 +75,6 @@ export function useGanttRowDrag({
       const body = bodyRef.current;
       if (!body || !inView(clientY)) return null;
 
-      // The body scrolls with its container, so its own rect already carries the scroll
       const y = clientY - body.getBoundingClientRect().top;
       const item = virtualItemsRef.current.find(
         (candidate) =>
@@ -97,7 +84,6 @@ export function useGanttRowDrag({
 
       const row = rowsRef.current[item.index];
       const target = row?.tasks[0];
-      // A lane row owns several tasks, so it names no single slot
       if (!row || !target || row.tasks.length > 1) return null;
 
       const offset = (y - item.start) / item.size;
@@ -118,7 +104,6 @@ export function useGanttRowDrag({
       };
     };
 
-    // Where the pointer last was, so the release can re-read the row under it
     let lastClientY: number | null = null;
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -134,7 +119,6 @@ export function useGanttRowDrag({
       document.removeEventListener("pointerup", handlePointerUp);
       document.removeEventListener("pointercancel", handlePointerCancel);
       document.removeEventListener("keydown", handleKeyDown);
-      // Throws when already released, or the grip is gone
       try {
         element.releasePointerCapture(pointerId);
       } catch {}
@@ -142,7 +126,6 @@ export function useGanttRowDrag({
       storeApi.getState().setReorderDraft(null);
     };
 
-    // Browser-cancelled gestures (scroll takeover, multi-touch) move nothing
     const handlePointerCancel = (cancelEvent: PointerEvent) => {
       if (cancelEvent.pointerId !== pointerId) return;
       cancelDrag();
@@ -155,8 +138,6 @@ export function useGanttRowDrag({
     function handlePointerUp(upEvent: PointerEvent) {
       if (upEvent.pointerId !== pointerId) return;
 
-      // Resolved again, not read off the draft: a wheel scroll slides the rows under a
-      // pointer that never moved, so the draft can name a row that is no longer there
       const dropped =
         lastClientY === null || !inView(lastClientY)
           ? null
@@ -164,7 +145,6 @@ export function useGanttRowDrag({
       cancelDrag();
 
       if (dropped?.move && !dropped.rejection) {
-        // Any click from this release lands in this same task, before the timer clears the flag
         reorderedRef.current = true;
         setTimeout(() => {
           reorderedRef.current = false;
@@ -181,21 +161,17 @@ export function useGanttRowDrag({
   };
 
   const onGripPointerDown = (rowIndex: number, event: React.PointerEvent) => {
-    // Same primary-pointer rule the bar drag uses
     if (!event.isPrimary || event.button !== 0) return;
     if (cleanupRef.current) return;
-    // The primary pointer can only be down once, so anything still pending is stale
     pendingRef.current?.();
     pendingRef.current = null;
 
     const task = rowsRef.current[rowIndex]?.tasks[0];
     if (!task) return;
 
-    // currentTarget is only valid while the React event is being dispatched
     const element = event.currentTarget as HTMLElement;
     const { pointerId, pointerType } = event;
 
-    // A mouse press lifts the row now; a touch must rest first, so a swipe still scrolls
     pendingRef.current = armPointerGesture(
       { pointerType, pointerId, clientX: event.clientX, clientY: event.clientY },
       () => {

@@ -13,12 +13,9 @@ interface UseGanttTaskMoveParams {
   interaction: GanttInteractionConfig;
   onTasksChange?: (tasks: Task[]) => void;
   onTaskMove?: (change: GanttTaskMoveChange) => boolean | void;
-  // Expands a collapsed drop target, so the row that just landed in it is visible
   onExpand: (rowId: string) => void;
 }
 
-// The one place a task move is validated and committed - the row drag routes through it.
-// `onTaskMove` runs first and can veto.
 export function useGanttTaskMove({
   hierarchy,
   interaction,
@@ -43,7 +40,6 @@ export function useGanttTaskMove({
       storeApi.getState().setRawTasks(result.tasks);
       onTasksChange?.(result.tasks);
 
-      // Dropping into a closed parent would otherwise look like the row disappeared
       if (move.toParentId) onExpand(move.toParentId);
     },
   };

@@ -6,7 +6,6 @@ import dayjs from "core/dates";
 import { TaskTree } from "core/tree";
 import { buildTaskOrder, sortTasksBySequence } from "core/reorder";
 
-// Bar geometry: where a task's span starts and how wide it is, in px along the tick strip.
 export function calculateDateOffsets(
   startDate: Dayjs,
   endDate: Dayjs,
@@ -70,7 +69,6 @@ function calculateTaskDepth(
   parentOf: ReadonlyMap<string, string | null>,
   id: string
 ): number {
-  // Duplicate ids can loop the sequence forest, so stop at the first repeat.
   const seen = new Set<string>();
   for (
     let cursor = parentOf.get(id);
@@ -82,8 +80,6 @@ function calculateTaskDepth(
   return seen.size;
 }
 
-// With `tree` (hierarchy on) depth comes from the `parentId` chain, not the sequence, and rows
-// with children are marked as summaries.
 export function transformTasks(
   tasks: Task[],
   timelineTicks: GanttBottomRowCell[],
@@ -91,7 +87,6 @@ export function transformTasks(
   tree?: TaskTree
 ): TaskTransformed[] {
   const sortedTasks = sortTasksBySequence(tasks);
-  // Hierarchy off: depth follows the forest moves use, so a path with no parent row is a root.
   const { parentOf } = tree ?? buildTaskOrder(sortedTasks, false);
 
   return sortedTasks.map((task, index) => {

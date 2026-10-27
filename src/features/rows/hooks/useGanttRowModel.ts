@@ -4,22 +4,17 @@ import { buildGanttRows, GanttRow } from "features/rows/utils/rows";
 import { buildTaskTree, getVisibleTasks } from "core/tree";
 
 interface UseGanttRowModelParams {
-  /** Raw data - the parentId tree is built from it */
   rawTasks: Task[];
-  /** The positioned tasks to lay out */
   tasks: TaskTransformed[];
   hierarchy: boolean;
   collapsedIds: ReadonlySet<string>;
 }
 
 interface GanttRowModel {
-  /** What both panes render, in screen order */
   rows: GanttRow[];
-  /** Every task on a row, flattened - what the dependency arrows are drawn between */
   tasks: TaskTransformed[];
 }
 
-/** The rows both panes render: hierarchy, then collapsing, then lane packing */
 export function useGanttRowModel({
   rawTasks,
   tasks,

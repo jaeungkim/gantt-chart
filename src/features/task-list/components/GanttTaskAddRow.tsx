@@ -1,6 +1,5 @@
 interface GanttTaskAddRowProps {
   width: number;
-  /** Proposes the new task - the same thing `addTask()` on the chart ref calls */
   onAdd: () => void;
 }
 

@@ -1,5 +1,3 @@
-# Auto-generated release notes ("Generate release notes" button on a GitHub Release).
-# A PR's title is the line; its label picks the section. `*` must stay last.
 changelog:
   exclude:
     labels:

@@ -30,9 +30,7 @@ interface GanttBarProps {
   currentTask: TaskTransformed;
   options: GanttBarOptions;
   interaction?: GanttInteractionConfig;
-  /** Working-day calendar - drag results snap forward off non-working days */
   calendar?: WorkingCalendar;
-  /** Scroll the timeline when the drag reaches a viewport edge; Gantt.tsx owns the default */
   autoScrollOnDrag: boolean;
   onDependencyCreate?: (change: GanttDependencyChange) => boolean | void;
   geometry: GanttGeometry;
@@ -65,12 +63,9 @@ export default function GanttBar({
   );
   const { canMove, canResize, canCreateLink } =
     resolveTaskInteraction(currentTask, interaction);
-  // Only the pointer position - the cursor is derived below, so a late permission change
-  // cannot leave a stale affordance behind
   const [atResizeEdge, setAtResizeEdge] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  // Arrows light on contact; the card covers the rows below, so it waits HOVER_CARD_DELAY_MS
   const storeApi = useGanttStoreApi();
   const setHoveredTaskId = useGanttStore((store) => store.setHoveredTaskId);
   const hoverCardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,7 +76,6 @@ export default function GanttBar({
     hoverCardTimer.current = null;
   }, []);
 
-  // A bar virtualized out mid-hover never gets its own mouseleave, so clear the store here
   useEffect(() => {
     const taskId = currentTask.id;
     return () => {
@@ -100,8 +94,6 @@ export default function GanttBar({
     geometry,
   });
 
-  // This bar's part in the running link drag, as a class. A string, not an object - the
-  // selector reruns on every store update and a fresh object each time loops forever.
   const linkRoleClass = useGanttStore((store) => {
     const draft = store.linkDraft;
     if (!draft) return "";
@@ -112,7 +104,6 @@ export default function GanttBar({
     return "";
   });
 
-  // Connector dots - dragging from one creates a dependency
   const linkHandles =
     canCreateLink &&
     (["start", "end"] as LinkAnchor[]).map((anchor) => (
@@ -120,7 +111,6 @@ export default function GanttBar({
         key={anchor}
         className={`gantt-link-handle ${anchor}${crowded.includes(anchor) ? " crowded" : ""}`}
         onPointerDown={startLink(anchor)}
-        // The handle holds pointer capture, so the release's click lands here, not on a target
         onClick={(e) => e.stopPropagation()}
       />
     ));
@@ -136,7 +126,6 @@ export default function GanttBar({
   const offsetX = liveOffset?.offsetX ?? 0;
   const offsetWidth = liveOffset?.offsetWidth ?? 0;
 
-  // A minimum width keeps short tasks grabbable; the label moves outside when narrow
   const finalLeft = currentTask.barLeft + offsetX;
   const trueWidth = currentTask.barWidth + offsetWidth;
   const finalWidth = Math.max(trueWidth, MIN_RESIZABLE_WIDTH);
@@ -150,12 +139,10 @@ export default function GanttBar({
     );
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // The click that closes a drag is the end of that gesture, not a selection
     if (consumeDragClick()) return;
     onTaskActivate?.(currentTask, e);
   };
 
-  // A gesture that is not allowed shows no affordance at all
   const restCursor = canMove ? "grab" : "default";
   const barCursor = (() => {
     if (isDragging) return canMove || canResize ? "grabbing" : restCursor;
@@ -163,11 +150,9 @@ export default function GanttBar({
     return restCursor;
   })();
 
-  // A gesture in progress beats a hover
   const showHoverCard =
     showTooltip && hovered && !linking && !(isDragging && liveOffset);
 
-  // WCAG 2.1 SC 1.4.13: hover content must be dismissible without moving the pointer
   useEffect(() => {
     if (!hovered) return;
     const dismiss = (e: KeyboardEvent) => {
@@ -222,7 +207,6 @@ export default function GanttBar({
       onDoubleClick={(e) => onTaskDoubleClick?.(currentTask, e)}
       onMouseMove={handleMouseMove}
       onPointerEnter={(e) => {
-        // A tap fires mouseenter with no mouseleave, so the card would stick under the finger
         if (e.pointerType !== "mouse") return;
         setHoveredTaskId(currentTask.id);
         cancelHoverCard();

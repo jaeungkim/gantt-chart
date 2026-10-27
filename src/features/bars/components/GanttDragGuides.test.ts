@@ -170,9 +170,7 @@ describe("drag readout follows the bar when the timeline grows at the front mid-
 
   it("writes the footprint and the date cell where GanttBar draws the bar now", () => {
     const store = createGanttStore("week");
-    // A server render reads the initial state, so point it at the live one
     store.getInitialState = store.getState;
-    // useGanttTimelineSync: an infiniteScroll prepend re-transforms every task, keeping the offset
     const sync = (prependedTicks: number) => {
       const data = computeTimelineData(tasks, "week", undefined, false, {
         before: prependedTicks,

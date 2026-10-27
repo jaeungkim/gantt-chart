@@ -5,13 +5,11 @@ import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { demoHolidays, demoTasks } from '@/components/demo/tasks';
 
-// The chart measures the DOM on mount, so it never server-renders.
 const ReactGanttChart = dynamic<GanttProps>(
   () => import('@jaeungkim/gantt-chart').then((m) => m.ReactGanttChart),
   { ssr: false }
 );
 
-// Presets vary props against one shared fixture; add a preset here, never another copy of the data.
 const PRESETS = {
   basic: { hierarchy: false, showTaskList: true },
   hierarchy: { hierarchy: true, showTaskList: true },
@@ -23,13 +21,8 @@ const PRESETS = {
     workingCalendar: true,
     holidays: demoHolidays,
   },
-  // Left on the default 'month' scale on purpose: there the three-day shutdown's band is wide
-  // enough to hold its name and the one-day offsite's is not, so hovering it in the header is
-  // the only way to read that one.
   holidays: { hierarchy: true, showTaskList: true, holidays: demoHolidays },
   detail: { showTaskList: true, showDetail: true },
-  // The landing page's one demo, so it turns on what the feature list claims: the hierarchy with
-  // its rolled-up summary rows, the working-day calendar and the detail panel.
   showcase: {
     hierarchy: true,
     showTaskList: true,
@@ -64,8 +57,6 @@ export function GanttDemo({ preset = 'basic', height = 380 }: GanttDemoProps) {
         height={height}
         width="100%"
         defaultScale="month"
-        // Centred, and today sits mid-fixture, so a demo opens mid-project rather than on the
-        // empty weeks padded in front of the first task
         initialScrollTo="today"
         {...PRESETS[preset]}
       />

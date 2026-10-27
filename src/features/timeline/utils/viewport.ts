@@ -1,7 +1,6 @@
 import { GANTT_SCALE_CONFIG } from 'shared/constants';
 import { GanttRangeExtension, GanttScaleKey } from 'shared/types';
 
-// Zoom ladder, finest first - declaration order in GANTT_SCALE_CONFIG is the ladder
 export const SCALE_LADDER = Object.keys(GANTT_SCALE_CONFIG) as GanttScaleKey[];
 
 const MS_PER_UNIT: Record<'minute' | 'hour' | 'day' | 'week', number> = {
@@ -11,7 +10,6 @@ const MS_PER_UNIT: Record<'minute' | 'hour' | 'day' | 'week', number> = {
   week: 604_800_000,
 };
 
-// Exact at every scale, month ticks included - cells are sized by their length in drag steps
 export function pxPerMs(scale: GanttScaleKey): number {
   const { basePxPerDragStep, dragStepUnit, dragStepAmount } =
     GANTT_SCALE_CONFIG[scale];
@@ -32,7 +30,6 @@ export function stepScale(
   return SCALE_LADDER[next];
 }
 
-// Finest scale that fits; coarsest when none does
 export function fitScale(
   durationMs: number,
   viewportPx: number
@@ -49,7 +46,6 @@ const ZOOM_GESTURE_GAP_MS = 120;
 interface ZoomAccumulator {
   delta: number;
   lastEventAt: number;
-  // This gesture already produced its step - the next pause unlocks it
   locked: boolean;
 }
 
@@ -59,7 +55,6 @@ export const INITIAL_ZOOM_ACCUMULATOR: ZoomAccumulator = {
   locked: false,
 };
 
-// step is -1 (finer), 0 or 1 (coarser); one gesture steps once, later deltas swallowed until a pause
 export function accumulateZoom(
   state: ZoomAccumulator,
   deltaY: number,
@@ -77,7 +72,6 @@ export function accumulateZoom(
     return { state: { delta, lastEventAt: now, locked: false }, step: 0 };
   }
 
-  // Wheel down (positive delta) zooms out, matching the browser's ctrl+wheel
   return {
     state: { delta: 0, lastEventAt: now, locked: true },
     step: Math.sign(delta),
@@ -85,10 +79,8 @@ export function accumulateZoom(
 }
 
 const EDGE_SCROLL_THRESHOLD = 48;
-// px per frame at the very edge
-const EDGE_SCROLL_MAX_SPEED = 22;
+const EDGE_SCROLL_MAX_PX_PER_FRAME = 22;
 
-// Ramps 0 -> max speed at the edge; the zone caps at half the viewport so a narrow one stays calm
 export function edgeScrollVelocity(
   clientX: number,
   left: number,
@@ -101,18 +93,16 @@ export function edgeScrollVelocity(
   if (zone <= 0) return 0;
 
   if (clientX < left + zone) {
-    return -EDGE_SCROLL_MAX_SPEED * Math.min(1, (left + zone - clientX) / zone);
+    return -EDGE_SCROLL_MAX_PX_PER_FRAME * Math.min(1, (left + zone - clientX) / zone);
   }
   if (clientX > right - zone) {
     return (
-      EDGE_SCROLL_MAX_SPEED * Math.min(1, (clientX - (right - zone)) / zone)
+      EDGE_SCROLL_MAX_PX_PER_FRAME * Math.min(1, (clientX - (right - zone)) / zone)
     );
   }
   return 0;
 }
 
-// Where an auto-scrolling gesture's edge zones sit. The pinned task list covers the left, so the
-// timeline's left edge is where that pane ends.
 export function timelineEdges(scrollEl: HTMLElement): {
   left: number;
   right: number;
@@ -132,23 +122,17 @@ export function timelineEdges(scrollEl: HTMLElement): {
 
 export const NO_RANGE_EXTENSION: GanttRangeExtension = { before: 0, after: 0 };
 
-// Cap per side: every task is positioned by walking the tick array, so the walk must stay bounded
 export const MAX_RANGE_EXTENSION_TICKS = 2000;
 
 interface ExtendRangeParams {
   current: GanttRangeExtension;
   scrollLeft: number;
-  // Visible timeline width, the task list pane's share already taken off
   viewportPx: number;
   totalPx: number;
-  // Average px one tick takes at the current scale
   pxPerTick: number;
-  // Ends still free to move (default: both) - an end pinned by `visibleRange` cannot grow
   canExtend?: { before: boolean; after: boolean };
 }
 
-// Extension to grow to, or null when the current one still covers the view; grows by ~a viewport
-// so one extension always clears the trigger zone and this cannot loop.
 export function extendRangeForScroll({
   current,
   scrollLeft,

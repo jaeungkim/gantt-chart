@@ -1,29 +1,19 @@
 import type { Holiday, Task } from '@jaeungkim/gantt-chart';
 
-// Relative to today, not a fixed date: a pinned fixture drifts into the past and takes today off
-// the rendered range with it. Three weeks before this week's Monday, so weekends land predictably
-// and today sits mid-fixture -- finished phases behind it, the build straddling it, launch ahead.
 const NOW = new Date();
 const ANCHOR =
   Date.UTC(NOW.getUTCFullYear(), NOW.getUTCMonth(), NOW.getUTCDate()) -
   (((NOW.getUTCDay() + 6) % 7) + 21) * 86_400_000;
 
-// The fixture's first day, so a demo can open on its own data rather than on today.
 export const DEMO_ANCHOR = new Date(ANCHOR).toISOString().slice(0, 10);
 
-// Day `offset` from the anchor Monday, at `hours` o'clock UTC. Offset 0 is a Monday, so 5/6, 12/13,
-// 19/20, 26/27, 33/34, 40/41 and 47/48 are weekends and no task starts or ends on one.
 const at = (offset: number, hours: number) =>
   new Date(ANCHOR + offset * 86_400_000 + hours * 3_600_000)
     .toISOString()
     .slice(0, 19) + 'Z';
 
-// The same offset as a bare `YYYY-MM-DD`, which is what a holiday is written in.
 const day = (offset: number) => at(offset, 0).slice(0, 10);
 
-// One fixture for every demo on the site: presets vary the props, never the data. Seven weeks of a
-// website redesign -- four phases, every dependency type, four milestones, and progress that agrees
-// with today when it falls late in week four.
 export const demoTasks: Task[] = [
   {
     id: 'p1',
@@ -50,7 +40,6 @@ export const demoTasks: Task[] = [
     parentId: 'p1',
     sequence: '1.2',
     progress: 100,
-    // Starts alongside the interviews rather than after them.
     dependencies: [{ targetId: 't1', type: 'SS' }],
   },
   {
@@ -185,7 +174,6 @@ export const demoTasks: Task[] = [
     parentId: 'p3',
     sequence: '3.5',
     progress: 0,
-    // Wired up by the time the content is in, not before it starts.
     dependencies: [{ targetId: 't11', type: 'FF' }],
   },
   {
@@ -242,13 +230,10 @@ export const demoTasks: Task[] = [
     parentId: 'p4',
     sequence: '4.5',
     progress: 0,
-    // Ends the moment the new site goes live -- the one place start-to-finish is the honest type.
     dependencies: [{ targetId: 'm4', type: 'SF' }],
   },
 ];
 
-// Weekdays inside the fixture's range, so their shading reads apart from the weekends. One is named
-// and tinted, one is a three-day block, one is a bare string -- all three shapes the prop takes.
 export const demoHolidays: (string | Holiday)[] = [
   { date: day(16), label: 'Company offsite', color: '#7c3aed' },
   { date: day(30), endDate: day(32), label: 'Summer shutdown', color: '#0ea5e9' },

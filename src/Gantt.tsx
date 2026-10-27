@@ -67,7 +67,6 @@ import { GanttHandle, GanttProps } from './props';
 
 const DEFAULT_HEIGHT = 600;
 const DEFAULT_WIDTH = "100%";
-// Module scope so a new array is not created on every render
 const EMPTY_TASKS: Task[] = [];
 
 /** Gantt chart component. Creates a store per instance, so two charts on one page cannot share state. */
@@ -140,7 +139,6 @@ function GanttChart(
     syncTasksFromProps,
   } = useGanttSelectors();
 
-  // undefined while nothing is set, so built-in labels are used without an Intl formatter
   const localeOptions = useMemo(
     () =>
       locale === undefined &&
@@ -151,7 +149,6 @@ function GanttChart(
     [locale, formats, firstDayOfWeek]
   );
 
-  // One scroll container, so vertical scrolling and virtualization are shared
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const interaction: GanttInteractionConfig = props;
@@ -162,7 +159,6 @@ function GanttChart(
   );
 
   const [taskListWidth, setTaskListWidth] = useState(DEFAULT_GRID_WIDTH);
-  // Timeline px the pane covers; scroll and zoom math subtracts it so `scrollToDate` clears it
   const paneInset = showTaskList ? taskListWidth : 0;
 
   const collapse = useGanttCollapse({
@@ -178,7 +174,6 @@ function GanttChart(
     collapsedIds: collapse.collapsedIds,
   });
 
-  // The link drag resolves its drop target by arithmetic, so it needs every row, culled ones included
   const setRowTasks = useGanttStore((store) => store.setRowTasks);
   useLayoutEffect(() => {
     setRowTasks(rowTasks);
@@ -210,7 +205,6 @@ function GanttChart(
     onExpand: collapse.expand,
   });
 
-  // The grip holds a slot on every row, so a per-task grip does not jog that row's text
   const reorderEnabled = useMemo(
     () =>
       allowReorder === true ||
@@ -218,7 +212,6 @@ function GanttChart(
     [allowReorder, rawTasks]
   );
 
-  // One "non-working" definition chart-wide, so shaded days and drag-skipped days cannot drift
   const holidayIndex = useMemo(() => indexHolidays(holidays), [holidays]);
   const workweek = useMemo(
     () =>
@@ -228,7 +221,6 @@ function GanttChart(
       }),
     [workingWeekdays, holidayIndex]
   );
-  // A holiday landing on a weekend still answers as itself - it is the one with a name to write
   const nonWorkingDayAt = useCallback(
     (date: Dayjs): NonWorkingDay | null => {
       if (workweek.isWorkingDay(date)) return null;
@@ -239,14 +231,11 @@ function GanttChart(
     [workweek, holidayIndex]
   );
 
-  // Off, it counts every day, which is plain calendar arithmetic
   const calendar = workingCalendar ? workweek : CALENDAR_DAYS;
 
-  // A renderer turns the panel on; `showDetail` is the explicit override
   const detailEnabled = showDetail ?? renderDetail !== undefined;
 
   const select = useGanttSelection({
-    // The panel turns selection on unless the host has said otherwise
     selectable: selectable ?? (detailEnabled ? true : undefined),
     onTaskSelect,
   });
@@ -259,7 +248,6 @@ function GanttChart(
   });
 
   const openDetail = detail.open;
-  // Opening the panel, a click still selects and reaches the host first
   const activateTask = useCallback(
     (task: TaskTransformed, event: React.MouseEvent) => {
       onTaskClick?.(task, event);
@@ -269,7 +257,6 @@ function GanttChart(
     [onTaskClick, select, openDetail]
   );
 
-  // Retains the last task so the body stays rendered while the panel slides shut
   const slide = useGanttDetailSlide(detail.task);
 
   const barOptions = useMemo(
@@ -298,7 +285,6 @@ function GanttChart(
     geometry,
   });
 
-  // Click version of the drawn range, off exactly where the drawn one is off
   const proposeTask = useCallback(() => {
     if (!canCreateTask) return;
     const draft = defaultTaskDraft(dayjs(), bottomRowCells, selectedScale);
@@ -309,18 +295,14 @@ function GanttChart(
 
   const syncedTasksRef = useRef<string | symbol | null>(null);
 
-  // Overwrite the store only when the contents changed, not when the array identity did,
-  // so a parent re-render passing the same data under a new identity does not revert drag edits
   useEffect(() => {
     const snapshot = snapshotTasks(tasks);
     if (snapshot === syncedTasksRef.current) return;
 
     syncedTasksRef.current = snapshot;
-    // Compares again inside, so a controlled host echoing back onTasksChange is not a replacement
     syncTasksFromProps(tasks);
   }, [tasks, syncTasksFromProps]);
 
-  // Fixed timeline window - undefined on both ends means auto-fit to the tasks
   const visibleRange = useMemo(
     () =>
       visibleStart || visibleEnd
@@ -391,21 +373,17 @@ function GanttChart(
 
   useGanttInitialScroll(initialScrollTo, bottomRowCells, scrollApi);
 
-  // Empty timeline clears the selection; a click on a bar has a different target
   const handleContentClick = (event: React.MouseEvent) => {
     if (consumeDrawClick() || event.target !== event.currentTarget) return;
     select(null);
     detail.close();
   };
 
-
   const containerStyle = {
     ...style,
     height: style?.height ?? (typeof height === "number" ? `${height}px` : height),
     width: style?.width ?? (typeof width === "number" ? `${width}px` : width),
-    // How far the pinned task list reaches in; left-pinned timeline content offsets by this
     "--gantt-pane-inset": `${paneInset}px`,
-    // Row height as a token, so CSS keeps the row pitch without a second copy of the number
     "--gantt-row-height": `${geometry.rowHeight}px`,
   } as React.CSSProperties;
   const timelineStyle = { width: `${virtual.totalWidth}px` };
@@ -456,7 +434,6 @@ function GanttChart(
                 <div
                   className={`gantt-content${canCreateTask ? " drawable" : ""}`}
                   style={{
-                    // one blank row under the last, so a draw can start once rows fill the viewport
                     height: `${virtual.totalHeight + (canCreateTask ? geometry.rowHeight : 0)}px`,
                     width: `${virtual.totalWidth}px`,
                   }}
@@ -478,7 +455,6 @@ function GanttChart(
                       style={{
                         left: `${ghost.leftPx}px`,
                         width: `${ghost.widthPx}px`,
-                        // Same geometry as the bar this becomes, centred in the row
                         height: `${geometry.barHeight}px`,
                         marginTop: `${(geometry.rowHeight - geometry.barHeight) / 2}px`,
                         transform: `translateY(${ghost.topPx}px)`,
@@ -512,7 +488,6 @@ function GanttChart(
           </div>
 
           {showTaskList && (
-            // Outside the scroll container to stay pinned to the pane edge
             <GanttGridSplitter
               width={taskListWidth}
               onWidthChange={setTaskListWidth}
@@ -520,14 +495,11 @@ function GanttChart(
           )}
 
           {showTaskList && canCreateTask && (
-            // Out here for the splitter's reasons
             <GanttTaskAddRow width={taskListWidth} onAdd={proposeTask} />
           )}
         </div>
 
         {slide.task && (
-          // The panel is a flex sibling, so the timeline narrows instead of being covered and
-          // scroll measurements stay correct
           <GanttDetailPanel
             task={slide.task}
             tasks={transformedTasks}

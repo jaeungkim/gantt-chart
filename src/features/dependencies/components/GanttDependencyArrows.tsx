@@ -25,11 +25,9 @@ import {
 
 interface Props {
   transformedTasks: TaskTransformed[];
-  // The chart's window - arrows cull against the same numbers as the bars
   virtual: GanttVirtualization;
   interaction?: GanttInteractionConfig;
   onTasksChange?: (updatedTasks: Task[]) => void;
-  // Returning false keeps the dependency
   onDependencyDelete?: (change: GanttDependencyChange) => boolean | void;
   geometry: GanttGeometry;
 }
@@ -38,7 +36,6 @@ const MENU_FLIP_Y = 48;
 
 const LABEL_OFFSET = 20;
 const LABEL_HEIGHT = 24;
-// Closer than this to the end of the timeline, a drag label is drawn to the left (px)
 const LABEL_SAFE_MARGIN = 220;
 
 export default function GanttDependencyArrows({
@@ -63,7 +60,6 @@ export default function GanttDependencyArrows({
   const arrowsRef = useRef<SVGSVGElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Built once per task-array change: a per-dependency scan would be O(n^2) on every drag frame
   const taskById = useMemo(
     () => new Map(transformedTasks.map((task) => [task.id, task])),
     [transformedTasks]
@@ -79,7 +75,6 @@ export default function GanttDependencyArrows({
 
   const selectedDependency = allDependencies.find(isSelected);
 
-  // The selected arrow paints last so overlapping arrows cannot hide it
   const dependencies = [
     ...allDependencies.filter(
       (dep) => !isSelected(dep) && isArrowVisible(dep, virtual)
@@ -87,8 +82,6 @@ export default function GanttDependencyArrows({
     ...allDependencies.filter(isSelected),
   ];
 
-  // Either end counts, so one bar lights both what feeds it and what it feeds. Hover and
-  // selection are OR'd, not ranked: comparing one chain against another must blank neither.
   const relatedArrow = (dep: RenderedDependency) =>
     [hoveredTaskId, selectedTaskId].some(
       (id) => id !== null && (dep.sourceId === id || dep.targetId === id)
@@ -108,7 +101,6 @@ export default function GanttDependencyArrows({
 
     if (!resolveTaskInteraction(successor, interaction).canDeleteLink) return;
 
-    // The host gets the last word before anything changes
     const change: GanttDependencyChange = {
       predecessorId: targetId,
       successorId: sourceId,
@@ -125,7 +117,6 @@ export default function GanttDependencyArrows({
   useEffect(() => {
     if (!selected) return;
 
-    // Own nodes, not classes every chart shares, on composedPath, as target stops at a shadow host
     const clearSelection = (event: Event) => {
       const path = event.composedPath();
       const own = [arrowsRef.current, menuRef.current];
@@ -133,15 +124,12 @@ export default function GanttDependencyArrows({
       storeApi.getState().setSelectedDependency(null);
     };
 
-    // The chart's own root, as a closed shadow root hides × from a document listener's composedPath
     const root = arrowsRef.current?.getRootNode() ?? document;
     const host = root instanceof ShadowRoot ? root.host : null;
-    // So the document hears only presses outside the host; the root's listener decides the rest
     const clearOutside = (event: Event) => {
       if (host && !event.composedPath().includes(host)) clearSelection(event);
     };
 
-    // Capture, so another chart's stopPropagation cannot hide the press
     root.addEventListener("pointerdown", clearSelection, true);
     if (host) document.addEventListener("pointerdown", clearOutside, true);
     return () => {
@@ -150,8 +138,6 @@ export default function GanttDependencyArrows({
     };
   }, [selected, storeApi]);
 
-  // Marker ids are document-global, so several charts on a page would mix them up. useId
-  // values can contain characters a url(#...) reference rejects, hence the strip.
   const instanceId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const arrowheadId = `gantt-arrowhead-${instanceId}`;
 
@@ -169,7 +155,6 @@ export default function GanttDependencyArrows({
             <marker
               key={variant}
               id={`${arrowheadId}${variant ? "-selected" : ""}`}
-              // Fixed size, so a thicker selected or preview line does not grow its head
               viewBox="0 0 5 5"
               markerUnits="userSpaceOnUse"
               markerWidth="7.5"
@@ -188,7 +173,6 @@ export default function GanttDependencyArrows({
 
         {dependencies.map((dep, index) => {
           const selectedArrow = isSelected(dep);
-          // An arrow nobody may remove is not clickable either - readOnly leaves the chart inert
           const source = taskById.get(dep.sourceId);
           const deletable =
             source !== undefined &&
@@ -198,7 +182,6 @@ export default function GanttDependencyArrows({
             <g key={`${dep.sourceId}-${dep.targetId}-${index}`}>
               {deletable && (
                 <path
-                  // A 1.5px line is not a pointer target - this invisible one carries the clicks
                   className="gantt-dependency-hit"
                   d={dep.d}
                   fill="none"
@@ -208,7 +191,6 @@ export default function GanttDependencyArrows({
                     if (!svg) return;
 
                     const rect = svg.getBoundingClientRect();
-                    // Flip against what is visible, not the content top: the sticky header covers the rest
                     const viewTop =
                       svg.closest(".gantt-scroll-container")?.getBoundingClientRect()
                         .top ?? rect.top;
@@ -270,8 +252,6 @@ export default function GanttDependencyArrows({
   );
 }
 
-// Subscribes to the draft on its own, so a link drag repaints one line, not every arrow.
-// Its own layer above the bars, so the arrows below stay where they are while it draws.
 function LinkPreview({
   arrowheadId,
   height,
@@ -316,7 +296,6 @@ function LinkPreview({
       </svg>
       {type && (
         <div
-          // The ends decide the type, which the shape of a line cannot say
           className={`gantt-link-preview-label${
             draft.rejection ? " invalid" : ""
           }${flip ? " flip" : ""}`}

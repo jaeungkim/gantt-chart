@@ -17,9 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # pnpm version comes from "packageManager" in package.json.
-      # Must run before setup-node so `cache: pnpm` can find the pnpm store.
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
@@ -29,17 +27,7 @@ jobs:
       - run: pnpm type-check
       - run: pnpm test
       - run: pnpm build
-      # The docs site consumes the built package through workspace:*, so this runs after
-      # `pnpm build`. It is also what catches a page whose MDX no longer parses.
       - run: pnpm --filter @gantt-chart/site build
-      # Every specifier in the emitted .d.ts must resolve for a consumer. The library imports
-      # its own modules bare (tsconfig baseUrl), and vite-plugin-dts rewrites those to relative
-      # paths - except a directory barrel like `core`, which it used to emit verbatim. A consumer
-      # then got "Cannot find module 'core'". `bundleTypes` normally collapses the tree into one
-      # self-contained index.d.ts, but it skips silently and falls back to the per-file tree if
-      # api-extractor fails to load, and the build still exits 0. Fail here instead of on their
-      # machine. Both quote styles and the inline `import("x")` form, which is most of what
-      # TypeScript actually emits.
       - name: Declarations must not import bare internal modules
         run: |
           bad=$(grep -rhoE "(from|import\()[[:space:]]*['\"][^.'\"][^'\"]*['\"]" $(find dist -name '*.d.ts') \
@@ -47,19 +35,12 @@ jobs:
                 | grep -vE "^(react|react-dom|dayjs)(/.*)?$" || true)
           if [ -n "$bad" ]; then echo "unresolvable specifiers in dist/*.d.ts:"; echo "$bad"; exit 1; fi
           echo "declaration specifiers OK"
-      # A React Server Component host (Next.js App Router) runs a module on the server unless it
-      # opens with "use client", and the bundle calls createContext at module scope, which React's
-      # react-server build lacks. vite.config.ts writes the directive as a postBanner.
       - name: Bundles must open with "use client"
         run: |
           for f in dist/index.js dist/index.cjs; do
             head -n 1 "$f" | grep -qE "^['\"]use client['\"];?$" || { echo "$f does not start with \"use client\""; exit 1; }
           done
           echo "use client directive OK"
-      # SSR safety: importing and server-rendering the built package in plain Node
-      # (no DOM globals) must not touch window/document/sessionStorage.
-      # A forwardRef/memo component is an object, not a function, so the first two steps
-      # only assert the export exists; the renderToString step below proves it works.
       - name: SSR import smoke test
         run: |
           node --input-type=module -e "const m = await import('@jaeungkim/gantt-chart'); if (!m.ReactGanttChart) throw new Error('missing ReactGanttChart export'); console.log('SSR import OK (esm)');"

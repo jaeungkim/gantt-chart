@@ -3,7 +3,6 @@ import { createGanttStore, type GanttStoreApi } from 'shared/store';
 import type { TaskTransformed } from 'shared/task';
 import { resolveDetailState, useGanttDetail } from './useGanttDetail';
 
-// No DOM here: the real hook runs under a one-component hooks runtime
 const hooks = vi.hoisted(() => ({
   slots: [] as unknown[],
   cursor: 0,
@@ -60,10 +59,8 @@ vi.mock('react', async (importOriginal) => {
 type Params = Parameters<typeof useGanttDetail>[0];
 type Detail = ReturnType<typeof useGanttDetail>;
 
-// Called outside React on purpose, so the hooks lint must not read it as a hook call
 const runDetail = useGanttDetail;
 
-// Re-renders until state settles, then runs effects, the way a commit does
 function mount(store: GanttStoreApi, params: Omit<Params, 'onDetailChange'>) {
   hooks.slots = [];
   hooks.store = store;
@@ -160,7 +157,6 @@ describe('openDetail', () => {
   it('opens a task the host just added, called from the host effect that first sees it', () => {
     const { store, chart } = chartHolding(a);
 
-    // The chart's sync effect has stored the task; `tasks` gets it two renders later
     store.getState().setRawTasks([a, x]);
     chart.act((detail) => detail.open('x'));
     chart.rerender({ tasks: [a, x] });

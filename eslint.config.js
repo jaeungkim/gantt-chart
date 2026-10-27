@@ -7,9 +7,6 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-// The layers, as in TanStack Table's table-core: core <- shared <- features <- the root modules.
-// The src/ blocks below each fence one layer off from the ones above it. The folders and root
-// modules src/core may not reach for are read off disk, so a new one is covered the day it appears.
 const SRC = readdirSync(fileURLToPath(new URL("src", import.meta.url)), {
   withFileTypes: true,
 });
@@ -23,7 +20,6 @@ const ROOT_MODULES = SRC.filter(
 ).map((entry) => entry.name.replace(/\.tsx?$/, ""));
 
 export default tseslint.config(
-  // `eslint .` walks the whole workspace, so anything generated has to be listed here.
   { ignores: ["dist", "**/.next/**", "**/.source/**"] },
   {
     files: ["**/*.{ts,tsx,js,jsx}"],
@@ -49,19 +45,16 @@ export default tseslint.config(
       "react-hooks/refs": "warn",
 
       "no-console": ["warn", { allow: ["warn", "error", "info"] }],
-      // Let TypeScript handle these two
       "no-unused-vars": "off",
       "no-undef": "off",
       "no-empty": ["error", { allowEmptyCatch: true }],
     },
   },
   {
-    // Route files export generateStaticParams/generateMetadata alongside the page component.
     files: ["apps/site/app/**/*.tsx"],
     rules: { "react-refresh/only-export-components": "off" },
   },
   {
-    // src/core must stay Node-runnable.
     files: ["src/core/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
@@ -78,11 +71,6 @@ export default tseslint.config(
                 "zustand/*",
                 "@tanstack/*",
                 ...FOLDERS.flatMap((folder) => [`${folder}/**`, `**/${folder}/**`]),
-                // The root modules are React and prop-surface code; core may not reach up into
-                // them either. Both spellings: imports are bare through `baseUrl: "src"`, so
-                // `from "props"` is the form a core file would actually write, and `../*` alone
-                // would sail straight past it. `../*` stays as the catch-all for everything else
-                // one level up (`../shared`, `../styles.css`).
                 ...ROOT_MODULES.flatMap((m) => [m, `../${m}`]),
                 "../*",
               ],
@@ -104,7 +92,6 @@ export default tseslint.config(
     },
   },
   {
-    // shared/ sits below every feature, so it may not import one or reach up into the root.
     files: ["src/shared/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
@@ -126,7 +113,6 @@ export default tseslint.config(
     },
   },
   {
-    // Features import core/, shared/ and each other, never the root modules that compose them.
     files: ["src/features/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [

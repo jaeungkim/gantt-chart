@@ -12,11 +12,9 @@ import { LINK_HANDLE_REACH, MIN_RESIZABLE_WIDTH } from "shared/constants";
 interface GanttBarsLayerProps {
   rows: GanttRow[];
   virtualItems: VirtualItem[];
-  /** Horizontal culling from the same window as the header, so the two cannot disagree */
   isBarVisible: (barLeft: number, barWidth: number) => boolean;
   options: GanttBarOptions;
   interaction: GanttInteractionConfig;
-  /** Working-day calendar - drag results snap forward off non-working days */
   calendar?: WorkingCalendar;
   autoScrollOnDrag: boolean;
   onDependencyCreate?: (change: GanttDependencyChange) => boolean | void;
@@ -26,8 +24,6 @@ interface GanttBarsLayerProps {
 const drawnEnd = (task: TaskTransformed) =>
   task.barLeft + Math.max(task.barWidth, MIN_RESIZABLE_WIDTH);
 
-// A start handle's pad reaches back over the previous lane neighbour, painted above that neighbour's edge.
-// An end pad never needs this: the next neighbour paints above it until its own bar is hovered.
 function crowdedAnchors(lane: TaskTransformed[], i: number): LinkAnchor[] {
   const prev = lane[i - 1];
   return prev && lane[i].barLeft - drawnEnd(prev) < LINK_HANDLE_REACH ? ["start"] : [];
@@ -44,7 +40,6 @@ export default function GanttBarsLayer({
   onDependencyCreate,
   geometry,
 }: GanttBarsLayerProps) {
-  // Unmounting a bar mid-drag drops the bar from under the pointer and cancels a touch drag
   const draggedIds = useGanttStore(
     useShallow((store) => Object.keys(store.dragOffsets))
   );
@@ -56,7 +51,6 @@ export default function GanttBarsLayer({
     size: number,
     crowded: LinkAnchor[] = []
   ) => (
-    // styles.css lifts this wrapper's z-index while its bar has a tooltip or is being dragged (test-guarded)
     <div
       key={task.id}
       className="gantt-bar-wrap"
@@ -95,7 +89,6 @@ export default function GanttBarsLayer({
   const last = virtualItems[virtualItems.length - 1]?.index ?? -1;
   if (!heldTask || (heldIndex >= first && heldIndex <= last)) return bars;
 
-  // Kept in row order, so React never moves the held bar's node as the window slides past it
   const heldBar = barWrap(heldTask, heldIndex * geometry.rowHeight, geometry.rowHeight);
   return heldIndex < first ? [heldBar, ...bars] : [...bars, heldBar];
 }
