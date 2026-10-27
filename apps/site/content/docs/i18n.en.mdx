@@ -71,9 +71,11 @@ import type { GanttFormatOverrides } from '@jaeungkim/gantt-chart';
 export const formats: GanttFormatOverrides = {
   quarter: {
     header: (d) => {
-      // The Dayjs is in UTC mode, so d.month() is 0 to 11 in UTC
-      const fiscalMonth = (d.month() + 9) % 12;
-      const fiscalYear = d.month() >= 3 ? d.year() : d.year() - 1;
+      // Read the Date in UTC, so the month is 0 to 11 in UTC
+      const month = d.getUTCMonth();
+      const year = d.getUTCFullYear();
+      const fiscalMonth = (month + 9) % 12;
+      const fiscalYear = month >= 3 ? year : year - 1;
       return `FY${fiscalYear} Q${Math.floor(fiscalMonth / 3) + 1}`;
     },
   },
@@ -82,9 +84,9 @@ export const formats: GanttFormatOverrides = {
 
 Pass it as `formats={formats}`. The `header` slot receives the group's start date, so this override always sees January, April, July or October.
 
-The `Dayjs` handed to a formatter is in UTC mode, so `d.format('HH:mm')`, `d.year()`, `d.month()` and `d.day()` return UTC values. A formatter that converts to local time prints a label that disagrees with its own cell.
+The `Date` handed to a formatter is meant to be read in UTC: use `getUTCFullYear()`, `getUTCMonth()` and `getUTCDay()`, or pass `timeZone: 'UTC'` to `Intl.DateTimeFormat`. A formatter that reads local time prints a label that disagrees with its own cell.
 
-`locale` never reaches dayjs either, so `d.format('MMMM')` prints `September` for every tag.
+`locale` never reaches a formatter either. A label that should follow the tag passes it to `Intl.DateTimeFormat` itself.
 
 Declare `formats` at module scope or in `useMemo`. A new object literal on every render rebuilds every formatter behind the labels, and the chart does not warn.
 

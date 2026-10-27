@@ -33,13 +33,19 @@ const shift = (iso: string, days: number) =>
 
 const SIX_DAY_WEEK = [1, 2, 3, 4, 5, 6];
 
+const utc = (options: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', ...options });
+const WEEKDAY = utc({ weekday: 'short' });
+const MONTH_YEAR = utc({ month: 'long', year: 'numeric' });
+const SHORT_MONTH = utc({ month: 'short' });
+
 const DEMO_FORMATS: GanttFormatOverrides = {
   day: {
-    tick: (d) => d.format('D ddd'),
-    header: (d) => d.format('MMMM YYYY').toUpperCase(),
-    tooltip: (d) => d.format('YYYY/MM/DD HH:mm'),
+    tick: (d) => `${d.getUTCDate()} ${WEEKDAY.format(d)}`,
+    header: (d) => MONTH_YEAR.format(d).toUpperCase(),
+    tooltip: (d) => d.toISOString().slice(0, 16).replace('T', ' ').replaceAll('-', '/'),
   },
-  week: { header: (d) => `week of ${d.format('D MMM')}` },
+  week: { header: (d) => `week of ${d.getUTCDate()} ${SHORT_MONTH.format(d)}` },
 };
 
 const HAIRLINE = 'border-black/[0.07] dark:border-white/[0.08]';
@@ -446,7 +452,7 @@ export function PlaygroundView() {
             onTaskDoubleClick={(task) => setClick(`${task.id} (double)`)}
             selectable={settings.selectable}
             onRangeChange={(next) =>
-              setRange(`${next.start.format('YYYY-MM-DD')} .. ${next.end.format('YYYY-MM-DD')}`)
+              setRange(`${next.start.toISOString().slice(0, 10)} .. ${next.end.toISOString().slice(0, 10)}`)
             }
             onDependencyCreate={settings.vetoLinkCreate ? () => false : undefined}
             onDependencyDelete={settings.vetoLinkDelete ? () => false : undefined}

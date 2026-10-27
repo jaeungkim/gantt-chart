@@ -17,7 +17,7 @@ import { buildTaskTree, rollUpTasks, createWorkingCalendar } from '@jaeungkim/ga
 
 The headless set is eight functions and values: `buildTaskTree`, `collectSubtreeIds`,
 `rollUpTasks`, `sortTasksBySequence`, `validateMove`, `moveTask`, `CALENDAR_DAYS` and
-`createWorkingCalendar`. Their only runtime dependency is `dayjs` with the `utc` plugin.
+`createWorkingCalendar`. The package has no runtime dependency, and the calendar takes plain `Date` values.
 
 There is no `/core` subpath. The package declares `.`, `./style.css` and `./package.json`, and
 ships as one bundle that includes the React component. `react` is external and loads with the
@@ -34,16 +34,12 @@ helpers cannot be called there. Plain Node scripts, workers and tests are unaffe
 under a row. `rollUpTasks` returns the summary dates and progress the chart draws.
 
 ```ts title="report.ts"
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
 import {
   buildTaskTree,
   createWorkingCalendar,
   rollUpTasks,
   type Task,
 } from '@jaeungkim/gantt-chart';
-
-dayjs.extend(utc);
 
 const tasks: Task[] = [
   { id: 'P', name: 'Phase 1', parentId: null, sequence: '1',
@@ -57,8 +53,8 @@ const tasks: Task[] = [
 const calendar = createWorkingCalendar({ holidays: ['2025-06-06'] });
 
 for (const task of rollUpTasks(tasks, buildTaskTree(tasks))) {
-  const start = dayjs.utc(task.startDate);
-  const end = dayjs.utc(task.endDate);
+  const start = new Date(task.startDate);
+  const end = new Date(task.endDate);
   const days =
     calendar.daysBetween(start, end) +
     Number(calendar.isWorkingDay(start)) -

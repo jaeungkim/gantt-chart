@@ -2,7 +2,6 @@ import { GANTT_SCALE_CONFIG, TIMELINE_SHIFT_BUFFER } from "shared/constants";
 import { Dayjs } from "dayjs";
 import {
   GanttBottomRowCell,
-  GanttDateRange,
   GanttDragBounds,
   GanttDragMode,
   GanttLabelUnit,
@@ -290,7 +289,7 @@ export function dateAtOffsetPx(
 export function timelineRange(
   timelineTicks: GanttBottomRowCell[],
   scaleKey: GanttScaleKey
-): GanttDateRange | null {
+): { start: Dayjs; end: Dayjs } | null {
   if (!timelineTicks.length) return null;
 
   const { tickUnit, unitPerTick } = GANTT_SCALE_CONFIG[scaleKey];

@@ -223,7 +223,7 @@ function GanttChart(
   );
   const nonWorkingDayAt = useCallback(
     (date: Dayjs): NonWorkingDay | null => {
-      if (workweek.isWorkingDay(date)) return null;
+      if (workweek.isWorkingDay(date.toDate())) return null;
       return (
         holidayIndex.byDate.get(date.format("YYYY-MM-DD")) ?? { key: OFF_DAY_KEY }
       );

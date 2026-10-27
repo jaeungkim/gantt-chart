@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CALENDAR_DAYS, createWorkingCalendar } from './calendar';
 import dayjs from './dates';
 
-const d = (iso: string) => dayjs(`2025-${iso}`);
+const d = (iso: string) => dayjs(`2025-${iso}`).toDate();
 const iso = (date: { toISOString(): string }) => date.toISOString().slice(0, 16);
 
 const workweek = createWorkingCalendar();

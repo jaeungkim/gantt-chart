@@ -149,7 +149,7 @@ describe("scroll animation", () => {
     const api = mountApi(box, store);
 
     api.scrollToToday();
-    api.scrollToDate(start.add(3, "week"));
+    api.scrollToDate(start.add(3, "week").toDate());
     api.scrollToTask("t30");
     return box.calls.map((call) => call.behavior);
   }

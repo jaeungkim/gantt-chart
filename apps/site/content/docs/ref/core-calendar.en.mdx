@@ -17,9 +17,8 @@ import {
 } from '@jaeungkim/gantt-chart';
 ```
 
-These methods take and return `Dayjs` values from `dayjs`, a runtime dependency of the package.
-`@jaeungkim/gantt-chart` does not re-export `dayjs`, so pass instances from `dayjs` itself, in
-UTC mode.
+These methods take and return native `Date` values and read them in UTC. The package has no
+runtime dependency, so no date library is needed to call them.
 
 ## `createWorkingCalendar`
 
@@ -45,9 +44,9 @@ every day working.
 
 ```ts title="src/core/calendar.ts"
 export interface WorkingCalendarOptions {
-  /** Working weekdays as UTC day numbers, 0 = Sunday (default Mon-Fri) */
+  /** Working weekdays as UTC day numbers, 0 = Sunday (default Mon-Fri). */
   workingWeekdays?: number[];
-  /** Non-working dates as UTC `YYYY-MM-DD` strings */
+  /** Non-working dates as UTC `YYYY-MM-DD` strings, matched exactly (default none) */
   holidays?: string[];
 }
 ```
@@ -55,7 +54,7 @@ export interface WorkingCalendarOptions {
 | Option | Type | Default | Meaning |
 |---|---|---|---|
 | `workingWeekdays` | `number[]` | `[1, 2, 3, 4, 5]` (Mon to Fri) | UTC day numbers, `0` = Sunday. A day not in the array is non-working |
-| `holidays` | `string[]` | `[]` | UTC `YYYY-MM-DD` strings, matched by exact string equality against `date.format('YYYY-MM-DD')` |
+| `holidays` | `string[]` | `[]` | UTC `YYYY-MM-DD` strings, matched by exact string equality against `date.toISOString().slice(0, 10)` |
 
 ## `CALENDAR_DAYS`
 
@@ -73,15 +72,16 @@ wants plain calendar days.
 ```ts title="src/core/calendar.ts"
 /** Day arithmetic that can skip non-working days. */
 export interface WorkingCalendar {
-  /** False for the default calendar (every day counts) */
+  /** False for the default calendar (every day counts). */
   readonly skipsNonWorkingDays: boolean;
-  isWorkingDay(date: Dayjs): boolean;
-  /** Moves `days` days forward (or backward), skipping non-working days */
-  addDays(date: Dayjs, days: number): Dayjs;
+  /** Whether the date counts as a working day; always true for the default calendar. */
+  isWorkingDay(date: Date): boolean;
+  /** Moves `days` days forward (or backward), skipping non-working days. */
+  addDays(date: Date, days: number): Date;
   /** Days from `from` to `to`, counted the same way `addDays` moves. Signed. */
-  daysBetween(from: Dayjs, to: Dayjs): number;
-  /** The date itself when it is a working day, otherwise the next one (time of day kept) */
-  snapForward(date: Dayjs): Dayjs;
+  daysBetween(from: Date, to: Date): number;
+  /** The date itself when it is a working day, otherwise the next one (time of day kept). */
+  snapForward(date: Date): Date;
 }
 ```
 
@@ -94,13 +94,13 @@ arithmetic path instead of testing the calendar day by day.
 | Member | Signature | `CALENDAR_DAYS` | Working calendar |
 |---|---|---|---|
 | `skipsNonWorkingDays` | `readonly boolean` | `false` | `true` |
-| `isWorkingDay` | `(date: Dayjs) => boolean` | Always `true` | `true` when the day passes the weekday and holiday check |
-| `addDays` | `(date: Dayjs, days: number) => Dayjs` | `date.add(days, 'day')` | Steps one calendar day at a time and counts down only on working days. The time of day is kept |
-| `daysBetween` | `(from: Dayjs, to: Dayjs) => number` | `to.startOf('day').diff(from.startOf('day'), 'day')` | Walks day by day and counts only the working days it lands on. The starting day is never counted |
-| `snapForward` | `(date: Dayjs) => Dayjs` | Returns `date` unchanged | The next working day at or after `date`, time of day preserved |
+| `isWorkingDay` | `(date: Date) => boolean` | Always `true` | `true` when the day passes the weekday and holiday check |
+| `addDays` | `(date: Date, days: number) => Date` | A new `Date`, `days` × 86,400,000 ms later | Steps one calendar day at a time and counts down only on working days. The time of day is kept |
+| `daysBetween` | `(from: Date, to: Date) => number` | The difference in whole UTC days, after flooring both ends to UTC midnight | Walks day by day and counts only the working days it lands on. The starting day is never counted |
+| `snapForward` | `(date: Date) => Date` | Returns the same `date` object | The next working day at or after `date`, time of day preserved |
 
-`daysBetween` compares at day granularity. It calls `startOf('day')` on both ends, so two times
-on the same date are `0` apart.
+`daysBetween` compares at day granularity. It floors both ends to UTC midnight, so two times
+on the same UTC date are `0` apart.
 
 `addDays` and `daysBetween` are exact inverses from a working day, so
 `daysBetween(from, addDays(from, n))` is `n`. Moving backwards from a non-working day the round
@@ -113,7 +113,8 @@ under Constraints below.
 In June 2025 the 2nd is a Monday, the 6th a Friday, the 7th and 8th the weekend, and the 9th the
 next Monday. `workweek` is `createWorkingCalendar()`. `withHoliday` is
 `createWorkingCalendar({ holidays: ['2025-06-09'] })`. Dates are written as strings for brevity.
-Each one stands for `dayjs.utc(...)`.
+Each one stands for a UTC `Date`, such as `new Date('2025-06-06')` or
+`new Date('2025-06-06T14:30Z')`.
 
 | Call | Result |
 |---|---|
@@ -133,14 +134,10 @@ Each one stands for `dayjs.utc(...)`.
 ## Example
 
 ```ts
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
 import { createWorkingCalendar } from '@jaeungkim/gantt-chart';
 
-dayjs.extend(utc);
-
 const calendar = createWorkingCalendar({ holidays: ['2025-06-09'] });
-calendar.addDays(dayjs.utc('2025-06-06'), 1).toISOString(); // 2025-06-10T00:00:00.000Z
+calendar.addDays(new Date('2025-06-06'), 1).toISOString(); // 2025-06-10T00:00:00.000Z
 ```
 
 Nothing in the package takes a calendar argument. The chart builds its own from
@@ -149,13 +146,16 @@ date math. See [Working calendar](../working-calendar).
 
 ## Constraints
 
-`src/core/calendar.ts` imports only the `Dayjs` type, never dayjs itself. The weekday is
-`date.day()` and a holiday is matched against `date.format('YYYY-MM-DD')`, so both read in
-whatever mode the `Dayjs` instance you pass is in.
+`src/core/calendar.ts` imports no date library. A day is 86,400,000 ms of UTC time, the weekday
+is `date.getUTCDay()` and a holiday is matched against `date.toISOString().slice(0, 10)`. Every
+check reads UTC, whatever time zone the `Date` was built in.
 
-Inside the chart the mode is always UTC. Every date the core hands the calendar is built by
-`src/core/dates.ts`, which uses `dayjs.utc`. A local-mode `Dayjs` reads a local weekday and a
-local `YYYY-MM-DD`, so pass UTC-mode instances, as the example above does.
+A `Date` built from local time can land on a different UTC date. In Seoul,
+`new Date(2025, 5, 7, 0, 30)` is Saturday locally but Friday `15:30` in UTC, so it counts as a
+working day. Build dates with `Date.UTC` or an ISO string to get the day you mean.
+
+`addDays` always returns a new `Date`. `snapForward` returns the same object when `date` is
+already a working day.
 
 A calendar where nothing is a working day still returns. `addDays` has a budget of 367
 steps per requested day and falls back to plain calendar days when it runs out. `snapForward`

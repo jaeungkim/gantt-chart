@@ -32,7 +32,7 @@ jobs:
         run: |
           bad=$(grep -rhoE "(from|import\()[[:space:]]*['\"][^.'\"][^'\"]*['\"]" $(find dist -name '*.d.ts') \
                 | grep -oE "['\"][^'\"]+['\"]" | tr -d "\"'" | sort -u \
-                | grep -vE "^(react|react-dom|dayjs)(/.*)?$" || true)
+                | grep -vE "^(react|react-dom)(/.*)?$" || true)
           if [ -n "$bad" ]; then echo "unresolvable specifiers in dist/*.d.ts:"; echo "$bad"; exit 1; fi
           echo "declaration specifiers OK"
       - name: Bundles must open with "use client"

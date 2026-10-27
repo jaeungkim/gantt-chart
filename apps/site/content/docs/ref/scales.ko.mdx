@@ -111,23 +111,23 @@ export type GanttLabelUnit =
  */
 export interface GanttScaleFormat {
   /** 하단 헤더 행 - 눈금마다 라벨 하나 */
-  tick?: (date: Dayjs) => string;
+  tick?: (date: Date) => string;
   /** 상단 헤더 행 - 그룹마다 라벨 하나 */
-  header?: (date: Dayjs) => string;
+  header?: (date: Date) => string;
   /**
    * 차트가 날짜 하나로 적는 모든 자리: 막대의 호버 툴팁, 헤더의 드래그 가이드 라벨(이 슬롯을
    * 따라가는 `edge`와 `range`를 거쳐서), 그리고 상세 패널의 Start와 End 중 편집할 수 없는 것.
    * 편집할 수 있는 날짜는 네이티브 `<input type="date">`라서 포매터를 거치지 않아요.
    */
-  tooltip?: (date: Dayjs) => string;
+  tooltip?: (date: Date) => string;
 }
 ```
 
 | 필드 | 타입 | 필수 | 적용 대상 |
 |---|---|---|---|
-| `tick` | `(date: Dayjs) => string` | 아니요 | 눈금마다 라벨 하나, 하단 헤더 행 |
-| `header` | `(date: Dayjs) => string` | 아니요 | 그룹마다 라벨 하나, 상단 헤더 행 |
-| `tooltip` | `(date: Dayjs) => string` | 아니요 | 헤더 행 밖의 모든 날짜: 호버 툴팁, 그리고 편집할 수 없을 때의 기본 상세 패널 날짜 |
+| `tick` | `(date: Date) => string` | 아니요 | 눈금마다 라벨 하나, 하단 헤더 행 |
+| `header` | `(date: Date) => string` | 아니요 | 그룹마다 라벨 하나, 상단 헤더 행 |
+| `tooltip` | `(date: Date) => string` | 아니요 | 헤더 행 밖의 모든 날짜: 호버 툴팁, 그리고 편집할 수 없을 때의 기본 상세 패널 날짜 |
 
 세 슬롯은 서로 따로 결정돼요. `header`만 넘기면 `tick`과 `tooltip`은 `locale`이나 기본 라벨이 만든
 값 그대로 남아요.
@@ -207,5 +207,6 @@ export interface Holiday {
 - `GanttScaleFormat` 함수는 `string`을 반환해야 해요. `ReactNode`를 반환할 수는 없고 헤더 셀을
   대체하는 prop도 없어요. 헤더 셀은 텍스트라서 `.gantt-top-group`과 `.gantt-bottom-cell`에 CSS를
   주면 생김새를 바꿀 수 있어요.
-- 차트가 쓰는 UTC `dayjs` 인스턴스는 패키지에서 내보내지 않아요. 재정의에 같은 인스턴스가 필요하면
-  `dayjs`와 `utc` 플러그인을 직접 불러오세요.
+- 각 슬롯은 `Dayjs`가 아니라 네이티브 `Date`를 받아요. `getUTC*` 게터나 `timeZone: 'UTC'`를 넘긴
+  `Intl.DateTimeFormat`으로 읽으세요. 재정의에서 dayjs를 쓰려면 직접 설치하고 `dayjs.utc(d)`로
+  감싸세요. 패키지는 자체 dayjs를 내보내지 않아요.

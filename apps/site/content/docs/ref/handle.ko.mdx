@@ -34,7 +34,7 @@ export interface GanttHandle
 
 | 멤버 | 시그니처 | 동작 |
 |---|---|---|
-| `scrollToDate` | `(date: string \| Date \| Dayjs, options?: GanttScrollOptions) => void` | 그 날짜가 요청한 위치에 오도록 가로로 스크롤해요. 날짜가 렌더링된 타임라인 밖이면 아무 일도 하지 않아요. |
+| `scrollToDate` | `(date: string \| Date, options?: GanttScrollOptions) => void` | 그 날짜가 요청한 위치에 오도록 가로로 스크롤해요. 날짜가 렌더링된 타임라인 밖이면 아무 일도 하지 않아요. |
 | `scrollToToday` | `(options?: GanttScrollOptions) => void` | 현재 시각으로 호출하는 `scrollToDate`예요. |
 | `scrollToTask` | `(taskId: string, options?: GanttScrollOptions) => void` | 작업 막대로 가로 스크롤하고 행이 화면 밖일 때만 세로로도 움직여요. 어떤 행에도 없는 id면 아무 일도 하지 않아요. |
 | `setScale` | `(scale: GanttScaleKey) => void` | 배율을 바꿔요. 가운데 날짜는 그 자리에 남아요. |
@@ -52,7 +52,7 @@ export interface GanttHandle
 /** 차트 `ref`가 받는 객체인 `GanttHandle`의 스크롤과 줌 메서드 */
 export interface GanttScrollApi {
   /** 날짜로 가로 스크롤. 렌더링된 타임라인 밖의 날짜는 무시 */
-  scrollToDate: (date: string | Date | Dayjs, options?: GanttScrollOptions) => void;
+  scrollToDate: (date: string | Date, options?: GanttScrollOptions) => void;
   /** 현재 시각으로 가로 스크롤. 오늘이 렌더링된 타임라인 밖이면 무시 */
   scrollToToday: (options?: GanttScrollOptions) => void;
   /** 작업 막대로 스크롤하고 행이 화면 밖일 때만 세로로도 이동. 접힌 부모 아래처럼 어떤 행에도 없는 작업은 무시 */
@@ -66,7 +66,6 @@ export interface GanttScrollApi {
 }
 ```
 
-`Dayjs`는 `dayjs`의 객체 타입이에요. 패키지가 다시 내보내지 않으니 `dayjs`에서 직접 가져오세요.
 문자열이나 `Date`를 넘기면 UTC로 파싱해요. [작업 데이터](../task-data)를 참고하세요.
 
 `GanttScaleKey`는 다섯 배율 키의 유니온이에요. [배율과 테마 타입](scales)에 정리돼 있어요.

@@ -64,7 +64,7 @@ export interface GanttProps {
   visibleEnd?: string;
   /** BCP 47 tag for every date label via `Intl.DateTimeFormat`, e.g. `"ko-KR"`. Omitted or unusable, the built-in English labels are used. */
   locale?: string;
-  /** Per-scale `tick`, `header` and `tooltip` label overrides. They win over `locale`, and the `Dayjs` they get is in UTC mode. */
+  /** Per-scale `tick`, `header` and `tooltip` label overrides. They win over `locale`, and the `Date` they get is meant to be read in UTC. */
   formats?: GanttFormatOverrides;
   /** First day of the week, 0 = Sunday to 6 = Saturday. Set, the week scale's top header groups by week instead of by month. */
   firstDayOfWeek?: number;

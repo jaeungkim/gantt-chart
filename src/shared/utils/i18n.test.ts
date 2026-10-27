@@ -127,7 +127,7 @@ describe('resolveFormatters with format overrides', () => {
   it('wins over both the locale and the built-in labels, per label', () => {
     const { tick, header, tooltip } = resolveFormatters('quarter', {
       locale: 'ko-KR',
-      formats: { quarter: { header: (d) => `${d.year()}년 ${quarterOfYear(d)}분기` } },
+      formats: { quarter: { header: (d) => `${d.getUTCFullYear()}년 ${quarterOfYear(dayjs(d))}분기` } },
     });
 
     expect(header(afternoon)).toBe('2025년 3분기');
@@ -171,7 +171,7 @@ describe('range formatter', () => {
   it('formats both ends through a tooltip override, which owns the readout', () => {
     const { range } = resolveFormatters('month', {
       locale: 'ko-KR',
-      formats: { month: { tooltip: (date) => date.format('YY/MM/DD') } },
+      formats: { month: { tooltip: (date) => dayjs(date).format('YY/MM/DD') } },
     });
     expect(range(start, end)).toBe('26/01/15 – 26/01/17');
   });
@@ -210,7 +210,7 @@ describe('edge formatter', () => {
   it('is the tooltip override when one is given, the same function range uses', () => {
     const options = {
       locale: 'ko-KR',
-      formats: { month: { tooltip: (date: typeof start) => date.format('YY/MM/DD') } },
+      formats: { month: { tooltip: (date: Date) => dayjs(date).format('YY/MM/DD') } },
     };
     expect(resolveFormatters('month', options).edge(start)).toBe('26/01/15');
     expect(resolveFormatters('month', options).range(start, end)).toBe(

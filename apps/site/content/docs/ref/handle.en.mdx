@@ -36,7 +36,7 @@ and `addTask`.
 
 | Member | Signature | Effect |
 |---|---|---|
-| `scrollToDate` | `(date: string \| Date \| Dayjs, options?: GanttScrollOptions) => void` | Scrolls horizontally so the date lands at the requested position. Does nothing when the date is outside the rendered timeline. |
+| `scrollToDate` | `(date: string \| Date, options?: GanttScrollOptions) => void` | Scrolls horizontally so the date lands at the requested position. Does nothing when the date is outside the rendered timeline. |
 | `scrollToToday` | `(options?: GanttScrollOptions) => void` | `scrollToDate` with the current instant. |
 | `scrollToTask` | `(taskId: string, options?: GanttScrollOptions) => void` | Scrolls horizontally to the task's bar, and vertically only when its row is off screen. Does nothing for an id that no row shows. |
 | `setScale` | `(scale: GanttScaleKey) => void` | Switches the scale and keeps the centre date in place. |
@@ -54,7 +54,7 @@ Every method except `getScrollElement` returns `void`.
 /** The scroll and zoom methods of `GanttHandle`, the object a chart `ref` receives. */
 export interface GanttScrollApi {
   /** Scrolls horizontally to a date; a date outside the rendered timeline is ignored. */
-  scrollToDate: (date: string | Date | Dayjs, options?: GanttScrollOptions) => void;
+  scrollToDate: (date: string | Date, options?: GanttScrollOptions) => void;
   /** Scrolls horizontally to the current time; ignored while today is outside the rendered timeline. */
   scrollToToday: (options?: GanttScrollOptions) => void;
   /** Scrolls to a task's bar, and vertically only when its row is off screen; a task no row shows, such as one under a collapsed parent, is ignored. */
@@ -68,8 +68,7 @@ export interface GanttScrollApi {
 }
 ```
 
-`Dayjs` is the object type from `dayjs`. The package does not re-export it, so import it from
-`dayjs`. A plain string or `Date` is accepted and parsed as UTC. See [Task data](../task-data).
+A string or `Date` is parsed as UTC. See [Task data](../task-data).
 
 `GanttScaleKey` is the union of the five scale keys, listed in
 [Scale and theme types](scales). The scale table that `setScale` checks its argument against is

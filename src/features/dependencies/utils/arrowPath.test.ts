@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { resolveGeometry } from 'shared/constants';
 import type { Task, TaskTransformed } from 'shared/task';
 import type { GanttGeometry } from 'shared/types';
+import { stylesheet } from 'shared/utils/stylesheet.test-utils';
 import {
   buildDependencies,
   isArrowVisible,
@@ -155,7 +155,7 @@ describe('buildDependencies', () => {
   });
 
   describe('the row-gap lane', () => {
-    const css = readFileSync('src/styles.css', 'utf8');
+    const css = stylesheet;
     const halfStroke =
       Number(css.match(/\.gantt-dependency-arrow \{[^}]*stroke-width:\s*([\d.]+)/)![1]) / 2;
     const barBox = (order: number, { rowHeight, barHeight }: GanttGeometry) => {

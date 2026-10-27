@@ -1,4 +1,3 @@
-import { Dayjs } from "dayjs";
 import { RefObject, useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import { GanttBottomRowCell, GanttGeometry, GanttScaleKey } from "shared/types";
 import { TaskTransformed } from "shared/task";
@@ -51,7 +50,7 @@ export function useGanttScrollApi({
   const setSelectedScale = useGanttStore((store) => store.setSelectedScale);
 
   const scrollToDateNow = useCallback(
-    (date: string | Date | Dayjs, options?: GanttScrollOptions) => {
+    (date: string | Date, options?: GanttScrollOptions) => {
       const el = scrollRef.current;
       const px = calculateDateOffsetPx(dayjs(date), bottomRowCells, selectedScale);
       if (!el || px === null) return;
@@ -139,13 +138,13 @@ export function useGanttScrollApi({
   }, [isCurrent, scrollNow]);
 
   const scrollToDate = useCallback(
-    (date: string | Date | Dayjs, options?: GanttScrollOptions) =>
+    (date: string | Date, options?: GanttScrollOptions) =>
       request((scroll) => scroll.scrollToDate(date, options)),
     [request]
   );
 
   const scrollToToday = useCallback(
-    (options?: GanttScrollOptions) => scrollToDate(dayjs(), options),
+    (options?: GanttScrollOptions) => scrollToDate(new Date(), options),
     [scrollToDate]
   );
 

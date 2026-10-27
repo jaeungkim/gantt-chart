@@ -63,7 +63,7 @@ boundary, so `month` week columns open on a Sunday.
 
 The last cell can finish past the padded end. See [Task list and hierarchy](task-list).
 
-`onRangeChange` reports the range as two `Dayjs` values. `end` is exclusive, the last cell's start
+`onRangeChange` reports the range as two native `Date` values, `start` and `end`. `end` is exclusive, the last cell's start
 plus one tick, so an inclusive query counts the last tick twice.
 
 It fires on the first render with cells, then whenever those dates change, which a scale change

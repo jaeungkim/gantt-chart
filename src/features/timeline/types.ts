@@ -18,7 +18,7 @@ export interface GanttZoomAnchor {
 /** The scroll and zoom methods of `GanttHandle`, the object a chart `ref` receives. See https://gantt.jaeungkim.com/docs/ref/handle */
 export interface GanttScrollApi {
   /** Scrolls horizontally to a date; a date outside the rendered timeline is ignored. */
-  scrollToDate: (date: string | Date | Dayjs, options?: GanttScrollOptions) => void;
+  scrollToDate: (date: string | Date, options?: GanttScrollOptions) => void;
   /** Scrolls horizontally to the current time; ignored while today is outside the rendered timeline. */
   scrollToToday: (options?: GanttScrollOptions) => void;
   /** Scrolls to a task's bar, and vertically only when its row is off screen; a task no row shows, such as one under a collapsed parent, is ignored. */

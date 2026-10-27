@@ -6,10 +6,11 @@ import dayjs from "core/dates";
 import { GanttStoreContext } from "shared/context";
 import { createGanttStore } from "shared/store";
 import type { Task } from "shared/task";
+import { stylesheet } from "shared/utils/stylesheet.test-utils";
 import { computeTimelineData } from "features/timeline/utils/geometry";
 import GanttDragGuides from "./GanttDragGuides";
 
-const css = readFileSync("src/styles.css", "utf8");
+const css = stylesheet;
 const tokens = readFileSync("src/tokens.css", "utf8");
 const guides =readFileSync("src/features/bars/components/GanttDragGuides.tsx", "utf8");
 const gantt = readFileSync("src/Gantt.tsx", "utf8");

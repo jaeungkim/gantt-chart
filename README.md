@@ -42,9 +42,9 @@ pnpm add @jaeungkim/gantt-chart
 # yarn add @jaeungkim/gantt-chart
 ```
 
-`react` and `react-dom` (`^18` or `^19`) are peer dependencies, and React is the only module the
-built bundle imports. Gzipped, the ESM build is under 40 kB and the stylesheet under 5 kB. `dayjs`
-is a declared dependency because `Dayjs` is in the public types.
+`react` and `react-dom` (`^18` or `^19`) are peer dependencies, and there are no others: React is
+the only module the built bundle imports. Gzipped, the ESM build is under 40 kB and the stylesheet
+under 5 kB.
 
 ## Connect it to your app
 

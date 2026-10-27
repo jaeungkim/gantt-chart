@@ -104,6 +104,9 @@ export function resolveLabelUnit(
   return GANTT_SCALE_CONFIG[scale].labelUnit;
 }
 
+const fromDate = (format?: (date: Date) => string) =>
+  format && ((date: Dayjs) => format(date.toDate()));
+
 export function resolveFormatters(
   scale: GanttScaleKey,
   options?: GanttLocaleOptions
@@ -118,7 +121,7 @@ export function resolveFormatters(
     ? localeFormatters(options.locale, scale, headerScale)
     : null;
 
-  const overrideTooltip = override?.tooltip;
+  const overrideTooltip = fromDate(override?.tooltip);
   const edge: GanttFormatters['edge'] =
     overrideTooltip ??
     intl?.edge ??
@@ -132,8 +135,8 @@ export function resolveFormatters(
   return {
     edge,
     range,
-    tick: override?.tick ?? intl?.tick ?? config.formatTickLabel,
-    header: override?.header ?? intl?.header ?? headerConfig.formatHeaderLabel,
+    tick: fromDate(override?.tick) ?? intl?.tick ?? config.formatTickLabel,
+    header: fromDate(override?.header) ?? intl?.header ?? headerConfig.formatHeaderLabel,
     tooltip:
       overrideTooltip ??
       intl?.tooltip ??
