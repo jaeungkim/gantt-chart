@@ -1,19 +1,21 @@
+// @vitest-environment happy-dom
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import Gantt from "Gantt";
 import dayjs from "core/dates";
 import { GanttStoreContext } from "shared/context";
 import { createGanttStore } from "shared/store";
-import type { Task } from "shared/task";
+import type { Task, TaskTransformed } from "shared/task";
+import { pointer, render } from "shared/testing/dom";
 import { stylesheet } from "shared/utils/stylesheet.test-utils";
+import type { GanttDragMode } from "shared/types";
 import { computeTimelineData } from "features/timeline/utils/geometry";
 import GanttDragGuides from "./GanttDragGuides";
 
 const css = stylesheet;
 const tokens = readFileSync("src/tokens.css", "utf8");
-const guides =readFileSync("src/features/bars/components/GanttDragGuides.tsx", "utf8");
-const gantt = readFileSync("src/Gantt.tsx", "utf8");
 
 function block(selector: string): string {
   const start = css.indexOf(`${selector} {`);
@@ -65,12 +67,18 @@ describe("drag readout mounts in the header", () => {
     expect(block(".gantt-drag-guides")).not.toContain("z-index");
   });
 
-  it("mounts inside the header wrapper, not over the grid", () => {
-    const wrapper = gantt.indexOf('className="gantt-header-wrapper"');
-    expect(wrapper).toBeGreaterThan(-1);
-    const mount = gantt.indexOf("<GanttDragGuides");
-    expect(mount).toBeGreaterThan(wrapper);
-    expect(mount).toBeLessThan(gantt.indexOf("gantt-content", wrapper));
+  it("mounts inside the header wrapper, not over the grid", async () => {
+    const tasks: Task[] = [
+      { id: "a", name: "A", startDate: "2025-01-01", endDate: "2025-01-05", parentId: null, sequence: "1" },
+    ];
+    const { host } = await render(createElement(Gantt, { tasks, onTasksChange: () => {} }));
+    expect(host.querySelector(".gantt-drag-guides")).toBeNull();
+    await pointer("pointerdown", host.querySelector('.gantt-task-bar[data-task-id="a"]')!, 10, 10);
+    await pointer("pointermove", document, 80, 10);
+    const guides = host.querySelector(".gantt-drag-guides")!;
+    expect(guides).not.toBeNull();
+    expect(guides.closest(".gantt-header-wrapper")).not.toBeNull();
+    expect(guides.closest(".gantt-content")).toBeNull();
   });
 });
 
@@ -121,39 +129,97 @@ describe("drag readout is the tick row being precise, not a panel on it", () => 
     }
     expect(css + tokens).not.toContain("--gantt-drag-band");
     expect(block(".gantt-drag-cell")).not.toContain("sticky");
-    expect(guides).not.toContain("useRef");
-    expect(guides).not.toContain("useLayoutEffect");
   });
 });
 
 describe("drag readout writes the cell the moving edge lands in", () => {
-  it("finds each edge's cell off the cells' own widths", () => {
-    expect(guides).toContain("tickAxis(bottomRowCells)");
-    expect(guides).toContain("tickCellAt(axis, startX)");
-    expect(guides).toContain("tickCellAt(axis, endX)");
-  });
+  const CELL_WIDTHS = [100, 40, 200, 60];
+  const cells = CELL_WIDTHS.map((widthPx, i) => ({
+    startDate: dayjs("2026-03-01").add(i, "day"),
+    widthPx,
+  }));
+  const isoDay = (date: Date) => date.toISOString().slice(0, 10);
+  const localeOptions = { formats: { day: { tooltip: isoDay } } };
 
-  it("labels each end on its own, not one merged string", () => {
-    expect(guides).toContain("edge(offset.offsetStartDate)");
-    expect(guides).toContain("edge(offset.offsetEndDate)");
-  });
-
-  it("writes both ends for a move and only the dragged one for a resize", () => {
-    expect(guides).toContain('dragMode === "left"');
-    expect(guides).toContain('dragMode === "right"');
-  });
-
-  it("writes one range label when both ends land in the same cell", () => {
-    expect(guides).toContain("startCell.index === endCell.index");
-    expect(guides).toContain(
-      "range(offset.offsetStartDate, offset.offsetEndDate)"
+  const renderDrag = async (mode: GanttDragMode, barLeft: number, barWidth: number) => {
+    const store = createGanttStore("day");
+    store.getInitialState = store.getState;
+    const pressed = {
+      id: "a",
+      name: "A",
+      sequence: "1",
+      parentId: null,
+      startDate: "2026-03-02T00:00:00.000Z",
+      endDate: "2026-03-03T00:00:00.000Z",
+      barLeft,
+      barWidth,
+      depth: 0,
+      order: 1,
+      originalOrder: 1,
+    } satisfies TaskTransformed;
+    store.getState().setBottomRowCells(cells);
+    store.getState().setTransformedTasks([pressed]);
+    store.getState().setBarDrag({ task: pressed, mode });
+    store.getState().setDragOffsets({
+      a: {
+        offsetX: 0,
+        offsetWidth: 0,
+        offsetStartDate: dayjs("2026-03-02"),
+        offsetEndDate: dayjs("2026-03-03"),
+      },
+    });
+    const { host } = await render(
+      createElement(
+        GanttStoreContext.Provider,
+        { value: store },
+        createElement(GanttDragGuides, { localeOptions })
+      )
     );
+    return host;
+  };
+
+  const written = (host: HTMLElement) =>
+    [...host.querySelectorAll<HTMLElement>(".gantt-drag-cell")].map((cell) => ({
+      left: cell.style.left,
+      width: cell.style.width,
+      label: cell.textContent,
+    }));
+
+  it("finds each edge's cell off the cells' own widths", async () => {
+    const host = await renderDrag("bar", 110, 100);
+    expect(written(host).map(({ left, width }) => ({ left, width }))).toEqual([
+      { left: "100px", width: "40px" },
+      { left: "140px", width: "200px" },
+    ]);
   });
 
-  it("paints the footprint after the cells, so it reaches the bar's pixel edge", () => {
-    expect(guides.indexOf("gantt-drag-footprint")).toBeGreaterThan(
-      guides.indexOf("gantt-drag-cell")
+  it("labels each end on its own, not one merged string", async () => {
+    const host = await renderDrag("bar", 110, 100);
+    expect(written(host).map(({ label }) => label)).toEqual(["2026-03-02", "2026-03-03"]);
+  });
+
+  it("writes both ends for a move and only the dragged one for a resize", async () => {
+    expect(written(await renderDrag("left", 110, 100))).toEqual([
+      { left: "100px", width: "40px", label: "2026-03-02" },
+    ]);
+    expect(written(await renderDrag("right", 110, 100))).toEqual([
+      { left: "140px", width: "200px", label: "2026-03-03" },
+    ]);
+    expect(written(await renderDrag("bar", 110, 100))).toHaveLength(2);
+  });
+
+  it("writes one range label when both ends land in the same cell", async () => {
+    expect(written(await renderDrag("bar", 150, 100))).toEqual([
+      { left: "140px", width: "200px", label: "2026-03-02 \u2013 2026-03-03" },
+    ]);
+  });
+
+  it("paints the footprint after the cells, so it reaches the bar's pixel edge", async () => {
+    const host = await renderDrag("bar", 110, 100);
+    const layers = [...host.querySelector(".gantt-drag-guides")!.children].map(
+      (child) => child.className
     );
+    expect(layers).toEqual(["gantt-drag-cell", "gantt-drag-cell", "gantt-drag-footprint"]);
   });
 });
 

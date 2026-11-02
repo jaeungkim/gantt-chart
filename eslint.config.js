@@ -114,6 +114,7 @@ export default tseslint.config(
   },
   {
     files: ["src/features/**/*.{ts,tsx}"],
+    ignores: ["src/features/**/*.test.ts"],
     rules: {
       "no-restricted-imports": [
         "error",

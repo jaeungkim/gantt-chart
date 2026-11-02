@@ -1,8 +1,14 @@
-import { defineConfig } from 'vite';
+import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vitest/config';
 import dts from 'vite-plugin-dts';
 
 export default defineConfig({
   resolve: { tsconfigPaths: true },
+  test: {
+    alias: {
+      '@jaeungkim/gantt-chart': fileURLToPath(new URL('src/index.ts', import.meta.url)),
+    },
+  },
   plugins: [
     dts({
       include: ['src'],
