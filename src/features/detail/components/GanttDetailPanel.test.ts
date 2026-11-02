@@ -1,200 +1,229 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { TaskTransformed } from "shared/task";
-import GanttDetailPanel from "./GanttDetailPanel";
+// @vitest-environment happy-dom
+import { act, createElement, type ComponentProps } from "react";
+import { flushSync } from "react-dom";
+import { createRoot } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import Gantt from "Gantt";
+import type { Task } from "core/types";
+import { click, dispatch, keydown, render } from "shared/testing/dom";
 
-const hooks = vi.hoisted(() => ({
-  slots: [] as unknown[],
-  cursor: 0,
-  effects: [] as (() => void)[],
-}));
+type GanttProps = ComponentProps<typeof Gantt>;
 
-vi.mock("react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react")>();
-  const slot = <T>(init: () => T): T => {
-    const k = hooks.cursor++;
-    if (!(k in hooks.slots)) hooks.slots[k] = init();
-    return hooks.slots[k] as T;
-  };
-  const effect = (create: () => void | (() => void), deps?: unknown[]) => {
-    const cell = slot(
-      () => ({}) as { deps?: unknown[]; cleanup?: void | (() => void) }
-    );
-    const same = deps?.every((dep, k) => Object.is(dep, cell.deps?.[k]));
-    if (cell.deps && same) return;
-    hooks.effects.push(() => {
-      cell.cleanup?.();
-      cell.deps = deps;
-      cell.cleanup = create();
-    });
-  };
-  return {
-    ...actual,
-    useContext: () => ({}),
-    useState: <T>(initial: T) => [initial, () => {}],
-    useRef: <T>(current: T) => slot(() => ({ current })),
-    useCallback: <T>(fn: T) => fn,
-    useEffect: effect,
-    useLayoutEffect: effect,
-  };
+const tasks: Task[] = [
+  {
+    id: "build",
+    name: "Build",
+    parentId: null,
+    sequence: "1",
+    startDate: "2026-09-08T00:00:00.000Z",
+    endDate: "2026-09-18T00:00:00.000Z",
+    progress: 40,
+    dependencies: [{ targetId: "design", type: "FS" }],
+  },
+  {
+    id: "design",
+    name: "Design",
+    parentId: null,
+    sequence: "2",
+    startDate: "2026-09-01T00:00:00.000Z",
+    endDate: "2026-09-07T00:00:00.000Z",
+  },
+];
+
+beforeEach(() => {
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame"],
+  });
 });
 
-type HostElement = { type: unknown; props: Record<string, unknown> };
-type Handler = (event: unknown) => void;
-
-function hostElements(node: unknown, out: HostElement[] = []): HostElement[] {
-  if (Array.isArray(node)) node.forEach((child) => hostElements(child, out));
-  else if (typeof node === "object" && node !== null && "props" in node) {
-    const { type, props } = node as HostElement;
-    if (typeof type === "function") hostElements(type(props), out);
-    else {
-      if (typeof type === "string") out.push(node as HostElement);
-      hostElements(props.children, out);
-    }
-  }
-  return out;
-}
-
-const task = {
-  id: "build",
-  name: "Build",
-  parentId: null,
-  sequence: "1",
-  startDate: "2026-09-08T00:00:00.000Z",
-  endDate: "2026-09-18T00:00:00.000Z",
-  progress: 40,
-} as TaskTransformed;
-
-type Props = Parameters<typeof GanttDetailPanel>[0];
-
-function render(props: Partial<Props>): HostElement[] {
-  hooks.cursor = 0;
-  hooks.effects = [];
-  const elements = hostElements(
-    GanttDetailPanel({
-      task,
-      tasks: [task],
-      scale: "day",
-      tooltip: (date) => date.format("YYYY-MM-DD"),
-      onClose: () => {},
-      open: true,
-      ...props,
-    })
-  );
-  hooks.effects.forEach((run) => run());
-  return elements;
-}
-
-function stubDocument() {
-  let listeners: ((event: Event) => void)[] = [];
-  const doc = {
-    addEventListener: (_: string, fn: (event: Event) => void) => {
-      listeners = [...listeners, fn];
-    },
-    removeEventListener: (_: string, fn: (event: Event) => void) => {
-      listeners = listeners.filter((entry) => entry !== fn);
-    },
-    dispatchEvent: (event: Event) => {
-      for (const fn of listeners) if (listeners.includes(fn)) fn(event);
-    },
-  };
-  vi.stubGlobal("document", doc);
-  return doc;
-}
-
-const keydown = (key: string) =>
-  Object.assign(new Event("keydown", { cancelable: true }), { key });
-
-function documentRoot(doc: ReturnType<typeof stubDocument>) {
-  const root = { focused: undefined as HostElement | undefined };
-  doc.addEventListener("keydown", (event) => {
-    const onKeyDown = root.focused?.props.onKeyDown as Handler | undefined;
-    onKeyDown?.({
-      key: (event as KeyboardEvent).key,
-      nativeEvent: event,
-      preventDefault: () => event.preventDefault(),
-      stopPropagation: () => event.stopPropagation(),
-    });
-  });
-  return root;
-}
-
 afterEach(() => {
-  hooks.slots = [];
-  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
+const settle = () => act(async () => vi.advanceTimersByTime(1000));
+
+const chartProps = (props: Partial<GanttProps>): GanttProps => ({
+  tasks,
+  showDetail: true,
+  ...props,
+});
+
+async function openPanel(props: Partial<GanttProps> = {}) {
+  const onDetailChange = vi.fn();
+  const onTasksChange = vi.fn();
+  const { host } = await render(
+    createElement(Gantt, chartProps({ onDetailChange, onTasksChange, ...props }))
+  );
+  await click(host.querySelector('.gantt-task-bar[data-task-id="build"]')!);
+  await settle();
+  const closes = () => onDetailChange.mock.calls.filter(([task]) => task === null).length;
+  return { host, onDetailChange, onTasksChange, closes };
+}
+
+const panel = (host: Element) => host.querySelector("aside.gantt-detail");
+
+async function type(input: HTMLInputElement, value: string) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+function skipKeydownListenersRemovedMidDispatch() {
+  const add = document.addEventListener.bind(document);
+  const remove = document.removeEventListener.bind(document);
+  const live = new Map<EventListenerOrEventListenerObject, EventListener>();
+  vi.spyOn(document, "addEventListener").mockImplementation((type, listener, options) => {
+    if (type !== "keydown" || !listener) return add(type, listener, options);
+    const guarded: EventListener = (event) => {
+      if (live.get(listener) !== guarded) return;
+      if (typeof listener === "function") listener(event);
+      else listener.handleEvent(event);
+    };
+    live.set(listener, guarded);
+    add(type, guarded, options);
+  });
+  vi.spyOn(document, "removeEventListener").mockImplementation((type, listener, options) => {
+    if (type !== "keydown" || !listener) return remove(type, listener, options);
+    remove(type, live.get(listener) ?? listener, options);
+    live.delete(listener);
+  });
+}
+
+describe("Escape in a field", () => {
+  it("in a text, date or range field leaves the panel open, with React's root on the document", async () => {
+    const onDetailChange = vi.fn();
+    const root = createRoot(document as unknown as Element);
+    try {
+      await act(async () => root.render(createElement(Gantt, chartProps({ onDetailChange }))));
+      await click(document.querySelector('.gantt-task-bar[data-task-id="build"]')!);
+      await settle();
+      const aside = document.querySelector("aside")!;
+      const fields = ["text", "date", "range"].map((inputType) => [
+        ...aside.querySelectorAll<HTMLInputElement>(`input[type="${inputType}"]`),
+      ]);
+      expect(fields.map((group) => group.length > 0)).toEqual([true, true, true]);
+
+      for (const field of fields.flat()) await keydown("Escape", field, { cancelable: true });
+
+      expect(onDetailChange.mock.calls.map(([task]) => task?.id ?? null)).toEqual(["build"]);
+    } finally {
+      await act(async () => root.unmount());
+    }
+  });
+});
+
+describe("opening", () => {
+  it("opens on a bar click, showing the task and what it depends on", async () => {
+    const { host } = await openPanel();
+
+    expect({
+      open: panel(host)?.classList.contains("gantt-detail-open"),
+      name: host.querySelector<HTMLInputElement>('input[aria-label="Task name"]')?.value,
+      dependsOn: host.querySelector(".gantt-detail-deps")?.textContent,
+    }).toEqual({ open: true, name: "Build", dependsOn: "FSDesign" });
+  });
 });
 
 describe("Escape", () => {
-  it("closes the panel when no field has focus", () => {
-    const doc = stubDocument();
-    documentRoot(doc);
-    const onClose = vi.fn();
-    render({ onClose });
+  it("closes the panel when no field has focus", async () => {
+    const { host, closes } = await openPanel();
 
-    doc.dispatchEvent(keydown("Escape"));
+    await keydown("Escape");
+    await settle();
 
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect({ closes: closes(), panel: panel(host) }).toEqual({ closes: 1, panel: null });
   });
 
-  it("still closes the panel when a host listener re-renders the chart mid-dispatch", () => {
-    const doc = stubDocument();
-    const onClose = vi.fn();
-    doc.addEventListener("keydown", () => render({ onClose: () => onClose() }));
-    render({ onClose: () => onClose() });
-
-    doc.dispatchEvent(keydown("Escape"));
-
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it.each(["text", "date", "range"])(
-    "in a %s field leaves the panel open, with React's root on the document",
-    (type) => {
-      const doc = stubDocument();
-      const root = documentRoot(doc);
-      const onClose = vi.fn();
-      const fields = render({ onClose }).filter(
-        (element) => element.type === "input" && element.props.type === type
+  it("still closes the panel when a host listener re-renders the chart mid-dispatch", async () => {
+    const closes: unknown[] = [];
+    const element = () =>
+      createElement(
+        Gantt,
+        chartProps({ onDetailChange: (task) => void (task === null && closes.push(task)) })
       );
-      expect(fields.length).toBeGreaterThan(0);
+    skipKeydownListenersRemovedMidDispatch();
+    const host = document.body.appendChild(document.createElement("div"));
+    const root = createRoot(host);
+    const rerenderMidDispatch = () => flushSync(() => root.render(element()));
+    document.addEventListener("keydown", rerenderMidDispatch);
+    try {
+      await act(async () => root.render(element()));
+      await click(host.querySelector('.gantt-task-bar[data-task-id="build"]')!);
+      await settle();
 
-      for (const field of fields) {
-        root.focused = field;
-        doc.dispatchEvent(keydown("Escape"));
-      }
+      Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: false });
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
 
-      expect(onClose).not.toHaveBeenCalled();
+      expect(closes).toHaveLength(1);
+    } finally {
+      Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+      document.removeEventListener("keydown", rerenderMidDispatch);
+      await act(async () => root.unmount());
+      vi.restoreAllMocks();
     }
-  );
+  });
+
+});
+
+describe("closing", () => {
+  it("closes on the Close button", async () => {
+    const { host, closes } = await openPanel();
+
+    await click(host.querySelector('button[aria-label="Close"]')!);
+    await settle();
+
+    expect({ closes: closes(), panel: panel(host) }).toEqual({ closes: 1, panel: null });
+  });
 });
 
 describe("Enter in a field", () => {
-  it("cancels the implicit submission of a host form around the chart", () => {
-    stubDocument();
-    const fields = render({}).filter(
-      (element) => element.type === "input" && element.props.type !== "range"
-    );
+  it("cancels the implicit submission of a host form around the chart", async () => {
+    const { host } = await openPanel();
+    const fields = [
+      ...host.querySelectorAll<HTMLInputElement>('aside input:not([type="range"])'),
+    ];
     expect(fields).toHaveLength(3);
 
     for (const field of fields) {
-      const event = { key: "Enter", preventDefault: vi.fn(), stopPropagation: vi.fn() };
-      (field.props.onKeyDown as Handler)(event);
-      expect(event.preventDefault).toHaveBeenCalled();
+      const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+      await dispatch(field, event);
+      expect(event.defaultPrevented).toBe(true);
     }
+  });
+});
+
+describe("editing", () => {
+  it("sends a renamed task to onTasksChange when the name field loses focus", async () => {
+    const { host, onTasksChange } = await openPanel();
+    const name = host.querySelector<HTMLInputElement>('input[aria-label="Task name"]')!;
+
+    await type(name, "Ship");
+    await dispatch(name, new FocusEvent("focusout", { bubbles: true }));
+
+    expect(onTasksChange.mock.lastCall?.[0].map((task: Task) => task.name)).toEqual([
+      "Ship",
+      "Design",
+    ]);
+  });
+
+  it("shows the fields as text with no inputs while the chart is read-only", async () => {
+    const { host } = await openPanel({ readOnly: true });
+
+    expect({
+      inputs: panel(host)?.querySelectorAll("input").length,
+      title: panel(host)?.querySelector("h2.gantt-detail-title")?.textContent,
+    }).toEqual({ inputs: 0, title: "Build" });
   });
 });
 
 describe("accessible names", () => {
-  it("names the icon-only close button and the task name input", () => {
-    stubDocument();
-    const elements = render({});
-    const label = (type: string, className: string) =>
-      elements.find(
-        (element) => element.type === type && element.props.className === className
-      )?.props["aria-label"];
+  it("names the icon-only close button and the task name input", async () => {
+    const { host } = await openPanel();
 
     expect({
-      close: label("button", "gantt-detail-close"),
-      name: label("input", "gantt-detail-title"),
+      close: host.querySelector("button.gantt-detail-close")?.getAttribute("aria-label"),
+      name: host.querySelector("input.gantt-detail-title")?.getAttribute("aria-label"),
     }).toEqual({ close: "Close", name: "Task name" });
   });
 });

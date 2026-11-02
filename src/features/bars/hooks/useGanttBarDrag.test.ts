@@ -1,26 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createElement } from "react";
-import { renderToString } from "react-dom/server";
-import { createWorkingCalendar, type WorkingCalendar } from "core/calendar";
-import dayjs from "core/dates";
+// @vitest-environment happy-dom
+import { act, createElement, type ComponentProps } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import Gantt from "Gantt";
+import type { Task } from "core/types";
 import { GANTT_SCALE_CONFIG } from "shared/constants";
-import { GanttStoreContext } from "shared/context";
-import { createGanttStore } from "shared/store";
-import type {
-  GanttInteractionConfig,
-  Task,
-  TaskTransformed,
-} from "shared/task";
-import type { GanttVisibleRange } from "shared/types";
 import { TOUCH_LONG_PRESS_MS } from "shared/utils/pointerGesture";
-import { computeTimelineData } from "features/timeline/utils/geometry";
-import { useGanttBarDrag } from "./useGanttBarDrag";
-
-const effects = vi.hoisted(() => [] as (() => void | (() => void))[]);
-vi.mock("react", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("react")>()),
-  useEffect: (create: () => void | (() => void)) => void effects.push(create),
-}));
+import { click, pointer, render } from "shared/testing/dom";
 
 const STEP_PX = GANTT_SCALE_CONFIG.month.basePxPerDragStep;
 
@@ -33,209 +18,164 @@ const task = (id: string, startDate: string, endDate: string): Task => ({
   endDate,
 });
 
-interface BarSetup {
-  calendar?: WorkingCalendar;
-  interaction?: GanttInteractionConfig;
-  range?: GanttVisibleRange;
-  hierarchy?: boolean;
-  scrollEl?: object;
-}
+const barLeftOf = (el: HTMLElement) =>
+  Number(/translateX\((-?[\d.]+)px\)/.exec(el.style.transform)![1]);
 
-type BarDrag = ReturnType<typeof useGanttBarDrag>;
-
-function Probe(props: {
-  bar: TaskTransformed;
-  setup: BarSetup;
-  onTasksChange: (tasks: Task[]) => void;
-  expose: (hook: BarDrag) => void;
-}) {
-  const { bar, setup, onTasksChange, expose } = props;
-  expose(
-    useGanttBarDrag(
-      bar,
-      { onTasksChange, autoScroll: setup.scrollEl !== undefined },
-      setup.interaction,
-      setup.calendar
-    )
-  );
-  return null;
-}
-
-function mountBar(tasks: Task[], id: string, setup: BarSetup = {}) {
-  const store = createGanttStore("month");
-  const { bottomCells, transformedTasks } = computeTimelineData(
-    tasks,
-    "month",
-    setup.range,
-    setup.hierarchy
-  );
-  store.getState().setRawTasks(tasks);
-  store.getState().setBottomRowCells(bottomCells);
-  store.getState().setTransformedTasks(transformedTasks);
-  const bar = transformedTasks.find((t) => t.id === id)!;
-  const onTasksChange = vi.fn();
-
-  let hook!: BarDrag;
-  renderToString(
-    createElement(
-      GanttStoreContext.Provider,
-      { value: store },
-      createElement(Probe, {
-        bar,
-        setup,
-        onTasksChange,
-        expose: (h) => (hook = h),
-      })
-    )
-  );
-
-  const element = {
-    getBoundingClientRect: () => ({ left: bar.barLeft, width: bar.barWidth }),
-    closest: () => setup.scrollEl ?? null,
-    setPointerCapture: () => {},
-  };
-  const press = (clientX: number, pointerType = "mouse", pointerId = 1) =>
-    hook.onPointerDown({
-      isPrimary: true,
-      button: 0,
-      pointerType,
-      pointerId,
-      clientX,
-      clientY: 0,
-      currentTarget: element,
-    } as never);
-
-  const committed = (taskId = id) =>
-    store.getState().rawTasks.find((t) => t.id === taskId)!;
-
-  return {
-    store,
-    bar,
-    hook,
-    onTasksChange,
-    press,
-    committed,
-    leftEdge: bar.barLeft + 1,
-    middle: bar.barLeft + bar.barWidth / 2,
-    rightEdge: bar.barLeft + bar.barWidth - 1,
-  };
-}
-
-const fire = (type: string, clientX: number, pointerId = 1) =>
-  document.dispatchEvent(
-    Object.assign(new Event(type), { pointerId, clientX, clientY: 0 })
-  );
-
-const drag = (bar: ReturnType<typeof mountBar>, fromX: number, steps: number) => {
-  bar.press(fromX);
-  fire("pointermove", fromX + steps * STEP_PX);
-  fire("pointerup", fromX + steps * STEP_PX);
+const laidOut = (el: HTMLElement) => {
+  el.getBoundingClientRect = () => new DOMRect(barLeftOf(el), 0, parseFloat(el.style.width), 0);
+  return el;
 };
 
-beforeEach(() => {
-  vi.stubGlobal("document", new EventTarget());
-});
+async function mountGantt(tasks: Task[], props: Partial<ComponentProps<typeof Gantt>> = {}) {
+  const onTasksChange = vi.fn<(tasks: Task[]) => void>();
+  const onTaskClick = vi.fn();
+  const element = (next: Task[]) =>
+    createElement(Gantt, {
+      tasks: next,
+      defaultScale: "month",
+      onTasksChange,
+      onTaskClick,
+      ...props,
+    });
+  const { host, rerender } = await render(element(tasks));
+  const bar = (id: string) =>
+    laidOut(host.querySelector<HTMLElement>(`.gantt-task-bar[data-task-id="${id}"]`)!);
+  const committed = (id: string) => onTasksChange.mock.lastCall![0].find((t) => t.id === id)!;
+  return {
+    host,
+    bar,
+    committed,
+    onTasksChange,
+    onTaskClick,
+    rerender: (next: Task[]) => rerender(element(next)),
+  };
+}
+
+const edges = (el: HTMLElement) => {
+  const left = barLeftOf(el);
+  const width = parseFloat(el.style.width);
+  return { leftEdge: left + 1, middle: left + width / 2, rightEdge: left + width - 1 };
+};
+
+const drag = async (el: HTMLElement, fromX: number, steps: number) => {
+  await pointer("pointerdown", el, fromX, 0);
+  await pointer("pointermove", document, fromX + steps * STEP_PX, 0);
+  await pointer("pointerup", document, fromX + steps * STEP_PX, 0);
+};
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 describe("working-calendar right resize", () => {
-  const calendar = createWorkingCalendar({ holidays: ["2026-09-25"] });
+  const holidays = ["2026-09-25"];
   const audit = task("audit", "2026-09-01", "2026-09-04");
 
-  const resizeEnd = (t: Task, steps: number) => {
-    const bar = mountBar([t], t.id, { calendar });
-    drag(bar, bar.rightEdge, steps);
-    return bar.committed().endDate;
+  const resizeEnd = async (t: Task, steps: number) => {
+    const gantt = await mountGantt([t], { workingCalendar: true, holidays });
+    const el = gantt.bar(t.id);
+    await drag(el, edges(el).rightEdge, steps);
+    return gantt.committed(t.id).endDate;
   };
 
-  it("keeps an end that closes the last working day before a weekend", () => {
-    expect(resizeEnd(audit, 1)).toBe("2026-09-05T00:00:00.000Z");
+  it("keeps an end that closes the last working day before a weekend", async () => {
+    expect(await resizeEnd(audit, 1)).toBe("2026-09-05T00:00:00.000Z");
   });
 
-  it("keeps an end that closes the last working day before a holiday", () => {
+  it("keeps an end that closes the last working day before a holiday", async () => {
     const week = task("week", "2026-09-21", "2026-09-24");
-    expect(resizeEnd(week, 1)).toBe("2026-09-25T00:00:00.000Z");
+    expect(await resizeEnd(week, 1)).toBe("2026-09-25T00:00:00.000Z");
   });
 
-  it("snaps an end that closes a weekend day forward to the end of Monday", () => {
-    expect(resizeEnd(audit, 2)).toBe("2026-09-08T00:00:00.000Z");
-    expect(resizeEnd(audit, 3)).toBe("2026-09-08T00:00:00.000Z");
+  it("snaps an end that closes a weekend day forward to the end of Monday", async () => {
+    expect(await resizeEnd(audit, 2)).toBe("2026-09-08T00:00:00.000Z");
+    expect(await resizeEnd(audit, 3)).toBe("2026-09-08T00:00:00.000Z");
   });
 });
 
 describe("the click after a drag", () => {
   const plan = task("plan", "2025-01-06", "2025-01-16");
 
-  const touchDrag = (bar: ReturnType<typeof mountBar>, end: string) => {
-    bar.press(bar.middle, "touch");
-    vi.advanceTimersByTime(TOUCH_LONG_PRESS_MS);
-    fire("pointermove", bar.middle + 2 * STEP_PX);
-    fire(end, bar.middle + 2 * STEP_PX);
+  const touchDrag = async (el: HTMLElement, end: "pointerup" | "pointercancel") => {
+    const { middle } = edges(el);
+    const touch = { pointerType: "touch" };
+    await pointer("pointerdown", el, middle, 0, touch);
+    await act(async () => vi.advanceTimersByTime(TOUCH_LONG_PRESS_MS));
+    await pointer("pointermove", document, middle + 2 * STEP_PX, 0, touch);
+    await pointer(end, document, middle + 2 * STEP_PX, 0, touch);
   };
 
-  const tap = (bar: ReturnType<typeof mountBar>) => {
-    bar.press(bar.middle, "touch", 2);
-    fire("pointerup", bar.middle, 2);
-    return !bar.hook.consumeDragClick();
+  const tap = async (el: HTMLElement) => {
+    const { middle } = edges(el);
+    const touch = { pointerType: "touch", pointerId: 2 };
+    await pointer("pointerdown", el, middle, 0, touch);
+    await pointer("pointerup", document, middle, 0, touch);
+    await click(el);
   };
 
-  it("lets the first tap after a touch drag through", () => {
-    vi.useFakeTimers();
-    const bar = mountBar([plan], "plan");
-    touchDrag(bar, "pointerup");
+  it("lets the first tap after a touch drag through", async () => {
+    const gantt = await mountGantt([plan]);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    await touchDrag(gantt.bar("plan"), "pointerup");
+    expect(gantt.onTasksChange).toHaveBeenCalledTimes(1);
 
-    expect(bar.onTasksChange).toHaveBeenCalledTimes(1);
-    expect(tap(bar)).toBe(true);
+    await tap(gantt.bar("plan"));
+    expect(gantt.onTaskClick).toHaveBeenCalledTimes(1);
   });
 
-  it("lets the first tap after a cancelled touch drag through", () => {
-    vi.useFakeTimers();
-    const bar = mountBar([plan], "plan");
-    touchDrag(bar, "pointercancel");
+  it("lets the first tap after a cancelled touch drag through", async () => {
+    const gantt = await mountGantt([plan]);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    await touchDrag(gantt.bar("plan"), "pointercancel");
+    expect(gantt.onTasksChange).not.toHaveBeenCalled();
 
-    expect(bar.onTasksChange).not.toHaveBeenCalled();
-    expect(tap(bar)).toBe(true);
+    await tap(gantt.bar("plan"));
+    expect(gantt.onTaskClick).toHaveBeenCalledTimes(1);
   });
 
-  it("still drops the click that closes a mouse drag", () => {
-    const bar = mountBar([plan], "plan");
-    drag(bar, bar.middle, 2);
+  it("still drops the click that closes a mouse drag", async () => {
+    const gantt = await mountGantt([plan]);
+    const el = gantt.bar("plan");
+    await drag(el, edges(el).middle, 2);
 
-    expect(bar.hook.consumeDragClick()).toBe(true);
-    expect(bar.hook.consumeDragClick()).toBe(false);
+    await click(el);
+    expect(gantt.onTaskClick).not.toHaveBeenCalled();
+    await click(el);
+    expect(gantt.onTaskClick).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("resizing a bar clipped by a pinned window", () => {
-  const range = { start: dayjs("2026-03-01"), end: dayjs("2026-04-30") };
+  const pinned = { visibleStart: "2026-03-01", visibleEnd: "2026-04-30" };
 
-  it("commits the start under the dragged edge, not the hidden start shifted", () => {
-    const bar = mountBar([task("a", "2026-02-20", "2026-03-10")], "a", { range });
-    expect(bar.bar.barLeft).toBe(0);
+  it("commits the start under the dragged edge, not the hidden start shifted", async () => {
+    const gantt = await mountGantt([task("a", "2026-02-20", "2026-03-10")], pinned);
+    const el = gantt.bar("a");
+    expect(barLeftOf(el)).toBe(0);
 
-    drag(bar, bar.leftEdge, 3);
-    expect(bar.committed().startDate).toBe("2026-03-04T00:00:00.000Z");
+    await drag(el, edges(el).leftEdge, 3);
+    expect(gantt.committed("a").startDate).toBe("2026-03-04T00:00:00.000Z");
   });
 
-  it("commits the end under the dragged edge, not the hidden end shifted", () => {
-    const bar = mountBar([task("b", "2026-04-20", "2026-05-20")], "b", { range });
+  it("commits the end under the dragged edge, not the hidden end shifted", async () => {
+    const gantt = await mountGantt([task("b", "2026-04-20", "2026-05-20")], pinned);
+    const el = gantt.bar("b");
 
-    drag(bar, bar.rightEdge, -3);
-    expect(bar.committed().endDate).toBe("2026-04-30T00:00:00.000Z");
+    await drag(el, edges(el).rightEdge, -3);
+    expect(gantt.committed("b").endDate).toBe("2026-04-30T00:00:00.000Z");
   });
 
   it.each([
-    ["start", task("a", "2026-02-20", "2026-03-10"), "leftEdge", -3, "2026-02-20"],
-    ["end", task("b", "2026-04-20", "2026-05-20"), "rightEdge", 3, "2026-05-20"],
-  ] as const)("keeps a clipped %s when its edge is dragged outward", (key, t, edge, steps, kept) => {
-    const bar = mountBar([t], t.id, { range });
-    drag(bar, bar[edge], steps);
+    ["start", task("a", "2026-02-20", "2026-03-10"), "leftEdge", -3],
+    ["end", task("b", "2026-04-20", "2026-05-20"), "rightEdge", 3],
+  ] as const)("keeps a clipped %s when its edge is dragged outward", async (_, t, edge, steps) => {
+    const gantt = await mountGantt([t], pinned);
+    const el = gantt.bar(t.id);
+    await drag(el, edges(el)[edge], steps);
 
-    expect(bar.committed()[`${key}Date`]).toBe(kept);
-    expect(bar.onTasksChange).not.toHaveBeenCalled();
+    expect(gantt.onTasksChange).not.toHaveBeenCalled();
   });
 });
 
@@ -251,128 +191,156 @@ describe("dragging a bar whose stored dates do not parse", () => {
   ];
 
   it.each([
-    ["unbounded", undefined],
+    ["unbounded", {}],
     ["bounded", { maxDate: "2030-01-01" }],
-  ])("moves a summary's subtree and keeps its placeholder dates (%s)", (_, interaction) => {
-    const bar = mountBar(phase, "p", { hierarchy: true, interaction });
-    drag(bar, bar.middle, 3);
+  ])("moves a summary's subtree and keeps its placeholder dates (%s)", async (_, bounds) => {
+    const gantt = await mountGantt(phase, { hierarchy: true, ...bounds });
+    const el = gantt.bar("p");
+    await drag(el, edges(el).middle, 3);
 
-    expect(bar.onTasksChange).toHaveBeenCalledTimes(1);
-    expect(bar.committed("p")).toMatchObject({ startDate: "", endDate: "" });
-    expect(bar.committed("c1").startDate).toBe("2026-09-04T00:00:00.000Z");
-    expect(bar.store.getState().barDrag).toBeNull();
+    expect(gantt.onTasksChange).toHaveBeenCalledTimes(1);
+    expect(gantt.committed("p")).toMatchObject({ startDate: "", endDate: "" });
+    expect(gantt.committed("c1").startDate).toBe("2026-09-04T00:00:00.000Z");
+    expect(gantt.bar("p").classList.contains("dragging")).toBe(false);
   });
 
-  it("moves a leaf with an open end and keeps the end open", () => {
-    const bar = mountBar(openEnded, "x");
-    drag(bar, bar.middle, 3);
+  it("moves a leaf with an open end and keeps the end open", async () => {
+    const gantt = await mountGantt(openEnded);
+    const el = gantt.bar("x");
+    await drag(el, edges(el).middle, 3);
 
-    expect(bar.committed()).toMatchObject({
+    expect(gantt.committed("x")).toMatchObject({
       startDate: "2026-09-04T00:00:00.000Z",
       endDate: "",
     });
   });
 
   it.each([
-    ["working calendar", { calendar: createWorkingCalendar() }],
-    ["minDate", { interaction: { minDate: "2026-01-01" } }],
-  ])("moves a leaf with an open start and keeps the start open (%s)", (_, setup) => {
-    const openStart = [task("s", "", "2026-09-10"), openEnded[1]];
-    const bar = mountBar(openStart, "s", setup);
-    drag(bar, bar.middle, 1);
+    ["working calendar", { workingCalendar: true }],
+    ["minDate", { minDate: "2026-01-01" }],
+  ])("moves a leaf with an open start and keeps the start open (%s)", async (_, props) => {
+    const gantt = await mountGantt([task("s", "", "2026-09-10"), openEnded[1]], props);
+    const el = gantt.bar("s");
+    await drag(el, edges(el).middle, 1);
 
-    expect(bar.onTasksChange).toHaveBeenCalledTimes(1);
-    expect(bar.committed().startDate).toBe("");
-    expect(bar.store.getState().barDrag).toBeNull();
+    expect(gantt.onTasksChange).toHaveBeenCalledTimes(1);
+    expect(gantt.committed("s").startDate).toBe("");
+    expect(gantt.bar("s").classList.contains("dragging")).toBe(false);
   });
 
-  it("gives an open end the date its edge is dropped on", () => {
-    const bar = mountBar(openEnded, "x");
-    drag(bar, bar.rightEdge, -3);
+  it("gives an open end the date its edge is dropped on", async () => {
+    const gantt = await mountGantt(openEnded);
+    const el = gantt.bar("x");
+    await drag(el, edges(el).rightEdge, -3);
 
-    expect(bar.committed().endDate).toBe("2026-11-05T00:00:00.000Z");
+    expect(gantt.committed("x").endDate).toBe("2026-11-05T00:00:00.000Z");
   });
 });
 
 describe("dragging back to the press point", () => {
   const saturday = task("sat", "2026-09-05", "2026-09-09");
 
-  const outAndBack = (bar: ReturnType<typeof mountBar>, x: number) => {
-    bar.press(x);
-    fire("pointermove", x + STEP_PX);
-    fire("pointermove", x);
-    const offset = bar.store.getState().dragOffsets[bar.bar.id];
-    const shown = offset?.offsetStartDate ?? dayjs(bar.bar.startDate);
-    fire("pointerup", x);
-    return shown.toISOString();
+  const outAndBack = async (gantt: Awaited<ReturnType<typeof mountGantt>>, x: number) => {
+    const el = gantt.bar("sat");
+    const restingLeft = barLeftOf(el);
+    const restingWidth = el.style.width;
+    await pointer("pointerdown", el, x, 0);
+    await pointer("pointermove", document, x + STEP_PX, 0);
+    await pointer("pointermove", document, x, 0);
+    const shown = {
+      left: barLeftOf(el) - restingLeft,
+      width: el.style.width === restingWidth,
+      guides: gantt.host.querySelector(".gantt-drag-guides") !== null,
+    };
+    await pointer("pointerup", document, x, 0);
+    return shown;
   };
 
-  it("shows and keeps a weekend start the working calendar would snap", () => {
-    const bar = mountBar([saturday], "sat", { calendar: createWorkingCalendar() });
+  it("shows and keeps a weekend start the working calendar would snap", async () => {
+    const gantt = await mountGantt([saturday], { workingCalendar: true });
 
-    expect(outAndBack(bar, bar.middle)).toBe(dayjs(bar.committed().startDate).toISOString());
-    expect(bar.onTasksChange).not.toHaveBeenCalled();
+    expect(await outAndBack(gantt, edges(gantt.bar("sat")).middle)).toEqual({
+      left: 0,
+      width: true,
+      guides: false,
+    });
+    expect(gantt.onTasksChange).not.toHaveBeenCalled();
   });
 
-  it("shows and keeps a start already before its minDate", () => {
-    const bar = mountBar([{ ...saturday, minDate: "2026-09-07" }], "sat");
+  it("shows and keeps a start already before its minDate", async () => {
+    const gantt = await mountGantt([{ ...saturday, minDate: "2026-09-07" }]);
 
-    expect(outAndBack(bar, bar.leftEdge)).toBe(dayjs(bar.committed().startDate).toISOString());
-    expect(bar.onTasksChange).not.toHaveBeenCalled();
+    expect(await outAndBack(gantt, edges(gantt.bar("sat")).leftEdge)).toEqual({
+      left: 0,
+      width: true,
+      guides: false,
+    });
+    expect(gantt.onTasksChange).not.toHaveBeenCalled();
   });
 });
 
 describe("undoing a cancelled drag's auto-scroll", () => {
-  const undoBehavior = (reduceMotion: boolean) => {
-    vi.stubGlobal("window", {
-      matchMedia: (query: string) => ({
-        matches: reduceMotion && query === "(prefers-reduced-motion: reduce)",
-      }),
+  const undoBehavior = async (reduceMotion: boolean) => {
+    const gantt = await mountGantt([task("plan", "2025-01-06", "2025-01-16")]);
+    const scrollEl = gantt.host.querySelector<HTMLElement>(".gantt-scroll-container")!;
+    let scrollLeft = 0;
+    Object.defineProperty(scrollEl, "scrollLeft", {
+      configurable: true,
+      get: () => scrollLeft,
+      set: (value: number) => {
+        scrollLeft = value;
+      },
     });
-    let frame: FrameRequestCallback | undefined;
-    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-      frame = callback;
-      return 1;
-    });
-    vi.stubGlobal("cancelAnimationFrame", () => {});
+    scrollEl.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 400);
     const undo: ScrollToOptions[] = [];
-    const scrollEl = {
-      scrollLeft: 0,
-      getBoundingClientRect: () => ({ left: 0, right: 1000 }),
-      querySelector: () => null,
-      scrollBy: (options: ScrollToOptions) => undo.push(options),
-    };
+    scrollEl.scrollBy = ((options: ScrollToOptions) => undo.push(options)) as typeof scrollEl.scrollBy;
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (query) =>
+        ({
+          matches: reduceMotion && query === "(prefers-reduced-motion: reduce)",
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        }) as unknown as MediaQueryList
+    );
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => frames.push(callback));
+    vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    const bar = mountBar([task("plan", "2025-01-06", "2025-01-16")], "plan", { scrollEl });
-    bar.press(bar.middle);
+    const el = gantt.bar("plan");
     const inRightAutoScrollZone = 995;
-    fire("pointermove", inRightAutoScrollZone);
-    frame?.(0);
-    fire("pointercancel", inRightAutoScrollZone);
+    await pointer("pointerdown", el, edges(el).middle, 0);
+    await pointer("pointermove", document, inRightAutoScrollZone, 0);
+    await act(async () => frames.splice(0).forEach((frame) => frame(0)));
+    await pointer("pointercancel", document, inRightAutoScrollZone, 0);
     return undo.map((options) => options.behavior);
   };
 
-  it("animates the way back by default", () => {
-    expect(undoBehavior(false)).toEqual(["smooth"]);
+  it("animates the way back by default", async () => {
+    expect(await undoBehavior(false)).toEqual(["smooth"]);
   });
 
-  it("jumps back when the user prefers reduced motion", () => {
-    expect(undoBehavior(true)).toEqual(["auto"]);
+  it("jumps back when the user prefers reduced motion", async () => {
+    expect(await undoBehavior(true)).toEqual(["auto"]);
   });
 });
 
 describe("a bar unmounted mid-drag", () => {
-  it("drops the drag instead of committing it on the release", () => {
-    effects.length = 0;
-    const bar = mountBar([task("plan", "2025-01-06", "2025-01-16")], "plan");
-    const unmount = effects.map((create) => create());
-    bar.press(bar.middle);
-    fire("pointermove", bar.middle + 2 * STEP_PX);
-    unmount.forEach((cleanup) => cleanup?.());
-    fire("pointerup", bar.middle + 2 * STEP_PX);
+  it("drops the drag instead of committing it on the release", async () => {
+    const plan = task("plan", "2025-01-06", "2025-01-16");
+    const gantt = await mountGantt([plan]);
+    const el = gantt.bar("plan");
+    const restingTransform = el.style.transform;
+    const { middle } = edges(el);
+    await pointer("pointerdown", el, middle, 0);
+    await pointer("pointermove", document, middle + 2 * STEP_PX, 0);
+    await gantt.rerender([]);
+    await pointer("pointerup", document, middle + 2 * STEP_PX, 0);
+    expect(gantt.onTasksChange).not.toHaveBeenCalled();
 
-    expect(bar.onTasksChange).not.toHaveBeenCalled();
-    expect(bar.store.getState().barDrag).toBeNull();
-    expect(bar.store.getState().dragOffsets).toEqual({});
+    await gantt.rerender([plan]);
+    const remounted = gantt.bar("plan");
+    expect(remounted.classList.contains("dragging")).toBe(false);
+    expect(remounted.style.transform).toBe(restingTransform);
   });
 });

@@ -1,142 +1,87 @@
+// @vitest-environment happy-dom
 import { readFileSync } from 'node:fs';
-import { describe, expect, it, vi } from 'vitest';
+import { resolve } from 'node:path';
+import { act, createElement } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { click, dispatch, keydown, render } from '../../../../src/shared/testing/dom';
 
-const hooks = vi.hoisted(() => ({
-  slots: [] as unknown[],
-  cursor: 0,
-  effects: [] as (() => void)[],
+const chartState = vi.hoisted(() => ({
+  props: {} as Record<string, unknown>,
+  mounts: 0,
 }));
 
-vi.mock('react', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react')>();
-  const slot = <T>(init: () => T): T => {
-    const k = hooks.cursor++;
-    if (!(k in hooks.slots)) hooks.slots[k] = init();
-    return hooks.slots[k] as T;
-  };
+vi.mock('@jaeungkim/gantt-chart', async () => {
+  const { createElement: h, useState } = await import('react');
   return {
-    ...actual,
-    useRef: <T>(current: T) => slot(() => ({ current })),
-    useState: <T>(initial: T | (() => T)) => {
-      const cell = slot(() => {
-        const state = {
-          value: typeof initial === 'function' ? (initial as () => T)() : initial,
-          set: (next: T | ((current: T) => T)) => {
-            state.value =
-              typeof next === 'function' ? (next as (current: T) => T)(state.value) : next;
-          },
-        };
-        return state;
-      });
-      return [cell.value, cell.set];
-    },
-    useEffect: (effect: () => void | (() => void), deps: unknown[]) => {
-      const cell = slot(() => ({}) as { deps?: unknown[]; cleanup?: void | (() => void) });
-      if (cell.deps && deps.every((dep, k) => Object.is(dep, cell.deps?.[k]))) return;
-      hooks.effects.push(() => {
-        cell.cleanup?.();
-        cell.deps = deps;
-        cell.cleanup = effect();
-      });
+    ReactGanttChart: (props: Record<string, unknown>) => {
+      const [mount] = useState(() => ++chartState.mounts);
+      chartState.props = props;
+      return h('div', { 'data-testid': 'chart', 'data-mount': mount });
     },
   };
 });
 
-vi.mock('@jaeungkim/gantt-chart', () => ({ ReactGanttChart: () => null }));
-
-import { ReactGanttChart } from '@jaeungkim/gantt-chart';
 import { demoTasks } from '@/components/demo/tasks';
 import { PlaygroundView } from './view';
 
-type Element = { type: unknown; key: string | null; props: Record<string, unknown> };
-
-const fire = (element: Element, handler: string, ...args: unknown[]) =>
-  (element.props[handler] as (...args: unknown[]) => void)(...args);
-
-vi.stubGlobal('window', {
-  location: { search: '', pathname: '/playground', hash: '' },
-  history: { replaceState: () => {} },
+beforeEach(() => {
+  window.history.replaceState(null, '', '/playground');
 });
 
-type KeyListener = (event: { key: string }) => void;
-const keydown = new Set<KeyListener>();
-let panelOpen = false;
-
-vi.stubGlobal('document', {
-  body: { style: {} },
-  addEventListener: (_type: string, listener: KeyListener) => keydown.add(listener),
-  removeEventListener: (_type: string, listener: KeyListener) => keydown.delete(listener),
-  querySelector: (selector: string) => (panelOpen && selector === '.gantt-detail-open' ? {} : null),
-});
-
-const press = (key: string) => keydown.forEach((listener) => listener({ key }));
-
-function render(): Element {
-  hooks.cursor = 0;
-  hooks.effects = [];
-  const tree = PlaygroundView() as unknown as Element;
-  hooks.effects.forEach((run) => run());
-  return tree;
+async function mount(search = '') {
+  window.history.replaceState(null, '', `/playground${search}`);
+  const { host } = await render(createElement(PlaygroundView));
+  return host;
 }
 
-function mount(search = ''): Element {
-  hooks.slots = [];
-  keydown.clear();
-  panelOpen = false;
-  window.location.search = search;
-  return render();
-}
+const byTestId = (host: Element, id: string) =>
+  host.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
 
-function find(node: unknown, match: (element: Element) => boolean): Element | undefined {
-  if (Array.isArray(node)) {
-    for (const child of node) {
-      const hit = find(child, match);
-      if (hit) return hit;
-    }
-    return undefined;
-  }
-  if (typeof node !== 'object' || node === null || !('props' in node)) return undefined;
-  const element = node as Element;
-  return match(element) ? element : find(element.props.children, match);
-}
+const chartMount = (host: Element) => byTestId(host, 'chart').dataset.mount;
 
-const chart = (tree: Element) => find(tree, (element) => element.type === ReactGanttChart)!;
-
-const byTestId = (tree: Element, id: string) =>
-  find(tree, (element) => element.props['data-testid'] === id)!;
+const fromChart = (callback: string, ...args: unknown[]) =>
+  act(async () => {
+    (chartState.props[callback] as (...args: unknown[]) => void)(...args);
+  });
 
 describe('chart props', () => {
-  it('hands the chart only props GanttProps declares', () => {
-    const source = readFileSync(new URL('../../../../src/props.ts', import.meta.url), 'utf8');
+  it('hands the chart only props GanttProps declares', async () => {
+    const source = readFileSync(resolve(import.meta.dirname, '../../../../src/props.ts'), 'utf8');
     const start = source.indexOf('export interface GanttProps {');
     const body = source.slice(start, source.indexOf('\n}', start));
     const declared = new Set([...body.matchAll(/^ {2}(\w+)\??:/gm)].map((match) => match[1]));
 
-    const passed = Object.keys(chart(mount()).props).filter((prop) => prop !== 'ref');
+    await mount();
+    const passed = Object.keys(chartState.props).filter((prop) => prop !== 'ref');
+    expect(passed.length).toBeGreaterThan(0);
     expect(passed.filter((prop) => !declared.has(prop))).toEqual([]);
   });
 });
 
 describe('fullscreen', () => {
-  const pressed = (tree: Element) => byTestId(tree, 'fullscreen-toggle').props['aria-pressed'];
+  const pressed = (host: Element) => byTestId(host, 'fullscreen-toggle').getAttribute('aria-pressed');
 
-  it('leaves an Escape to the open detail panel, and exits on the next one', () => {
-    fire(byTestId(mount(), 'fullscreen-toggle'), 'onClick');
-    expect(pressed(render())).toBe(true);
+  it('leaves an Escape to the open detail panel, and exits on the next one', async () => {
+    const host = await mount();
+    await click(byTestId(host, 'fullscreen-toggle'));
+    expect(pressed(host)).toBe('true');
 
-    panelOpen = true;
-    press('Escape');
-    expect(pressed(render())).toBe(true);
+    const panel = document.body.appendChild(document.createElement('div'));
+    panel.className = 'gantt-detail-open';
+    await keydown('Escape');
+    expect(pressed(host)).toBe('true');
 
-    panelOpen = false;
-    press('Escape');
-    expect(pressed(render())).toBe(false);
+    panel.remove();
+    await keydown('Escape');
+    expect(pressed(host)).toBe('false');
   });
 });
 
 describe('drag bounds', () => {
-  it('cover every fixture task, so a clamp never pulls a bar inward', () => {
-    const { minDate, maxDate } = chart(mount('?dateBounds=1')).props as Record<string, string>;
+  it('cover every fixture task, so a clamp never pulls a bar inward', async () => {
+    await mount('?dateBounds=1');
+    const { minDate, maxDate } = chartState.props as Record<string, string>;
+    expect(minDate).toBeDefined();
     const outside = demoTasks
       .filter(
         (task) =>
@@ -149,37 +94,50 @@ describe('drag bounds', () => {
 });
 
 describe('console mirrors', () => {
-  const stat = (tree: Element, term: string) =>
-    (find(tree, (element) => element.key === term)!.props.children as Element[])[1].props.children;
+  const stat = (host: Element, term: string) => {
+    const row = [...byTestId(host, 'stats').querySelectorAll('dt')].find(
+      (dt) => dt.textContent === term
+    )!;
+    return row.nextElementSibling!.textContent;
+  };
 
-  function openT5(): Element {
-    const tree = mount();
-    fire(chart(tree), 'onTaskSelect', { id: 't5' });
-    fire(chart(tree), 'onDetailChange', { id: 't5' });
-    return render();
+  async function openT5() {
+    const host = await mount();
+    await fromChart('onTaskSelect', { id: 't5' });
+    await fromChart('onDetailChange', { id: 't5' });
+    expect([stat(host, 'Selected'), stat(host, 'Detail')]).toEqual(['t5', 't5']);
+    return host;
   }
 
-  it('Reset data remounts the chart, and the console restarts with it', () => {
-    let tree = openT5();
-    const before = chart(tree).key;
+  it('Reset data remounts the chart, and the console restarts with it', async () => {
+    const host = await openT5();
+    const before = chartMount(host);
 
-    fire(find(tree, (element) => element.props.children === 'Reset data')!, 'onClick');
-    tree = render();
-    expect(chart(tree).key).not.toBe(before);
-    expect([stat(tree, 'Selected'), stat(tree, 'Detail')]).toEqual(['-', '-']);
+    const resetButton = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Reset data'
+    )!;
+    await click(resetButton);
+    expect(chartMount(host)).not.toBe(before);
+    expect([stat(host, 'Selected'), stat(host, 'Detail')]).toEqual(['-', '-']);
   });
 
-  it.each(['controlledDetail', 'initialScrollTo'])(
-    'switching %s remounts the chart, and the console restarts with it',
-    (key) => {
-      let tree = openT5();
-      expect([stat(tree, 'Selected'), stat(tree, 'Detail')]).toEqual(['t5', 't5']);
-      const before = chart(tree).key;
+  it('switching controlledDetail remounts the chart, and the console restarts with it', async () => {
+    const host = await openT5();
+    const before = chartMount(host);
 
-      fire(byTestId(tree, key), 'onChange', { target: { checked: true, value: 'none' } });
-      tree = render();
-      expect(chart(tree).key).not.toBe(before);
-      expect([stat(tree, 'Selected'), stat(tree, 'Detail')]).toEqual(['-', '-']);
-    }
-  );
+    await click(byTestId(host, 'controlledDetail'));
+    expect(chartMount(host)).not.toBe(before);
+    expect([stat(host, 'Selected'), stat(host, 'Detail')]).toEqual(['-', '-']);
+  });
+
+  it('switching initialScrollTo remounts the chart, and the console restarts with it', async () => {
+    const host = await openT5();
+    const before = chartMount(host);
+
+    const select = byTestId(host, 'initialScrollTo') as HTMLSelectElement;
+    select.value = 'none';
+    await dispatch(select, new Event('change', { bubbles: true }));
+    expect(chartMount(host)).not.toBe(before);
+    expect([stat(host, 'Selected'), stat(host, 'Detail')]).toEqual(['-', '-']);
+  });
 });

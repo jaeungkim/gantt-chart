@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+// @vitest-environment happy-dom
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -6,64 +6,14 @@ import { resolveGeometry } from "shared/constants";
 import { GanttStoreContext } from "shared/context";
 import { createGanttStore, type GanttStoreApi } from "shared/store";
 import type { TaskTransformed } from "shared/task";
-import type { GanttBarOptions } from "shared/types";
+import { dispatch, pointer, render } from "shared/testing/dom";
 import { stylesheet } from "shared/utils/stylesheet.test-utils";
+import type { GanttBarOptions } from "shared/types";
 import type { VirtualItem } from "shared/virtual/window";
 import type { GanttRow } from "features/rows/utils/rows";
 import GanttBarsLayer from "./GanttBarsLayer";
 
-const layer = readFileSync("src/features/bars/components/GanttBarsLayer.tsx", "utf8");
-const bar = readFileSync("src/features/bars/components/GanttBar.tsx", "utf8");
 const css = stylesheet;
-
-describe("bar wrapper stacking", () => {
-  it("keeps the class the lift rules select", () => {
-    expect(layer).toContain('className="gantt-bar-wrap"');
-    expect(css).toContain(".gantt-bar-wrap:has(> .gantt-task-bar.hovered)");
-    expect(css).toContain(".gantt-bar-wrap:has(> .gantt-task-bar.dragging)");
-  });
-
-  it("carries no unmanaged stacking trigger", () => {
-    const wrapper = layer.slice(
-      layer.indexOf('className="gantt-bar-wrap"'),
-      layer.indexOf("<GanttBar")
-    );
-    expect(wrapper).not.toMatch(/opacity|filter|willChange|contain|isolation/);
-  });
-
-  it("drives the lift off the store's mouse hover, not CSS :hover, which sticks after a tap", () => {
-    expect(css).not.toContain(".gantt-bar-wrap:has(> .gantt-task-bar:hover)");
-  });
-});
-
-describe("bar geometry has one source of truth", () => {
-  it("leaves the draw ghost's height to the resolved geometry", () => {
-    const ghost = css.slice(
-      css.indexOf(".gantt-draw-ghost {"),
-      css.indexOf("}", css.indexOf(".gantt-draw-ghost {"))
-    );
-    expect(ghost).not.toMatch(/height:\s*\d+px/);
-    expect(ghost).not.toMatch(/margin-top:\s*\d+px/);
-  });
-
-  it("says roll-up with height, and leaves the fill free to be recolored", () => {
-    const { barHeight, summaryBarHeight } = resolveGeometry();
-    expect(summaryBarHeight).toBeLessThan(barHeight);
-    expect(bar).toContain(
-      "currentTask.isSummary ? geometry.summaryBarHeight : geometry.barHeight"
-    );
-    const summary = css.slice(
-      css.indexOf(".gantt-task-bar.summary {"),
-      css.indexOf("}", css.indexOf(".gantt-task-bar.summary {"))
-    );
-    expect(summary).not.toMatch(/height:/);
-  });
-
-  it("hands the drawn height to the link-handle pads, which span it", () => {
-    expect(bar).toContain('"--gantt-bar-height": `${height}px`');
-    expect(css).toContain("var(--gantt-bar-height)");
-  });
-});
 
 const geometry = resolveGeometry();
 const { rowHeight } = geometry;
@@ -113,13 +63,118 @@ function renderLayer(
   );
 }
 
+const liveLayer = () => {
+  const store = createGanttStore("month");
+  store.getInitialState = store.getState;
+  const parent = { ...task("p", 1), isSummary: true };
+  const child = { ...task("a", 2), parentId: "p", depth: 1 };
+  const rows = [parent, child].map((t) => ({ id: t.id, tasks: [t], depth: t.depth }));
+  return render(
+    createElement(
+      GanttStoreContext.Provider,
+      { value: store },
+      createElement(GanttBarsLayer, {
+        rows,
+        virtualItems: rowWindow(0, 1),
+        isBarVisible: () => true,
+        options: {} as GanttBarOptions,
+        interaction: {},
+        autoScrollOnDrag: true,
+        geometry,
+      })
+    )
+  );
+};
+
+const barOf = (host: HTMLElement, id: string) =>
+  host.querySelector<HTMLElement>(`.gantt-task-bar[data-task-id="${id}"]`)!;
+
+const mouseOver = (target: Element) =>
+  dispatch(target, new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse" }));
+
+describe("bar wrapper stacking", () => {
+  it("wraps each bar directly in the element the lift rules select, and gives it the hovered and dragging states they match", async () => {
+    expect(css).toContain(".gantt-bar-wrap:has(> .gantt-task-bar.hovered)");
+    expect(css).toContain(".gantt-bar-wrap:has(> .gantt-task-bar.dragging)");
+    const { host } = await liveLayer();
+    const bars = [...host.querySelectorAll(".gantt-task-bar")];
+    expect(bars.length).toBe(2);
+    for (const bar of bars) expect(bar.parentElement!.classList).toContain("gantt-bar-wrap");
+
+    const bar = barOf(host, "a");
+    expect(bar.matches(".gantt-bar-wrap > .gantt-task-bar.hovered")).toBe(false);
+    await mouseOver(bar);
+    expect(bar.matches(".gantt-bar-wrap > .gantt-task-bar.hovered")).toBe(true);
+    expect(bar.matches(".gantt-bar-wrap > .gantt-task-bar.dragging")).toBe(false);
+    await pointer("pointerdown", bar, 10, 50);
+    await pointer("pointermove", document, 80, 50);
+    expect(bar.matches(".gantt-bar-wrap > .gantt-task-bar.dragging")).toBe(true);
+  });
+
+  it("carries no unmanaged stacking trigger on the wrapper, idle or mid-drag", async () => {
+    const { host } = await liveLayer();
+    const triggers = ["opacity", "filter", "will-change", "contain", "isolation"];
+    const wrapperStyles = () =>
+      [...host.querySelectorAll<HTMLElement>(".gantt-bar-wrap")].map((wrap) => wrap.style);
+    const assertClean = () => {
+      for (const style of wrapperStyles())
+        for (const property of triggers) expect(style.getPropertyValue(property)).toBe("");
+    };
+    assertClean();
+    const bar = barOf(host, "a");
+    await mouseOver(bar);
+    await pointer("pointerdown", bar, 10, 50);
+    await pointer("pointermove", document, 80, 50);
+    assertClean();
+  });
+
+  it("drives the lift off the store's mouse hover, not CSS :hover, which sticks after a tap", () => {
+    expect(css).not.toContain(".gantt-bar-wrap:has(> .gantt-task-bar:hover)");
+  });
+});
+
+describe("bar geometry has one source of truth", () => {
+  it("leaves the draw ghost's height to the resolved geometry", () => {
+    const ghost = css.slice(
+      css.indexOf(".gantt-draw-ghost {"),
+      css.indexOf("}", css.indexOf(".gantt-draw-ghost {"))
+    );
+    expect(ghost).not.toMatch(/height:\s*\d+px/);
+    expect(ghost).not.toMatch(/margin-top:\s*\d+px/);
+  });
+
+  it("says roll-up with height, and leaves the fill free to be recolored", async () => {
+    const { barHeight, summaryBarHeight } = resolveGeometry();
+    expect(summaryBarHeight).toBeLessThan(barHeight);
+    const { host } = await liveLayer();
+    expect(barOf(host, "p").classList).toContain("summary");
+    expect(barOf(host, "p").style.height).toBe(`${summaryBarHeight}px`);
+    expect(barOf(host, "a").style.height).toBe(`${barHeight}px`);
+    const summary = css.slice(
+      css.indexOf(".gantt-task-bar.summary {"),
+      css.indexOf("}", css.indexOf(".gantt-task-bar.summary {"))
+    );
+    expect(summary).not.toMatch(/height:/);
+  });
+
+  it("hands the drawn height to the link-handle pads, which span it", async () => {
+    const { host } = await liveLayer();
+    for (const id of ["p", "a"]) {
+      const bar = barOf(host, id);
+      expect(bar.querySelectorAll(".gantt-link-handle").length).toBeGreaterThan(0);
+      expect(bar.style.getPropertyValue("--gantt-bar-height")).toBe(bar.style.height);
+    }
+    expect(css).toContain("var(--gantt-bar-height)");
+  });
+});
+
 describe("a bar mid-drag stays mounted", () => {
   const tasks = Array.from({ length: 30 }, (_, i) => task(`t${i}`, i + 1));
   const rows = tasks.map((t) => ({ id: t.id, tasks: [t], depth: 0 }));
   const isBarVisible = (left: number, width: number) =>
     left + width >= 756 && left <= 3654;
 
-  function render(virtualItems: VirtualItem[], dragged: TaskTransformed[]) {
+  function renderDragging(virtualItems: VirtualItem[], dragged: TaskTransformed[]) {
     return renderLayer(rows, virtualItems, isBarVisible, (store) => {
       if (!dragged.length) return;
       store.getState().setBarDrag({ task: dragged[0], mode: "bar" });
@@ -132,18 +187,18 @@ describe("a bar mid-drag stays mounted", () => {
   }
 
   it("still culls an idle bar whose slot is outside the column window", () => {
-    expect(render(rowWindow(0, 20), [])).not.toContain('data-task-id="t2"');
+    expect(renderDragging(rowWindow(0, 20), [])).not.toContain('data-task-id="t2"');
   });
 
   it("keeps the held bar, and a dragged summary's subtree, once auto-scroll passes their slots", () => {
-    const html = render(rowWindow(0, 20), [tasks[2], tasks[3]]);
+    const html = renderDragging(rowWindow(0, 20), [tasks[2], tasks[3]]);
     expect(html).toContain('data-task-id="t2"');
     expect(html).toContain('data-task-id="t3"');
     expect(html).not.toContain('data-task-id="t4"');
   });
 
   it("keeps the held bar on its own row once that row scrolls out of the row window", () => {
-    const html = render(rowWindow(10, 29), [tasks[2]]);
+    const html = renderDragging(rowWindow(10, 29), [tasks[2]]);
     expect(html).toContain(
       `transform:translateY(${2 * rowHeight}px)"><div data-task-id="t2"`
     );

@@ -1,9 +1,18 @@
-import { readFileSync } from "node:fs";
+// @vitest-environment happy-dom
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import Gantt from "./Gantt";
 import type { GanttProps } from "./props";
+import type { Task } from "core/types";
+import { click, pointer, render } from "shared/testing/dom";
+
+const ROW_HEIGHT = 40;
+
+const TWO_TASKS: Task[] = [
+  { id: "a", name: "A", startDate: "2025-01-01", endDate: "2025-01-05", parentId: null, sequence: "1" },
+  { id: "b", name: "B", startDate: "2025-01-03", endDate: "2025-01-09", parentId: null, sequence: "2" },
+];
 
 const styleOf = (props: GanttProps, className: string) => {
   const html = renderToStaticMarkup(createElement(Gantt, props));
@@ -28,19 +37,44 @@ describe("draw slot", () => {
 });
 
 describe("empty timeline click", () => {
-  it("lets a finished draw claim its trailing click before clearing the selection", () => {
-    const source = readFileSync("src/Gantt.tsx", "utf8");
-    const start = source.indexOf("const handleContentClick");
-    expect(start).toBeGreaterThan(-1);
-    expect(source.slice(start, source.indexOf("select(null)", start))).toContain(
-      "consumeDrawClick()"
+  const selectedThenEmptyClick = async (gesture: (content: Element) => Promise<void>) => {
+    const onTaskSelect = vi.fn();
+    const onTaskCreate = vi.fn();
+    const { host } = await render(
+      createElement(Gantt, { tasks: TWO_TASKS, rowHeight: ROW_HEIGHT, onTaskSelect, onTaskCreate })
     );
+    await click(host.querySelector('.gantt-task-bar[data-task-id="a"]')!);
+    const content = host.querySelector(".gantt-content")!;
+    await gesture(content);
+    await click(content);
+    return { onTaskSelect, onTaskCreate };
+  };
+
+  it("clears the selection", async () => {
+    const { onTaskSelect } = await selectedThenEmptyClick(async () => {});
+    expect(onTaskSelect.mock.calls.map(([task]) => task?.id ?? null)).toEqual(["a", null]);
+  });
+
+  it("keeps the selection when the click only ends a drawn task", async () => {
+    const drawSlotY = TWO_TASKS.length * ROW_HEIGHT + ROW_HEIGHT / 2;
+    const { onTaskSelect, onTaskCreate } = await selectedThenEmptyClick(async (content) => {
+      await pointer("pointerdown", content, 10, drawSlotY);
+      await pointer("pointermove", document, 200, drawSlotY);
+      await pointer("pointerup", document, 200, drawSlotY);
+    });
+    expect(onTaskCreate).toHaveBeenCalledOnce();
+    expect(onTaskSelect.mock.calls.map(([task]) => task?.id ?? null)).toEqual(["a"]);
   });
 });
 
 describe("tasks prop sync", () => {
-  it("never serializes the tasks prop itself, so a task with a cycle or a BigInt cannot throw", () => {
-    expect(readFileSync("src/Gantt.tsx", "utf8")).not.toContain("JSON.stringify");
+  it("renders and re-renders a task carrying a cycle and a BigInt", async () => {
+    const cyclic: Record<string, unknown> = { budget: 10n };
+    cyclic.self = cyclic;
+    const tasks: Task[] = [Object.assign({ ...TWO_TASKS[0] }, { meta: cyclic })];
+    const { host, rerender } = await render(createElement(Gantt, { tasks }));
+    await rerender(createElement(Gantt, { tasks: [...tasks] }));
+    expect(host.querySelector('.gantt-task-bar[data-task-id="a"]')).not.toBeNull();
   });
 });
 
